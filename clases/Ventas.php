@@ -27,7 +27,7 @@ class Ventas
 
     /** Columnas que se persisten en la tabla ventas. */
     protected static $columnasDB = [
-        'id', 'folio', 'empresa_id', 'cliente_id', 'usuario_id', 'fecha',
+        'id', 'cotizacion_id', 'folio', 'empresa_id', 'cliente_id', 'usuario_id', 'fecha',
         'estado', 'subtotal', 'descuento', 'aplica_iva', 'iva', 'total',
         'condiciones_envio', 'condiciones_compra', 'comentarios',
     ];
@@ -49,6 +49,8 @@ class Ventas
 
     /* --- Columnas propias ------------------------------------------------ */
     public $id;
+    /** Cotización de origen; NULL en una venta directa. */
+    public $cotizacion_id;
     public $folio;
     public $empresa_id;
     public $cliente_id;
@@ -182,6 +184,18 @@ class Ventas
      * LECTURA
      * ------------------------------------------------------------------ */
 
+    /** Venta registrada nacida de una cotización, o null. */
+    public static function buscarPorCotizacion(int $cotizacionId): ?self
+    {
+        $consulta = self::$db->prepare('SELECT id FROM ventas WHERE cotizacion_id = ? AND estado = "registrada"');
+        $consulta->bind_param('i', $cotizacionId);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ? self::buscarID((int) $fila['id']) : null;
+    }
+
     /** Carga una venta con los datos del negocio, el cliente y el autor. */
     public static function buscarID($id): ?self
     {
@@ -277,28 +291,24 @@ class Ventas
      */
     private static function origenUnificado(bool $canceladas): string
     {
-        $cliente = 'cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
-                    cl.alias AS cliente_alias, cl.rfc AS cliente_rfc';
-
-        $ventas = 'SELECT "venta" AS origen, v.id, v.folio, v.fecha, v.empresa_id, v.cliente_id,
-                          v.total, v.estado, v.creado_en, e.nombre AS empresa_nombre, ' . $cliente . '
-                     FROM ventas v
-                     JOIN empresas e  ON e.id  = v.empresa_id
-                     JOIN clientes cl ON cl.id = v.cliente_id
-                    WHERE v.estado = "' . ($canceladas ? 'cancelada' : 'registrada') . '"';
-
-        if ($canceladas) {
-            return $ventas;
-        }
-
-        $cotizaciones = 'SELECT "cotizacion" AS origen, c.id, c.folio, c.fecha, c.empresa_id, c.cliente_id,
-                                c.total, c.estado, c.creado_en, e.nombre AS empresa_nombre, ' . $cliente . '
-                           FROM cotizaciones c
-                           JOIN empresas e  ON e.id  = c.empresa_id
-                           JOIN clientes cl ON cl.id = c.cliente_id
-                          WHERE c.estado = "vendido"';
-
-        return $ventas . ' UNION ALL ' . $cotizaciones;
+        // Una sola tabla: `ventas`. Las que nacieron de una cotización conservan
+        // su ruta (id/folio de la cotización) para no cambiar los enlaces del
+        // listado; venta_id / venta_folio identifican la operación contable.
+        return 'SELECT IF(v.cotizacion_id IS NULL, "venta", "cotizacion") AS origen,
+                       IF(v.cotizacion_id IS NULL, v.id, v.cotizacion_id) AS id,
+                       v.id AS venta_id, v.folio AS venta_folio,
+                       IF(v.cotizacion_id IS NULL, v.folio, c.folio) AS folio,
+                       v.fecha, v.empresa_id, v.cliente_id, v.total, v.estado, v.creado_en,
+                       e.nombre AS empresa_nombre,
+                       cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                       cl.alias AS cliente_alias, cl.rfc AS cliente_rfc
+                  FROM ventas v
+                  JOIN empresas e  ON e.id  = v.empresa_id
+                  JOIN clientes cl ON cl.id = v.cliente_id
+                  LEFT JOIN cotizaciones c ON c.id = v.cotizacion_id
+                 WHERE ' . ($canceladas
+                    ? 'v.estado = "cancelada" AND v.cotizacion_id IS NULL'
+                    : 'v.estado = "registrada"');
     }
 
     /** Condiciones WHERE (sobre la subconsulta unificada) y sus parámetros. */
@@ -448,9 +458,10 @@ class Ventas
     }
 
     /**
-     * Ventas directas de una empresa en un periodo, para el panel de ganancias.
+     * Ventas (directas y nacidas de cotización) de una empresa en un periodo,
+     * para el panel de ganancias.
      *
-     * @return array{cantidad: int, monto: float}
+     * @return array{cantidad: int, directas: int, monto: float}
      */
     public static function totalesEmpresa(int $empresaId, string $desde = '', string $hasta = ''): array
     {
@@ -470,7 +481,8 @@ class Ventas
         }
 
         $consulta = self::$db->prepare(
-            'SELECT COUNT(*) AS cantidad, COALESCE(SUM(total), 0) AS monto
+            'SELECT COUNT(*) AS cantidad, COALESCE(SUM(cotizacion_id IS NULL), 0) AS directas,
+                    COALESCE(SUM(total), 0) AS monto
                FROM ventas WHERE ' . implode(' AND ', $donde)
         );
         $consulta->bind_param($tipos, ...$valores);
@@ -480,8 +492,183 @@ class Ventas
 
         return [
             'cantidad' => (int) ($fila['cantidad'] ?? 0),
+            'directas' => (int) ($fila['directas'] ?? 0),
             'monto'    => (float) ($fila['monto'] ?? 0),
         ];
+    }
+
+    /* --------------------------------------------------------------------
+     * VENTA NACIDA DE UNA COTIZACIÓN (las llama Cotizaciones dentro de SU
+     * transacción; ninguna abre ni cierra transacciones)
+     * ------------------------------------------------------------------ */
+
+    /** Venta ligada a la cotización, bloqueada; null si no existe. */
+    private static function ventaDeCotizacion(int $cotizacionId): ?array
+    {
+        $consulta = self::$db->prepare('SELECT * FROM ventas WHERE cotizacion_id = ? FOR UPDATE');
+        $consulta->bind_param('i', $cotizacionId);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ?: null;
+    }
+
+    /** Copia los renglones de la cotización a la venta (reemplazando los previos). */
+    private static function copiarRenglones(int $cotizacionId, int $ventaId): void
+    {
+        $borrar = self::$db->prepare('DELETE FROM venta_detalles WHERE venta_id = ?');
+        $borrar->bind_param('i', $ventaId);
+        $borrar->execute();
+        $borrar->close();
+
+        $copiar = self::$db->prepare(
+            'INSERT INTO venta_detalles (venta_id, producto_id, cantidad, precio_unitario, descuento_pct, subtotal)
+             SELECT ?, producto_id, cantidad, precio_unitario, descuento_pct, subtotal
+               FROM cotizacion_detalles WHERE cotizacion_id = ? ORDER BY id'
+        );
+        $copiar->bind_param('ii', $ventaId, $cotizacionId);
+        $copiar->execute();
+        $copiar->close();
+    }
+
+    /** Encabezado de la cotización → venta (fecha, cliente, importes, términos). */
+    private static function copiarEncabezado(Cotizaciones $cotizacion, int $ventaId, int $usuarioId): void
+    {
+        $consulta = self::$db->prepare(
+            'UPDATE ventas SET empresa_id = ?, cliente_id = ?, fecha = ?, estado = "registrada",
+                    subtotal = ?, descuento = ?, aplica_iva = ?, iva = ?, total = ?,
+                    condiciones_envio = ?, condiciones_compra = ?, comentarios = ?
+              WHERE id = ?'
+        );
+        $empresa = (int) $cotizacion->empresa_id;
+        $cliente = (int) $cotizacion->cliente_id;
+        $iva     = (int) $cotizacion->aplica_iva;
+        $consulta->bind_param(
+            'iisddiddsssi',
+            $empresa, $cliente, $cotizacion->fecha,
+            $cotizacion->subtotal, $cotizacion->descuento, $iva, $cotizacion->iva, $cotizacion->total,
+            $cotizacion->condiciones_envio, $cotizacion->condiciones_compra, $cotizacion->comentarios,
+            $ventaId
+        );
+        $consulta->execute();
+        $consulta->close();
+    }
+
+    /**
+     * La cotización pasa a "vendido": crea (o reactiva) SU venta y descuenta
+     * el stock una sola vez. Repetirlo con la venta ya registrada no hace nada.
+     */
+    public static function generarDesdeCotizacion(int $cotizacionId, int $usuarioId): bool
+    {
+        $cotizacion = Cotizaciones::buscarID($cotizacionId);
+        if (!$cotizacion) {
+            self::$errores[] = 'La cotización ya no existe.';
+            return false;
+        }
+
+        $venta = self::ventaDeCotizacion($cotizacionId);
+
+        if ($venta && $venta['estado'] === 'registrada') {
+            return true; // Idempotente: ya contabilizada y ya descontada.
+        }
+
+        if ($venta) {
+            $ventaId = (int) $venta['id'];
+        } else {
+            $ventaId = 0;
+            for ($intento = 0; $intento < 3 && $ventaId === 0; $intento++) {
+                try {
+                    $folio = self::siguienteFolio();
+                    $insertar = self::$db->prepare(
+                        'INSERT INTO ventas (cotizacion_id, folio, empresa_id, cliente_id, usuario_id, fecha)
+                         VALUES (?, ?, ?, ?, ?, ?)'
+                    );
+                    $empresa = (int) $cotizacion->empresa_id;
+                    $cliente = (int) $cotizacion->cliente_id;
+                    $insertar->bind_param('isiiis', $cotizacionId, $folio, $empresa, $cliente, $usuarioId, $cotizacion->fecha);
+                    $insertar->execute();
+                    $ventaId = (int) self::$db->insert_id;
+                    $insertar->close();
+                } catch (\mysqli_sql_exception $excepcion) {
+                    if (strpos($excepcion->getMessage(), 'uq_venta_folio') === false) {
+                        throw $excepcion;
+                    }
+                }
+            }
+            if ($ventaId === 0) {
+                self::$errores[] = 'No fue posible asignar un folio a la venta.';
+                return false;
+            }
+        }
+
+        self::copiarEncabezado($cotizacion, $ventaId, $usuarioId);
+        self::copiarRenglones($cotizacionId, $ventaId);
+
+        return Inventario::descontar(
+            self::detalles($ventaId),
+            0,
+            $usuarioId,
+            'Salida por la venta de la cotización ' . $cotizacion->folio,
+            $ventaId
+        );
+    }
+
+    /** La cotización deja de estar vendida: la venta se cancela y el stock regresa. */
+    public static function cancelarDeCotizacion(int $cotizacionId, int $usuarioId, string $nota): bool
+    {
+        $venta = self::ventaDeCotizacion($cotizacionId);
+
+        if (!$venta || $venta['estado'] !== 'registrada') {
+            return true;
+        }
+
+        $ventaId = (int) $venta['id'];
+
+        if (!Inventario::devolver(self::detalles($ventaId), 0, $usuarioId, $nota, $ventaId)) {
+            return false;
+        }
+
+        $cancelar = self::$db->prepare('UPDATE ventas SET estado = "cancelada" WHERE id = ?');
+        $cancelar->bind_param('i', $ventaId);
+        $cancelar->execute();
+        $cancelar->close();
+
+        return true;
+    }
+
+    /** Se editó una cotización vendida: la venta y el stock siguen sus nuevos renglones. */
+    public static function sincronizarDeCotizacion(int $cotizacionId, int $usuarioId): bool
+    {
+        $venta = self::ventaDeCotizacion($cotizacionId);
+
+        if (!$venta || $venta['estado'] !== 'registrada') {
+            return self::generarDesdeCotizacion($cotizacionId, $usuarioId);
+        }
+
+        $ventaId    = (int) $venta['id'];
+        $cotizacion = Cotizaciones::buscarID($cotizacionId);
+
+        if (!$cotizacion || !Inventario::devolver(
+            self::detalles($ventaId),
+            0,
+            $usuarioId,
+            'Se ajusta la venta ' . $venta['folio'] . ' por edición de la cotización',
+            $ventaId
+        )) {
+            return false;
+        }
+
+        self::copiarEncabezado($cotizacion, $ventaId, $usuarioId);
+        self::copiarRenglones($cotizacionId, $ventaId);
+
+        return Inventario::descontar(
+            self::detalles($ventaId),
+            0,
+            $usuarioId,
+            'Salida por la venta de la cotización ' . $cotizacion->folio,
+            $ventaId
+        );
     }
 
     /* --------------------------------------------------------------------
@@ -666,6 +853,11 @@ class Ventas
             if (!$venta) {
                 self::$db->rollBack();
                 self::$errores[] = 'La venta ya no existe.';
+                return false;
+            }
+            if ($venta->cotizacion_id !== null) {
+                self::$db->rollBack();
+                self::$errores[] = 'Esta venta proviene de una cotización: cancélala desde la cotización.';
                 return false;
             }
 

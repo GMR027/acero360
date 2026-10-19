@@ -106,6 +106,13 @@ template('header', [
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>
             <span>Editar</span>
         </a>
+        <?php $ventaOrigen = $cotizacion->estado === 'vendido' ? \App\Ventas::buscarPorCotizacion($id) : null; ?>
+        <?php if ($ventaOrigen) : ?>
+            <a class="btn btn--secundario" href="/admin/ventas/detalle?id=<?= (int) $ventaOrigen->id ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">point_of_sale</span>
+                <span>Venta <?= escaparValores($ventaOrigen->folio) ?></span>
+            </a>
+        <?php endif; ?>
         <a class="btn btn--secundario" href="/admin/cotizaciones/pdf?id=<?= $id ?>" target="_blank" rel="noopener">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
             <span>Exportar PDF</span>

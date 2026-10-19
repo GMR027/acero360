@@ -56,7 +56,7 @@ template('header', [
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem"><?= $estado['icono'] ?></span>
                 <?= $estado['etiqueta'] ?>
             </span>
-            <span class="badge badge--info">Venta directa</span>
+            <span class="badge badge--info"><?= $cotizacion->cotizacion_id === null ? 'Venta directa' : 'Desde cotización' ?></span>
         </h1>
         <p class="texto-secundario">
             Registrada el <?= date('d/m/Y', strtotime($cotizacion->fecha)) ?>
@@ -70,10 +70,23 @@ template('header', [
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>
             <span>Ventas</span>
         </a>
-        <a class="btn btn--secundario" href="/admin/ventas/editar?id=<?= $id ?>">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>
-            <span>Editar</span>
-        </a>
+        <?php if ($cotizacion->cotizacion_id === null) : ?>
+            <a class="btn btn--secundario" href="/admin/ventas/editar?id=<?= $id ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>
+                <span>Editar</span>
+            </a>
+        <?php else : ?>
+            <a class="btn btn--secundario" href="/admin/cotizaciones/detalle?id=<?= (int) $cotizacion->cotizacion_id ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">request_quote</span>
+                <span>Ver cotización</span>
+            </a>
+        <?php endif; ?>
+        <?php if ($cotizacion->estado === 'registrada') : ?>
+            <a class="btn btn--secundario" href="/admin/ventas/devolucion?id=<?= $id ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">assignment_return</span>
+                <span>Devolución</span>
+            </a>
+        <?php endif; ?>
         <a class="btn btn--primario" href="/admin/ventas/pdf?id=<?= $id ?>" target="_blank" rel="noopener">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
             <span>Exportar PDF</span>

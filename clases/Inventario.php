@@ -240,7 +240,7 @@ class Inventario
     ): bool {
         // 'salida' resta; 'entrada' (reversión de una venta) suma.
         $negativo = $tipo === 'salida';
-        $motivo ??= $negativo ? 'venta' : null;
+        $motivo ??= $negativo ? 'venta' : 'cancelacion';
         $permitirNegativo = Configuracion::permitirStockNegativo();
         $bloquear = self::$db->prepare('SELECT stock FROM productos WHERE id = ? FOR UPDATE');
 
@@ -317,7 +317,7 @@ class Inventario
      *
      * @return bool true si el valor es válido (aunque no haya cambiado).
      */
-    public static function ajustar(int $productoId, int $nuevoStock, int $usuarioId, string $notas = ''): bool
+    public static function ajustar(int $productoId, int $nuevoStock, int $usuarioId, string $notas = '', string $motivo = 'ajuste'): bool
     {
         self::$errores = [];
 
@@ -364,10 +364,10 @@ class Inventario
 
             $registrar = self::$db->prepare(
                 'INSERT INTO movimientos_inventario
-                    (producto_id, tipo, cantidad, saldo, usuario_id, notas)
-                 VALUES (?, ?, ?, ?, ?, ?)'
+                    (producto_id, tipo, cantidad, saldo, usuario_id, notas, motivo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
-            $registrar->bind_param('isiiis', $productoId, $tipo, $cantidad, $nuevoStock, $usuarioId, $texto);
+            $registrar->bind_param('isiiiss', $productoId, $tipo, $cantidad, $nuevoStock, $usuarioId, $texto, $motivo);
 
             if (!$registrar->execute()) {
                 $registrar->close();
@@ -386,6 +386,122 @@ class Inventario
 
         self::$errores[] = 'No fue posible actualizar el inventario.';
         return false;
+    }
+
+    /**
+     * Corrección justificada: fija las existencias exigiendo un motivo.
+     * Queda en movimientos_inventario (motivo «correccion») y en la bitácora.
+     */
+    public static function corregir(int $productoId, int $nuevoStock, string $razon, int $usuarioId): bool
+    {
+        $razon = trim($razon);
+        if (mb_strlen($razon) < 5) {
+            self::$errores = ['Una corrección necesita un motivo (mínimo 5 caracteres).'];
+            return false;
+        }
+
+        if (!self::ajustar($productoId, $nuevoStock, $usuarioId, 'Corrección: ' . $razon, 'correccion')) {
+            return false;
+        }
+
+        Auditoria::registrar('producto', $productoId, 'correccion_inventario', $usuarioId, $razon, ['nuevo_stock' => $nuevoStock]);
+        return true;
+    }
+
+    /**
+     * Piezas que aún se pueden devolver de una venta, por producto.
+     *
+     * @return array<int, array{vendido: int, devuelto: int, disponible: int}>
+     */
+    public static function devolvibles(int $ventaId): array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT producto_id, SUM(cantidad) AS vendido FROM venta_detalles WHERE venta_id = ? GROUP BY producto_id'
+        );
+        $consulta->bind_param('i', $ventaId);
+        $consulta->execute();
+        $resultado = [];
+        foreach ($consulta->get_result() as $fila) {
+            $resultado[(int) $fila['producto_id']] = ['vendido' => (int) $fila['vendido'], 'devuelto' => 0, 'disponible' => (int) $fila['vendido']];
+        }
+        $consulta->close();
+
+        $consulta = self::$db->prepare(
+            "SELECT producto_id, SUM(cantidad) AS devuelto FROM movimientos_inventario
+              WHERE venta_id = ? AND motivo = 'devolucion' GROUP BY producto_id"
+        );
+        $consulta->bind_param('i', $ventaId);
+        $consulta->execute();
+        foreach ($consulta->get_result() as $fila) {
+            $id = (int) $fila['producto_id'];
+            if (isset($resultado[$id])) {
+                $resultado[$id]['devuelto']   = (int) $fila['devuelto'];
+                $resultado[$id]['disponible'] = $resultado[$id]['vendido'] - (int) $fila['devuelto'];
+            }
+        }
+        $consulta->close();
+
+        return $resultado;
+    }
+
+    /**
+     * Devolución de un cliente: regresa piezas de UNA venta registrada.
+     * Nunca devuelve más de lo vendido (descontando devoluciones previas).
+     *
+     * @param array<int, int> $piezas producto_id => cantidad a devolver.
+     */
+    public static function devolverDeVenta(int $ventaId, array $piezas, string $razon, int $usuarioId): bool
+    {
+        self::$errores = [];
+        $piezas = array_filter(array_map('intval', $piezas), static fn ($c) => $c > 0);
+
+        if (!$piezas) {
+            self::$errores[] = 'Indica al menos una pieza a devolver.';
+            return false;
+        }
+        if (mb_strlen(trim($razon)) < 5) {
+            self::$errores[] = 'Escribe el motivo de la devolución (mínimo 5 caracteres).';
+            return false;
+        }
+
+        try {
+            self::$db->begin_transaction();
+
+            $bloqueo = self::$db->prepare('SELECT folio, estado FROM ventas WHERE id = ? FOR UPDATE');
+            $bloqueo->bind_param('i', $ventaId);
+            $bloqueo->execute();
+            $venta = $bloqueo->get_result()->fetch_assoc();
+            $bloqueo->close();
+
+            if (!$venta || $venta['estado'] !== 'registrada') {
+                self::$db->rollBack();
+                self::$errores[] = 'Solo se pueden devolver piezas de una venta registrada.';
+                return false;
+            }
+
+            $disponibles = self::devolvibles($ventaId);
+            foreach ($piezas as $productoId => $cantidad) {
+                if (!isset($disponibles[$productoId]) || $cantidad > $disponibles[$productoId]['disponible']) {
+                    self::$db->rollBack();
+                    self::$errores[] = 'No se pueden devolver más piezas de las vendidas (producto #' . $productoId . ').';
+                    return false;
+                }
+            }
+
+            if (!self::mover($piezas, 'entrada', 0, $usuarioId, 'Devolución de ' . $venta['folio'] . ': ' . trim($razon), $ventaId, 0, 'devolucion')) {
+                self::$db->rollBack();
+                return false;
+            }
+
+            Auditoria::registrar('venta', $ventaId, 'devolucion', $usuarioId, trim($razon), ['piezas' => $piezas]);
+            self::$db->commit();
+            return true;
+        } catch (\mysqli_sql_exception $excepcion) {
+            self::$db->rollBack();
+            error_log('[Inventario::devolverDeVenta] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible registrar la devolución.';
+            return false;
+        }
     }
 
     /* --------------------------------------------------------------------

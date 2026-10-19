@@ -584,16 +584,17 @@ class Cotizaciones
         $fila = $consulta->get_result()->fetch_assoc();
         $consulta->close();
 
-        // Las ventas directas (sin cotización) también son ganancia.
-        $directas = Ventas::totalesEmpresa($empresaId, $desde, $hasta);
+        // Fuente única: `ventas` (directas y nacidas de una cotización). Sumar
+        // además las cotizaciones vendidas contaría dos veces la misma operación.
+        $ventas = Ventas::totalesEmpresa($empresaId, $desde, $hasta);
 
         return [
             'cotizaciones' => (int) ($fila['cotizaciones'] ?? 0),
             'pendientes'   => (int) ($fila['pendientes'] ?? 0),
             'vendidas'     => (int) ($fila['vendidas'] ?? 0),
             'canceladas'   => (int) ($fila['canceladas'] ?? 0),
-            'directas'     => $directas['cantidad'],
-            'ganancias'    => (float) ($fila['ganancias'] ?? 0) + $directas['monto'],
+            'directas'     => $ventas['directas'],
+            'ganancias'    => $ventas['monto'],
             'cartera'      => (float) ($fila['cartera'] ?? 0),
             'cotizado'     => (float) ($fila['cotizado'] ?? 0),
         ];
@@ -723,12 +724,8 @@ class Cotizaciones
 
                 // Si nace directamente como vendida, el stock sale aquí mismo.
                 if ($cotizacion->estado === 'vendido') {
-                    if (!Inventario::descontar(
-                        self::detalles((int) $cotizacion->id),
-                        (int) $cotizacion->id,
-                        $usuarioId,
-                        'Salida automática por la venta del folio ' . $folio
-                    )) {
+                    if (!Ventas::generarDesdeCotizacion((int) $cotizacion->id, $usuarioId)) {
+                        self::$errores = array_merge(self::$errores, Ventas::getErrores(), Inventario::getErrores());
                         self::$db->rollBack();
                         return false;
                     }
@@ -824,22 +821,23 @@ class Cotizaciones
 
             // Sincronización del inventario: sólo se mueve el stock si la
             // cotización está (o deja de estar) en estado "vendido".
-            if ($estadoPrevio === 'vendido') {
-                if (!Inventario::devolver($detallesPrevios, (int) $cotizacion->id, (int) ($_SESSION['id'] ?? 0))) {
-                    self::$db->rollBack();
-                    return false;
-                }
-            }
-            if ($cotizacion->estado === 'vendido') {
-                if (!Inventario::descontar(
-                    self::detalles((int) $cotizacion->id),
+            $usuarioSesion = (int) ($_SESSION['id'] ?? 0);
+            $ok = true;
+            if ($estadoPrevio === 'vendido' && $cotizacion->estado === 'vendido') {
+                $ok = Ventas::sincronizarDeCotizacion((int) $cotizacion->id, $usuarioSesion);
+            } elseif ($estadoPrevio === 'vendido') {
+                $ok = Ventas::cancelarDeCotizacion(
                     (int) $cotizacion->id,
-                    (int) ($_SESSION['id'] ?? 0),
-                    'Salida automática por la venta del folio ' . $cotizacion->folio
-                )) {
-                    self::$db->rollBack();
-                    return false;
-                }
+                    $usuarioSesion,
+                    'Se devuelve el stock del folio ' . $cotizacion->folio . ' (ya no está vendido)'
+                );
+            } elseif ($cotizacion->estado === 'vendido') {
+                $ok = Ventas::generarDesdeCotizacion((int) $cotizacion->id, $usuarioSesion);
+            }
+            if (!$ok) {
+                self::$errores = array_merge(self::$errores, Ventas::getErrores(), Inventario::getErrores());
+                self::$db->rollBack();
+                return false;
             }
 
             self::$db->commit();
@@ -1087,12 +1085,12 @@ class Cotizaciones
             }
 
             if ($cotizacion->estado === 'vendido') {
-                if (!Inventario::devolver(
-                    self::detalles($id),
+                if (!Ventas::cancelarDeCotizacion(
                     $id,
                     (int) ($_SESSION['id'] ?? 0),
                     'Se devuelve el stock del folio ' . $cotizacion->folio . ' (cotización eliminada)'
                 )) {
+                    self::$errores = array_merge(self::$errores, Inventario::getErrores());
                     self::$db->rollBack();
                     return false;
                 }
@@ -1209,27 +1207,23 @@ class Cotizaciones
             return true; // Sin transición: no se toca el almacén.
         }
 
-        $detalles = self::detalles($id);
-
         if ($estado === 'vendido') {
-            return Inventario::descontar(
-                $detalles,
-                $id,
-                $usuarioId,
-                'Salida automática por la venta del folio ' . $folio
-            );
-        }
-
-        if ($previo === 'vendido') {
-            return Inventario::devolver(
-                $detalles,
+            $ok = Ventas::generarDesdeCotizacion($id, $usuarioId);
+        } elseif ($previo === 'vendido') {
+            $ok = Ventas::cancelarDeCotizacion(
                 $id,
                 $usuarioId,
                 'Se devuelve el stock del folio ' . $folio . ' (ya no está vendido)'
             );
+        } else {
+            $ok = true;
         }
 
-        return true;
+        if (!$ok) {
+            self::$errores = array_merge(self::$errores, Ventas::getErrores(), Inventario::getErrores());
+        }
+
+        return $ok;
     }
 
     /* --------------------------------------------------------------------

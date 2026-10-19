@@ -127,6 +127,8 @@ $router->post('/admin/ventas/crear',    'views/admin/ventas/crear.php',      'so
 $router->get('/admin/ventas/detalle',   'views/admin/ventas/detalle.php',    'soloAdmin');
 $router->get('/admin/ventas/editar',    'views/admin/ventas/editar.php',     'soloAdmin');
 $router->post('/admin/ventas/editar',   'views/admin/ventas/editar.php',     'soloAdmin');
+$router->get('/admin/ventas/devolucion',  'views/admin/ventas/devolucion.php', 'soloAdmin');
+$router->post('/admin/ventas/devolucion', 'views/admin/ventas/devolucion.php', 'soloAdmin');
 $router->get('/admin/ventas/pdf',       'views/admin/ventas/pdf.php',        'soloAdmin');
 // Baja de una venta directa: sólo POST y con confirmación (devuelve el stock).
 $router->post('/admin/ventas/eliminar', 'views/admin/ventas/eliminar.php',   'soloAdmin');

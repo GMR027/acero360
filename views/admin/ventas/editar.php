@@ -21,6 +21,14 @@ if (!$previa) {
     paginaNoEncontrada();
 }
 
+if ($previa->cotizacion_id !== null) {
+    redirigir(
+        '/admin/cotizaciones/editar?id=' . (int) $previa->cotizacion_id,
+        'advertencia',
+        'La venta ' . $previa->folio . ' proviene de una cotización: edítala desde aquí y la venta se actualiza sola.'
+    );
+}
+
 $errores = [];
 $esEnvio = $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST);
 
