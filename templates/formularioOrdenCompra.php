@@ -40,6 +40,7 @@ $lineas = $lineas ?: [['producto_id' => 0, 'cantidad' => 1, 'costo' => '0.00', '
 
 <div class="tabla-contenedor">
     <table class="tabla" data-partidas>
+        <caption class="solo-lectores">Productos solicitados en la orden</caption>
         <thead>
             <tr>
                 <th scope="col">Producto</th>

@@ -24,7 +24,7 @@ const paginas = [
   '/admin/empresas', '/admin/empresas/crear',
   '/admin/productos', '/admin/productos/crear',
   '/admin/cotizaciones', '/admin/cotizaciones/crear',
-  '/admin/ventas', '/admin/ventas/crear', '/admin/inventario',
+  '/admin/ventas', '/admin/ventas/crear', '/admin/inventario', '/admin/compras', '/admin/compras/crear', '/admin/entregas', '/admin/entregas/clientes',
   '/admin/proveedores', '/admin/proveedores/crear',
   '/admin/proveedores/categorias', '/admin/proveedores/categorias/crear',
   '/admin/proveedores/entradas', '/admin/proveedores/entradas/crear',

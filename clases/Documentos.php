@@ -252,6 +252,40 @@ class Documentos
     }
 
     /* --------------------------------------------------------------------
+     * PANTALLA DE ENTREGA
+     * ------------------------------------------------------------------ */
+
+    /**
+     * PDF de una preparación: 'preparacion' (productos agrupados para alistar)
+     * o 'entrega' (por cliente, con firma). Solo lectura.
+     */
+    public static function descargarEntrega(int $preparacionId, string $tipo): void
+    {
+        $prep = Entregas::buscarPreparacion($preparacionId);
+        if (!$prep) {
+            \paginaNoEncontrada();
+        }
+
+        $ventas = Entregas::ventasDePreparacion($preparacionId);
+
+        ob_start();
+        \template('pdfEntregas', [
+            'prep'   => $prep,
+            'ventas' => $ventas,
+            'grupos' => Entregas::productosAgrupados($ventas),
+            'tipo'   => $tipo === 'entrega' ? 'entrega' : 'preparacion',
+        ]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'la preparación');
+        if ($bytes === null) {
+            \redirigir('/admin/entregas/detalle?id=' . $preparacionId, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, ($tipo === 'entrega' ? 'entrega-' : 'preparacion-') . $prep['folio']);
+    }
+
+    /* --------------------------------------------------------------------
      * ÓRDENES DE COMPRA
      * ------------------------------------------------------------------ */
 

@@ -140,6 +140,16 @@ $router->post('/admin/inventario/ajustar', 'views/admin/inventario/ajustar.php',
 $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    'soloAdmin');
 
 // Proveedores: directorio de proveedores y entradas (reporte fotográfico).
+// --- Pantalla de entrega (Etapa 4) ---
+$router->get('/admin/entregas',          'views/admin/entregas/index.php',    'soloAdmin');
+$router->get('/admin/entregas/clientes', 'views/admin/entregas/clientes.php', 'soloAdmin');
+$router->post('/admin/entregas/crear',   'views/admin/entregas/crear.php',    'soloAdmin');
+$router->get('/admin/entregas/detalle',  'views/admin/entregas/detalle.php',  'soloAdmin');
+$router->post('/admin/entregas/estado',  'views/admin/entregas/estado.php',   'soloAdmin');
+$router->get('/admin/entregas/entregar', 'views/admin/entregas/entregar.php', 'soloAdmin');
+$router->post('/admin/entregas/entregar','views/admin/entregas/entregar.php', 'soloAdmin');
+$router->get('/admin/entregas/pdf',      'views/admin/entregas/pdf.php',      'soloAdmin');
+
 // --- Órdenes de compra y recepciones (Etapa 2) ---
 $router->get('/admin/compras',          'views/admin/compras/index.php',   'soloAdmin');
 $router->get('/admin/compras/crear',    'views/admin/compras/crear.php',   'soloAdmin');

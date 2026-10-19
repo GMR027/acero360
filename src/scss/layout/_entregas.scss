@@ -1,0 +1,83 @@
+/* ==========================================================================
+   _entregas.scss — Pantalla de entrega: preparación de pedidos y entregas.
+   Tarjetas de producto agrupado (foto grande, código y cantidad total) pensadas
+   para leerse de un vistazo al alistar mercancía, también en celular.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.entregas-tabs {
+  margin-bottom: $espacio-lg;
+}
+
+.entregas-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: $espacio-md;
+}
+
+.producto-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-xs;
+  padding: $espacio-md;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde-fuerte;
+  border-radius: $radio-md;
+
+  &__imagen {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: $radio-md;
+    background-color: $color-superficie-baja;
+  }
+
+  &__sku {
+    font-size: $fuente-sm;
+    font-weight: 700;
+    color: $color-primario-texto;
+  }
+
+  &__cantidad {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  &__origenes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+}
+
+.entregas-resumen {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: $espacio-lg;
+  padding: $espacio-md;
+  background-color: $color-primario-claro;
+  border: 1px solid $color-primario-borde;
+  border-radius: $radio-md;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.entregas-seleccion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.entrega-cliente {
+  margin-bottom: $espacio-lg;
+}

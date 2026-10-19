@@ -23,6 +23,10 @@ $prueba = function (string $nombre, bool $ok, string $detalle = '') use (&$fallo
 };
 $stock = fn (int $id) => (int) $db->query("SELECT stock FROM productos WHERE id = $id")->fetch_row()[0];
 $usuario = (int) $db->query('SELECT id FROM usuarios LIMIT 1')->fetch_row()[0];
+// Estado limpio (la prueba puede correrse varias veces)
+$db->query('DELETE FROM movimientos_inventario WHERE recepcion_id IS NOT NULL');
+$db->query('DELETE FROM recepciones');
+$db->query('DELETE FROM ordenes_compra');
 $db->query("UPDATE productos SET stock = 10 WHERE id IN (36, 37)");
 $hoy = date('Y-m-d');
 $token = fn () => bin2hex(random_bytes(16));

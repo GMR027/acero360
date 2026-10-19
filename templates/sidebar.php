@@ -112,6 +112,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/entregas',
+        'icono'         => 'package_2',
+        'texto'         => 'Pantalla de entrega',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/inventario',
         'icono'         => 'warehouse',
         'texto'         => 'Inventario',
