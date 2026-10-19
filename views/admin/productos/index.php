@@ -151,7 +151,10 @@ template('header', [
                                 </div>
                             </td>
                             <td class="texto-sm">
-                                <?= escaparValores($nombreEmpresa[(int) $producto->empresa_id] ?? '—') ?>
+                                <?= escaparValores(implode(', ', array_map(
+                                    static fn ($id) => $nombreEmpresa[$id] ?? '—',
+                                    \App\Productos::negociosDe((int) $producto->id)
+                                )) ?: '—') ?>
                             </td>
                             <td class="tabla--numerica cifra">
                                 $<?= number_format((float) $producto->precio, 2) ?>

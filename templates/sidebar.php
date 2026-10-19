@@ -120,6 +120,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/compras',
+        'icono'         => 'shopping_cart',
+        'texto'         => 'Órdenes de compra',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/proveedores',
         'icono'         => 'local_shipping',
         'texto'         => 'Proveedores',

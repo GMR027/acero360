@@ -20,7 +20,7 @@ class Productos
     /** Columnas que se persisten (sin el id ni la fecha de alta). */
     protected static $columnasDB = [
         'id', 'empresa_id', 'nombre', 'sku', 'categoria', 'unidad', 'descripcion',
-        'precio', 'imagen', 'activo',
+        'precio', 'costo_actual', 'stock_minimo', 'imagen', 'activo',
     ];
 
     /** @var string[] Mensajes de validación de la última operación. */
@@ -34,9 +34,14 @@ class Productos
     public $unidad;
     public $descripcion;
     public $precio;
+    public $costo_actual;
+    public $stock_minimo;
     public $imagen;
     public $activo;
     public $creado_en;
+
+    /** @var int[] Negocios a los que se asigna (producto_empresa); el primero es el principal. */
+    public $negocios = [];
 
     public function __construct(array $args = [])
     {
@@ -48,6 +53,9 @@ class Productos
         $this->unidad      = $args['unidad'] ?? 'pza';
         $this->descripcion = $args['descripcion'] ?? '';
         $this->precio      = isset($args['precio']) ? (float) $args['precio'] : 0.0;
+        $this->costo_actual = isset($args['costo_actual']) ? (float) $args['costo_actual'] : 0.0;
+        $this->stock_minimo = isset($args['stock_minimo']) && $args['stock_minimo'] !== '' ? (int) $args['stock_minimo'] : null;
+        $this->negocios    = array_values(array_unique(array_map('intval', $args['negocios'] ?? [])));
         $this->imagen      = $args['imagen'] ?? '';
         $this->activo      = isset($args['activo']) ? (int) $args['activo'] : 1;
         $this->creado_en   = $args['creado_en'] ?? '';
@@ -76,6 +84,11 @@ class Productos
                 continue;
             }
             $atributos[$columna] = $this->$columna;
+        }
+
+        // El SKU vacío se guarda como NULL: así el índice único admite varios sin código.
+        if (trim((string) $atributos['sku']) === '') {
+            $atributos['sku'] = null;
         }
 
         return $atributos;
@@ -109,6 +122,7 @@ class Productos
 
             if ($correcto) {
                 $this->id = (int) self::$db->insert_id;
+                $this->sincronizarNegocios();
                 return true;
             }
         } catch (\mysqli_sql_exception $excepcion) {
@@ -143,6 +157,7 @@ class Productos
             $consulta->close();
 
             if ($correcto) {
+                $this->sincronizarNegocios();
                 return true;
             }
         } catch (\mysqli_sql_exception $excepcion) {
@@ -183,6 +198,40 @@ class Productos
         return false;
     }
 
+    /**
+     * Deja producto_empresa igual a $this->negocios. La existencia no se toca:
+     * sigue viviendo una sola vez en productos.stock.
+     */
+    private function sincronizarNegocios(): void
+    {
+        $id = (int) $this->id;
+        $negocios = $this->negocios ?: [(int) $this->empresa_id];
+
+        $borrar = self::$db->prepare('DELETE FROM producto_empresa WHERE producto_id = ?');
+        $borrar->bind_param('i', $id);
+        $borrar->execute();
+        $borrar->close();
+
+        $insertar = self::$db->prepare('INSERT INTO producto_empresa (producto_id, empresa_id) VALUES (?, ?)');
+        foreach ($negocios as $empresaId) {
+            $insertar->bind_param('ii', $id, $empresaId);
+            $insertar->execute();
+        }
+        $insertar->close();
+    }
+
+    /** @return int[] Ids de los negocios asignados al producto. */
+    public static function negociosDe(int $productoId): array
+    {
+        $consulta = self::$db->prepare('SELECT empresa_id FROM producto_empresa WHERE producto_id = ? ORDER BY empresa_id');
+        $consulta->bind_param('i', $productoId);
+        $consulta->execute();
+        $ids = array_map('intval', array_column($consulta->get_result()->fetch_all(MYSQLI_ASSOC), 'empresa_id'));
+        $consulta->close();
+
+        return $ids;
+    }
+
     /* --------------------------------------------------------------------
      * LECTURA
      * ------------------------------------------------------------------ */
@@ -197,7 +246,14 @@ class Productos
         $registro = $consulta->get_result()->fetch_assoc();
         $consulta->close();
 
-        return $registro ? self::crearObjeto($registro) : null;
+        if (!$registro) {
+            return null;
+        }
+
+        $producto = self::crearObjeto($registro);
+        $producto->negocios = self::negociosDe((int) $producto->id);
+
+        return $producto;
     }
 
     /**
@@ -272,7 +328,7 @@ class Productos
         $valores = [trim($termino), $patron, $patron, $patron, $patron];
 
         if ($empresaId > 0) {
-            $donde[] = 'empresa_id = ?';
+            $donde[] = 'EXISTS (SELECT 1 FROM producto_empresa pe WHERE pe.producto_id = productos.id AND pe.empresa_id = ?)';
             $tipos  .= 'i';
             $valores[] = $empresaId;
         }
@@ -323,7 +379,8 @@ class Productos
         [$donde, $tipos, $valores] = self::condiciones($termino, $empresaId, 'activos');
 
         $consulta = self::$db->prepare(
-            "SELECT id, empresa_id, sku, nombre, categoria, unidad, precio, imagen
+            "SELECT id, empresa_id, sku, nombre, categoria, unidad, precio, costo_actual, imagen,
+                    (SELECT GROUP_CONCAT(pe.empresa_id) FROM producto_empresa pe WHERE pe.producto_id = productos.id) AS negocios
                FROM productos
               WHERE $donde ORDER BY nombre ASC LIMIT 300"
         );
@@ -336,11 +393,13 @@ class Productos
             $lista[] = [
                 'id'        => (int) $fila['id'],
                 'empresa_id'=> (int) $fila['empresa_id'],
+                'empresas'  => array_map('intval', array_filter(explode(',', (string) $fila['negocios']))),
                 'sku'       => $fila['sku'],
                 'nombre'    => $fila['nombre'],
                 'categoria' => $fila['categoria'],
                 'unidad'    => $fila['unidad'],
                 'precio'    => (float) $fila['precio'],
+                'costo'     => (float) $fila['costo_actual'],
                 'imagen'    => $fila['imagen'],
             ];
         }
@@ -437,8 +496,24 @@ class Productos
         if (trim($this->nombre) === '') {
             self::$errores[] = 'El nombre del producto es obligatorio.';
         }
-        if ($this->empresa_id <= 0) {
-            self::$errores[] = 'Debés elegir el negocio al que pertenece el producto.';
+        if ($this->empresa_id <= 0 || empty($this->negocios)) {
+            self::$errores[] = 'Debes elegir al menos un negocio para el producto.';
+        }
+        if ($this->stock_minimo !== null && $this->stock_minimo < 0) {
+            self::$errores[] = 'La cantidad mínima no puede ser negativa.';
+        }
+        if (!is_numeric($this->costo_actual) || (float) $this->costo_actual < 0) {
+            self::$errores[] = 'El costo actual debe ser un número mayor o igual a cero.';
+        }
+        if (trim((string) $this->sku) !== '') {
+            $consulta = self::$db->prepare('SELECT id FROM productos WHERE sku = ? AND id <> ? LIMIT 1');
+            $id = (int) $this->id;
+            $consulta->bind_param('si', $this->sku, $id);
+            $consulta->execute();
+            if ($consulta->get_result()->num_rows > 0) {
+                self::$errores[] = 'El SKU «' . $this->sku . '» ya pertenece a otro producto.';
+            }
+            $consulta->close();
         }
         if (!is_numeric($this->precio) || (float) $this->precio < 0) {
             self::$errores[] = 'El precio de lista debe ser un número mayor o igual a cero.';

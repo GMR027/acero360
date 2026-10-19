@@ -18,6 +18,10 @@ if ($esEnvio) {
         'rfc'            => trim($_POST['rfc'] ?? ''),
         'telefono'       => trim($_POST['telefono'] ?? ''),
         'ubicacion'      => trim($_POST['ubicacion'] ?? ''),
+        'contacto'       => trim($_POST['contacto'] ?? ''),
+        'email'          => trim($_POST['email'] ?? ''),
+        'observaciones'  => trim($_POST['observaciones'] ?? ''),
+        'activo'         => isset($_POST['activo']) ? 1 : 0,
         'tipo_proveedor' => trim($_POST['tipo_proveedor'] ?? ''),
     ]);
 

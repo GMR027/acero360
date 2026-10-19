@@ -251,6 +251,42 @@ class Documentos
         }
     }
 
+    /* --------------------------------------------------------------------
+     * ÓRDENES DE COMPRA
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Sirve el PDF de una orden de compra. $tipo = 'orden' (lo solicitado) o
+     * 'cierre' (solicitado vs. recibido, para revisar antes del pago).
+     * Solo lee: generar el documento nunca modifica inventario ni estados.
+     */
+    public static function descargarOrdenCompra(int $ordenId, string $tipo): void
+    {
+        $orden = OrdenesCompra::buscarID($ordenId);
+        if (!$orden) {
+            \paginaNoEncontrada();
+        }
+
+        $partidas = OrdenesCompra::partidas($ordenId);
+
+        ob_start();
+        \template('pdfOrdenCompra', [
+            'orden'       => $orden,
+            'partidas'    => $partidas,
+            'totales'     => OrdenesCompra::totales($partidas),
+            'recepciones' => OrdenesCompra::recepciones($ordenId),
+            'tipo'        => $tipo === 'cierre' ? 'cierre' : 'orden',
+        ]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'la orden de compra');
+        if ($bytes === null) {
+            \redirigir('/admin/compras/detalle?id=' . $ordenId, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, ($tipo === 'cierre' ? 'cierre-' : 'orden-') . $orden['folio']);
+    }
+
     /**
      * Envía un PDF al navegador: lo muestra en pantalla para descargarlo.
      *

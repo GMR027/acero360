@@ -95,6 +95,31 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
                placeholder="Ciudad, estado o colonia"
                value="<?= escaparValores($proveedor->ubicacion) ?>">
     </div>
+
+    <div class="campo">
+        <label class="campo__etiqueta" for="contacto">Persona de contacto</label>
+        <input class="control" type="text" id="contacto" name="contacto" maxlength="120"
+               value="<?= escaparValores($proveedor->contacto) ?>">
+    </div>
+
+    <div class="campo">
+        <label class="campo__etiqueta" for="email">Correo electrónico</label>
+        <input class="control" type="email" id="email" name="email" maxlength="120"
+               value="<?= escaparValores($proveedor->email) ?>">
+    </div>
+
+    <div class="campo campo--completo">
+        <label class="campo__etiqueta" for="observaciones">Observaciones</label>
+        <textarea class="control" id="observaciones" name="observaciones" rows="3"><?= escaparValores($proveedor->observaciones) ?></textarea>
+    </div>
+
+    <div class="campo campo--completo">
+        <label class="comprobacion" for="activo">
+            <input type="checkbox" id="activo" name="activo" value="1" <?= (int) $proveedor->activo === 1 ? 'checked' : '' ?>>
+            <span><strong>Proveedor activo</strong><br>
+              <span class="texto-xs texto-secundario">Un proveedor desactivado conserva su historial pero no aparece al crear órdenes de compra.</span></span>
+        </label>
+    </div>
 </fieldset>
 
 <div class="formulario__acciones">

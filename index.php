@@ -138,6 +138,18 @@ $router->post('/admin/inventario/ajustar', 'views/admin/inventario/ajustar.php',
 $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    'soloAdmin');
 
 // Proveedores: directorio de proveedores y entradas (reporte fotográfico).
+// --- Órdenes de compra y recepciones (Etapa 2) ---
+$router->get('/admin/compras',          'views/admin/compras/index.php',   'soloAdmin');
+$router->get('/admin/compras/crear',    'views/admin/compras/crear.php',   'soloAdmin');
+$router->post('/admin/compras/crear',   'views/admin/compras/crear.php',   'soloAdmin');
+$router->get('/admin/compras/editar',   'views/admin/compras/editar.php',  'soloAdmin');
+$router->post('/admin/compras/editar',  'views/admin/compras/editar.php',  'soloAdmin');
+$router->get('/admin/compras/detalle',  'views/admin/compras/detalle.php', 'soloAdmin');
+$router->get('/admin/compras/recibir',  'views/admin/compras/recibir.php', 'soloAdmin');
+$router->post('/admin/compras/recibir', 'views/admin/compras/recibir.php', 'soloAdmin');
+$router->post('/admin/compras/accion',  'views/admin/compras/accion.php',  'soloAdmin');
+$router->get('/admin/compras/pdf',      'views/admin/compras/pdf.php',     'soloAdmin');
+
 $router->get('/admin/proveedores',           'views/admin/proveedores/index.php',           'soloAdmin');
 $router->post('/admin/proveedores',          'views/admin/proveedores/index.php',           'soloAdmin');
 $router->get('/admin/proveedores/crear',     'views/admin/proveedores/crear.php',           'soloAdmin');

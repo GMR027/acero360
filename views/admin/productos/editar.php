@@ -20,7 +20,13 @@ $imagenPrevia = $producto->imagen;
 $empresas    = \App\Empresas::mostrarTodos(100, 0);
 
 if ($esEnvio) {
-    $producto->empresa_id  = (int) ($_POST['empresa_id'] ?? 0);
+    $seleccion = array_values(array_unique(array_map('intval', array_filter((array) ($_POST['negocios'] ?? [])))));
+    $producto->negocios    = $seleccion;
+    // El negocio principal se conserva mientras siga asignado.
+    $producto->empresa_id  = in_array((int) $producto->empresa_id, $seleccion, true)
+        ? (int) $producto->empresa_id : ($seleccion[0] ?? 0);
+    $producto->costo_actual = str_replace(',', '.', trim($_POST['costo_actual'] ?? '0'));
+    $producto->stock_minimo = trim($_POST['stock_minimo'] ?? '') === '' ? null : (int) $_POST['stock_minimo'];
     $producto->nombre      = trim($_POST['nombre'] ?? '');
     $producto->sku         = trim($_POST['sku'] ?? '');
     $producto->categoria   = trim($_POST['categoria'] ?? '');

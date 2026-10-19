@@ -234,6 +234,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
                     data-cotizador-producto
                     data-id="<?= (int) $producto['id'] ?>"
                     data-empresa="<?= (int) $producto['empresa_id'] ?>"
+                    data-empresas="<?= escaparValores(implode(',', $producto['empresas'] ?? [(int) $producto['empresa_id']])) ?>"
                     data-nombre="<?= escaparValores($producto['nombre']) ?>"
                     data-sku="<?= escaparValores((string) $producto['sku']) ?>"
                     data-categoria="<?= escaparValores((string) ($producto['categoria'] ?? '')) ?>"

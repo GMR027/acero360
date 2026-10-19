@@ -212,6 +212,17 @@ class Inventario
     }
 
     /**
+     * Suma al inventario lo realmente recibido de un proveedor.
+     * NO abre transacción: la abre OrdenesCompra::recibir().
+     *
+     * @param array<int, int> $agrupadas producto_id => unidades recibidas.
+     */
+    public static function entradaPorRecepcion(array $agrupadas, int $recepcionId, int $usuarioId, string $notas = ''): bool
+    {
+        return self::mover($agrupadas, 'entrada', 0, $usuarioId, $notas, 0, $recepcionId, 'recepcion');
+    }
+
+    /**
      * Núcleo de escritura: mueve el stock de varios productos y registra
      * el movimiento en la bitácora. NO abre transacción.
      *
@@ -223,10 +234,15 @@ class Inventario
         int $cotizacionId,
         int $usuarioId,
         string $notas,
-        int $ventaId = 0
+        int $ventaId = 0,
+        int $recepcionId = 0,
+        ?string $motivo = null
     ): bool {
         // 'salida' resta; 'entrada' (reversión de una venta) suma.
         $negativo = $tipo === 'salida';
+        $motivo ??= $negativo ? 'venta' : null;
+        $permitirNegativo = Configuracion::permitirStockNegativo();
+        $bloquear = self::$db->prepare('SELECT stock FROM productos WHERE id = ? FOR UPDATE');
 
         $actualizar = self::$db->prepare(
             'UPDATE productos SET stock = stock ' . ($negativo ? '-' : '+') . ' ? WHERE id = ?'
@@ -234,13 +250,24 @@ class Inventario
         $saldoDe = self::$db->prepare('SELECT stock FROM productos WHERE id = ?');
         $registrar = self::$db->prepare(
             'INSERT INTO movimientos_inventario
-                (producto_id, tipo, cantidad, saldo, cotizacion_id, venta_id, usuario_id, notas)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                (producto_id, tipo, cantidad, saldo, cotizacion_id, venta_id, recepcion_id, motivo, usuario_id, notas)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         foreach ($agrupadas as $productoId => $cantidad) {
             if ($productoId <= 0 || $cantidad <= 0) {
                 continue;
+            }
+
+            // Bloquea la fila: dos ventas simultáneas no pueden leer el mismo saldo.
+            $bloquear->bind_param('i', $productoId);
+            $bloquear->execute();
+            $actual = $bloquear->get_result()->fetch_assoc();
+
+            if ($negativo && !$permitirNegativo && (int) ($actual['stock'] ?? 0) < $cantidad) {
+                self::$errores[] = 'Existencias insuficientes para el producto #' . $productoId
+                    . ' (hay ' . (int) ($actual['stock'] ?? 0) . ', se piden ' . $cantidad . ').';
+                return false;
             }
 
             $actualizar->bind_param('ii', $cantidad, $productoId);
@@ -256,9 +283,11 @@ class Inventario
             $usuario    = $usuarioId > 0 ? $usuarioId : null;
             $texto      = $notas !== '' ? $notas : null;
 
+            $recepcion  = $recepcionId > 0 ? $recepcionId : null;
+
             $registrar->bind_param(
-                'isiiiiis',
-                $productoId, $tipo, $cantidad, $saldo, $cotizacion, $venta, $usuario, $texto
+                'isiiiiisis',
+                $productoId, $tipo, $cantidad, $saldo, $cotizacion, $venta, $recepcion, $motivo, $usuario, $texto
             );
 
             if (!$registrar->execute()) {
@@ -267,6 +296,7 @@ class Inventario
             }
         }
 
+        $bloquear->close();
         $actualizar->close();
         $saldoDe->close();
         $registrar->close();

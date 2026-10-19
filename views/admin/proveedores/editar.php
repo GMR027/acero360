@@ -23,6 +23,10 @@ if ($esEnvio) {
     $proveedor->rfc            = trim($_POST['rfc'] ?? '');
     $proveedor->telefono       = trim($_POST['telefono'] ?? '');
     $proveedor->ubicacion      = trim($_POST['ubicacion'] ?? '');
+    $proveedor->contacto       = trim($_POST['contacto'] ?? '');
+    $proveedor->email          = trim($_POST['email'] ?? '');
+    $proveedor->observaciones  = trim($_POST['observaciones'] ?? '');
+    $proveedor->activo         = isset($_POST['activo']) ? 1 : 0;
     $proveedor->tipo_proveedor = trim($_POST['tipo_proveedor'] ?? \App\Proveedores::TIPOS[0]);
 
     $errores = $proveedor->validar();

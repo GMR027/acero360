@@ -215,6 +215,7 @@ function catalogoCotizador() {
     cotizadorCatalogo.set(id, {
       id: id,
       empresa: Number.parseInt(tarjeta.getAttribute('data-empresa'), 10) || 0,
+      empresas: (tarjeta.getAttribute('data-empresas') || '').split(',').map(Number).filter(Boolean),
       nombre: tarjeta.getAttribute('data-nombre') || '',
       sku: tarjeta.getAttribute('data-sku') || '',
       categoria: tarjeta.getAttribute('data-categoria') || '',
@@ -239,7 +240,7 @@ function filtrarCatalogo() {
 
   cotizadorCatalogo.forEach(function (producto) {
     const coincide = (texto === '' || producto.buscar.indexOf(texto) !== -1)
-      && (negocio === 0 || producto.empresa === negocio);
+      && (negocio === 0 || producto.empresas.includes(negocio) || producto.empresa === negocio);
 
     producto.tarjeta.hidden = !coincide;
     if (coincide) {

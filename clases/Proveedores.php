@@ -17,7 +17,8 @@ class Proveedores
 
     /** Columnas que se persisten en la tabla proveedores. */
     protected static $columnasDB = [
-        'id', 'nombre', 'rfc', 'telefono', 'ubicacion', 'tipo_proveedor',
+        'id', 'nombre', 'rfc', 'telefono', 'contacto', 'email', 'ubicacion', 'tipo_proveedor',
+        'observaciones', 'activo',
     ];
 
     /** @var string[] Mensajes de la última operación. */
@@ -30,6 +31,10 @@ class Proveedores
     public $nombre;
     public $rfc;
     public $telefono;
+    public $contacto;
+    public $email;
+    public $observaciones;
+    public $activo;
     public $ubicacion;
     public $tipo_proveedor;
     public $creado_en;
@@ -40,6 +45,10 @@ class Proveedores
         $this->nombre         = $args['nombre'] ?? '';
         $this->rfc            = $args['rfc'] ?? '';
         $this->telefono       = $args['telefono'] ?? '';
+        $this->contacto       = $args['contacto'] ?? '';
+        $this->email          = $args['email'] ?? '';
+        $this->observaciones  = $args['observaciones'] ?? '';
+        $this->activo         = isset($args['activo']) ? (int) $args['activo'] : 1;
         $this->ubicacion      = $args['ubicacion'] ?? '';
         $this->tipo_proveedor = $args['tipo_proveedor'] ?? self::TIPOS[0];
         $this->creado_en      = $args['creado_en'] ?? '';
@@ -282,7 +291,7 @@ class Proveedores
     public static function paraSelector(): array
     {
         $resultado = self::$db->query(
-            'SELECT id, nombre, rfc, tipo_proveedor FROM proveedores ORDER BY nombre ASC'
+            'SELECT id, nombre, rfc, tipo_proveedor FROM proveedores WHERE activo = 1 ORDER BY nombre ASC'
         );
 
         $lista = [];

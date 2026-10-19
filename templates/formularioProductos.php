@@ -47,21 +47,21 @@ $imagenActual = \App\Imagenes::url($producto->imagen ?: null);
 <?php endif; ?>
 
 <div class="formulario__rejilla">
-    <div class="campo<?= $claseError('negocio') ?>">
-        <label class="campo__etiqueta campo__etiqueta--obligatorio" for="empresa_id">Negocio</label>
-        <select class="control" id="empresa_id" name="empresa_id" required>
-            <option value="">— Elegí un negocio —</option>
-            <?php foreach ($empresas as $empresa) : ?>
-                <option value="<?= (int) $empresa->id ?>"
-                    <?= (int) $producto->empresa_id === (int) $empresa->id ? 'selected' : '' ?>>
-                    <?= escaparValores($empresa->nombre) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
+    <fieldset class="campo campo--completo<?= $claseError('negocio') ?>">
+        <legend class="campo__etiqueta campo__etiqueta--obligatorio">Negocios en los que se vende</legend>
+        <?php foreach ($empresas as $empresa) : ?>
+            <label class="comprobacion" for="negocio_<?= (int) $empresa->id ?>">
+                <input type="checkbox" id="negocio_<?= (int) $empresa->id ?>" name="negocios[]"
+                       value="<?= (int) $empresa->id ?>"
+                       <?= in_array((int) $empresa->id, array_map('intval', (array) $producto->negocios), true) ? 'checked' : '' ?>>
+                <span><?= escaparValores($empresa->nombre) ?></span>
+            </label>
+        <?php endforeach; ?>
+        <span class="campo__ayuda">Las existencias son una sola; asignar varios negocios no las duplica.</span>
         <?php if ($errorDeCampo('negocio') !== '') : ?>
             <p class="campo__error"><?= escaparValores($errorDeCampo('negocio')) ?></p>
         <?php endif; ?>
-    </div>
+    </fieldset>
 
     <div class="campo">
         <label class="campo__etiqueta" for="sku">SKU / código</label>
@@ -112,6 +112,24 @@ $imagenActual = \App\Imagenes::url($producto->imagen ?: null);
         <?php if ($errorDeCampo('precio') !== '') : ?>
             <p class="campo__error"><?= escaparValores($errorDeCampo('precio')) ?></p>
         <?php endif; ?>
+    </div>
+
+    <div class="campo<?= $claseError('costo') ?>">
+        <label class="campo__etiqueta" for="costo_actual">Costo actual de adquisición</label>
+        <input class="control control--moneda" type="number" id="costo_actual" name="costo_actual"
+               min="0" step="0.01" inputmode="decimal"
+               value="<?= number_format((float) $producto->costo_actual, 2, '.', '') ?>">
+        <span class="campo__ayuda">Editable; cambiarlo no altera los costos de compras ya registradas.</span>
+        <?php if ($errorDeCampo('costo') !== '') : ?>
+            <p class="campo__error"><?= escaparValores($errorDeCampo('costo')) ?></p>
+        <?php endif; ?>
+    </div>
+
+    <div class="campo<?= $claseError('mínima') ?>">
+        <label class="campo__etiqueta" for="stock_minimo">Cantidad mínima (alerta)</label>
+        <input class="control" type="number" id="stock_minimo" name="stock_minimo" min="0" step="1"
+               inputmode="numeric" value="<?= $producto->stock_minimo !== null ? (int) $producto->stock_minimo : '' ?>">
+        <span class="campo__ayuda">Opcional. Avisa en Inventario cuando las existencias lleguen a este número.</span>
     </div>
 
     <!-- Imagen del producto: únicamente carga de archivo local -->

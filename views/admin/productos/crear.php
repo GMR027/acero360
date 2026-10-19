@@ -14,7 +14,10 @@ $empresas = \App\Empresas::mostrarTodos(100, 0);
 
 if ($esEnvio) {
     $producto = new \App\Productos([
-        'empresa_id'  => (int) ($_POST['empresa_id'] ?? 0),
+        'empresa_id'  => (int) (array_values(array_filter((array) ($_POST['negocios'] ?? [])))[0] ?? 0),
+        'negocios'    => (array) ($_POST['negocios'] ?? []),
+        'costo_actual' => str_replace(',', '.', trim($_POST['costo_actual'] ?? '0')),
+        'stock_minimo' => trim($_POST['stock_minimo'] ?? ''),
         'nombre'      => trim($_POST['nombre'] ?? ''),
         'sku'         => trim($_POST['sku'] ?? ''),
         'categoria'   => trim($_POST['categoria'] ?? ''),
@@ -45,6 +48,7 @@ if ($esEnvio) {
 } else {
     $producto = new \App\Productos([
         'empresa_id' => (int) ($_GET['empresa'] ?? 0),
+        'negocios'   => ((int) ($_GET['empresa'] ?? 0)) ? [(int) $_GET['empresa']] : [],
     ]);
 }
 
