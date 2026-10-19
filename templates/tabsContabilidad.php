@@ -14,6 +14,7 @@ $secciones = [
     'gastos'      => ['/admin/contabilidad/gastos', 'Egresos y gastos', 'trending_down'],
     'documentos'  => ['/admin/contabilidad/documentos', 'Comprobantes y documentos', 'folder_open'],
     'sin'         => ['/admin/contabilidad/sin-facturar', 'Ventas sin facturar', 'receipt_long'],
+    'cierre'      => ['/admin/contabilidad/cierre', 'Cierre del mes', 'event_available'],
     'periodos'    => ['/admin/contabilidad/periodos', 'Periodos cerrados', 'lock'],
 ];
 ?>

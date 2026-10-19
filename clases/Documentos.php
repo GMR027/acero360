@@ -275,6 +275,21 @@ class Documentos
         self::enviar($bytes, 'ventas-sin-facturar-' . $periodo['anio'] . ($periodo['mes'] ? sprintf('-%02d', $periodo['mes']) : ''));
     }
 
+    /** PDF del resumen de cierre (fotografía guardada). Solo lectura. */
+    public static function descargarCierre(array $snapshot, array $estado): void
+    {
+        ob_start();
+        \template('pdfCierre', ['s' => $snapshot, 'estado' => $estado]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'el resumen de cierre');
+        if ($bytes === null) {
+            \redirigir('/admin/contabilidad/cierre', 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, 'cierre-' . $snapshot['periodo']);
+    }
+
     /* --------------------------------------------------------------------
      * PANTALLA DE ENTREGA
      * ------------------------------------------------------------------ */

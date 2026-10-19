@@ -1,0 +1,1035 @@
+{
+  "tipo": "isr_pagos_provisionales_art106",
+  "ejercicio": 2026,
+  "regimen": "Actividades Empresariales y Profesionales (Título IV, Capítulo II, Sección I LISR)",
+  "impuesto": "ISR",
+  "nombre": "Tarifas mensuales acumuladas del artículo 106 LISR — Anexo 8 de la RMF 2026",
+  "fuente": {
+    "documento": "Anexo 8 de la Resolución Miscelánea Fiscal para 2026, sección VI",
+    "publicacion": "Diario Oficial de la Federación, 28 de diciembre de 2025",
+    "url": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/anexos/Anexo-8-RMF-2026_DOF-28122025.pdf",
+    "sha256_pdf": "69ebaf8a78a3bde5d631ad2a994e81ec6d07e2d4e39085c8c948d138f782c1f4"
+  },
+  "vigencia_desde": "2026-01-01",
+  "vigencia_hasta": "2026-12-31",
+  "tarifas": {
+    "1": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "844.59",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "844.60",
+        "limite_superior": "7168.51",
+        "cuota_fija": "16.22",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "7168.52",
+        "limite_superior": "12598.02",
+        "cuota_fija": "420.95",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "12598.03",
+        "limite_superior": "14644.64",
+        "cuota_fija": "1011.68",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "14644.65",
+        "limite_superior": "17533.64",
+        "cuota_fija": "1339.14",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "17533.65",
+        "limite_superior": "35362.83",
+        "cuota_fija": "1856.84",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "35362.84",
+        "limite_superior": "55736.68",
+        "cuota_fija": "5665.16",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "55736.69",
+        "limite_superior": "106410.50",
+        "cuota_fija": "10457.09",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "106410.51",
+        "limite_superior": "141880.66",
+        "cuota_fija": "25659.23",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "141880.67",
+        "limite_superior": "425641.99",
+        "cuota_fija": "37009.69",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "425642.00",
+        "limite_superior": null,
+        "cuota_fija": "133488.54",
+        "porcentaje": "35.00"
+      }
+    ],
+    "2": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "1689.18",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "1689.19",
+        "limite_superior": "14337.02",
+        "cuota_fija": "32.44",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "14337.03",
+        "limite_superior": "25196.04",
+        "cuota_fija": "841.90",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "25196.05",
+        "limite_superior": "29289.28",
+        "cuota_fija": "2023.36",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "29289.29",
+        "limite_superior": "35067.28",
+        "cuota_fija": "2678.28",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "35067.29",
+        "limite_superior": "70725.66",
+        "cuota_fija": "3713.68",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "70725.67",
+        "limite_superior": "111473.36",
+        "cuota_fija": "11330.32",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "111473.37",
+        "limite_superior": "212821.00",
+        "cuota_fija": "20914.18",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "212821.01",
+        "limite_superior": "283761.32",
+        "cuota_fija": "51318.46",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "283761.33",
+        "limite_superior": "851283.98",
+        "cuota_fija": "74019.38",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "851283.99",
+        "limite_superior": null,
+        "cuota_fija": "266977.08",
+        "porcentaje": "35.00"
+      }
+    ],
+    "3": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "2533.77",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "2533.78",
+        "limite_superior": "21505.53",
+        "cuota_fija": "48.66",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "21505.54",
+        "limite_superior": "37794.06",
+        "cuota_fija": "1262.85",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "37794.07",
+        "limite_superior": "43933.92",
+        "cuota_fija": "3035.04",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "43933.93",
+        "limite_superior": "52600.92",
+        "cuota_fija": "4017.42",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "52600.93",
+        "limite_superior": "106088.49",
+        "cuota_fija": "5570.52",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "106088.50",
+        "limite_superior": "167210.04",
+        "cuota_fija": "16995.48",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "167210.05",
+        "limite_superior": "319231.50",
+        "cuota_fija": "31371.27",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "319231.51",
+        "limite_superior": "425641.98",
+        "cuota_fija": "76977.69",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "425641.99",
+        "limite_superior": "1276925.97",
+        "cuota_fija": "111029.07",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "1276925.98",
+        "limite_superior": null,
+        "cuota_fija": "400465.62",
+        "porcentaje": "35.00"
+      }
+    ],
+    "4": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "3378.36",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "3378.37",
+        "limite_superior": "28674.04",
+        "cuota_fija": "64.88",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "28674.05",
+        "limite_superior": "50392.08",
+        "cuota_fija": "1683.80",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "50392.09",
+        "limite_superior": "58578.56",
+        "cuota_fija": "4046.72",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "58578.57",
+        "limite_superior": "70134.56",
+        "cuota_fija": "5356.56",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "70134.57",
+        "limite_superior": "141451.32",
+        "cuota_fija": "7427.36",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "141451.33",
+        "limite_superior": "222946.72",
+        "cuota_fija": "22660.64",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "222946.73",
+        "limite_superior": "425642.00",
+        "cuota_fija": "41828.36",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "425642.01",
+        "limite_superior": "567522.64",
+        "cuota_fija": "102636.92",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "567522.65",
+        "limite_superior": "1702567.96",
+        "cuota_fija": "148038.76",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "1702567.97",
+        "limite_superior": null,
+        "cuota_fija": "533954.16",
+        "porcentaje": "35.00"
+      }
+    ],
+    "5": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "4222.95",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "4222.96",
+        "limite_superior": "35842.55",
+        "cuota_fija": "81.10",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "35842.56",
+        "limite_superior": "62990.10",
+        "cuota_fija": "2104.75",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "62990.11",
+        "limite_superior": "73223.20",
+        "cuota_fija": "5058.40",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "73223.21",
+        "limite_superior": "87668.20",
+        "cuota_fija": "6695.70",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "87668.21",
+        "limite_superior": "176814.15",
+        "cuota_fija": "9284.20",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "176814.16",
+        "limite_superior": "278683.40",
+        "cuota_fija": "28325.80",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "278683.41",
+        "limite_superior": "532052.50",
+        "cuota_fija": "52285.45",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "532052.51",
+        "limite_superior": "709403.30",
+        "cuota_fija": "128296.15",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "709403.31",
+        "limite_superior": "2128209.95",
+        "cuota_fija": "185048.45",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "2128209.96",
+        "limite_superior": null,
+        "cuota_fija": "667442.70",
+        "porcentaje": "35.00"
+      }
+    ],
+    "6": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "5067.54",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "5067.55",
+        "limite_superior": "43011.06",
+        "cuota_fija": "97.32",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "43011.07",
+        "limite_superior": "75588.12",
+        "cuota_fija": "2525.70",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "75588.13",
+        "limite_superior": "87867.84",
+        "cuota_fija": "6070.08",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "87867.85",
+        "limite_superior": "105201.84",
+        "cuota_fija": "8034.84",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "105201.85",
+        "limite_superior": "212176.98",
+        "cuota_fija": "11141.04",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "212176.99",
+        "limite_superior": "334420.08",
+        "cuota_fija": "33990.96",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "334420.09",
+        "limite_superior": "638463.00",
+        "cuota_fija": "62742.54",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "638463.01",
+        "limite_superior": "851283.96",
+        "cuota_fija": "153955.38",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "851283.97",
+        "limite_superior": "2553851.94",
+        "cuota_fija": "222058.14",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "2553851.95",
+        "limite_superior": null,
+        "cuota_fija": "800931.24",
+        "porcentaje": "35.00"
+      }
+    ],
+    "7": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "5912.13",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "5912.14",
+        "limite_superior": "50179.57",
+        "cuota_fija": "113.54",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "50179.58",
+        "limite_superior": "88186.14",
+        "cuota_fija": "2946.65",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "88186.15",
+        "limite_superior": "102512.48",
+        "cuota_fija": "7081.76",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "102512.49",
+        "limite_superior": "122735.48",
+        "cuota_fija": "9373.98",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "122735.49",
+        "limite_superior": "247539.81",
+        "cuota_fija": "12997.88",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "247539.82",
+        "limite_superior": "390156.76",
+        "cuota_fija": "39656.12",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "390156.77",
+        "limite_superior": "744873.50",
+        "cuota_fija": "73199.63",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "744873.51",
+        "limite_superior": "993164.62",
+        "cuota_fija": "179614.61",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "993164.63",
+        "limite_superior": "2979493.93",
+        "cuota_fija": "259067.83",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "2979493.94",
+        "limite_superior": null,
+        "cuota_fija": "934419.78",
+        "porcentaje": "35.00"
+      }
+    ],
+    "8": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "6756.72",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "6756.73",
+        "limite_superior": "57348.08",
+        "cuota_fija": "129.76",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "57348.09",
+        "limite_superior": "100784.16",
+        "cuota_fija": "3367.60",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "100784.17",
+        "limite_superior": "117157.12",
+        "cuota_fija": "8093.44",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "117157.13",
+        "limite_superior": "140269.12",
+        "cuota_fija": "10713.12",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "140269.13",
+        "limite_superior": "282902.64",
+        "cuota_fija": "14854.72",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "282902.65",
+        "limite_superior": "445893.44",
+        "cuota_fija": "45321.28",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "445893.45",
+        "limite_superior": "851284.00",
+        "cuota_fija": "83656.72",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "851284.01",
+        "limite_superior": "1135045.28",
+        "cuota_fija": "205273.84",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "1135045.29",
+        "limite_superior": "3405135.92",
+        "cuota_fija": "296077.52",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "3405135.93",
+        "limite_superior": null,
+        "cuota_fija": "1067908.32",
+        "porcentaje": "35.00"
+      }
+    ],
+    "9": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "7601.31",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "7601.32",
+        "limite_superior": "64516.59",
+        "cuota_fija": "145.98",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "64516.60",
+        "limite_superior": "113382.18",
+        "cuota_fija": "3788.55",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "113382.19",
+        "limite_superior": "131801.76",
+        "cuota_fija": "9105.12",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "131801.77",
+        "limite_superior": "157802.76",
+        "cuota_fija": "12052.26",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "157802.77",
+        "limite_superior": "318265.47",
+        "cuota_fija": "16711.56",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "318265.48",
+        "limite_superior": "501630.12",
+        "cuota_fija": "50986.44",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "501630.13",
+        "limite_superior": "957694.50",
+        "cuota_fija": "94113.81",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "957694.51",
+        "limite_superior": "1276925.94",
+        "cuota_fija": "230933.07",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "1276925.95",
+        "limite_superior": "3830777.91",
+        "cuota_fija": "333087.21",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "3830777.92",
+        "limite_superior": null,
+        "cuota_fija": "1201396.86",
+        "porcentaje": "35.00"
+      }
+    ],
+    "10": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "8445.90",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "8445.91",
+        "limite_superior": "71685.10",
+        "cuota_fija": "162.20",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "71685.11",
+        "limite_superior": "125980.20",
+        "cuota_fija": "4209.50",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "125980.21",
+        "limite_superior": "146446.40",
+        "cuota_fija": "10116.80",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "146446.41",
+        "limite_superior": "175336.40",
+        "cuota_fija": "13391.40",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "175336.41",
+        "limite_superior": "353628.30",
+        "cuota_fija": "18568.40",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "353628.31",
+        "limite_superior": "557366.80",
+        "cuota_fija": "56651.60",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "557366.81",
+        "limite_superior": "1064105.00",
+        "cuota_fija": "104570.90",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "1064105.01",
+        "limite_superior": "1418806.60",
+        "cuota_fija": "256592.30",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "1418806.61",
+        "limite_superior": "4256419.90",
+        "cuota_fija": "370096.90",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "4256419.91",
+        "limite_superior": null,
+        "cuota_fija": "1334885.40",
+        "porcentaje": "35.00"
+      }
+    ],
+    "11": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "9290.49",
+        "cuota_fija": "0.00",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "9290.50",
+        "limite_superior": "78853.61",
+        "cuota_fija": "178.42",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "78853.62",
+        "limite_superior": "138578.22",
+        "cuota_fija": "4630.45",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "138578.23",
+        "limite_superior": "161091.04",
+        "cuota_fija": "11128.48",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "161091.05",
+        "limite_superior": "192870.04",
+        "cuota_fija": "14730.54",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "192870.05",
+        "limite_superior": "388991.13",
+        "cuota_fija": "20425.24",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "388991.14",
+        "limite_superior": "613103.48",
+        "cuota_fija": "62316.76",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "613103.49",
+        "limite_superior": "1170515.50",
+        "cuota_fija": "115027.99",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "1170515.51",
+        "limite_superior": "1560687.26",
+        "cuota_fija": "282251.53",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "1560687.27",
+        "limite_superior": "4682061.89",
+        "cuota_fija": "407106.59",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "4682061.90",
+        "limite_superior": null,
+        "cuota_fija": "1468373.94",
+        "porcentaje": "35.00"
+      }
+    ],
+    "12": [
+      {
+        "limite_inferior": "0.01",
+        "limite_superior": "10135.11",
+        "cuota_fija": "0",
+        "porcentaje": "1.92"
+      },
+      {
+        "limite_inferior": "10135.12",
+        "limite_superior": "86022.11",
+        "cuota_fija": "194.59",
+        "porcentaje": "6.40"
+      },
+      {
+        "limite_inferior": "86022.12",
+        "limite_superior": "151176.19",
+        "cuota_fija": "5051.37",
+        "porcentaje": "10.88"
+      },
+      {
+        "limite_inferior": "151176.20",
+        "limite_superior": "175735.66",
+        "cuota_fija": "12140.13",
+        "porcentaje": "16.00"
+      },
+      {
+        "limite_inferior": "175735.67",
+        "limite_superior": "210403.69",
+        "cuota_fija": "16069.64",
+        "porcentaje": "17.92"
+      },
+      {
+        "limite_inferior": "210403.70",
+        "limite_superior": "424353.97",
+        "cuota_fija": "22282.14",
+        "porcentaje": "21.36"
+      },
+      {
+        "limite_inferior": "424353.98",
+        "limite_superior": "668840.14",
+        "cuota_fija": "67981.92",
+        "porcentaje": "23.52"
+      },
+      {
+        "limite_inferior": "668840.15",
+        "limite_superior": "1276925.98",
+        "cuota_fija": "125485.07",
+        "porcentaje": "30.00"
+      },
+      {
+        "limite_inferior": "1276925.99",
+        "limite_superior": "1702567.97",
+        "cuota_fija": "307910.81",
+        "porcentaje": "32.00"
+      },
+      {
+        "limite_inferior": "1702567.98",
+        "limite_superior": "5107703.92",
+        "cuota_fija": "444116.23",
+        "porcentaje": "34.00"
+      },
+      {
+        "limite_inferior": "5107703.93",
+        "limite_superior": null,
+        "cuota_fija": "1601862.46",
+        "porcentaje": "35.00"
+      }
+    ]
+  },
+  "casos_prueba": [
+    {
+      "mes": 1,
+      "utilidad": "1.00",
+      "impuesto": "0.02"
+    },
+    {
+      "mes": 1,
+      "utilidad": "1000.00",
+      "impuesto": "26.17"
+    },
+    {
+      "mes": 1,
+      "utilidad": "10000.00",
+      "impuesto": "729.02"
+    },
+    {
+      "mes": 1,
+      "utilidad": "50000.00",
+      "impuesto": "9107.82"
+    },
+    {
+      "mes": 1,
+      "utilidad": "100000.00",
+      "impuesto": "23736.08"
+    },
+    {
+      "mes": 1,
+      "utilidad": "300000.00",
+      "impuesto": "90770.26"
+    },
+    {
+      "mes": 1,
+      "utilidad": "1000000.00",
+      "impuesto": "334513.84"
+    },
+    {
+      "mes": 1,
+      "utilidad": "5000000.00",
+      "impuesto": "1734513.84"
+    },
+    {
+      "mes": 2,
+      "utilidad": "1.00",
+      "impuesto": "0.02"
+    },
+    {
+      "mes": 2,
+      "utilidad": "1000.00",
+      "impuesto": "19.20"
+    },
+    {
+      "mes": 2,
+      "utilidad": "10000.00",
+      "impuesto": "564.33"
+    },
+    {
+      "mes": 2,
+      "utilidad": "50000.00",
+      "impuesto": "6903.31"
+    },
+    {
+      "mes": 2,
+      "utilidad": "100000.00",
+      "impuesto": "18215.64"
+    },
+    {
+      "mes": 2,
+      "utilidad": "300000.00",
+      "impuesto": "79540.53"
+    },
+    {
+      "mes": 2,
+      "utilidad": "1000000.00",
+      "impuesto": "319027.68"
+    },
+    {
+      "mes": 2,
+      "utilidad": "5000000.00",
+      "impuesto": "1719027.68"
+    },
+    {
+      "mes": 5,
+      "utilidad": "1.00",
+      "impuesto": "0.02"
+    },
+    {
+      "mes": 5,
+      "utilidad": "1000.00",
+      "impuesto": "19.20"
+    },
+    {
+      "mes": 5,
+      "utilidad": "10000.00",
+      "impuesto": "450.83"
+    },
+    {
+      "mes": 5,
+      "utilidad": "50000.00",
+      "impuesto": "3645.08"
+    },
+    {
+      "mes": 5,
+      "utilidad": "100000.00",
+      "impuesto": "11918.27"
+    },
+    {
+      "mes": 5,
+      "utilidad": "300000.00",
+      "impuesto": "58680.43"
+    },
+    {
+      "mes": 5,
+      "utilidad": "1000000.00",
+      "impuesto": "283851.32"
+    },
+    {
+      "mes": 5,
+      "utilidad": "5000000.00",
+      "impuesto": "1672569.21"
+    },
+    {
+      "mes": 10,
+      "utilidad": "1.00",
+      "impuesto": "0.02"
+    },
+    {
+      "mes": 10,
+      "utilidad": "1000.00",
+      "impuesto": "19.20"
+    },
+    {
+      "mes": 10,
+      "utilidad": "10000.00",
+      "impuesto": "261.66"
+    },
+    {
+      "mes": 10,
+      "utilidad": "50000.00",
+      "impuesto": "2821.66"
+    },
+    {
+      "mes": 10,
+      "utilidad": "100000.00",
+      "impuesto": "7290.16"
+    },
+    {
+      "mes": 10,
+      "utilidad": "300000.00",
+      "impuesto": "45196.54"
+    },
+    {
+      "mes": 10,
+      "utilidad": "1000000.00",
+      "impuesto": "237360.86"
+    },
+    {
+      "mes": 10,
+      "utilidad": "5000000.00",
+      "impuesto": "1595138.43"
+    },
+    {
+      "mes": 12,
+      "utilidad": "1.00",
+      "impuesto": "0.02"
+    },
+    {
+      "mes": 12,
+      "utilidad": "1000.00",
+      "impuesto": "19.20"
+    },
+    {
+      "mes": 12,
+      "utilidad": "10000.00",
+      "impuesto": "192.00"
+    },
+    {
+      "mes": 12,
+      "utilidad": "50000.00",
+      "impuesto": "2745.94"
+    },
+    {
+      "mes": 12,
+      "utilidad": "100000.00",
+      "impuesto": "6572.16"
+    },
+    {
+      "mes": 12,
+      "utilidad": "300000.00",
+      "impuesto": "41419.91"
+    },
+    {
+      "mes": 12,
+      "utilidad": "1000000.00",
+      "impuesto": "224833.03"
+    },
+    {
+      "mes": 12,
+      "utilidad": "5000000.00",
+      "impuesto": "1565243.12"
+    }
+  ]
+}

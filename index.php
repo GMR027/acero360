@@ -165,6 +165,20 @@ $router->get('/admin/contabilidad/sin-facturar/exportar',   'views/admin/contabi
 $router->get('/admin/contabilidad/zip',                     'views/admin/contabilidad/zip.php',                  'soloAdmin');
 $router->get('/admin/contabilidad/periodos',                'views/admin/contabilidad/periodos.php',             'soloAdmin');
 
+// --- Fiscal y cierre mensual (Etapa 6) ---
+$router->get('/admin/contabilidad/cierre',          'views/admin/contabilidad/cierre.php',          'soloAdmin');
+$router->post('/admin/contabilidad/cierre/accion',  'views/admin/contabilidad/cierre-accion.php',   'soloAdmin');
+$router->get('/admin/contabilidad/cierre/exportar', 'views/admin/contabilidad/cierre-exportar.php', 'soloAdmin');
+$router->get('/admin/fiscal',                       'views/admin/fiscal/index.php',                 'soloAdmin');
+$router->post('/admin/fiscal/guardar',              'views/admin/fiscal/guardar.php',               'soloAdmin');
+$router->get('/admin/fiscal/registros',             'views/admin/fiscal/registros.php',             'soloAdmin');
+$router->post('/admin/fiscal/registros/accion',     'views/admin/fiscal/registros-accion.php',      'soloAdmin');
+$router->get('/admin/fiscal/catalogo',              'views/admin/fiscal/catalogo/index.php',        'soloAdmin');
+$router->get('/admin/fiscal/catalogo/detalle',      'views/admin/fiscal/catalogo/detalle.php',      'soloAdmin');
+$router->post('/admin/fiscal/catalogo/accion',      'views/admin/fiscal/catalogo/accion.php',       'soloAdmin');
+$router->get('/admin/fiscal/configuracion',         'views/admin/fiscal/configuracion.php',         'soloAdmin');
+$router->post('/admin/fiscal/configuracion',        'views/admin/fiscal/configuracion.php',         'soloAdmin');
+
 // --- Pantalla de entrega (Etapa 4) ---
 $router->get('/admin/entregas',          'views/admin/entregas/index.php',    'soloAdmin');
 $router->get('/admin/entregas/clientes', 'views/admin/entregas/clientes.php', 'soloAdmin');

@@ -22,6 +22,7 @@ let ok = 0, mal = 0;
 const verifica = (n, c, d = '') => { c ? ok++ : mal++; console.log((c ? '  ✓ ' : '  ✗ ') + n + (!c && d ? ' → ' + d : '')); };
 
 function limpiar() {
+  for (const t of ['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones']) { sql(`DELETE FROM ${t}`); }
   sql('DELETE FROM documentos'); sql('DELETE FROM cobros'); sql('DELETE FROM ingresos');
   sql('DELETE FROM entregas'); sql('DELETE FROM preparaciones');
   sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');

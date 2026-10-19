@@ -1,7 +1,7 @@
 <?php
 /**
  * views/admin/contabilidad/periodos.php — Historial de periodos cerrados.
- * El cierre y la reapertura controlada llegan con el módulo fiscal.
+ * El cierre y la reapertura se hacen desde «Cierre del mes».
  */
 
 soloAdmin();
@@ -22,12 +22,13 @@ template('tabsContabilidad', ['tab' => 'periodos', 'periodo' => $periodo]);
         <div class="tabla-contenedor">
             <table class="tabla">
                 <caption class="solo-lectores">Periodos cerrados</caption>
-                <thead><tr><th scope="col">Periodo</th><th scope="col">Cerrado el</th><th scope="col">Cerrado por</th></tr></thead>
+                <thead><tr><th scope="col">Periodo</th><th scope="col">Cerrado el</th><th scope="col">Cerrado por</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                 <tbody>
                     <?php foreach ($periodos as $p) : ?>
                         <tr><td><?= nombreMes((int) $p['mes']) ?> <?= (int) $p['anio'] ?></td>
                             <td><?= $p['cerrado_en'] ? date('d/m/Y H:i', strtotime($p['cerrado_en'])) : '—' ?></td>
-                            <td><?= escaparValores((string) $p['cerrado_por_nombre']) ?></td></tr>
+                            <td><?= escaparValores((string) $p['cerrado_por_nombre']) ?></td>
+                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/cierre?anio=<?= (int) $p['anio'] ?>&mes=<?= (int) $p['mes'] ?>">Ver cierre</a></td></tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>

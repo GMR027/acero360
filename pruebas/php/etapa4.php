@@ -27,6 +27,7 @@ $_SESSION['id'] = $usuario;
 $hoy = date('Y-m-d');
 
 // Estado limpio
+foreach (['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones'] as $tabla) { $db->query("DELETE FROM $tabla"); }
 $db->query('DELETE FROM documentos'); $db->query('DELETE FROM cobros'); $db->query('DELETE FROM ingresos');
 $db->query('DELETE FROM entregas'); $db->query('DELETE FROM preparaciones');
 $db->query('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');

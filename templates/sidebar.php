@@ -128,6 +128,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/fiscal',
+        'icono'         => 'request_quote',
+        'texto'         => 'Fiscal',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/inventario',
         'icono'         => 'warehouse',
         'texto'         => 'Inventario',

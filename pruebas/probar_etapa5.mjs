@@ -27,7 +27,7 @@ const carpetaDocs = join(RAIZ, 'storage', 'documentos');
 const docsPrevios = existsSync(carpetaDocs) ? readdirSync(carpetaDocs).length : 0;
 
 function limpiar() {
-  for (const t of ['documentos', 'cobros', 'gasto_reparto', 'gastos', 'ingresos', 'periodos_contables', 'entregas', 'preparaciones']) { sql(`DELETE FROM ${t}`); }
+  for (const t of ['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones', 'documentos', 'cobros', 'gasto_reparto', 'gastos', 'ingresos', 'periodos_contables', 'entregas', 'preparaciones']) { sql(`DELETE FROM ${t}`); }
   sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
   sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }

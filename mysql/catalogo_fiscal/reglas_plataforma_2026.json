@@ -1,0 +1,22 @@
+{
+  "tipo": "reglas_plataforma",
+  "ejercicio": 2026,
+  "regimen": "Actividades Empresariales y Profesionales",
+  "impuesto": "ISR/IVA",
+  "nombre": "Criterios de la plataforma para el motor fiscal (flujo de efectivo)",
+  "fuente": {
+    "documento": "Criterios de configuración de la plataforma. NO son texto de ley: se registran para que el cálculo sea explícito, versionado y revisable por el contador.",
+    "publicacion": "Plataforma Cotizaciones",
+    "url": "https://www.sat.gob.mx/",
+    "sha256_pdf": null
+  },
+  "vigencia_desde": "2026-01-01",
+  "vigencia_hasta": "2026-12-31",
+  "base_ingresos": "flujo_efectivo",
+  "gasto_requiere_validacion": true,
+  "gasto_requiere_comprobante": true,
+  "naturalezas_excluidas_deduccion": ["activo", "impuesto"],
+  "naturalezas_excluidas_iva_acreditable": ["impuesto"],
+  "iva_se_prorratea_por_cobro": true,
+  "tolerancia_iva_pesos": "0.05"
+}

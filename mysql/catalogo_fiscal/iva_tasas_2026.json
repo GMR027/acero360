@@ -1,0 +1,16 @@
+{
+  "tipo": "iva_tasas",
+  "ejercicio": 2026,
+  "regimen": "General",
+  "impuesto": "IVA",
+  "nombre": "Tasa general del IVA — Ley del Impuesto al Valor Agregado, artículo 1",
+  "fuente": {
+    "documento": "Ley del Impuesto al Valor Agregado, artículo 1 (tasa general del 16 %) y mecanismo de pago mensual sobre contraprestaciones efectivamente cobradas",
+    "publicacion": "Cámara de Diputados — Leyes Federales Vigentes",
+    "url": "http://www.diputados.gob.mx/LeyesBiblio/pdf/LIVA.pdf",
+    "sha256_pdf": null
+  },
+  "vigencia_desde": "2026-01-01",
+  "vigencia_hasta": "2026-12-31",
+  "tasa_general": "16.00"
+}
