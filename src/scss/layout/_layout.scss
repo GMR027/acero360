@@ -1,0 +1,174 @@
+/* ==========================================================================
+   _layout.scss — Estructura general de la aplicación.
+   Shell: sidebar fijo + panel con topbar, contenido y pie.
+   Flexbox para el armazón; Grid para los bloques internos de las pantallas.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Shell general -------------------------------------------------------- */
+.app {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Panel derecho: contiene topbar, contenido y pie. */
+.app__panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0; // Evita que el contenido desborde el flex container.
+}
+
+/* --- Barra superior ------------------------------------------------------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: $espacio-md;
+  min-height: $alto-topbar;
+  padding: $espacio-sm $espacio-lg;
+  background-color: $color-superficie;
+  border-bottom: 1px solid $color-borde;
+
+  &__titulo {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+    @include texto-una-linea;
+  }
+
+  &__acciones {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+}
+
+/* --- Contenido principal -------------------------------------------------- */
+.principal {
+  flex: 1;
+  width: 100%;
+  max-width: $ancho-contenedor;
+  margin: 0 auto;
+  padding: $espacio-lg;
+
+  /* Red de seguridad: si algún bloque desborda la línea, la zona de
+     contenido se desliza horizontalmente en lugar de cortarse. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @include hasta-movil {
+    /* El espacio para la barra inferior lo aporta el pie (.pie): aquí sólo
+       se deja el respiro normal para que el contenido no pegue al borde. */
+    padding: $espacio-md;
+  }
+}
+
+/* Cabecera de módulo: título a la izquierda, acciones a la derecha. */
+.encabezado-pagina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $espacio-md;
+  margin-bottom: $espacio-lg;
+
+  &__texto {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-xs;
+    min-width: 0;
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $espacio-sm;
+  }
+}
+
+/* --- Pie de página -------------------------------------------------------- */
+.pie {
+  padding: $espacio-md $espacio-lg;
+  background-color: $color-superficie;
+  border-top: 1px solid $color-borde;
+  color: $color-texto-secundario;
+  font-size: $fuente-xs;
+  text-align: center;
+}
+
+/* --- Rejillas reutilizables ----------------------------------------------- */
+/* Dos columnas iguales (tarjetas emisor / receptor, resumen / condiciones). */
+.rejilla-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $espacio-lg;
+
+  @include desde-tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Contenido principal + barra lateral de resumen. */
+.rejilla-resumen {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $espacio-lg;
+  align-items: start;
+
+  @include desde-desktop {
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+  }
+}
+
+/* Cuatro estadísticas del panel (2x2 en tablet, 4 en escritorio). */
+.rejilla-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $espacio-md;
+
+  @include desde-tablet {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Apila elementos en fila con espacio entre ellos. */
+.fila {
+  display: flex;
+  align-items: center;
+  gap: $espacio-sm;
+  min-width: 0;
+}
+
+.fila--envuelto {
+  flex-wrap: wrap;
+}
+
+/* Apila elementos en columna. */
+.columna {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-sm;
+}
+
+/* --- Fondo desenfocado para modales y off-canvas -------------------------- */
+.fondo-desenfocado {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  &[hidden] {
+    display: none;
+  }
+}

@@ -1,0 +1,102 @@
+/* ==========================================================================
+   _bottomnav.scss — Barra de navegación inferior para móvil.
+   Patrón tipo Facebook: fija abajo, sólo iconos, cinco destinos y la
+   sección activa resaltada. El botón "Más" abre el cajón lateral.
+   Sólo se muestra en pantallas menores a 768px.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.bottomnav {
+  display: none;
+}
+
+@include hasta-movil {
+  .bottomnav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 65;
+
+    display: flex;
+    align-items: stretch;
+
+    /* Altura de la barra + respeto al área segura de iPhone.
+       Compacta: el menú inferior no debe comerse la pantalla. */
+    min-height: 3.25rem;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    background-color: $color-superficie;
+    border-top: 1px solid $color-borde;
+    box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.06);
+
+    /* La barra NUNCA se desborda: los seis destinos caben en cualquier
+       pantalla (basta con el ancho del icono), así que no hay nada que
+       deslizar y no aparece barra de scroll horizontal. */
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+
+  /* Cada destino reparte el ancho disponible por igual: sin mínimos
+     fijos ni relleno lateral, la barra mide exactamente el ancho de la
+     pantalla y no genera desbordamiento por redondeo de píxeles. */
+  .bottomnav__item {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    border-radius: $radio-lg;
+    color: $color-texto-secundario;
+    text-decoration: none;
+    transition: background-color $transicion-rapida, color $transicion-rapida;
+
+    &:hover {
+      text-decoration: none;
+      background-color: $color-superficie-baja;
+      color: $color-texto;
+    }
+
+    &:focus-visible {
+      @include anillo-foco;
+    }
+  }
+
+  .bottomnav__icono {
+    font-size: 1.375rem;
+    line-height: 1;
+  }
+
+  /* Sección actual: color primario y fondo suave. */
+  .bottomnav__item--activo {
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+  }
+
+  /* Destino principal ("Nueva cotización"): icono más grande en azul. */
+  .bottomnav__item--destacado {
+    color: $color-primario-texto;
+
+    .bottomnav__icono {
+      font-size: 1.625rem;
+    }
+  }
+
+  /* Si la pantalla activa es la de "Nueva", se marca sólo con el color. */
+  .bottomnav__item--destacado.bottomnav__item--activo {
+    background-color: transparent;
+    color: $color-primario-texto;
+  }
+
+  /* El contenido deja espacio para que la barra no tape nada. */
+  .pie {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}

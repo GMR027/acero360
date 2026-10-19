@@ -1,0 +1,394 @@
+<?php
+
+/**
+ * Funciones auxiliares compartidas por toda la aplicación.
+ *
+ * Contiene:
+ *  - Rutas y carpetas de trabajo
+ *  - Renderizado de plantillas (template)
+ *  - Escapado de salida y validación de IDs
+ *  - Protección de rutas (sesión / rol / registro)
+ *  - Sistema de alertas visuales tipo "toast" (sin alert() de JavaScript)
+ *  - Paginación de listados
+ */
+
+/* ---------------------------------------------------------------------------
+ * 1. CONSTANTES DE RUTAS
+ * ------------------------------------------------------------------------- */
+
+define('TEMPLATES_URL',   __DIR__ . '/../templates');
+define('VIEWS_URL',       __DIR__ . '/../views');
+define('CARPETA_IMAGEN',  __DIR__ . '/../public/image/');
+define('RUTA_IMAGEN_URL', '/public/image/');
+
+/* ---------------------------------------------------------------------------
+ * 2. PLANTILLAS
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Incluye una plantilla de la carpeta templates/ pasándole datos asociativos.
+ *
+ * template('header', ['titulo' => 'Clientes']);
+ */
+function template(string $nombre, array $datos = []): void
+{
+    extract($datos); // Crea una variable por cada clave del arreglo.
+    include TEMPLATES_URL . "/" . $nombre . '.php';
+}
+
+/**
+ * Muestra la página 404 (views/404.php) y detiene la petición.
+ *
+ * Se usa cuando la ruta SÍ existe pero el registro que se pedía no
+ * (p. ej. /admin/clientes/detalle?id=999): el Router no puede encargarse.
+ */
+function paginaNoEncontrada(): void
+{
+    http_response_code(404);
+    include VIEWS_URL . '/404.php';
+    exit;
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. SEGURIDAD Y VALIDACIÓN
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Escapa cualquier valor que se vaya a imprimir en HTML.
+ * Evita que se inyecte código (XSS) desde datos guardados en la BD.
+ */
+function escaparValores($valor): string
+{
+    return htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Valida que el parámetro "id" de la URL sea un entero positivo.
+ * Si no lo es, redirige a la ruta indicada (por defecto /admin).
+ */
+function validarID($id, string $ruta = '/admin')
+{
+    $id = filter_var($id, FILTER_VALIDATE_INT);
+
+    if (!$id || $id < 1) {
+        header('Location: ' . $ruta);
+        exit;
+    }
+
+    return $id;
+}
+
+/** Inicia la sesión de PHP si aún no está activa. */
+function sesionActiva(): void
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. PROTECCIÓN DE RUTAS (middlewares del Router)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Exige haber iniciado sesión. Si no hay sesión, redirige a /login.
+ * Devuelve true cuando la sesión es válida.
+ */
+function iniciarSesion(): bool
+{
+    sesionActiva();
+
+    if (!isset($_SESSION['login']) || $_SESSION['login'] !== true) {
+        header('Location: /login');
+        exit;
+    }
+
+    return true;
+}
+
+/**
+ * Middleware principal del panel de administración.
+ * Requiere sesión iniciada Y rol administrador (1).
+ */
+function soloAdmin(): void
+{
+    iniciarSesion();
+
+    if ((int) ($_SESSION['rol'] ?? 0) !== 1) {
+        header('Location: /login');
+        exit;
+    }
+}
+
+/**
+ * Middleware de la ruta de registro.
+ *
+ * El registro está DESHABILITADO POR DEFECTO porque, según OPENCODE.md,
+ * "los usuarios que se registren serán admin": dejarlo público permitiría
+ * que cualquier visitante creara un administrador.
+ *
+ * Se habilita definiendo la variable de entorno:  REGISTRO_ABIERTO=1
+ */
+function soloRegistroAbierto(): void
+{
+    $abierto = getenv('REGISTRO_ABIERTO');
+
+    if ($abierto !== '1') {
+        sesionActiva();
+        agregarAlerta('advertencia', 'El registro de usuarios está deshabilitado. Contacta al administrador.');
+        header('Location: /login');
+        exit;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. ALERTAS VISUALES (sustituyen a alert / confirm / prompt)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Guarda una alerta en sesión para que sea mostrada en la próxima carga.
+ * Se usa junto con redirigir() para dar retroalimentación tras un POST.
+ *
+ * Tipos válidos: 'exito' | 'error' | 'advertencia' | 'info'
+ */
+function agregarAlerta(string $tipo, string $texto): void
+{
+    sesionActiva();
+    $_SESSION['alertas'][] = [
+        'tipo'  => $tipo,
+        'texto' => $texto,
+    ];
+}
+
+/**
+ * Devuelve las alertas pendientes y las limpia (solo se leen una vez).
+ *
+ * @return array<int, array{tipo: string, texto: string}>
+ */
+function obtenerAlertas(): array
+{
+    sesionActiva();
+
+    $alertas = $_SESSION['alertas'] ?? [];
+    unset($_SESSION['alertas']);
+
+    return $alertas;
+}
+
+/**
+ * Redirige a otra ruta cerrando la petición actual.
+ * El primer parámetro es la ruta; el segundo y tercero son la alerta opcional.
+ */
+function redirigir(string $ruta, string $tipo = '', string $texto = ''): void
+{
+    if ($tipo !== '' && $texto !== '') {
+        agregarAlerta($tipo, $texto);
+    }
+
+    header('Location: ' . $ruta);
+    exit;
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. PAGINACIÓN
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Calcula los parámetros de paginación de un listado.
+ *
+ * @param int    $registrosPorPagina Cuántos registros caben por página.
+ * @param int    $totalRegistros     Total de registros existentes.
+ * @param string $parametro          Nombre del parámetro GET (por defecto "pagina").
+ *
+ * @return array{limite: int, offset: int, paginaActual: int, totalPaginas: int}
+ */
+function paginacion(int $registrosPorPagina, int $totalRegistros, string $parametro = 'pagina'): array
+{
+    $paginaActual = isset($_GET[$parametro]) ? max(1, (int) $_GET[$parametro]) : 1;
+    $totalPaginas = (int) ceil($totalRegistros / max(1, $registrosPorPagina));
+
+    if ($totalPaginas > 0 && $paginaActual > $totalPaginas) {
+        $paginaActual = $totalPaginas;
+    }
+
+    return [
+        'limite'       => $registrosPorPagina,
+        'offset'       => ($paginaActual - 1) * $registrosPorPagina,
+        'paginaActual' => $paginaActual,
+        'totalPaginas' => $totalPaginas,
+    ];
+}
+
+/* ---------------------------------------------------------------------------
+ * 7. CONSULTAS SEGUROS PARA EL PANEL
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Comprueba si una tabla existe en la base de datos activa.
+ * Evita que el panel falle mientras se están creando los módulos.
+ */
+function tablaExiste(mysqli $db, string $tabla): bool
+{
+    $tabla = preg_replace('/[^a-zA-Z0-9_]/', '', $tabla);
+    if ($tabla === '') {
+        return false;
+    }
+
+    $consulta = $db->query(
+        "SELECT COUNT(*) AS total FROM information_schema.tables
+          WHERE table_schema = DATABASE() AND table_name = '$tabla'"
+    );
+
+    if (!$consulta) {
+        return false;
+    }
+
+    $fila = $consulta->fetch_assoc();
+    $consulta->free();
+
+    return (int) ($fila['total'] ?? 0) > 0;
+}
+
+/**
+ * Devuelve el número de filas de una tabla, o 0 si la tabla aún no existe.
+ */
+function contarRegistros(mysqli $db, string $tabla): int
+{
+    if (!tablaExiste($db, $tabla)) {
+        return 0;
+    }
+
+    $resultado = $db->query("SELECT COUNT(*) AS total FROM `$tabla`");
+    if (!$resultado) {
+        return 0;
+    }
+
+    $fila = $resultado->fetch_assoc();
+    $resultado->free();
+
+    return (int) ($fila['total'] ?? 0);
+}
+
+/* ---------------------------------------------------------------------------
+ * 8. FORMATO
+ * ------------------------------------------------------------------------- */
+
+/** Formatea un monto como moneda mexicana: $1,234.50 */
+function formatoMoneda($monto): string
+{
+    return '$' . number_format((float) $monto, 2);
+}
+
+/** Etiqueta de estado de cotización con su clase CSS asociada. */
+function etiquetaEstado(string $estado): array
+{
+    $mapa = [
+        'pendiente' => ['texto' => 'Pendiente', 'clase' => 'badge--pendiente'],
+        'vendido'   => ['texto' => 'Vendido',   'clase' => 'badge--aprobado'],
+        'cancelado' => ['texto' => 'Cancelado', 'clase' => 'badge--error'],
+    ];
+
+    return $mapa[$estado] ?? ['texto' => $estado, 'clase' => 'badge--neutro'];
+}
+
+/* ---------------------------------------------------------------------------
+ * 9. IMPORTE CON LETRA (para el PDF de la cotización)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Escribe un monto en letras, como se exige en los documentos fiscales.
+ *
+ *   123714 → "Ciento veintitrés mil setecientos catorce pesos 00/100 M.N."
+ *
+ * El texto se devuelve tal cual (sin capitalizar) para que cada vista
+ * decida cómo presentarlo.
+ */
+function numeroALetras($monto): string
+{
+    $unidades = [
+        '', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho',
+        'nueve', 'diez', 'once', 'doce', 'trece', 'catorce', 'quince',
+        'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve', 'veinte',
+        'veintiuno', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco',
+        'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve',
+    ];
+    $decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta',
+        'setenta', 'ochenta', 'noventa'];
+    $centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos',
+        'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+    /** Escrito de un número de 1 a 999. */
+    $grupo = static function (int $n) use ($unidades, $decenas, $centenas): string {
+        if ($n === 0) {
+            return '';
+        }
+        if ($n === 100) {
+            return 'cien';
+        }
+
+        $partes = [];
+        $c = intdiv($n, 100);
+        $r = $n % 100;
+
+        if ($c > 0) {
+            $partes[] = $centenas[$c];
+        }
+
+        if ($r > 0) {
+            if ($r < 30) {
+                $partes[] = $unidades[$r];
+            } else {
+                $d = intdiv($r, 10);
+                $u = $r % 10;
+                $partes[] = $u > 0
+                    ? $decenas[$d] . ' y ' . $unidades[$u]
+                    : $decenas[$d];
+            }
+        }
+
+        return implode(' ', $partes);
+    };
+
+    $monto   = round((float) $monto, 2);
+    $entero  = (int) floor($monto);
+    $centavo = (int) round(($monto - $entero) * 100);
+
+    if ($entero === 0 && $centavo === 0) {
+        return 'Cero pesos 00/100 M.N.';
+    }
+
+    if ($entero === 0) {
+        return 'Cero pesos ' . str_pad((string) $centavo, 2, '0', STR_PAD_LEFT) . '/100 M.N.';
+    }
+
+    $partes = [];
+
+    $millones = intdiv($entero, 1000000);
+    $resto    = $entero % 1000000;
+    $miles    = intdiv($resto, 1000);
+    $unidadesResto = $resto % 1000;
+
+    if ($millones > 0) {
+        $partes[] = $millones === 1
+            ? 'un millón'
+            : $grupo($millones) . ' millones';
+    }
+    if ($miles > 0) {
+        $partes[] = $miles === 1 ? 'mil' : $grupo($miles) . ' mil';
+    }
+    if ($unidadesResto > 0) {
+        $partes[] = $grupo($unidadesResto);
+    }
+
+    $texto = implode(' ', $partes);
+
+    // "veintiuno" y "uno" finales se enlazan con el sustantivo: veintiún pesos.
+    $texto = preg_replace('/\bveintiuno\b/u', 'veintiún', $texto);
+    $texto = preg_replace('/\buno\b$/u', 'un', $texto);
+
+    // Mayúscula inicial + formato de centavos exigido en el documento.
+    $texto = ucfirst($texto) . ' pesos '
+        . str_pad((string) $centavo, 2, '0', STR_PAD_LEFT) . '/100 M.N.';
+
+    return $texto;
+}

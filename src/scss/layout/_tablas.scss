@@ -1,0 +1,332 @@
+/* ==========================================================================
+   _tablas.scss — Tablas de datos de listados.
+   Cabecera con fondo gris claro, filas con separadores finos, columnas
+   numéricas alineadas a la derecha con cifras tabulares.
+   En móvil la tabla se desplaza horizontalmente dentro de su contenedor.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.tabla-contenedor {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* Sin posicionamiento relativo, la tabla ancha del cotizador (896px) se
+     suma al desbordamiento del documento aunque esté recortada por este
+     contenedor: en móvil el navegador ensancha el viewport de diseño y los
+     elementos fijos (menú inferior, cajón) miden más que la pantalla. */
+  position: relative;
+}
+
+.tabla {
+  width: 100%;
+  min-width: 40rem;
+  font-size: $fuente-sm;
+  text-align: left;
+
+  thead {
+    background-color: $color-superficie-baja;
+
+    th {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid $color-borde;
+      color: $color-texto-secundario;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+
+      /* Los TÍTULOS de todas las columnas van centrados, incluidas las
+         numéricas: la alineación a la derecha (.tabla--numerica) se aplica
+         a los datos, no a sus encabezados. */
+      text-align: center;
+    }
+  }
+
+  tbody {
+    tr {
+      background-color: $color-superficie;
+      border-bottom: 1px solid $color-borde;
+      transition: background-color $transicion-rapida;
+
+      &:hover {
+        background-color: $color-superficie-baja;
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      vertical-align: middle;
+      color: $color-texto;
+    }
+  }
+
+  /* Columnas numéricas: alineación a la derecha y cifras tabulares. */
+  &--numerica {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &--centro {
+    text-align: center;
+  }
+
+  /* Acciones de la fila (editar / eliminar). */
+  &__acciones {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $espacio-xs;
+  }
+
+  /* Miniatura de producto dentro de la tabla. */
+  &__miniatura {
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    object-fit: cover;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+  }
+
+  /* Celda con producto: miniatura + textos apilados. */
+  &__producto {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    min-width: 14rem;
+  }
+
+  &__producto-textos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Miniatura cuadrada del producto dentro de la tabla. */
+  &__producto-img {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    overflow: hidden;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio;
+    object-fit: cover;
+    font-size: 1.25rem;
+    color: $color-texto-secundario;
+
+    /* Celda sin imagen: sólo se muestra el icono. */
+    &--vacia {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      line-height: 1;
+    }
+  }
+}
+
+/* Fila seleccionable (catálogo de productos en el cotizador). */
+.tabla--seleccionable tbody tr {
+  cursor: pointer;
+
+  &[aria-selected='true'] {
+    background-color: $color-primario-claro;
+  }
+}
+
+/* Celda de acciones de una fila: Ver / Editar / Eliminar. */
+.tabla__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $espacio-xs;
+  min-width: 0;
+
+  /* El formulario de borrado se comporta como un hermano más de los botones. */
+  form {
+    display: flex;
+    align-items: center;
+    gap: $espacio-xs;
+    margin: 0;
+  }
+}
+
+/* Barra de herramientas sobre la tabla (búsqueda + botón principal). */
+.tabla-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $espacio-md;
+  padding: $espacio-lg;
+  border-bottom: 1px solid $color-borde;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @include hasta-movil {
+    /* La tarjeta que lo contiene ya aporta su relleno: aquí sólo separa
+       la barra de lo que viene debajo. */
+    padding: 0 0 $espacio-md;
+  }
+}
+
+/* Agrupador de contadores a la derecha de la barra de filtros.
+   Los badges van dentro de un contenedor propio: con justify-content:
+   space-between cada badge se iría a un extremo distinto y dejarían un
+   hueco enorme entre los dos. */
+.tabla-toolbar__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-sm;
+}
+
+/* Buscador integrado con icono de lupa. */
+.buscador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-sm;
+  min-width: 15rem;
+
+  /* Contenedor del icono + campo de texto. La lupa queda anclada AQUÍ
+     (no al formulario), de modo que siempre se centra sobre el input
+     aunque los selects o el botón pasen a otra línea al estrecharse. */
+  &__campo {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 14rem;
+    min-width: 11rem;
+    max-width: 100%;
+  }
+
+  &__icono {
+    position: absolute;
+    left: $espacio-sm;
+    top: 50%;
+    transform: translateY(-50%);
+    line-height: 1;
+    color: $color-texto-secundario;
+    font-size: 1.125rem;
+    pointer-events: none;
+  }
+
+  /* El hueco extra a la izquierda es sólo del input de texto (bajo el icono). */
+  &__campo input.control {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    padding-left: 2.25rem;
+  }
+
+  /* El resto de controles (selects de filtro, botón) conservan su medida. */
+  select.control {
+    width: auto;
+  }
+
+  /* En móvil los filtros se apilan en columna y ocupan todo el ancho:
+     así nada queda cortado ni a medias junto al borde de la pantalla.
+     No hace falta tocar las plantillas: un hijo con base 100% obliga al
+     salto de línea, y los dos botones comparten la última fila. */
+  @include hasta-movil {
+    align-items: stretch;
+    gap: $espacio-sm;
+    width: 100%;
+    min-width: 0;
+
+    &__campo {
+      flex: 1 1 100%;
+      min-width: 0;
+      max-width: none;
+    }
+
+    .control,
+    select.control {
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+    }
+
+    .btn {
+      flex: 1 1 calc(50% - #{$espacio-sm} / 2);
+      justify-content: center;
+    }
+  }
+}
+
+/* El catálogo del cotizador trae un único botón: ocupa la fila completa. */
+@include hasta-movil {
+  .tabla-toolbar--sin-borde .buscador .btn {
+    flex: 1 1 100%;
+  }
+}
+
+/* Columnas secundarias de una tabla: se ocultan en móvil para que quepan
+   las esenciales (cliente, RFC y acciones) sin desplazar tanto). */
+@include hasta-movil {
+  .tabla .tabla__col-secundaria {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Carga manual de existencias (pantalla de Inventario).
+   Campo numérico + botón "Guardar" dentro de la celda de la tabla. Las
+   reglas van al final del archivo para poder sobreescribir .control { width }
+   de _formularios.scss (mismo nivel de especificidad, gana el orden).
+   -------------------------------------------------------------------------- */
+.inventario-cantidad {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $espacio-xs;
+  min-width: 9rem;
+
+  &__campo {
+    width: 5.5rem;
+    flex-shrink: 1;
+    padding: 0 $espacio-xs;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+
+    /* Sin existencias: el campo se marca para captar la atención. */
+    &--vacio {
+      border-color: $color-error;
+      background-color: $color-error-claro;
+      color: $color-error-texto;
+    }
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      margin: 0;
+      -webkit-appearance: none;
+    }
+  }
+}
+
+/* Celda de estado de pago (Balance general del proveedor): el indicador
+   apilado sobre su botón, centrado en la columna. Va al final del archivo
+   porque reordena el contenido de una celda que ya tiene otras reglas. */
+.tabla__pago {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $espacio-xs;
+}

@@ -1,0 +1,67 @@
+# ===========================================================================
+# values.yaml — valores por defecto del chart cotizaciones
+#
+# Los secretos reales (contraseñas DB y SMTP) van en values.local.yaml,
+# archivo que NO se sube a git (ver .gitignore). Deploy:
+#
+#   helm upgrade --install cotizaciones ./helm/cotizaciones \
+#     -n cotizaciones -f values.yaml -f values.local.yaml
+# ===========================================================================
+
+replicaCount: 1
+
+image:
+  repository: gmr27/cotizaciones
+  tag: "1"               # el script deploy.sh lo sobrescribe con --set
+  pullPolicy: IfNotPresent
+
+app:
+  host: cotizaciones.iguzman.com.mx
+  # 1 = registro abierto; 0 = sólo admins dan de alta usuarios
+  registroAbierto: "0"
+
+mysql:
+  image: mysql:8
+  database: cotizaciones
+  user: cotizaciones
+  storage: 2Gi
+
+# Credenciales — SOBRESCRIBIR en values.local.yaml
+secrets:
+  dbPassword: CAMBIAR-EN-VALUES-LOCAL
+  mysqlRootPassword: CAMBIAR-EN-VALUES-LOCAL
+
+correo:
+  modo: smtp             # smtp = envío real | log = guarda en storage/correos.log
+  host: ""               # values.local.yaml
+  port: "587"
+  seguro: tls            # tls (587) | ssl (465) | none
+  usuario: ""            # values.local.yaml
+  password: ""           # values.local.yaml
+  desde: ""              # values.local.yaml
+  desdeNombre: Cotizaciones
+
+persistence:
+  images:
+    size: 1Gi            # public/image (fotos de productos, perfiles, logos)
+
+resources:
+  app:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  mysql:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+ingress:
+  className: public
+  clusterIssuer: letsencrypt-prod
+  proxyBodySize: 20m

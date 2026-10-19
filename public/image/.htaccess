@@ -1,0 +1,6 @@
+# Las imágenes subidas nunca deben ejecutarse como código.
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|cgi|pl|py|sh|jsp|asp|aspx)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes

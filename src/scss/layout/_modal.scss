@@ -1,0 +1,153 @@
+/* ==========================================================================
+   _modal.scss — Ventana modal ÚNICA de toda la aplicación.
+   Todos los diálogos (crear, editar, confirmar) usan esta misma estructura
+   para que todas las ventanas modales tengan exactamente el mismo diseño.
+   Ancho máximo 680px, radio 12px, cabecera con dos niveles y pie con
+   acciones alineadas a la derecha separadas por un divisor.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $espacio-md;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  /* Estado oculto: fuera del flujo y sin interacción. */
+  &[hidden] {
+    display: none;
+  }
+
+  &__panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: $ancho-modal;
+    max-height: calc(100vh - 2 * #{$espacio-md});
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-xl;
+    box-shadow: $sombra-3;
+    overflow: hidden;
+    animation: modal-entra 200ms ease both;
+  }
+
+  /* Tamaño reducido para confirmaciones. */
+  &--confirmacion &__panel {
+    max-width: 26.25rem; // 420px
+  }
+
+  /* --- Cabecera: contexto + título de acción --- */
+  &__cabecera {
+    display: flex;
+    align-items: flex-start;
+    gap: $espacio-md;
+    padding: $espacio-lg;
+    border-bottom: 1px solid $color-borde;
+  }
+
+  &__contexto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__sobre-titulo {
+    @include etiqueta-superior;
+  }
+
+  &__titulo {
+    font-family: $fuente-titulos;
+    font-size: $fuente-xl;
+    font-weight: 600;
+    color: $color-texto;
+    letter-spacing: -0.015em;
+  }
+
+  &__cerrar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $alto-control;
+    height: $alto-control;
+    flex-shrink: 0;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: $radio-md;
+    color: $color-texto-secundario;
+    font-size: 1.25rem;
+    line-height: 1;
+
+    &:hover {
+      background-color: $color-superficie-baja;
+      color: $color-texto;
+    }
+
+    &:focus-visible {
+      @include anillo-foco;
+    }
+  }
+
+  /* --- Cuerpo con desplazamiento propio --- */
+  &__cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-lg;
+    padding: $espacio-lg;
+    overflow-y: auto;
+  }
+
+  /* --- Pie de acciones fijo --- */
+  &__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $espacio-sm;
+    padding: $espacio-md $espacio-lg;
+    background-color: $color-superficie;
+    border-top: 1px solid $color-borde;
+  }
+}
+
+@keyframes modal-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* En móvil el modal se pega al borde inferior (hoja inferior). */
+@include hasta-movil {
+  .modal {
+    align-items: flex-end;
+    padding: 0;
+
+    &__panel {
+      max-width: 100%;
+      max-height: 92vh;
+      border-radius: $radio-xl $radio-xl 0 0;
+    }
+
+    &__cabecera,
+    &__cuerpo,
+    &__pie {
+      padding: $espacio-md;
+    }
+  }
+}

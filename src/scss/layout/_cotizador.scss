@@ -1,0 +1,512 @@
+/* ==========================================================================
+   _cotizador.scss — Motor de cotización (Fase 4).
+   Reproduce design/nueva_cotizaci_n: secciones del formulario, catálogo
+   visual de productos, tabla de renglones, resumen de liquidación y la
+   vista de detalle del documento.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Secciones del formulario (fieldset del cotizador) -------------------- */
+.cotizador-seccion {
+  margin: 0 0 $espacio-lg;
+  padding: $espacio-lg;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  background-color: $color-superficie;
+
+  &__titulo {
+    /* El título NO se apoya en la línea superior del fieldset: flota dentro
+       del recuadro, alineado con el contenido, y deja de tocar el borde. */
+    float: left;
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    padding: 0;
+    margin: 0 0 $espacio-md;
+    font-size: $fuente-base;
+    font-weight: 700;
+    color: $color-primario-texto;
+    background-color: transparent;
+    text-transform: none;
+
+    .material-symbols-outlined {
+      font-size: 1.25rem;
+      color: $color-primario-texto;
+    }
+  }
+
+  /* Todo el contenido queda por debajo del título flotado. */
+  > *:not(legend) {
+    clear: both;
+  }
+
+  @include hasta-movil {
+    padding: $espacio-md;
+    margin-bottom: $espacio-md;
+  }
+}
+
+/* Barra de filtros del catálogo: sin borde inferior. */
+.tabla-toolbar--sin-borde {
+  padding-left: 0;
+  padding-right: 0;
+  padding-top: 0;
+  border-bottom: 0;
+  overflow-x: visible;
+}
+
+/* --- Catálogo visual de productos ---------------------------------------- */
+.cotizador-catalogo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: $espacio-sm;
+  margin-bottom: $espacio-md;
+  padding: $espacio-md;
+  max-height: 26rem;
+  overflow-y: auto;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio;
+
+  @include hasta-movil {
+    /* Dos tarjetas por fila, a partes iguales, con imagen pequeña: así
+       caben más productos en pantalla sin desplazar tanto. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $espacio-sm;
+    padding: $espacio-sm;
+    max-height: 18rem;
+  }
+}
+
+.cotizador-carta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: $espacio-sm;
+  text-align: left;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio;
+  cursor: pointer;
+  transition: border-color $transicion-rapida, box-shadow $transicion-rapida,
+    transform $transicion-rapida;
+
+  &:hover,
+  &:focus-visible {
+    border-color: $color-primario;
+    box-shadow: $sombra-2;
+    transform: translateY(-2px);
+  }
+
+  &[hidden] {
+    display: none;
+  }
+
+  @include hasta-movil {
+    padding: $espacio-sm;
+    align-items: center;
+    text-align: center;
+  }
+
+  &__img {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    background-color: $color-superficie-baja;
+    border-radius: $radio-sm;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    &--vacia {
+      color: $color-texto-secundario;
+      font-size: 2.25rem;
+    }
+
+    @include hasta-movil {
+      /* Imagen reducida y centrada para que la tarjeta no crezca. */
+      width: 6rem;
+      height: 6rem;
+      aspect-ratio: auto;
+      margin: 0 0 $espacio-xs;
+      border: 1px solid $color-borde;
+
+      img {
+        object-fit: contain;
+      }
+    }
+  }
+
+  &__nombre {
+    display: block;
+    font-size: $fuente-sm;
+    font-weight: 600;
+    color: $color-texto;
+    line-height: 1.3;
+
+    @include hasta-movil {
+      @include texto-varias-lineas(2);
+    }
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem;
+
+    @include hasta-movil {
+      justify-content: center;
+    }
+  }
+
+  &__sku {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  }
+
+  &__precio {
+    font-size: $fuente-sm;
+    font-weight: 700;
+    color: $color-primario-texto;
+  }
+
+  &__unidad {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+}
+
+/* --- Tabla de renglones ---------------------------------------------------- */
+.cotizador-tabla {
+  min-width: 56rem;
+
+  &__num {
+    width: 2.5rem;
+    text-align: center;
+  }
+
+  &__derecha {
+    text-align: right;
+  }
+
+  &__ancha {
+    min-width: 11rem;
+  }
+
+  &__cantidad {
+    width: 6.5rem;
+  }
+
+  &__descuento {
+    width: 6.5rem;
+  }
+
+  &__accion {
+    width: 3.5rem;
+    text-align: center;
+  }
+
+  &__pie {
+    padding: $espacio-sm 1rem;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    font-style: italic;
+  }
+
+  tfoot td {
+    background-color: $color-superficie-baja;
+    border-top: 1px solid $color-borde;
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* Celdas con campos del renglón. */
+.cotizador-celda-precio,
+.cotizador-celda-cantidad,
+.cotizador-celda-descuento {
+  white-space: nowrap;
+
+  .control {
+    width: 6.5rem;
+  }
+}
+
+.cotizador-celda-precio {
+  display: table-cell;
+
+  .control {
+    width: 7.5rem;
+  }
+}
+
+/* Casilla "No recordar este precio" bajo el precio negociado. */
+.cotizador-recordar {
+  display: flex;
+  margin-top: 0.25rem;
+  font-size: 0.625rem;
+  line-height: 1.3;
+  color: $color-texto-secundario;
+}
+
+.control--cantidad {
+  width: 5rem;
+  text-align: right;
+}
+
+/* --- Resumen de liquidación ------------------------------------------------ */
+.cotizador-resumen {
+  background-color: $color-superficie;
+  border: 1px solid $color-primario-borde;
+  border-radius: $radio-lg;
+  overflow: hidden;
+
+  &--plano {
+    border-color: $color-borde;
+  }
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    padding: $espacio-md $espacio-lg;
+    background-color: $color-primario-claro;
+    border-bottom: 1px solid $color-primario-borde;
+  }
+
+  &__titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: $espacio-sm;
+    margin: 0;
+    font-size: $fuente-base;
+    font-weight: 700;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.25rem;
+    }
+  }
+
+  &__cuerpo {
+    margin: 0;
+    padding: $espacio-md $espacio-lg;
+  }
+
+  &__fila {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    padding: $espacio-sm 0;
+    border-bottom: 1px dashed $color-borde;
+
+    dt {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: $espacio-xs;
+      font-size: $fuente-sm;
+      color: $color-texto;
+    }
+
+    dd {
+      margin: 0;
+      font-size: $fuente-sm;
+      font-weight: 600;
+      color: $color-texto;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &--total {
+      border-bottom: 0;
+      margin-top: $espacio-xs;
+      padding-top: $espacio-md;
+      border-top: 2px solid $color-primario-borde;
+
+      dt {
+        font-size: $fuente-base;
+        font-weight: 700;
+        color: $color-texto;
+      }
+
+      dd strong {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: $color-primario-texto;
+      }
+    }
+  }
+
+  &__ayuda {
+    font-size: $fuente-xs;
+    font-weight: 400;
+    color: $color-texto-secundario;
+  }
+
+  &__control {
+    display: inline-flex;
+    align-items: center;
+    gap: $espacio-xs;
+
+    .control {
+      width: 5.5rem;
+      text-align: right;
+    }
+  }
+
+  &__porciento {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+
+  &__negativo {
+    color: $color-error !important;
+  }
+
+  &__letra {
+    margin: 0;
+    padding: $espacio-sm $espacio-lg $espacio-md;
+    font-size: $fuente-xs;
+    font-style: italic;
+    color: $color-texto-secundario;
+    background-color: $color-superficie-baja;
+    border-top: 1px solid $color-borde;
+  }
+
+  @include hasta-movil {
+    &__cabecera,
+    &__cuerpo {
+      padding-left: $espacio-md;
+      padding-right: $espacio-md;
+    }
+
+    &__letra {
+      padding-left: $espacio-md;
+      padding-right: $espacio-md;
+    }
+  }
+}
+
+/* --- Acciones de estado (detalle) ------------------------------------------ */
+.cotizador-estado-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-sm;
+
+  .campo__etiqueta {
+    margin-right: $espacio-xs;
+  }
+}
+
+/* --- Detalle de la cotización ---------------------------------------------- */
+.cotizador-detalle {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+
+  &__emisor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: $espacio-lg;
+    padding-bottom: $espacio-md;
+    margin-bottom: $espacio-md;
+    border-bottom: 1px solid $color-borde;
+  }
+
+  &__logo {
+    /* Altura máxima 10rem con ancho y alto AUTOMÁTICOS: la proporción
+       natural del archivo decide el dibujo y el tope sólo manda cuando el
+       logo supera esa altura (una marca apaisada se encoge sin deformarse y
+       una vertical conserva su forma). El tope anterior estaba fijado por el
+       ancho: con una caja más ancha que alta el logo no crecía, sólo
+       se recortaba con object-fit.
+
+       max-width: 100% es lo que lo hace adaptativo en móvil: sin él, un
+       archivo de gran ancho desbordaría el contenedor, el viewport se
+       ensancharía y la barra inferior mediría más que la pantalla. */
+    max-height: 10rem;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    align-self: flex-start;
+  }
+
+  &__cliente {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: $espacio-md;
+    margin: 0 0 $espacio-md;
+
+    dt {
+      font-size: $fuente-xs;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: $color-texto-secundario;
+      margin-bottom: $espacio-xs;
+    }
+
+    dd {
+      margin: 0;
+      font-size: $fuente-sm;
+      line-height: 1.6;
+      color: $color-texto;
+    }
+  }
+
+  &__condicion {
+    display: flex;
+    gap: $espacio-sm;
+    padding: $espacio-sm 0;
+    border-bottom: 1px dashed $color-borde;
+
+    &:last-child {
+      border-bottom: 0;
+    }
+
+    .material-symbols-outlined {
+      color: $color-primario-texto;
+      font-size: 1.25rem;
+    }
+
+    strong {
+      display: block;
+      font-size: $fuente-sm;
+      color: $color-texto;
+    }
+
+    p {
+      margin: 0.125rem 0 0;
+      font-size: $fuente-sm;
+      color: $color-texto-secundario;
+      line-height: 1.5;
+    }
+  }
+}
+
+/* --- Acciones del encabezado ------------------------------------------------ */
+.encabezado-pagina__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-sm;
+}

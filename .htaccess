@@ -1,0 +1,6 @@
+# Enrutamiento: toda petición que no corresponda a un archivo real
+# se resuelve en index.php (front controller).
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]

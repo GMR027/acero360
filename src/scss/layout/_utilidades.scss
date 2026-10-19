@@ -1,0 +1,148 @@
+/* ==========================================================================
+   _utilidades.scss — Clases auxiliares de uso general.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Espaciado ------------------------------------------------------------ */
+.mt-0   { margin-top: 0; }
+.mt-sm  { margin-top: $espacio-sm; }
+.mt-md  { margin-top: $espacio-md; }
+.mt-lg  { margin-top: $espacio-lg; }
+.mb-md  { margin-bottom: $espacio-md; }
+.mb-lg  { margin-bottom: $espacio-lg; }
+
+/* --- Distribución --------------------------------------------------------- */
+.oculto            { display: none; }
+.mostrar-en-movil  { display: none; }
+
+@include hasta-movil {
+  .oculto-en-movil { display: none !important; }
+  .mostrar-en-movil { display: block; }
+}
+
+/* Contenedor de fila: nunca desborda, si no cabe se envuelve o desliza. */
+.fila {
+  min-width: 0;
+}
+
+/* --- Foto de perfil -------------------------------------------------------
+   Recorte redondo de las imágenes del modo 'retrato' (500×500 px). El lado
+   por defecto es 5rem (80 px), el tamaño pedido para el perfil del
+   administrador y la ficha de clientes; los modificadores sólo cambian el
+   lado, manteniendo el círculo. */
+.retrato {
+  display: block;
+  width: 5rem;
+  height: 5rem;
+  flex-shrink: 0;
+  object-fit: cover;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio-full;
+}
+
+.retrato--sm {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+/* Fila con la foto de perfil redonda a la izquierda y el texto al lado. */
+.perfil-fila {
+  display: flex;
+  align-items: center;
+  gap: $espacio-md;
+  min-width: 0;
+}
+
+/* Desplazamiento horizontal para cualquier bloque que exceda la línea. */
+.deslizar-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Igual pero sin mostrar la barra de scroll (barras de navegación). */
+.deslizar-x-silencioso {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.flex-entre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $espacio-sm;
+}
+
+.flex-fin {
+  display: flex;
+  justify-content: flex-end;
+  gap: $espacio-sm;
+}
+
+/* --- Anchos --------------------------------------------------------------- */
+.ancho-completo { width: 100%; }
+
+/* --- Jerarquía visual ----------------------------------------------------- */
+.divisor {
+  height: 1px;
+  background-color: $color-borde;
+  border: none;
+  margin: 0;
+}
+
+/* Accesibilidad: texto disponible sólo para lectores de pantalla. */
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Enlace de salto ("Saltar al contenido").
+   Es el primer elemento con tabulación de cada pantalla: permite pasar de
+   un salto el menú lateral y la barra superior. Vive fuera de la vista y
+   sólo aparece cuando recibe foco, para no ensuciar el diseño. */
+.saltar-contenido {
+  position: fixed;
+  top: -$espacio-2xl;
+  left: $espacio-sm;
+  z-index: 100;                     // por encima de alertas (90) y modales (80)
+  padding: $espacio-sm $espacio-md;
+  background-color: $color-superficie;
+  border: 1px solid $color-primario-borde;
+  border-radius: $radio;
+  box-shadow: $sombra-3;
+  color: $color-primario-texto;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top $transicion-rapida;
+
+  &:focus {
+    top: $espacio-sm;
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+}
+
+/* Foco visible para elementos que no son controles nativos. */
+.enlace-foco:focus-visible {
+  outline: 2px solid $color-primario;
+  outline-offset: 2px;
+}

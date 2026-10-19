@@ -1,0 +1,81 @@
+/* ==========================================================================
+   _tipografia.scss — Escala tipográfica y utilidades de texto.
+   Plus Jakarta Sans para títulos, Inter para contenido operativo.
+   ========================================================================== */
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+body {
+  font-family: $fuente-cuerpo;
+}
+
+/* --- Escala de títulos ---------------------------------------------------- */
+.titulo-1 {
+  font-family: $fuente-titulos;
+  font-size: $fuente-4xl;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.titulo-2 {
+  font-family: $fuente-titulos;
+  font-size: $fuente-3xl;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.titulo-3 {
+  font-family: $fuente-titulos;
+  font-size: $fuente-2xl;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.titulo-4 {
+  font-family: $fuente-titulos;
+  font-size: $fuente-xl;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.titulo-5 {
+  font-family: $fuente-titulos;
+  font-size: $fuente-base;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* --- Textos de contenido -------------------------------------------------- */
+.texto-base   { font-size: $fuente-base;  line-height: 1.5; }
+.texto-sm     { font-size: $fuente-sm;    line-height: 1.45; }
+.texto-xs     { font-size: $fuente-xs;    line-height: 1.4; }
+
+.texto-secundario { color: $color-texto-secundario; }
+.texto-error      { color: $color-error; }
+.texto-exito      { color: $color-exito; }
+
+/* Etiqueta pequeña en mayúsculas, igual que en las maquetas. */
+.texto-etiqueta {
+  @include etiqueta-superior;
+}
+
+/* --- Cifras: alineación de columnas numéricas ----------------------------- */
+/* Los montos de las cotizaciones deben alinearse columna por columna. */
+.cifra {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* --- Utilidades de layout textual ---------------------------------------- */
+.texto-centro     { text-align: center; }
+.texto-derecha    { text-align: right; }
+.texto-una-linea  { @include texto-una-linea; }
+.texto-varias     { @include texto-varias-lineas(2); }
+.texto-enorme {
+  font-family: $fuente-titulos;
+  font-size: $fuente-4xl;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

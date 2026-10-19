@@ -1,0 +1,12 @@
+/vendor/
+/node_modules/
+/storage/*.log
+.env
+*.log
+.DS_Store
+/design
+
+# Despliegue (secretos y estado local)
+/helm/cotizaciones/values.local.yaml
+/mysql/dump-inicial.sql
+.deploy-tag

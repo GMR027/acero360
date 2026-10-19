@@ -1,0 +1,86 @@
+# ===========================================================================
+# Job de inicialización de la BD.
+#
+#  · NO es un hook de Helm: es un recurso normal del release. Así, en un
+#    primer `helm install` puede esperar (initContainer) a que el Deployment
+#    de MySQL —creado en el mismo release— esté listo, y después importa
+#    el dump embebido en el ConfigMap cotizaciones-sql.
+#  · En upgrades se vuelve a ejecutar SÓLO si el PVC de MySQL está vacío
+#    (comprobación por si falta la tabla mysql.user en el datadir), de modo
+#    que NUNCA pisa los datos existentes.
+#  · Al completarse queda en estado Completed; `helm upgrade` lo reemplaza
+#    sin efecto gracias a la comprobación anterior.
+# ===========================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cotizaciones-db-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mysql
+  annotations:
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: esperar-mysql
+          image: {{ .Values.mysql.image }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: MYSQL_ROOT_PASSWORD
+          command:
+            - sh
+            - -c
+            - |
+              echo "Esperando a que MySQL esté listo..."
+              i=0
+              until mysqladmin ping -h mysql -uroot -p"$MYSQL_ROOT_PASSWORD" --silent 2>/dev/null; do
+                i=$((i+1))
+                if [ "$i" -ge 100 ]; then
+                  echo "MySQL no respondió a tiempo."; exit 1
+                fi
+                sleep 3
+              done
+              echo "MySQL está listo."
+      containers:
+        - name: import
+          image: {{ .Values.mysql.image }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: MYSQL_ROOT_PASSWORD
+          command:
+            - sh
+            - -c
+            - |
+              # ¿La base ya tiene las tablas de la app? → no tocar nada.
+              EXISTE=$(mysql -h mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -s \
+                -e "SELECT COUNT(*) FROM information_schema.tables
+                    WHERE table_schema='{{ .Values.mysql.database }}'
+                      AND table_name='usuarios';" 2>/dev/null || echo 0)
+              if [ "$EXISTE" = "1" ]; then
+                echo "La base '{{ .Values.mysql.database }}' ya tiene datos: no se importa nada."
+                exit 0
+              fi
+              echo "Base vacía: importando dump inicial..."
+              mysql -h mysql -uroot -p"$MYSQL_ROOT_PASSWORD" < /sql/dump-inicial.sql
+              echo "Importación completada."
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+      volumes:
+        - name: sql
+          configMap:
+            name: cotizaciones-sql

@@ -1,0 +1,35 @@
+# ===========================================================================
+#  .dockerignore — lo que NO viaja al contexto de build ni a la imagen
+# ===========================================================================
+
+# Dependencias y tooling local (vendor se genera en la etapa composer)
+node_modules/
+vendor/
+
+# Entorno local y secretos — en K8s llegan por Secret/ConfigMap
+.env
+.env.example
+
+# Control de versiones y docs
+.git/
+.gitignore
+*.md
+
+# Diseño y pruebas (no son necesarios en runtime)
+design/
+pruebas/
+cambios/
+
+# Infraestructura (el chart no va dentro de la imagen)
+helm/
+scripts/
+
+# Dump de datos: se importa vía ConfigMap, no desde la imagen
+mysql/dump-inicial.sql
+
+# Estado del script de despliegue
+.deploy-tag
+
+# SO/cache del editor
+.DS_Store
+Thumbs.db

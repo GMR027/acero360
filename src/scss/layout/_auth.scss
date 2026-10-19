@@ -1,0 +1,81 @@
+/* ==========================================================================
+   _auth.scss — Pantallas de acceso (login y registro).
+   Tarjeta centrada sobre el fondo general, misma altura de control que
+   el resto de la aplicación.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: $espacio-lg $espacio-md;
+  background-color: $color-fondo;
+
+  &__tarjeta {
+    width: 100%;
+    max-width: 26.25rem; // 420px
+    padding: $espacio-xl;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-xl;
+    box-shadow: $sombra-2;
+
+    @include hasta-movil {
+      padding: $espacio-lg;
+    }
+  }
+
+  &__marca {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $espacio-sm;
+    margin-bottom: $espacio-lg;
+    text-align: center;
+  }
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    background-color: $color-primario;
+    border-radius: $radio-lg;
+    color: $color-texto-invertido;
+    font-family: $fuente-titulos;
+    font-size: $fuente-xl;
+    font-weight: 700;
+  }
+
+  &__titulo {
+    font-family: $fuente-titulos;
+    font-size: $fuente-2xl;
+    font-weight: 700;
+    color: $color-texto;
+    letter-spacing: -0.015em;
+  }
+
+  &__subtitulo {
+    font-size: $fuente-sm;
+    color: $color-texto-secundario;
+  }
+
+  &__formulario {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-md;
+  }
+
+  &__enlace {
+    margin-top: $espacio-lg;
+    font-size: $fuente-sm;
+    text-align: center;
+    color: $color-texto-secundario;
+  }
+}

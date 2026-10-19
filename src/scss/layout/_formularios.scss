@@ -1,0 +1,273 @@
+/* ==========================================================================
+   _formularios.scss — Campos, etiquetas, validación y alertas de campo.
+   Altura fija de 36px, borde hairline, foco índigo/azul con halo.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-xs;
+  min-width: 0;
+
+  &__etiqueta {
+    font-size: $fuente-sm;
+    font-weight: 500;
+    color: $color-texto;
+
+    &--obligatorio {
+      &::after {
+        content: ' *';
+        color: $color-error;
+      }
+    }
+  }
+
+  &__ayuda {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+
+  /* Mensaje de error visual debajo del campo (nunca alert()). */
+  &__error {
+    font-size: $fuente-xs;
+    color: $color-error;
+  }
+
+  &--con-error {
+    .control {
+      border-color: $color-error;
+
+      &:focus {
+        outline-color: $color-error;
+        box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.18);
+      }
+    }
+  }
+
+  /* Campo que se muestra sólo bajo cierta condición (p. ej. "Otro" en la
+     ubicación de una venta). La clase manda sobre el display:flex propio. */
+  &--oculto {
+    display: none;
+  }
+}
+
+/* --- Controles genéricos -------------------------------------------------- */
+.control {
+  width: 100%;
+  height: $alto-control;
+  padding: 0 $espacio-sm;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde-fuerte;
+  border-radius: $radio;
+  color: $color-texto;
+  font-size: $fuente-sm;
+  transition: border-color $transicion-rapida, box-shadow $transicion-rapida;
+
+  &::placeholder {
+    color: $color-texto-secundario;
+    opacity: 1;
+  }
+
+  &:focus {
+    border-color: $color-primario;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.2);
+  }
+
+  &:disabled,
+  &[readonly] {
+    background-color: $color-superficie-baja;
+    color: $color-texto;
+  }
+
+  &[readonly] {
+    cursor: default;
+  }
+}
+
+textarea.control {
+  height: auto;
+  min-height: 6rem;
+  padding: $espacio-sm;
+  line-height: $linea-base;
+  resize: vertical;
+}
+
+select.control {
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364646a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+}
+
+/* Montos: alineación numérica tabular. */
+.control--moneda {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Control más estrecho para los filtros de la barra de búsqueda. */
+.control--compacto {
+  width: auto;
+  min-width: 9rem;
+  max-width: 12rem;
+}
+
+/* --- Rejilla de campos ---------------------------------------------------- */
+/* Campo que ocupa el ancho completo dentro de una rejilla de formulario. */
+.campo--completo {
+  grid-column: 1 / -1;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-lg;
+
+  &__rejilla {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $espacio-md;
+
+    @include desde-tablet {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Campo que ocupa las dos columnas. */
+    &--completo {
+      grid-column: 1 / -1;
+    }
+
+    /* La leyenda de cada bloque siempre ocupa la fila completa. */
+    > legend {
+      grid-column: 1 / -1;
+      padding: 0;
+    }
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $espacio-sm;
+    justify-content: flex-end;
+    padding-top: $espacio-md;
+    border-top: 1px solid $color-borde;
+  }
+}
+
+/* El cotizador va dentro de una tarjeta SIN relleno: los botones de acción
+   necesitan su propio respiro lateral para no quedar pegados al borde
+   (en móvil el relleno lo aporta la propia tarjeta). */
+.tarjeta--sin-relleno .formulario__acciones {
+  padding-left: $espacio-lg;
+  padding-right: $espacio-lg;
+
+  @include hasta-movil {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* --- Casilla de verificación y interruptor ------------------------------- */
+.comprobacion {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: $espacio-sm;
+  font-size: $fuente-sm;
+  cursor: pointer;
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0.2rem 0 0;
+    accent-color: $color-primario;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+}
+
+/* --- Carga de imagen (input file) ---------------------------------------- */
+.carga-imagen {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-sm;
+
+  &__zona {
+    display: flex;
+    align-items: center;
+    gap: $espacio-md;
+    padding: $espacio-md;
+    background-color: $color-superficie-baja;
+    border: 1px dashed $color-borde-fuerte;
+    border-radius: $radio-lg;
+  }
+
+  &__preview {
+    width: 5rem;
+    height: 5rem;
+    flex-shrink: 0;
+    object-fit: cover;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-lg;
+  }
+
+  /* Logo del negocio: vista previa amplia para revisar el archivo completo.
+     Se crece hasta 30rem de ancho (o el ancho disponible en pantallas
+     estrechas) y se conserva siempre la proporción original sin recortar. */
+  &__preview--amplia {
+    width: auto;
+    height: auto;
+    flex-shrink: 1;
+    max-width: 30rem;
+    max-height: 30rem;
+    object-fit: contain;
+  }
+
+  &__placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    flex-shrink: 0;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-lg;
+    color: $color-texto-secundario;
+    font-size: 1.75rem;
+  }
+
+  &__input {
+    font-size: $fuente-sm;
+  }
+
+  /* Foto de perfil: la previsualización se recorta en círculo. */
+  &--retrato {
+    .carga-imagen__preview {
+      border-radius: 50%;
+    }
+  }
+}
+
+/* --- Barra de progreso / cargando ---------------------------------------- */
+.cargando {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: $color-texto-invertido;
+  border-radius: $radio-full;
+  animation: girar 700ms linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,80 @@
+/* ==========================================================================
+   _mixins.scss — Bloques reutilizables de Sass.
+   ========================================================================== */
+
+@use 'variables' as *;
+
+/* Punto de quiebre de escritorio grande (>= 1200px). */
+@mixin desde-desktop {
+  @media (min-width: $bp-desktop) {
+    @content;
+  }
+}
+
+/* Punto de quiebre de tablet (>= 768px y < 1200px). */
+@mixin desde-tablet {
+  @media (min-width: $bp-tablet) {
+    @content;
+  }
+}
+
+/* Hasta tablet (< 1200px): el sidebar pasa a modo iconos / off-canvas. */
+@mixin hasta-tablet {
+  @media (max-width: ($bp-desktop - 1px)) {
+    @content;
+  }
+}
+
+/* Sólo móvil (< 768px). */
+@mixin hasta-movil {
+  @media (max-width: ($bp-tablet - 1px)) {
+    @content;
+  }
+}
+
+/* Pantalla muy ancha (> 1400px). */
+@mixin desde-desktopXL {
+  @media (min-width: $bp-desktopXL) {
+    @content;
+  }
+}
+
+/* Anillo de foco visible y accesible para controles interactivos. */
+@mixin anillo-foco {
+  outline: 1px solid $color-primario;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+}
+
+/* Texto en una sola línea con puntos suspensivos. */
+@mixin texto-una-linea {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Texto limitado a varias líneas con puntos suspensivos. */
+@mixin texto-varias-lineas($lineas: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lineas;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Etiqueta de sección en mayúsculas y con tracking (usada en las maquetas). */
+@mixin etiqueta-superior {
+  font-family: $fuente-cuerpo;
+  font-size: $fuente-xs;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $color-texto-secundario;
+}
+
+/* Superficie de tarjeta: fondo blanco, borde hairline y sombra nivel 1. */
+@mixin superficie-card {
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  box-shadow: $sombra-1;
+}

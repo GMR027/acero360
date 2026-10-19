@@ -1,0 +1,26 @@
+{
+    "name": "edgar/cotizaciones",
+    "description": "App web de cotizacion de productos para dos negocios",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Edgar",
+            "email": "admin@ejemplo.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "intervention/image": "^3.11",
+        "dompdf/dompdf": "^3.1",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "./clases"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

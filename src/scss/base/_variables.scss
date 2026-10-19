@@ -1,0 +1,128 @@
+/* ==========================================================================
+   _variables.scss — Sistema de diseño de la app de cotizaciones.
+   Paleta tomada del design system del proyecto (carpeta /design) tal como se
+   renderiza en las maquetas: azul acero como color primario.
+   Todas las medidas se expresan en rem (1rem = 16px).
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   COLOR — PALETA PRIMARIA (azul acero)
+
+   Regla de contraste (WCAG 2.1, nivel AA) que gobierna esta paleta:
+     · texto de 14–18 px sobre cualquier fondo  ->  mínimo 4.5:1
+     · texto grande (>= 24 px o >= 18.75 px en negrita) -> mínimo 3:1
+     · iconos y bordes (no son texto) -> mínimo 3:1
+
+   Por eso existen DOS azules además del de fondo: el mismo tono no sirve
+   igual como relleno (donde el texto es blanco) que como texto (donde el
+   fondo es blanco o azul muy claro). Antes de este ajuste el azul #5a92c3
+   daba sólo 3.32:1 con texto blanco: los botones "Guardar" y el ítem activo
+   del menú no cumplían.
+   -------------------------------------------------------------------------- */
+$color-primario:         #4679a6;  // relleno: botones, menú activo, chips (blanco encima: 4.6:1)
+$color-primario-oscuro:  #38648c;  // hover/active sobre el relleno (blanco encima: 6.2:1)
+$color-primario-texto:   #3d6d99;  // el azul como TEXTO sobre fondo claro (5.5:1)
+$color-primario-claro:   #eaf1f8;  // fondos suaves, fila activa
+$color-primario-borde:   #c7dcef;
+
+/* COLOR — SUPERFICIES Y TEXTO */
+$color-fondo:            #ededed;  // fondo general de la aplicación
+$color-superficie:       #ffffff;  // tarjetas, paneles, modales
+$color-superficie-baja:  #f7f7f8;  // cabeceras de tabla, cajas internas
+$color-texto:            #4d4c53;  // texto principal (8.5:1 sobre blanco)
+$color-texto-secundario: #64646a;  // etiquetas, ayudas, cabeceras (5.9:1; antes #8c8c90 = 3.4:1)
+$color-texto-invertido:  #ffffff;
+
+/* COLOR — BORDES */
+$color-borde:            #e4e6ea;
+$color-borde-fuerte:     #c9cdd4;
+
+/* COLOR — SEMÁNTICOS */
+$color-exito:            #16a34a;
+$color-exito-claro:      #dcfce7;
+$color-exito-texto:      #166534;
+
+$color-advertencia:      #d97706;
+$color-advertencia-claro:#fef3c7;
+$color-advertencia-texto:#92400e;
+
+$color-error:            #e11d48;
+$color-error-claro:      #fff1f2;
+$color-error-texto:      #9f1239;
+$color-error-borde:      #fecdd3;
+
+/* COLOR — ACENTO VIP / ESPECIAL (rust del diseño) */
+$color-rust:             #b46424;  // acento y bordes
+$color-rust-texto:       #9a5220;  // el rust como texto sobre fondo claro (5.1:1)
+$color-rust-claro:       #faede3;
+$color-rust-borde:       #f2cfb3;
+
+/* --------------------------------------------------------------------------
+   TIPOGRAFÍA
+   -------------------------------------------------------------------------- */
+$fuente-titulos: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+$fuente-cuerpo:  'Inter', 'Segoe UI', system-ui, sans-serif;
+
+$fuente-base:    1rem;      // 16px
+$fuente-sm:      0.875rem;  // 14px
+$fuente-xs:      0.75rem;   // 12px
+$fuente-lg:      1.125rem;  // 18px
+$fuente-xl:      1.25rem;   // 20px
+$fuente-2xl:     1.5rem;    // 24px
+$fuente-3xl:     1.75rem;   // 28px
+$fuente-4xl:     2.25rem;   // 36px
+
+$linea-base:     1.5;
+$linea-titulos:  1.2;
+
+/* --------------------------------------------------------------------------
+   ESPACIADO (escala consistente en rem)
+   -------------------------------------------------------------------------- */
+$espacio-xs:   0.25rem;
+$espacio-sm:   0.5rem;
+$espacio-md:   1rem;
+$espacio-lg:   1.5rem;
+$espacio-xl:   2rem;
+$espacio-2xl:  3rem;
+
+/* --------------------------------------------------------------------------
+   DIMENSIONES DE COMPONENTES
+   -------------------------------------------------------------------------- */
+$ancho-sidebar:       16.25rem;  // 260px
+$ancho-sidebar-rail:  4rem;      // 64px (tableta, solo iconos)
+$alto-topbar:         4rem;      // 64px
+$alto-control:        2.25rem;   // 36px (inputs y botones, según diseño)
+$alto-control-sm:     2rem;      // 32px (acciones de tabla)
+$ancho-modal:         42.5rem;   // 680px
+$ancho-contenedor:    100rem;    // 1600px
+
+/* --------------------------------------------------------------------------
+   RADIOS
+   -------------------------------------------------------------------------- */
+$radio-sm:    0.125rem;  // 2px
+$radio:       0.25rem;   // 4px   -> botones, inputs, badges
+$radio-md:    0.375rem;  // 6px
+$radio-lg:    0.5rem;    // 8px   -> tarjetas
+$radio-xl:    0.75rem;   // 12px  -> modales
+$radio-full:  9999px;    // pills
+
+/* --------------------------------------------------------------------------
+   SOMBRAS (niveles de elevación del diseño)
+   -------------------------------------------------------------------------- */
+$sombra-1: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+$sombra-2: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+$sombra-3: 0 20px 25px -5px rgba(15, 23, 42, 0.10), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+
+/* --------------------------------------------------------------------------
+   BREAKPOINTS
+   -------------------------------------------------------------------------- */
+$bp-tel:       390px;
+$bp-tablet:    768px;
+$bp-desktop:   1200px;
+$bp-desktopXL: 1400px;
+
+/* --------------------------------------------------------------------------
+   TIEMPOS DE TRANSICIÓN
+   -------------------------------------------------------------------------- */
+$transicion-rapida: 150ms ease;
+$transicion:        250ms ease;

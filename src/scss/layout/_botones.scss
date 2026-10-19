@@ -1,0 +1,137 @@
+/* ==========================================================================
+   _botones.scss — Sistema de botones unificado.
+   Variantes: primario, secundario, peligro, éxito, texto, fantasma.
+   Todas comparten la misma altura, radio y estados de foco.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $espacio-sm;
+  height: $alto-control;
+  padding: 0 $espacio-md;
+  border: 1px solid transparent;
+  border-radius: $radio;
+  background-color: transparent;
+  color: $color-texto;
+  font-family: $fuente-cuerpo;
+  font-size: $fuente-sm;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color $transicion-rapida, border-color $transicion-rapida,
+              color $transicion-rapida, box-shadow $transicion-rapida;
+
+  &:hover {
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* --- Primario (azul acero) --- */
+  &--primario {
+    background-color: $color-primario;
+    border-color: $color-primario;
+    color: $color-texto-invertido;
+    box-shadow: $sombra-1;
+
+    &:hover:not(:disabled) {
+      background-color: $color-primario-oscuro;
+      border-color: $color-primario-oscuro;
+      color: $color-texto-invertido;
+    }
+  }
+
+  /* --- Secundario: superficie blanca con borde --- */
+  &--secundario {
+    background-color: $color-superficie;
+    border-color: $color-borde-fuerte;
+    color: $color-texto;
+
+    &:hover:not(:disabled) {
+      background-color: $color-superficie-baja;
+      color: $color-texto;
+    }
+  }
+
+  /* --- Peligro: eliminar, cancelar --- */
+  &--peligro {
+    background-color: $color-superficie;
+    border-color: $color-error-borde;
+    color: $color-error;
+
+    &:hover:not(:disabled) {
+      background-color: $color-error-claro;
+      color: $color-error;
+    }
+  }
+
+  /* --- Éxito: marcar como pagado, confirmar una acción positiva --- */
+  &--exito {
+    background-color: $color-exito;
+    border-color: $color-exito;
+    color: $color-texto-invertido;
+    box-shadow: $sombra-1;
+
+    &:hover:not(:disabled) {
+      background-color: $color-exito-texto;
+      border-color: $color-exito-texto;
+      color: $color-texto-invertido;
+    }
+  }
+
+  /* --- Texto: acción discreta dentro de tablas o tarjetas --- */
+  &--texto {
+    height: auto;
+    padding: $espacio-xs $espacio-sm;
+    background-color: transparent;
+    border-color: transparent;
+    color: $color-primario-texto;
+
+    &:hover:not(:disabled) {
+      background-color: $color-primario-claro;
+      color: $color-primario-texto;
+    }
+  }
+
+  /* --- Tamaño compacto para acciones dentro de filas de tabla --- */
+  &--sm {
+    height: $alto-control-sm;
+    padding: 0 $espacio-sm;
+    font-size: $fuente-xs;
+  }
+
+  /* --- Icono circular (usado en los listados) --- */
+  &--icono {
+    width: $alto-control-sm;
+    height: $alto-control-sm;
+    padding: 0;
+    border-radius: $radio-md;
+  }
+
+  /* --- Ancho completo (formularios en móvil) --- */
+  &--bloque {
+    width: 100%;
+  }
+}
+
+/* Grupo de botones alineados a la derecha (pies de formulario/modal). */
+.btn-grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $espacio-sm;
+  justify-content: flex-end;
+}

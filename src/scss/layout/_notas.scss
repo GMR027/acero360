@@ -1,0 +1,263 @@
+/* ==========================================================================
+   _notas.scss — Tablero de "Notas Personales" (bitácora compartida).
+   Reproduce design/notas_personales: resumen con cifras, chips de filtro,
+   buscador y tarjetas de nota con categoría, autor, contenido, referencia
+   y acciones (editar / fijar / completar / eliminar).
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Cabecera del módulo (título + sello + botón de nueva) --------------- */
+.notas-sello {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: $espacio-sm;
+  padding: 0.25rem 0.625rem;
+  background-color: $color-primario-claro;
+  border: 1px solid $color-primario-borde;
+  border-radius: $radio-full;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: $color-primario-texto;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* --- Chips de filtro ----------------------------------------------------- */
+.chip-grupo {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: $espacio-sm;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: $espacio-xs;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $espacio-xs;
+  flex-shrink: 0;
+  height: 2rem;
+  padding: 0 $espacio-md;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde-fuerte;
+  border-radius: $radio-full;
+  color: $color-texto-secundario;
+  font-family: $fuente-cuerpo;
+  font-size: $fuente-sm;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color $transicion-rapida, color $transicion-rapida,
+              border-color $transicion-rapida;
+
+  &:hover {
+    text-decoration: none;
+    background-color: $color-superficie-baja;
+    color: $color-texto;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  &__cuenta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.125rem;
+    padding: 0 0.3125rem;
+    background-color: rgba(0, 0, 0, 0.07);
+    border-radius: $radio-full;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &--activo {
+    background-color: $color-primario;
+    border-color: $color-primario;
+    color: $color-texto-invertido;
+
+    .chip__cuenta {
+      // Contador dentro del chip activo: píldora blanca con el azul de texto.
+      // Con fondo translúcido encima del azul el blanco no llegaba a 4.5:1.
+      background-color: $color-texto-invertido;
+      color: $color-primario-texto;
+    }
+
+    &:hover {
+      background-color: $color-primario-oscuro;
+      border-color: $color-primario-oscuro;
+      color: $color-texto-invertido;
+    }
+  }
+}
+
+/* --- Lista de notas ------------------------------------------------------ */
+.notas-filtros {
+  padding: $espacio-lg $espacio-lg 0;
+
+  @include hasta-movil {
+    padding: $espacio-md $espacio-md 0;
+  }
+}
+
+.notas-cuerpo {
+  padding: $espacio-lg;
+
+  @include hasta-movil {
+    padding: $espacio-md;
+  }
+}
+
+.notas-lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $espacio-md;
+
+  @include desde-desktop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.nota-tarjeta {
+  @include superficie-card;
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-sm;
+  padding: $espacio-md;
+
+  /* Fijadas: franja azul a la izquierda para distinguirlas de un vistazo. */
+  &--fijada {
+    border-left: 0.25rem solid $color-primario;
+  }
+
+  /* Completadas: atenuadas y con el título tachado. */
+  &--hecha {
+    background-color: $color-superficie-baja;
+
+    .nota-tarjeta__titulo {
+      text-decoration: line-through;
+      color: $color-texto-secundario;
+    }
+  }
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-xs;
+    min-width: 0;
+  }
+
+  &__fecha {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    white-space: nowrap;
+  }
+
+  /* Quién redactó la nota (la bitácora es compartida entre administradores). */
+  &__autor {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    white-space: nowrap;
+
+    .material-symbols-outlined {
+      color: $color-primario-texto;
+    }
+  }
+
+  &__vencimiento {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    background-color: $color-advertencia-claro;
+    border: 1px solid #fde68a;
+    border-radius: $radio-full;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: $color-advertencia-texto;
+    white-space: nowrap;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-base;
+    font-weight: 700;
+    line-height: 1.4;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__cuerpo {
+    margin: 0;
+    font-size: $fuente-sm;
+    line-height: 1.6;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+
+  /* Banda de contexto: cliente, teléfono, catálogo o destino. */
+  &__referencia {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    min-width: 0;
+    padding: $espacio-sm $espacio-md;
+    background-color: $color-primario-claro;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio;
+    font-size: $fuente-xs;
+    color: $color-texto;
+
+    .material-symbols-outlined {
+      flex-shrink: 0;
+      font-size: 1rem;
+      color: $color-primario-texto;
+    }
+
+    strong {
+      color: $color-primario-texto;
+      font-weight: 700;
+    }
+
+    span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-sm;
+    padding-top: $espacio-sm;
+    border-top: 1px solid $color-borde;
+
+    /* Los formularios de fijar / completar / eliminar son hermanos de "Editar". */
+    form {
+      display: flex;
+      margin: 0;
+    }
+  }
+}

@@ -1,0 +1,3239 @@
+@charset "UTF-8";
+/* ==========================================================================
+   app.scss — Punto de entrada de los estilos de la aplicación.
+   Compilado por Gulp + Dart Sass hacia build/css/app.css.
+
+   Orden:
+     1. base    -> variables, mixins, reset, tipografía
+     2. layout  -> componentes visuales compartidos
+   ========================================================================== */
+/* 1. Capa base */
+/* ==========================================================================
+   _index.scss — Punto de entrada de la capa base.
+   ========================================================================== */
+/* ==========================================================================
+   _variables.scss — Sistema de diseño de la app de cotizaciones.
+   Paleta tomada del design system del proyecto (carpeta /design) tal como se
+   renderiza en las maquetas: azul acero como color primario.
+   Todas las medidas se expresan en rem (1rem = 16px).
+   ========================================================================== */
+/* --------------------------------------------------------------------------
+   COLOR — PALETA PRIMARIA (azul acero)
+
+   Regla de contraste (WCAG 2.1, nivel AA) que gobierna esta paleta:
+     · texto de 14–18 px sobre cualquier fondo  ->  mínimo 4.5:1
+     · texto grande (>= 24 px o >= 18.75 px en negrita) -> mínimo 3:1
+     · iconos y bordes (no son texto) -> mínimo 3:1
+
+   Por eso existen DOS azules además del de fondo: el mismo tono no sirve
+   igual como relleno (donde el texto es blanco) que como texto (donde el
+   fondo es blanco o azul muy claro). Antes de este ajuste el azul #5a92c3
+   daba sólo 3.32:1 con texto blanco: los botones "Guardar" y el ítem activo
+   del menú no cumplían.
+   -------------------------------------------------------------------------- */
+/* COLOR — SUPERFICIES Y TEXTO */
+/* COLOR — BORDES */
+/* COLOR — SEMÁNTICOS */
+/* COLOR — ACENTO VIP / ESPECIAL (rust del diseño) */
+/* --------------------------------------------------------------------------
+   TIPOGRAFÍA
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   ESPACIADO (escala consistente en rem)
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   DIMENSIONES DE COMPONENTES
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   RADIOS
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   SOMBRAS (niveles de elevación del diseño)
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   BREAKPOINTS
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   TIEMPOS DE TRANSICIÓN
+   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   _mixins.scss — Bloques reutilizables de Sass.
+   ========================================================================== */
+/* Punto de quiebre de escritorio grande (>= 1200px). */
+/* Punto de quiebre de tablet (>= 768px y < 1200px). */
+/* Hasta tablet (< 1200px): el sidebar pasa a modo iconos / off-canvas. */
+/* Sólo móvil (< 768px). */
+/* Pantalla muy ancha (> 1400px). */
+/* Anillo de foco visible y accesible para controles interactivos. */
+/* Texto en una sola línea con puntos suspensivos. */
+/* Texto limitado a varias líneas con puntos suspensivos. */
+/* Etiqueta de sección en mayúsculas y con tracking (usada en las maquetas). */
+/* Superficie de tarjeta: fondo blanco, borde hairline y sombra nivel 1. */
+/* ==========================================================================
+   _normalize.scss — Reinicio suave y base de caja.
+   No elimina estilos de lista ni de tablas para no pelear con la semántica.
+   ========================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Tamaño base 16px: todas las medidas de la app están en rem. */
+  font-size: 1rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #ededed;
+  color: #4d4c53;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.2;
+  color: #4d4c53;
+}
+
+p, ul, ol, figure, blockquote {
+  margin: 0;
+}
+
+ul, ol {
+  padding: 0;
+}
+
+img, svg, video {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: #3d6d99;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Fieldsets y leyendas.
+   Un <fieldset> por defecto tiene min-width: min-content, así que IMPONE el
+   ancho de su contenido: basta con que lleve una tabla ancha (el cotizador
+   usa min-width: 56rem) para que la página desborde la pantalla en móvil.
+   Se iguala todo a cero aquí y cada componente decide su propio relleno. */
+fieldset,
+legend {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+/* Respeto por quien prefiere menos movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* ==========================================================================
+   _tipografia.scss — Escala tipográfica y utilidades de texto.
+   Plus Jakarta Sans para títulos, Inter para contenido operativo.
+   ========================================================================== */
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+/* --- Escala de títulos ---------------------------------------------------- */
+.titulo-1 {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.titulo-2 {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.titulo-3 {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.titulo-4 {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.titulo-5 {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* --- Textos de contenido -------------------------------------------------- */
+.texto-base {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.texto-sm {
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.texto-xs {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.texto-secundario {
+  color: #64646a;
+}
+
+.texto-error {
+  color: #e11d48;
+}
+
+.texto-exito {
+  color: #16a34a;
+}
+
+/* Etiqueta pequeña en mayúsculas, igual que en las maquetas. */
+.texto-etiqueta {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64646a;
+}
+
+/* --- Cifras: alineación de columnas numéricas ----------------------------- */
+/* Los montos de las cotizaciones deben alinearse columna por columna. */
+.cifra {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* --- Utilidades de layout textual ---------------------------------------- */
+.texto-centro {
+  text-align: center;
+}
+
+.texto-derecha {
+  text-align: right;
+}
+
+.texto-una-linea {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.texto-varias {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.texto-enorme {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 2. Componentes compartidos */
+/* ==========================================================================
+   _layout.scss — Estructura general de la aplicación.
+   Shell: sidebar fijo + panel con topbar, contenido y pie.
+   Flexbox para el armazón; Grid para los bloques internos de las pantallas.
+   ========================================================================== */
+/* --- Shell general -------------------------------------------------------- */
+.app {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Panel derecho: contiene topbar, contenido y pie. */
+.app__panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* --- Barra superior ------------------------------------------------------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 4rem;
+  padding: 0.5rem 1.5rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e4e6ea;
+}
+.topbar__titulo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.topbar__acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* --- Contenido principal -------------------------------------------------- */
+.principal {
+  flex: 1;
+  width: 100%;
+  max-width: 100rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+  /* Red de seguridad: si algún bloque desborda la línea, la zona de
+     contenido se desliza horizontalmente en lugar de cortarse. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 767px) {
+  .principal {
+    /* El espacio para la barra inferior lo aporta el pie (.pie): aquí sólo
+       se deja el respiro normal para que el contenido no pegue al borde. */
+    padding: 1rem;
+  }
+}
+
+/* Cabecera de módulo: título a la izquierda, acciones a la derecha. */
+.encabezado-pagina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.encabezado-pagina__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.encabezado-pagina__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* --- Pie de página -------------------------------------------------------- */
+.pie {
+  padding: 1rem 1.5rem;
+  background-color: #ffffff;
+  border-top: 1px solid #e4e6ea;
+  color: #64646a;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* --- Rejillas reutilizables ----------------------------------------------- */
+/* Dos columnas iguales (tarjetas emisor / receptor, resumen / condiciones). */
+.rejilla-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .rejilla-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Contenido principal + barra lateral de resumen. */
+.rejilla-resumen {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (min-width: 1200px) {
+  .rejilla-resumen {
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+  }
+}
+
+/* Cuatro estadísticas del panel (2x2 en tablet, 4 en escritorio). */
+.rejilla-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .rejilla-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Apila elementos en fila con espacio entre ellos. */
+.fila {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.fila--envuelto {
+  flex-wrap: wrap;
+}
+
+/* Apila elementos en columna. */
+.columna {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* --- Fondo desenfocado para modales y off-canvas -------------------------- */
+.fondo-desenfocado {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.fondo-desenfocado[hidden] {
+  display: none;
+}
+
+/* ==========================================================================
+   _sidebar.scss — Navegación lateral.
+   Escritorio: 260px fijo.
+   Tablet:     64px, sólo iconos.
+   Móvil:      fuera de pantalla (off-canvas) con fondo desenfocado detrás.
+   ========================================================================== */
+.sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: 16.25rem;
+  min-width: 16.25rem;
+  height: 100vh;
+  overflow-y: auto;
+  background-color: #ffffff;
+  border-right: 1px solid #e4e6ea;
+  transition: transform 250ms ease, width 250ms ease, min-width 250ms ease;
+  /* --- Marca / logo --- */
+}
+.sidebar__marca {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 4rem;
+  padding: 0.5rem 1.5rem;
+  border-bottom: 1px solid #e4e6ea;
+  text-decoration: none;
+  color: #4d4c53;
+}
+.sidebar__marca:hover {
+  text-decoration: none;
+}
+.sidebar__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  background-color: #4679a6;
+  border-radius: 0.25rem;
+  color: #ffffff;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+.sidebar__nombre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.sidebar__nombre strong {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sidebar__nombre span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64646a;
+}
+.sidebar {
+  /* --- Bloque de enlaces --- */
+}
+.sidebar__bloque {
+  padding: 1rem 0.5rem;
+}
+.sidebar__titulo-bloque {
+  padding: 0.25rem 0.5rem 0.5rem;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64646a;
+}
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.sidebar {
+  /* Línea divisoria: separa el bloque de operación de las secciones de
+     almacén (ventas, inventario y proveedores). Sólo es una regla: no
+     añade un rótulo nuevo. */
+}
+.sidebar__divisor {
+  width: 100%;
+  height: 0;
+  margin: 0.5rem 0;
+  border: 0;
+  border-top: 1px solid #e4e6ea;
+  flex-shrink: 0;
+}
+.sidebar {
+  /* --- Cada enlace --- */
+}
+.sidebar__enlace {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  color: #4d4c53;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.sidebar__enlace:hover {
+  background-color: #f7f7f8;
+  text-decoration: none;
+}
+.sidebar {
+  /* Estado activo: igual que la maqueta (fondo azul acero y texto blanco). */
+}
+.sidebar__enlace--activo {
+  background-color: #4679a6 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+.sidebar__enlace--activo .sidebar__icono {
+  color: #ffffff;
+}
+.sidebar__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  flex-shrink: 0;
+  color: #64646a;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.sidebar__texto {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sidebar {
+  /* --- Pie del sidebar (sesión del usuario) --- */
+}
+.sidebar__pie {
+  margin-top: auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e4e6ea;
+  font-size: 0.75rem;
+  color: #64646a;
+}
+
+/* ---------------------------------------------------------------------------
+   TABLET (< 1200px): se contrae a un riel de sólo iconos.
+   -------------------------------------------------------------------------- */
+@media (max-width: 1199px) {
+  .sidebar {
+    width: 4rem;
+    min-width: 4rem;
+  }
+  .sidebar__marca {
+    justify-content: center;
+    padding: 0.5rem;
+  }
+  .sidebar__nombre, .sidebar__titulo-bloque, .sidebar__texto, .sidebar__pie {
+    display: none;
+  }
+  .sidebar__enlace {
+    justify-content: center;
+    padding: 0.5rem;
+  }
+}
+/* ---------------------------------------------------------------------------
+   MÓVIL (< 768px): fuera de pantalla, se despliega con el menú inferior.
+   Aquí el cajón vuelve a ser ancho y DEBE mostrar el nombre de cada sección
+   junto a su icono (la regla de tablet oculta el texto: hay que revertirla).
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 70;
+    width: 16.25rem;
+    min-width: 16.25rem;
+    transform: translateX(-100%);
+    box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  }
+  .sidebar--abierto {
+    transform: translateX(0);
+  }
+  .sidebar {
+    /* Se revierte el riel de tablet: icono + nombre de la sección. */
+  }
+  .sidebar__marca {
+    justify-content: flex-start;
+    padding: 0.5rem 1.5rem;
+  }
+  .sidebar__nombre {
+    display: flex;
+  }
+  .sidebar__titulo-bloque, .sidebar__pie {
+    display: block;
+  }
+  .sidebar__texto {
+    display: block;
+    font-weight: 500;
+  }
+  .sidebar__enlace {
+    justify-content: flex-start;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+  }
+  .sidebar {
+    /* Cada sección se muestra UNA sola vez: las que ya tienen su acceso
+       propio en la barra inferior no se repiten dentro del cajón. */
+  }
+  .sidebar__enlace--solo-escritorio {
+    display: none;
+  }
+  .sidebar__icono {
+    font-size: 1.375rem;
+  }
+}
+/* ==========================================================================
+   _botones.scss — Sistema de botones unificado.
+   Variantes: primario, secundario, peligro, éxito, texto, fantasma.
+   Todas comparten la misma altura, radio y estados de foco.
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  background-color: transparent;
+  color: #4d4c53;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.btn:hover {
+  text-decoration: none;
+}
+.btn:focus-visible {
+  outline: 1px solid #4679a6;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+}
+.btn:disabled, .btn[aria-disabled=true] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn {
+  /* --- Primario (azul acero) --- */
+}
+.btn--primario {
+  background-color: #4679a6;
+  border-color: #4679a6;
+  color: #ffffff;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+}
+.btn--primario:hover:not(:disabled) {
+  background-color: #38648c;
+  border-color: #38648c;
+  color: #ffffff;
+}
+.btn {
+  /* --- Secundario: superficie blanca con borde --- */
+}
+.btn--secundario {
+  background-color: #ffffff;
+  border-color: #c9cdd4;
+  color: #4d4c53;
+}
+.btn--secundario:hover:not(:disabled) {
+  background-color: #f7f7f8;
+  color: #4d4c53;
+}
+.btn {
+  /* --- Peligro: eliminar, cancelar --- */
+}
+.btn--peligro {
+  background-color: #ffffff;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+.btn--peligro:hover:not(:disabled) {
+  background-color: #fff1f2;
+  color: #e11d48;
+}
+.btn {
+  /* --- Éxito: marcar como pagado, confirmar una acción positiva --- */
+}
+.btn--exito {
+  background-color: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+}
+.btn--exito:hover:not(:disabled) {
+  background-color: #166534;
+  border-color: #166534;
+  color: #ffffff;
+}
+.btn {
+  /* --- Texto: acción discreta dentro de tablas o tarjetas --- */
+}
+.btn--texto {
+  height: auto;
+  padding: 0.25rem 0.5rem;
+  background-color: transparent;
+  border-color: transparent;
+  color: #3d6d99;
+}
+.btn--texto:hover:not(:disabled) {
+  background-color: #eaf1f8;
+  color: #3d6d99;
+}
+.btn {
+  /* --- Tamaño compacto para acciones dentro de filas de tabla --- */
+}
+.btn--sm {
+  height: 2rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+.btn {
+  /* --- Icono circular (usado en los listados) --- */
+}
+.btn--icono {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 0.375rem;
+}
+.btn {
+  /* --- Ancho completo (formularios en móvil) --- */
+}
+.btn--bloque {
+  width: 100%;
+}
+
+/* Grupo de botones alineados a la derecha (pies de formulario/modal). */
+.btn-grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* ==========================================================================
+   _formularios.scss — Campos, etiquetas, validación y alertas de campo.
+   Altura fija de 36px, borde hairline, foco índigo/azul con halo.
+   ========================================================================== */
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.campo__etiqueta {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4d4c53;
+}
+.campo__etiqueta--obligatorio::after {
+  content: " *";
+  color: #e11d48;
+}
+.campo__ayuda {
+  font-size: 0.75rem;
+  color: #64646a;
+}
+.campo {
+  /* Mensaje de error visual debajo del campo (nunca alert()). */
+}
+.campo__error {
+  font-size: 0.75rem;
+  color: #e11d48;
+}
+.campo--con-error .control {
+  border-color: #e11d48;
+}
+.campo--con-error .control:focus {
+  outline-color: #e11d48;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.18);
+}
+.campo {
+  /* Campo que se muestra sólo bajo cierta condición (p. ej. "Otro" en la
+     ubicación de una venta). La clase manda sobre el display:flex propio. */
+}
+.campo--oculto {
+  display: none;
+}
+
+/* --- Controles genéricos -------------------------------------------------- */
+.control {
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 0.5rem;
+  background-color: #ffffff;
+  border: 1px solid #c9cdd4;
+  border-radius: 0.25rem;
+  color: #4d4c53;
+  font-size: 0.875rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.control::placeholder {
+  color: #64646a;
+  opacity: 1;
+}
+.control:focus {
+  border-color: #4679a6;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.2);
+}
+.control:disabled, .control[readonly] {
+  background-color: #f7f7f8;
+  color: #4d4c53;
+}
+.control[readonly] {
+  cursor: default;
+}
+
+textarea.control {
+  height: auto;
+  min-height: 6rem;
+  padding: 0.5rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+select.control {
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364646a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+}
+
+/* Montos: alineación numérica tabular. */
+.control--moneda {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Control más estrecho para los filtros de la barra de búsqueda. */
+.control--compacto {
+  width: auto;
+  min-width: 9rem;
+  max-width: 12rem;
+}
+
+/* --- Rejilla de campos ---------------------------------------------------- */
+/* Campo que ocupa el ancho completo dentro de una rejilla de formulario. */
+.campo--completo {
+  grid-column: 1/-1;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.formulario__rejilla {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .formulario__rejilla {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.formulario__rejilla {
+  /* Campo que ocupa las dos columnas. */
+}
+.formulario__rejilla--completo {
+  grid-column: 1/-1;
+}
+.formulario__rejilla {
+  /* La leyenda de cada bloque siempre ocupa la fila completa. */
+}
+.formulario__rejilla > legend {
+  grid-column: 1/-1;
+  padding: 0;
+}
+.formulario__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid #e4e6ea;
+}
+
+/* El cotizador va dentro de una tarjeta SIN relleno: los botones de acción
+   necesitan su propio respiro lateral para no quedar pegados al borde
+   (en móvil el relleno lo aporta la propia tarjeta). */
+.tarjeta--sin-relleno .formulario__acciones {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+@media (max-width: 767px) {
+  .tarjeta--sin-relleno .formulario__acciones {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* --- Casilla de verificación y interruptor ------------------------------- */
+.comprobacion {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.comprobacion input[type=checkbox],
+.comprobacion input[type=radio] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0.2rem 0 0;
+  accent-color: #4679a6;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* --- Carga de imagen (input file) ---------------------------------------- */
+.carga-imagen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.carga-imagen__zona {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: #f7f7f8;
+  border: 1px dashed #c9cdd4;
+  border-radius: 0.5rem;
+}
+.carga-imagen__preview {
+  width: 5rem;
+  height: 5rem;
+  flex-shrink: 0;
+  object-fit: cover;
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+}
+.carga-imagen {
+  /* Logo del negocio: vista previa amplia para revisar el archivo completo.
+     Se crece hasta 30rem de ancho (o el ancho disponible en pantallas
+     estrechas) y se conserva siempre la proporción original sin recortar. */
+}
+.carga-imagen__preview--amplia {
+  width: auto;
+  height: auto;
+  flex-shrink: 1;
+  max-width: 30rem;
+  max-height: 30rem;
+  object-fit: contain;
+}
+.carga-imagen__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  flex-shrink: 0;
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+  color: #64646a;
+  font-size: 1.75rem;
+}
+.carga-imagen__input {
+  font-size: 0.875rem;
+}
+.carga-imagen {
+  /* Foto de perfil: la previsualización se recorta en círculo. */
+}
+.carga-imagen--retrato .carga-imagen__preview {
+  border-radius: 50%;
+}
+
+/* --- Barra de progreso / cargando ---------------------------------------- */
+.cargando {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 9999px;
+  animation: girar 700ms linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* ==========================================================================
+   _badges.scss — Etiquetas de estado.
+   Estructura uniforme: fondo suave, texto oscuro, borde del mismo tono y
+   un punto de color de 6px. Se usan para VIP, stock y estados de cotización.
+   ========================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.375rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1;
+  /* Punto de estado de 6px (0.375rem). */
+}
+.badge::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background-color: currentColor;
+}
+.badge {
+  /* Variante sin punto (para etiquetas neutras como "MXN"). */
+}
+.badge--sin-punto::before {
+  display: none;
+}
+.badge {
+  /* --- Aprobado / Vendido / Activo --- */
+}
+.badge--aprobado {
+  background-color: #dcfce7;
+  border-color: #a7f3d0;
+  color: #166534;
+}
+.badge {
+  /* --- Pendiente / Borrador --- */
+}
+.badge--pendiente {
+  background-color: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.badge {
+  /* --- Error / Cancelado --- */
+}
+.badge--error {
+  background-color: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+.badge {
+  /* --- VIP / especial (rust del diseño) --- */
+}
+.badge--vip {
+  background-color: #faede3;
+  border-color: #f2cfb3;
+  color: #9a5220;
+}
+.badge {
+  /* --- Neutro / Inactivo --- */
+}
+.badge--neutro {
+  background-color: #f7f7f8;
+  border-color: #c9cdd4;
+  color: #64646a;
+}
+.badge {
+  /* --- Información / folio --- */
+}
+.badge--info {
+  background-color: #eaf1f8;
+  border-color: #c7dcef;
+  color: #3d6d99;
+}
+
+/* Un badge que además es enlace (los contadores que abren la lista filtrada)
+   gana 2 px de alto: el de 22 px se quedaba por debajo del objetivo táctil
+   mínimo de 24 px que pide WCAG 2.5.8. Los badges que no son interactivos
+   conservan la medida del diseño. */
+a.badge,
+button.badge {
+  height: 1.5rem;
+}
+
+/* ==========================================================================
+   _cards.scss — Tarjetas y paneles de contenido.
+   Superficie blanca, borde hairline y sombra nivel 1 (según el diseño).
+   ========================================================================== */
+.tarjeta {
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+@media (max-width: 767px) {
+  .tarjeta {
+    padding: 1rem;
+  }
+}
+.tarjeta__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.tarjeta__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #4d4c53;
+}
+.tarjeta__descripcion {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #64646a;
+}
+.tarjeta__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.tarjeta__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e4e6ea;
+  font-size: 0.75rem;
+  color: #64646a;
+}
+.tarjeta {
+  /* Sin relleno (la tarjeta que aloja una tabla). Sólo en escritorio: en
+     móvil se le da relleno para que la tabla no pegue a los bordes. */
+}
+.tarjeta--sin-relleno {
+  padding: 0;
+}
+@media (max-width: 767px) {
+  .tarjeta--sin-relleno {
+    padding: 1rem;
+  }
+}
+.tarjeta {
+  /* Variante usada como enlace (accesos rápidos del panel). */
+}
+.tarjeta--enlace {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.tarjeta--enlace:hover {
+  text-decoration: none;
+  border-color: #c7dcef;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
+}
+.tarjeta--enlace .tarjeta__titulo .material-symbols-outlined {
+  color: #3d6d99;
+}
+
+/* --- Estadística del panel principal ------------------------------------- */
+.stat {
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+}
+.stat__etiqueta {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64646a;
+}
+.stat__valor {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #4d4c53;
+  font-variant-numeric: tabular-nums;
+}
+.stat__pie {
+  font-size: 0.75rem;
+  color: #64646a;
+}
+
+/* --- Ganancias por negocio (panel de administración) ---------------------- */
+.ganancia {
+  /* Logo del negocio: se ve completo, sin recortarse ni deformarse. */
+}
+.ganancia__logo {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.25rem;
+}
+.ganancia__etiqueta {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64646a;
+}
+.ganancia {
+  /* Cifra principal: el dinero realmente ganado en el periodo. */
+}
+.ganancia__valor {
+  display: block;
+  margin-top: 0.25rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #4d4c53;
+  font-variant-numeric: tabular-nums;
+}
+.ganancia__nota {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #64646a;
+}
+.ganancia {
+  /* Cifras secundarias: dos columnas, cada una con etiqueta y valor. */
+}
+.ganancia__rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 1rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid #e4e6ea;
+}
+.ganancia__dato {
+  min-width: 0;
+}
+.ganancia__dato dt {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64646a;
+  margin-bottom: 0.25rem;
+}
+.ganancia__dato dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #4d4c53;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Caja informativa interna (términos, avisos) -------------------------- */
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #64646a;
+}
+@media (max-width: 767px) {
+  .nota {
+    /* Ninguna caja queda pegada al borde en móvil. */
+    padding: 1rem;
+  }
+}
+.nota__icono {
+  flex-shrink: 0;
+  color: #3d6d99;
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+.nota--advertencia {
+  background-color: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.nota--advertencia .nota__icono {
+  color: #d97706;
+}
+.nota--error {
+  background-color: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+.nota--error .nota__icono {
+  color: #e11d48;
+}
+.nota--exito {
+  background-color: #dcfce7;
+  border-color: #a7f3d0;
+  color: #166534;
+}
+.nota--exito .nota__icono {
+  color: #16a34a;
+}
+
+/* --- Ficha de datos (lista dt/dd en dos columnas) -------------------------- */
+.ficha {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.ficha__fila {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed #e4e6ea;
+}
+.ficha__fila:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.ficha dt {
+  color: #64646a;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+}
+.ficha dd {
+  margin: 0;
+  color: #4d4c53;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .ficha__fila {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+}
+
+/* --- Estado vacío de un listado ------------------------------------------ */
+.vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #64646a;
+}
+.vacio__icono {
+  font-size: 2.5rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+.vacio__titulo {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #4d4c53;
+}
+
+/* --- Lista simple dentro de una tarjeta ---------------------------------- */
+.lista-simple {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lista-simple__elemento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.25rem;
+  min-width: 0;
+}
+
+/* --- Fotografía de un acta (venta / entrada de proveedor) ---------------- */ /* Se muestra a todo el ancho de la tarjeta y conserva la proporción real
+de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
+.foto-acta {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+}
+.foto-acta--vacia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 12rem;
+  border-style: dashed;
+  color: #64646a;
+  font-size: 0.875rem;
+  text-align: center;
+}
+.foto-acta--vacia .material-symbols-outlined {
+  font-size: 2.5rem;
+  opacity: 0.5;
+}
+
+/* ==========================================================================
+   _tablas.scss — Tablas de datos de listados.
+   Cabecera con fondo gris claro, filas con separadores finos, columnas
+   numéricas alineadas a la derecha con cifras tabulares.
+   En móvil la tabla se desplaza horizontalmente dentro de su contenedor.
+   ========================================================================== */
+.tabla-contenedor {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Sin posicionamiento relativo, la tabla ancha del cotizador (896px) se
+     suma al desbordamiento del documento aunque esté recortada por este
+     contenedor: en móvil el navegador ensancha el viewport de diseño y los
+     elementos fijos (menú inferior, cajón) miden más que la pantalla. */
+  position: relative;
+}
+
+.tabla {
+  width: 100%;
+  min-width: 40rem;
+  font-size: 0.875rem;
+  text-align: left;
+}
+.tabla thead {
+  background-color: #f7f7f8;
+}
+.tabla thead th {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e4e6ea;
+  color: #64646a;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* Los TÍTULOS de todas las columnas van centrados, incluidas las
+     numéricas: la alineación a la derecha (.tabla--numerica) se aplica
+     a los datos, no a sus encabezados. */
+  text-align: center;
+}
+.tabla tbody tr {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e4e6ea;
+  transition: background-color 150ms ease;
+}
+.tabla tbody tr:hover {
+  background-color: #f7f7f8;
+}
+.tabla tbody tr:last-child {
+  border-bottom: none;
+}
+.tabla tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  color: #4d4c53;
+}
+.tabla {
+  /* Columnas numéricas: alineación a la derecha y cifras tabulares. */
+}
+.tabla--numerica {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tabla--centro {
+  text-align: center;
+}
+.tabla {
+  /* Acciones de la fila (editar / eliminar). */
+}
+.tabla__acciones {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+.tabla {
+  /* Miniatura de producto dentro de la tabla. */
+}
+.tabla__miniatura {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  object-fit: cover;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.375rem;
+}
+.tabla {
+  /* Celda con producto: miniatura + textos apilados. */
+}
+.tabla__producto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 14rem;
+}
+.tabla__producto-textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tabla {
+  /* Miniatura cuadrada del producto dentro de la tabla. */
+}
+.tabla__producto-img {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  overflow: hidden;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.25rem;
+  object-fit: cover;
+  font-size: 1.25rem;
+  color: #64646a;
+  /* Celda sin imagen: sólo se muestra el icono. */
+}
+.tabla__producto-img--vacia {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+  line-height: 1;
+}
+
+/* Fila seleccionable (catálogo de productos en el cotizador). */
+.tabla--seleccionable tbody tr {
+  cursor: pointer;
+}
+.tabla--seleccionable tbody tr[aria-selected=true] {
+  background-color: #eaf1f8;
+}
+
+/* Celda de acciones de una fila: Ver / Editar / Eliminar. */
+.tabla__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+  /* El formulario de borrado se comporta como un hermano más de los botones. */
+}
+.tabla__acciones form {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+/* Barra de herramientas sobre la tabla (búsqueda + botón principal). */
+.tabla-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e4e6ea;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 767px) {
+  .tabla-toolbar {
+    /* La tarjeta que lo contiene ya aporta su relleno: aquí sólo separa
+       la barra de lo que viene debajo. */
+    padding: 0 0 1rem;
+  }
+}
+
+/* Agrupador de contadores a la derecha de la barra de filtros.
+   Los badges van dentro de un contenedor propio: con justify-content:
+   space-between cada badge se iría a un extremo distinto y dejarían un
+   hueco enorme entre los dos. */
+.tabla-toolbar__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Buscador integrado con icono de lupa. */
+.buscador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 15rem;
+  /* Contenedor del icono + campo de texto. La lupa queda anclada AQUÍ
+     (no al formulario), de modo que siempre se centra sobre el input
+     aunque los selects o el botón pasen a otra línea al estrecharse. */
+}
+.buscador__campo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 14rem;
+  min-width: 11rem;
+  max-width: 100%;
+}
+.buscador__icono {
+  position: absolute;
+  left: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 1;
+  color: #64646a;
+  font-size: 1.125rem;
+  pointer-events: none;
+}
+.buscador {
+  /* El hueco extra a la izquierda es sólo del input de texto (bajo el icono). */
+}
+.buscador__campo input.control {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding-left: 2.25rem;
+}
+.buscador {
+  /* El resto de controles (selects de filtro, botón) conservan su medida. */
+}
+.buscador select.control {
+  width: auto;
+}
+.buscador {
+  /* En móvil los filtros se apilan en columna y ocupan todo el ancho:
+     así nada queda cortado ni a medias junto al borde de la pantalla.
+     No hace falta tocar las plantillas: un hijo con base 100% obliga al
+     salto de línea, y los dos botones comparten la última fila. */
+}
+@media (max-width: 767px) {
+  .buscador {
+    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+  }
+  .buscador__campo {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+  }
+  .buscador .control,
+  .buscador select.control {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+  .buscador .btn {
+    flex: 1 1 calc(50% - 0.5rem / 2);
+    justify-content: center;
+  }
+}
+
+/* El catálogo del cotizador trae un único botón: ocupa la fila completa. */
+@media (max-width: 767px) {
+  .tabla-toolbar--sin-borde .buscador .btn {
+    flex: 1 1 100%;
+  }
+}
+/* Columnas secundarias de una tabla: se ocultan en móvil para que quepan
+   las esenciales (cliente, RFC y acciones) sin desplazar tanto). */
+@media (max-width: 767px) {
+  .tabla .tabla__col-secundaria {
+    display: none;
+  }
+}
+/* ---------------------------------------------------------------------------
+   Carga manual de existencias (pantalla de Inventario).
+   Campo numérico + botón "Guardar" dentro de la celda de la tabla. Las
+   reglas van al final del archivo para poder sobreescribir .control { width }
+   de _formularios.scss (mismo nivel de especificidad, gana el orden).
+   -------------------------------------------------------------------------- */
+.inventario-cantidad {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-width: 9rem;
+}
+.inventario-cantidad__campo {
+  width: 5.5rem;
+  flex-shrink: 1;
+  padding: 0 0.25rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  /* Sin existencias: el campo se marca para captar la atención. */
+}
+.inventario-cantidad__campo--vacio {
+  border-color: #e11d48;
+  background-color: #fff1f2;
+  color: #9f1239;
+}
+.inventario-cantidad__campo::-webkit-outer-spin-button, .inventario-cantidad__campo::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+/* Celda de estado de pago (Balance general del proveedor): el indicador
+   apilado sobre su botón, centrado en la columna. Va al final del archivo
+   porque reordena el contenido de una celda que ya tiene otras reglas. */
+.tabla__pago {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ==========================================================================
+   _alertas.scss — Alertas visuales (toasts).
+   Reemplazan a alert(), confirm() y prompt(): todo el feedback de la app se
+   muestra aquí, en el DOM, con el mismo estilo en todas las pantallas.
+   Se insertan con document.createElement + appendChild.
+   ========================================================================== */
+.alertas {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(24rem, 100vw - 2rem);
+  pointer-events: none;
+}
+@media (max-width: 767px) {
+  .alertas {
+    right: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+  }
+}
+
+.alerta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-left: 4px solid #4679a6;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  pointer-events: auto;
+  animation: alerta-entra 250ms ease both;
+}
+.alerta__icono {
+  flex-shrink: 0;
+  width: 1.25rem;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  color: #3d6d99;
+}
+.alerta__contenido {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  flex: 1;
+}
+.alerta__titulo {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #4d4c53;
+}
+.alerta__texto {
+  font-size: 0.875rem;
+  color: #64646a;
+  overflow-wrap: anywhere;
+}
+.alerta__cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  color: #64646a;
+  font-size: 1rem;
+  line-height: 1;
+}
+.alerta__cerrar:hover {
+  background-color: #f7f7f8;
+  color: #4d4c53;
+}
+.alerta__cerrar:focus-visible {
+  outline: 1px solid #4679a6;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+}
+.alerta {
+  /* --- Variantes de estado --- */
+}
+.alerta--exito {
+  border-left-color: #16a34a;
+}
+.alerta--exito .alerta__icono {
+  color: #16a34a;
+}
+.alerta--error {
+  border-left-color: #e11d48;
+}
+.alerta--error .alerta__icono {
+  color: #e11d48;
+}
+.alerta--advertencia {
+  border-left-color: #d97706;
+}
+.alerta--advertencia .alerta__icono {
+  color: #d97706;
+}
+.alerta--info {
+  border-left-color: #4679a6;
+}
+.alerta--info .alerta__icono {
+  color: #3d6d99;
+}
+.alerta {
+  /* Animación de salida antes de retirar el nodo del DOM. */
+}
+.alerta--saliendo {
+  animation: alerta-sale 200ms ease both;
+}
+
+@keyframes alerta-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes alerta-sale {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+/* ==========================================================================
+   _modal.scss — Ventana modal ÚNICA de toda la aplicación.
+   Todos los diálogos (crear, editar, confirmar) usan esta misma estructura
+   para que todas las ventanas modales tengan exactamente el mismo diseño.
+   Ancho máximo 680px, radio 12px, cabecera con dos niveles y pie con
+   acciones alineadas a la derecha separadas por un divisor.
+   ========================================================================== */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  /* Estado oculto: fuera del flujo y sin interacción. */
+}
+.modal[hidden] {
+  display: none;
+}
+.modal__panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 42.5rem;
+  max-height: calc(100vh - 2 * 1rem);
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  animation: modal-entra 200ms ease both;
+}
+.modal {
+  /* Tamaño reducido para confirmaciones. */
+}
+.modal--confirmacion .modal__panel {
+  max-width: 26.25rem;
+}
+.modal {
+  /* --- Cabecera: contexto + título de acción --- */
+}
+.modal__cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e4e6ea;
+}
+.modal__contexto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  flex: 1;
+}
+.modal__sobre-titulo {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64646a;
+}
+.modal__titulo {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #4d4c53;
+  letter-spacing: -0.015em;
+}
+.modal__cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  color: #64646a;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.modal__cerrar:hover {
+  background-color: #f7f7f8;
+  color: #4d4c53;
+}
+.modal__cerrar:focus-visible {
+  outline: 1px solid #4679a6;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+}
+.modal {
+  /* --- Cuerpo con desplazamiento propio --- */
+}
+.modal__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+.modal {
+  /* --- Pie de acciones fijo --- */
+}
+.modal__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background-color: #ffffff;
+  border-top: 1px solid #e4e6ea;
+}
+
+@keyframes modal-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+/* En móvil el modal se pega al borde inferior (hoja inferior). */
+@media (max-width: 767px) {
+  .modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal__panel {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+  .modal__cabecera, .modal__cuerpo, .modal__pie {
+    padding: 1rem;
+  }
+}
+/* ==========================================================================
+   _paginacion.scss — Control de páginas de los listados.
+   ========================================================================== */
+.paginacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e4e6ea;
+  font-size: 0.875rem;
+  color: #64646a;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 767px) {
+  .paginacion {
+    justify-content: center;
+    padding: 1rem;
+    text-align: center;
+  }
+}
+.paginacion__rango {
+  font-variant-numeric: tabular-nums;
+}
+.paginacion__botones {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.paginacion__boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.5rem;
+  background-color: #ffffff;
+  border: 1px solid #c9cdd4;
+  border-radius: 0.25rem;
+  color: #4d4c53;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.paginacion__boton:hover:not([aria-disabled=true]) {
+  background-color: #f7f7f8;
+  text-decoration: none;
+}
+.paginacion__boton:focus-visible {
+  outline: 1px solid #4679a6;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+}
+.paginacion__boton {
+  /* Página en curso. */
+}
+.paginacion__boton--activo {
+  background-color: #4679a6;
+  border-color: #4679a6;
+  color: #ffffff;
+  font-weight: 600;
+}
+.paginacion__boton--activo:hover {
+  background-color: #38648c;
+  color: #ffffff;
+}
+.paginacion__boton {
+  /* Anterior / siguiente no disponibles. */
+}
+.paginacion__boton[aria-disabled=true] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   _auth.scss — Pantallas de acceso (login y registro).
+   Tarjeta centrada sobre el fondo general, misma altura de control que
+   el resto de la aplicación.
+   ========================================================================== */
+.auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1.5rem 1rem;
+  background-color: #ededed;
+}
+.auth__tarjeta {
+  width: 100%;
+  max-width: 26.25rem;
+  padding: 2rem;
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+}
+@media (max-width: 767px) {
+  .auth__tarjeta {
+    padding: 1.5rem;
+  }
+}
+.auth__marca {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+.auth__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background-color: #4679a6;
+  border-radius: 0.5rem;
+  color: #ffffff;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.auth__titulo {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #4d4c53;
+  letter-spacing: -0.015em;
+}
+.auth__subtitulo {
+  font-size: 0.875rem;
+  color: #64646a;
+}
+.auth__formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.auth__enlace {
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+  color: #64646a;
+}
+
+/* ==========================================================================
+   _bottomnav.scss — Barra de navegación inferior para móvil.
+   Patrón tipo Facebook: fija abajo, sólo iconos, cinco destinos y la
+   sección activa resaltada. El botón "Más" abre el cajón lateral.
+   Sólo se muestra en pantallas menores a 768px.
+   ========================================================================== */
+.bottomnav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .bottomnav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 65;
+    display: flex;
+    align-items: stretch;
+    /* Altura de la barra + respeto al área segura de iPhone.
+       Compacta: el menú inferior no debe comerse la pantalla. */
+    min-height: 3.25rem;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: #ffffff;
+    border-top: 1px solid #e4e6ea;
+    box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.06);
+    /* La barra NUNCA se desborda: los seis destinos caben en cualquier
+       pantalla (basta con el ancho del icono), así que no hay nada que
+       deslizar y no aparece barra de scroll horizontal. */
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+  /* Cada destino reparte el ancho disponible por igual: sin mínimos
+     fijos ni relleno lateral, la barra mide exactamente el ancho de la
+     pantalla y no genera desbordamiento por redondeo de píxeles. */
+  .bottomnav__item {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    color: #64646a;
+    text-decoration: none;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .bottomnav__item:hover {
+    text-decoration: none;
+    background-color: #f7f7f8;
+    color: #4d4c53;
+  }
+  .bottomnav__item:focus-visible {
+    outline: 1px solid #4679a6;
+    outline-offset: 1px;
+    box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+  }
+  .bottomnav__icono {
+    font-size: 1.375rem;
+    line-height: 1;
+  }
+  /* Sección actual: color primario y fondo suave. */
+  .bottomnav__item--activo {
+    background-color: #eaf1f8;
+    color: #3d6d99;
+  }
+  /* Destino principal ("Nueva cotización"): icono más grande en azul. */
+  .bottomnav__item--destacado {
+    color: #3d6d99;
+  }
+  .bottomnav__item--destacado .bottomnav__icono {
+    font-size: 1.625rem;
+  }
+  /* Si la pantalla activa es la de "Nueva", se marca sólo con el color. */
+  .bottomnav__item--destacado.bottomnav__item--activo {
+    background-color: transparent;
+    color: #3d6d99;
+  }
+  /* El contenido deja espacio para que la barra no tape nada. */
+  .pie {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+/* ==========================================================================
+   _notas.scss — Tablero de "Notas Personales" (bitácora compartida).
+   Reproduce design/notas_personales: resumen con cifras, chips de filtro,
+   buscador y tarjetas de nota con categoría, autor, contenido, referencia
+   y acciones (editar / fijar / completar / eliminar).
+   ========================================================================== */
+/* --- Cabecera del módulo (título + sello + botón de nueva) --------------- */
+.notas-sello {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  background-color: #eaf1f8;
+  border: 1px solid #c7dcef;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #3d6d99;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* --- Chips de filtro ----------------------------------------------------- */
+.chip-grupo {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  height: 2rem;
+  padding: 0 1rem;
+  background-color: #ffffff;
+  border: 1px solid #c9cdd4;
+  border-radius: 9999px;
+  color: #64646a;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.chip:hover {
+  text-decoration: none;
+  background-color: #f7f7f8;
+  color: #4d4c53;
+}
+.chip:focus-visible {
+  outline: 1px solid #4679a6;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+}
+.chip__cuenta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  background-color: rgba(0, 0, 0, 0.07);
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.chip--activo {
+  background-color: #4679a6;
+  border-color: #4679a6;
+  color: #ffffff;
+}
+.chip--activo .chip__cuenta {
+  background-color: #ffffff;
+  color: #3d6d99;
+}
+.chip--activo:hover {
+  background-color: #38648c;
+  border-color: #38648c;
+  color: #ffffff;
+}
+
+/* --- Lista de notas ------------------------------------------------------ */
+.notas-filtros {
+  padding: 1.5rem 1.5rem 0;
+}
+@media (max-width: 767px) {
+  .notas-filtros {
+    padding: 1rem 1rem 0;
+  }
+}
+
+.notas-cuerpo {
+  padding: 1.5rem;
+}
+@media (max-width: 767px) {
+  .notas-cuerpo {
+    padding: 1rem;
+  }
+}
+
+.notas-lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+@media (min-width: 1200px) {
+  .notas-lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.nota-tarjeta {
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  /* Fijadas: franja azul a la izquierda para distinguirlas de un vistazo. */
+}
+.nota-tarjeta--fijada {
+  border-left: 0.25rem solid #4679a6;
+}
+.nota-tarjeta {
+  /* Completadas: atenuadas y con el título tachado. */
+}
+.nota-tarjeta--hecha {
+  background-color: #f7f7f8;
+}
+.nota-tarjeta--hecha .nota-tarjeta__titulo {
+  text-decoration: line-through;
+  color: #64646a;
+}
+.nota-tarjeta__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.nota-tarjeta__fecha {
+  font-size: 0.75rem;
+  color: #64646a;
+  white-space: nowrap;
+}
+.nota-tarjeta {
+  /* Quién redactó la nota (la bitácora es compartida entre administradores). */
+}
+.nota-tarjeta__autor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #64646a;
+  white-space: nowrap;
+}
+.nota-tarjeta__autor .material-symbols-outlined {
+  color: #3d6d99;
+}
+.nota-tarjeta__vencimiento {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  background-color: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #92400e;
+  white-space: nowrap;
+}
+.nota-tarjeta__titulo {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #4d4c53;
+  overflow-wrap: anywhere;
+}
+.nota-tarjeta__cuerpo {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #64646a;
+  overflow-wrap: anywhere;
+}
+.nota-tarjeta {
+  /* Banda de contexto: cliente, teléfono, catálogo o destino. */
+}
+.nota-tarjeta__referencia {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 1rem;
+  background-color: #eaf1f8;
+  border: 1px solid #c7dcef;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  color: #4d4c53;
+}
+.nota-tarjeta__referencia .material-symbols-outlined {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: #3d6d99;
+}
+.nota-tarjeta__referencia strong {
+  color: #3d6d99;
+  font-weight: 700;
+}
+.nota-tarjeta__referencia span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nota-tarjeta__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e4e6ea;
+  /* Los formularios de fijar / completar / eliminar son hermanos de "Editar". */
+}
+.nota-tarjeta__acciones form {
+  display: flex;
+  margin: 0;
+}
+
+/* ==========================================================================
+   _cotizador.scss — Motor de cotización (Fase 4).
+   Reproduce design/nueva_cotizaci_n: secciones del formulario, catálogo
+   visual de productos, tabla de renglones, resumen de liquidación y la
+   vista de detalle del documento.
+   ========================================================================== */
+/* --- Secciones del formulario (fieldset del cotizador) -------------------- */
+.cotizador-seccion {
+  margin: 0 0 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+}
+.cotizador-seccion__titulo {
+  /* El título NO se apoya en la línea superior del fieldset: flota dentro
+     del recuadro, alineado con el contenido, y deja de tocar el borde. */
+  float: left;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3d6d99;
+  background-color: transparent;
+  text-transform: none;
+}
+.cotizador-seccion__titulo .material-symbols-outlined {
+  font-size: 1.25rem;
+  color: #3d6d99;
+}
+.cotizador-seccion {
+  /* Todo el contenido queda por debajo del título flotado. */
+}
+.cotizador-seccion > *:not(legend) {
+  clear: both;
+}
+@media (max-width: 767px) {
+  .cotizador-seccion {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+}
+
+/* Barra de filtros del catálogo: sin borde inferior. */
+.tabla-toolbar--sin-borde {
+  padding-left: 0;
+  padding-right: 0;
+  padding-top: 0;
+  border-bottom: 0;
+  overflow-x: visible;
+}
+
+/* --- Catálogo visual de productos ---------------------------------------- */
+.cotizador-catalogo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  max-height: 26rem;
+  overflow-y: auto;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.25rem;
+}
+@media (max-width: 767px) {
+  .cotizador-catalogo {
+    /* Dos tarjetas por fila, a partes iguales, con imagen pequeña: así
+       caben más productos en pantalla sin desplazar tanto. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.5rem;
+    max-height: 18rem;
+  }
+}
+
+.cotizador-carta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  text-align: left;
+  background-color: #ffffff;
+  border: 1px solid #e4e6ea;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.cotizador-carta:hover, .cotizador-carta:focus-visible {
+  border-color: #4679a6;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  transform: translateY(-2px);
+}
+.cotizador-carta[hidden] {
+  display: none;
+}
+@media (max-width: 767px) {
+  .cotizador-carta {
+    padding: 0.5rem;
+    align-items: center;
+    text-align: center;
+  }
+}
+.cotizador-carta__img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1/1;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  background-color: #f7f7f8;
+  border-radius: 0.125rem;
+}
+.cotizador-carta__img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cotizador-carta__img--vacia {
+  color: #64646a;
+  font-size: 2.25rem;
+}
+@media (max-width: 767px) {
+  .cotizador-carta__img {
+    /* Imagen reducida y centrada para que la tarjeta no crezca. */
+    width: 6rem;
+    height: 6rem;
+    aspect-ratio: auto;
+    margin: 0 0 0.25rem;
+    border: 1px solid #e4e6ea;
+  }
+  .cotizador-carta__img img {
+    object-fit: contain;
+  }
+}
+.cotizador-carta__nombre {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #4d4c53;
+  line-height: 1.3;
+}
+@media (max-width: 767px) {
+  .cotizador-carta__nombre {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+.cotizador-carta__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem;
+}
+@media (max-width: 767px) {
+  .cotizador-carta__meta {
+    justify-content: center;
+  }
+}
+.cotizador-carta__sku {
+  font-size: 0.75rem;
+  color: #64646a;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+.cotizador-carta__precio {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #3d6d99;
+}
+.cotizador-carta__unidad {
+  font-size: 0.75rem;
+  color: #64646a;
+}
+
+/* --- Tabla de renglones ---------------------------------------------------- */
+.cotizador-tabla {
+  min-width: 56rem;
+}
+.cotizador-tabla__num {
+  width: 2.5rem;
+  text-align: center;
+}
+.cotizador-tabla__derecha {
+  text-align: right;
+}
+.cotizador-tabla__ancha {
+  min-width: 11rem;
+}
+.cotizador-tabla__cantidad {
+  width: 6.5rem;
+}
+.cotizador-tabla__descuento {
+  width: 6.5rem;
+}
+.cotizador-tabla__accion {
+  width: 3.5rem;
+  text-align: center;
+}
+.cotizador-tabla__pie {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: #64646a;
+  font-style: italic;
+}
+.cotizador-tabla tfoot td {
+  background-color: #f7f7f8;
+  border-top: 1px solid #e4e6ea;
+  padding: 0.75rem 1rem;
+}
+
+/* Celdas con campos del renglón. */
+.cotizador-celda-precio,
+.cotizador-celda-cantidad,
+.cotizador-celda-descuento {
+  white-space: nowrap;
+}
+.cotizador-celda-precio .control,
+.cotizador-celda-cantidad .control,
+.cotizador-celda-descuento .control {
+  width: 6.5rem;
+}
+
+.cotizador-celda-precio {
+  display: table-cell;
+}
+.cotizador-celda-precio .control {
+  width: 7.5rem;
+}
+
+/* Casilla "No recordar este precio" bajo el precio negociado. */
+.cotizador-recordar {
+  display: flex;
+  margin-top: 0.25rem;
+  font-size: 0.625rem;
+  line-height: 1.3;
+  color: #64646a;
+}
+
+.control--cantidad {
+  width: 5rem;
+  text-align: right;
+}
+
+/* --- Resumen de liquidación ------------------------------------------------ */
+.cotizador-resumen {
+  background-color: #ffffff;
+  border: 1px solid #c7dcef;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.cotizador-resumen--plano {
+  border-color: #e4e6ea;
+}
+.cotizador-resumen__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background-color: #eaf1f8;
+  border-bottom: 1px solid #c7dcef;
+}
+.cotizador-resumen__titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3d6d99;
+}
+.cotizador-resumen__titulo .material-symbols-outlined {
+  font-size: 1.25rem;
+}
+.cotizador-resumen__cuerpo {
+  margin: 0;
+  padding: 1rem 1.5rem;
+}
+.cotizador-resumen__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed #e4e6ea;
+}
+.cotizador-resumen__fila dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: #4d4c53;
+}
+.cotizador-resumen__fila dd {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #4d4c53;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cotizador-resumen__fila--total {
+  border-bottom: 0;
+  margin-top: 0.25rem;
+  padding-top: 1rem;
+  border-top: 2px solid #c7dcef;
+}
+.cotizador-resumen__fila--total dt {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #4d4c53;
+}
+.cotizador-resumen__fila--total dd strong {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #3d6d99;
+}
+.cotizador-resumen__ayuda {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #64646a;
+}
+.cotizador-resumen__control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.cotizador-resumen__control .control {
+  width: 5.5rem;
+  text-align: right;
+}
+.cotizador-resumen__porciento {
+  font-size: 0.75rem;
+  color: #64646a;
+}
+.cotizador-resumen__negativo {
+  color: #e11d48 !important;
+}
+.cotizador-resumen__letra {
+  margin: 0;
+  padding: 0.5rem 1.5rem 1rem;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: #64646a;
+  background-color: #f7f7f8;
+  border-top: 1px solid #e4e6ea;
+}
+@media (max-width: 767px) {
+  .cotizador-resumen__cabecera, .cotizador-resumen__cuerpo {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .cotizador-resumen__letra {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* --- Acciones de estado (detalle) ------------------------------------------ */
+.cotizador-estado-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cotizador-estado-acciones .campo__etiqueta {
+  margin-right: 0.25rem;
+}
+
+/* --- Detalle de la cotización ---------------------------------------------- */
+.cotizador-detalle {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.cotizador-detalle__emisor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e4e6ea;
+}
+.cotizador-detalle__logo {
+  /* Altura máxima 10rem con ancho y alto AUTOMÁTICOS: la proporción
+     natural del archivo decide el dibujo y el tope sólo manda cuando el
+     logo supera esa altura (una marca apaisada se encoge sin deformarse y
+     una vertical conserva su forma). El tope anterior estaba fijado por el
+     ancho: con una caja más ancha que alta el logo no crecía, sólo
+     se recortaba con object-fit.
+
+     max-width: 100% es lo que lo hace adaptativo en móvil: sin él, un
+     archivo de gran ancho desbordaría el contenedor, el viewport se
+     ensancharía y la barra inferior mediría más que la pantalla. */
+  max-height: 10rem;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  align-self: flex-start;
+}
+.cotizador-detalle__cliente {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+}
+.cotizador-detalle__cliente dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64646a;
+  margin-bottom: 0.25rem;
+}
+.cotizador-detalle__cliente dd {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #4d4c53;
+}
+.cotizador-detalle__condicion {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed #e4e6ea;
+}
+.cotizador-detalle__condicion:last-child {
+  border-bottom: 0;
+}
+.cotizador-detalle__condicion .material-symbols-outlined {
+  color: #3d6d99;
+  font-size: 1.25rem;
+}
+.cotizador-detalle__condicion strong {
+  display: block;
+  font-size: 0.875rem;
+  color: #4d4c53;
+}
+.cotizador-detalle__condicion p {
+  margin: 0.125rem 0 0;
+  font-size: 0.875rem;
+  color: #64646a;
+  line-height: 1.5;
+}
+
+/* --- Acciones del encabezado ------------------------------------------------ */
+.encabezado-pagina__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ==========================================================================
+   _utilidades.scss — Clases auxiliares de uso general.
+   ========================================================================== */
+/* --- Espaciado ------------------------------------------------------------ */
+.mt-0 {
+  margin-top: 0;
+}
+
+.mt-sm {
+  margin-top: 0.5rem;
+}
+
+.mt-md {
+  margin-top: 1rem;
+}
+
+.mt-lg {
+  margin-top: 1.5rem;
+}
+
+.mb-md {
+  margin-bottom: 1rem;
+}
+
+.mb-lg {
+  margin-bottom: 1.5rem;
+}
+
+/* --- Distribución --------------------------------------------------------- */
+.oculto {
+  display: none;
+}
+
+.mostrar-en-movil {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .oculto-en-movil {
+    display: none !important;
+  }
+  .mostrar-en-movil {
+    display: block;
+  }
+}
+/* Contenedor de fila: nunca desborda, si no cabe se envuelve o desliza. */
+.fila {
+  min-width: 0;
+}
+
+/* --- Foto de perfil -------------------------------------------------------
+   Recorte redondo de las imágenes del modo 'retrato' (500×500 px). El lado
+   por defecto es 5rem (80 px), el tamaño pedido para el perfil del
+   administrador y la ficha de clientes; los modificadores sólo cambian el
+   lado, manteniendo el círculo. */
+.retrato {
+  display: block;
+  width: 5rem;
+  height: 5rem;
+  flex-shrink: 0;
+  object-fit: cover;
+  background-color: #f7f7f8;
+  border: 1px solid #e4e6ea;
+  border-radius: 9999px;
+}
+
+.retrato--sm {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+/* Fila con la foto de perfil redonda a la izquierda y el texto al lado. */
+.perfil-fila {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* Desplazamiento horizontal para cualquier bloque que exceda la línea. */
+.deslizar-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Igual pero sin mostrar la barra de scroll (barras de navegación). */
+.deslizar-x-silencioso {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.deslizar-x-silencioso::-webkit-scrollbar {
+  display: none;
+}
+
+.flex-entre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.flex-fin {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* --- Anchos --------------------------------------------------------------- */
+.ancho-completo {
+  width: 100%;
+}
+
+/* --- Jerarquía visual ----------------------------------------------------- */
+.divisor {
+  height: 1px;
+  background-color: #e4e6ea;
+  border: none;
+  margin: 0;
+}
+
+/* Accesibilidad: texto disponible sólo para lectores de pantalla. */
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Enlace de salto ("Saltar al contenido").
+   Es el primer elemento con tabulación de cada pantalla: permite pasar de
+   un salto el menú lateral y la barra superior. Vive fuera de la vista y
+   sólo aparece cuando recibe foco, para no ensuciar el diseño. */
+.saltar-contenido {
+  position: fixed;
+  top: -3rem;
+  left: 0.5rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background-color: #ffffff;
+  border: 1px solid #c7dcef;
+  border-radius: 0.25rem;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  color: #3d6d99;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 150ms ease;
+}
+.saltar-contenido:focus {
+  top: 0.5rem;
+  text-decoration: none;
+}
+.saltar-contenido:focus-visible {
+  outline: 1px solid #4679a6;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+}
+
+/* Foco visible para elementos que no son controles nativos. */
+.enlace-foco:focus-visible {
+  outline: 2px solid #4679a6;
+  outline-offset: 2px;
+}

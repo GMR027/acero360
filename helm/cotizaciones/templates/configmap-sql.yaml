@@ -1,0 +1,15 @@
+# ===========================================================================
+# ConfigMap con el dump inicial de la BD (mysql/dump-inicial.sql).
+# Lo consume el Job db-init una sola vez (cuando el PVC de MySQL está vacío).
+# deploy.sh copia aquí el dump más reciente antes de cada install/upgrade.
+# ===========================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cotizaciones-sql
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cotizaciones
+data:
+  dump-inicial.sql: |
+{{ .Files.Get "files/dump-inicial.sql" | indent 4 }}

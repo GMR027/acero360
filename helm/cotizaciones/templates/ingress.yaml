@@ -1,0 +1,32 @@
+# ===========================================================================
+# Ingress — https://cotizaciones.iguzman.com.mx
+# TLS automático con cert-manager (cluster-issuer letsencrypt-prod),
+# mismo patrón que el resto de proyectos del cluster.
+# ===========================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cotizaciones
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cotizaciones
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer }}
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.proxyBodySize }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - secretName: cotizaciones-cert
+      hosts:
+        - {{ .Values.app.host }}
+  rules:
+    - host: {{ .Values.app.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cotizaciones
+                port:
+                  number: 80

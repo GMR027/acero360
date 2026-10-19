@@ -1,0 +1,29 @@
+{
+  "name": "cotizaciones",
+  "version": "1.0.0",
+  "description": "App web de cotizacion de productos - assets frontend",
+  "type": "module",
+  "scripts": {
+    "build": "gulp build",
+    "watch": "gulp watch",
+    "sass": "sass --watch src/scss/app.scss:build/css/app.css",
+    "pruebas": "node pruebas/probar_ronda.mjs && node pruebas/probar_ronda2.mjs && node pruebas/probar_categorias.mjs",
+    "auditorias": "node pruebas/auditar_ui.mjs && node pruebas/auditar_profundo.mjs && node pruebas/auditar_consola.mjs"
+  },
+  "keywords": [
+    "html",
+    "sass",
+    "js",
+    "gulp",
+    "php"
+  ],
+  "author": "Usuario Demo",
+  "license": "ISC",
+  "devDependencies": {
+    "gulp": "^5.0.0",
+    "gulp-concat": "^2.6.1",
+    "gulp-sass": "^6.0.0",
+    "playwright": "1.56.1",
+    "sass": "^1.84.0"
+  }
+}

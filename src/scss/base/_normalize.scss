@@ -1,0 +1,102 @@
+/* ==========================================================================
+   _normalize.scss — Reinicio suave y base de caja.
+   No elimina estilos de lista ni de tablas para no pelear con la semántica.
+   ========================================================================== */
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Tamaño base 16px: todas las medidas de la app están en rem. */
+  font-size: $fuente-base;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: $color-fondo;
+  color: $color-texto;
+  font-family: $fuente-cuerpo;
+  font-size: $fuente-base;
+  line-height: $linea-base;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-family: $fuente-titulos;
+  line-height: $linea-titulos;
+  color: $color-texto;
+}
+
+p, ul, ol, figure, blockquote {
+  margin: 0;
+}
+
+ul, ol {
+  padding: 0;
+}
+
+img, svg, video {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: $color-primario-texto;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Fieldsets y leyendas.
+   Un <fieldset> por defecto tiene min-width: min-content, así que IMPONE el
+   ancho de su contenido: basta con que lleve una tabla ancha (el cotizador
+   usa min-width: 56rem) para que la página desborde la pantalla en móvil.
+   Se iguala todo a cero aquí y cada componente decide su propio relleno. */
+fieldset,
+legend {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+/* Respeto por quien prefiere menos movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

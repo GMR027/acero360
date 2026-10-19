@@ -1,0 +1,17 @@
+# ===========================================================================
+# Service de la app — ClusterIP, lo expone el Ingress.
+# ===========================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: cotizaciones
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cotizaciones
+spec:
+  type: ClusterIP
+  selector:
+    app: cotizaciones
+  ports:
+    - port: 80
+      targetPort: 80

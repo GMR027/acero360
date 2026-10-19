@@ -1,0 +1,80 @@
+/* ==========================================================================
+   _paginacion.scss — Control de páginas de los listados.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.paginacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $espacio-md;
+  padding: $espacio-md $espacio-lg;
+  border-top: 1px solid $color-borde;
+  font-size: $fuente-sm;
+  color: $color-texto-secundario;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @include hasta-movil {
+    justify-content: center;
+    padding: $espacio-md;
+    text-align: center;
+  }
+
+  &__rango {
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__botones {
+    display: flex;
+    align-items: center;
+    gap: $espacio-xs;
+  }
+
+  &__boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: $alto-control;
+    height: $alto-control;
+    padding: 0 $espacio-sm;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde-fuerte;
+    border-radius: $radio;
+    color: $color-texto;
+    font-size: $fuente-sm;
+    text-decoration: none;
+    transition: background-color $transicion-rapida, color $transicion-rapida;
+
+    &:hover:not([aria-disabled='true']) {
+      background-color: $color-superficie-baja;
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      @include anillo-foco;
+    }
+
+    /* Página en curso. */
+    &--activo {
+      background-color: $color-primario;
+      border-color: $color-primario;
+      color: $color-texto-invertido;
+      font-weight: 600;
+
+      &:hover {
+        background-color: $color-primario-oscuro;
+        color: $color-texto-invertido;
+      }
+    }
+
+    /* Anterior / siguiente no disponibles. */
+    &[aria-disabled='true'] {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+}

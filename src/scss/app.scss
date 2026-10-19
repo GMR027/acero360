@@ -1,0 +1,28 @@
+/* ==========================================================================
+   app.scss — Punto de entrada de los estilos de la aplicación.
+   Compilado por Gulp + Dart Sass hacia build/css/app.css.
+
+   Orden:
+     1. base    -> variables, mixins, reset, tipografía
+     2. layout  -> componentes visuales compartidos
+   ========================================================================== */
+
+/* 1. Capa base */
+@use 'base/index';
+
+/* 2. Componentes compartidos */
+@use 'layout/layout';
+@use 'layout/sidebar';
+@use 'layout/botones';
+@use 'layout/formularios';
+@use 'layout/badges';
+@use 'layout/cards';
+@use 'layout/tablas';
+@use 'layout/alertas';
+@use 'layout/modal';
+@use 'layout/paginacion';
+@use 'layout/auth';
+@use 'layout/bottomnav';
+@use 'layout/notas';
+@use 'layout/cotizador';
+@use 'layout/utilidades';

@@ -1,0 +1,357 @@
+/* ==========================================================================
+   _cards.scss — Tarjetas y paneles de contenido.
+   Superficie blanca, borde hairline y sombra nivel 1 (según el diseño).
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.tarjeta {
+  @include superficie-card;
+  display: flex;
+  flex-direction: column;
+  padding: $espacio-lg;
+  overflow: hidden;
+
+  @include hasta-movil {
+    padding: $espacio-md;
+  }
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    margin-bottom: $espacio-md;
+  }
+
+  &__titulo {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 600;
+    color: $color-texto;
+  }
+
+  &__descripcion {
+    margin-top: $espacio-xs;
+    font-size: $fuente-sm;
+    color: $color-texto-secundario;
+  }
+
+  &__cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-md;
+  }
+
+  &__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    margin-top: $espacio-md;
+    padding-top: $espacio-sm;
+    border-top: 1px solid $color-borde;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+
+  /* Sin relleno (la tarjeta que aloja una tabla). Sólo en escritorio: en
+     móvil se le da relleno para que la tabla no pegue a los bordes. */
+  &--sin-relleno {
+    padding: 0;
+
+    @include hasta-movil {
+      padding: $espacio-md;
+    }
+  }
+
+  /* Variante usada como enlace (accesos rápidos del panel). */
+  &--enlace {
+    text-decoration: none;
+    color: inherit;
+    transition: border-color $transicion-rapida, box-shadow $transicion-rapida,
+                transform $transicion-rapida;
+
+    &:hover {
+      text-decoration: none;
+      border-color: $color-primario-borde;
+      box-shadow: $sombra-2;
+      transform: translateY(-1px);
+    }
+
+    .tarjeta__titulo .material-symbols-outlined {
+      color: $color-primario-texto;
+    }
+  }
+}
+
+/* --- Estadística del panel principal ------------------------------------- */
+.stat {
+  @include superficie-card;
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-xs;
+  padding: $espacio-md;
+
+  &__etiqueta {
+    @include etiqueta-superior;
+  }
+
+  &__valor {
+    font-family: $fuente-titulos;
+    font-size: $fuente-2xl;
+    font-weight: 700;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__pie {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+}
+
+/* --- Ganancias por negocio (panel de administración) ---------------------- */
+.ganancia {
+  /* Logo del negocio: se ve completo, sin recortarse ni deformarse. */
+  &__logo {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    object-fit: contain;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio;
+  }
+
+  &__etiqueta {
+    @include etiqueta-superior;
+  }
+
+  /* Cifra principal: el dinero realmente ganado en el periodo. */
+  &__valor {
+    display: block;
+    margin-top: $espacio-xs;
+    font-family: $fuente-titulos;
+    font-size: $fuente-3xl;
+    font-weight: 700;
+    line-height: 1.15;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__nota {
+    display: block;
+    margin-top: $espacio-xs;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+
+  /* Cifras secundarias: dos columnas, cada una con etiqueta y valor. */
+  &__rejilla {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $espacio-sm $espacio-md;
+    margin: $espacio-md 0 0;
+    padding-top: $espacio-md;
+    border-top: 1px solid $color-borde;
+  }
+
+  &__dato {
+    min-width: 0;
+
+    dt {
+      @include etiqueta-superior;
+      margin-bottom: $espacio-xs;
+    }
+
+    dd {
+      margin: 0;
+      font-size: $fuente-base;
+      font-weight: 600;
+      color: $color-texto;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+/* --- Caja informativa interna (términos, avisos) -------------------------- */
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: $espacio-sm;
+  padding: $espacio-sm $espacio-md;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  font-size: $fuente-sm;
+  color: $color-texto-secundario;
+
+  @include hasta-movil {
+    /* Ninguna caja queda pegada al borde en móvil. */
+    padding: $espacio-md;
+  }
+
+  &__icono {
+    flex-shrink: 0;
+    color: $color-primario-texto;
+    font-size: 1.125rem;
+    line-height: 1.4;
+  }
+
+  &--advertencia {
+    background-color: $color-advertencia-claro;
+    border-color: #fde68a;
+    color: $color-advertencia-texto;
+
+    .nota__icono {
+      color: $color-advertencia;
+    }
+  }
+
+  &--error {
+    background-color: $color-error-claro;
+    border-color: $color-error-borde;
+    color: $color-error-texto;
+
+    .nota__icono {
+      color: $color-error;
+    }
+  }
+
+  &--exito {
+    background-color: $color-exito-claro;
+    border-color: #a7f3d0;
+    color: $color-exito-texto;
+
+    .nota__icono {
+      color: $color-exito;
+    }
+  }
+}
+
+/* --- Ficha de datos (lista dt/dd en dos columnas) -------------------------- */
+.ficha {
+  display: grid;
+  gap: $espacio-xs;
+  margin: 0;
+  font-size: $fuente-sm;
+
+  &__fila {
+    display: grid;
+    grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1fr);
+    gap: $espacio-sm;
+    align-items: baseline;
+    padding: $espacio-xs 0;
+    border-bottom: 1px dashed $color-borde;
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+
+  dt {
+    color: $color-texto-secundario;
+    font-size: $fuente-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+  }
+
+  dd {
+    margin: 0;
+    color: $color-texto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  @include hasta-movil {
+    &__fila {
+      grid-template-columns: minmax(0, 1fr);
+      gap: $espacio-xs;
+    }
+  }
+}
+
+/* --- Estado vacío de un listado ------------------------------------------ */
+.vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $espacio-sm;
+  padding: $espacio-2xl $espacio-md;
+  text-align: center;
+  color: $color-texto-secundario;
+
+  &__icono {
+    font-size: 2.5rem;
+    line-height: 1;
+    opacity: 0.5;
+  }
+
+  &__titulo {
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 600;
+    color: $color-texto;
+  }
+}
+
+/* --- Lista simple dentro de una tarjeta ---------------------------------- */
+.lista-simple {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-sm;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &__elemento {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    padding: $espacio-sm;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio;
+    min-width: 0;
+  }
+}
+
+/* --- Fotografía de un acta (venta / entrada de proveedor) ---------------- *//* Se muestra a todo el ancho de la tarjeta y conserva la proporción real
+   de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
+.foto-acta {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+
+  &--vacia {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $espacio-xs;
+    min-height: 12rem;
+    border-style: dashed;
+    color: $color-texto-secundario;
+    font-size: $fuente-sm;
+    text-align: center;
+
+    .material-symbols-outlined {
+      font-size: 2.5rem;
+      opacity: 0.5;
+    }
+  }
+}

@@ -1,0 +1,81 @@
+<?php
+/**
+ * views/admin/clientes/crear.php — Alta de clientes.
+ *
+ * Ruta protegida por el middleware "soloAdmin".
+ * El alta y la edición comparten el mismo formulario: templates/formularioClientes.php
+ */
+
+soloAdmin();
+
+$errores  = [];
+$esEnvio  = $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST);
+
+if ($esEnvio) {
+    $cliente = new \App\Clientes([
+        'nombre'         => trim($_POST['nombre'] ?? ''),
+        'nombre_empresa' => trim($_POST['nombre_empresa'] ?? ''),
+        'alias'          => trim($_POST['alias'] ?? ''),
+        'rfc'            => trim($_POST['rfc'] ?? ''),
+        'telefono'       => trim($_POST['telefono'] ?? ''),
+        'email'          => trim($_POST['email'] ?? ''),
+        'ubicacion'      => trim($_POST['ubicacion'] ?? ''),
+        'vip'            => isset($_POST['vip']) ? 1 : 0,
+        'descuento_pct'  => ($_POST['descuento_pct'] ?? '') !== '' ? (float) $_POST['descuento_pct'] : 0,
+        'notas'          => trim($_POST['notas'] ?? ''),
+    ]);
+
+    $errores = $cliente->validar();
+
+    // Foto de perfil: sólo se procesa si los demás datos ya son válidos,
+    // para no dejar un archivo sin referencia cuando el envío se rechaza.
+    if (empty($errores)) {
+        $foto = \App\Imagenes::subirRetrato(
+            $_FILES['foto'] ?? null,
+            !empty($_POST['quitar_foto']),
+            $errores
+        );
+
+        if ($foto !== null) {
+            $cliente->foto = $foto;
+        }
+    }
+
+    if (empty($errores) && $cliente->crear()) {
+        // Éxito: alerta visual que se muestra al cargar la lista.
+        redirigir('/admin/clientes', 'exito', 'Cliente creado correctamente.');
+    }
+
+    // Si llegamos aquí, la validación o la escritura fallaron.
+    $errores = $errores ?: \App\Clientes::getErrores();
+} else {
+    $cliente = new \App\Clientes();
+}
+
+template('header', [
+    'titulo'     => 'Nuevo cliente',
+    'subtitulo'  => 'Módulo de clientes',
+    'rutaActiva' => '/admin/clientes',
+]);
+?>
+
+<section class="encabezado-pagina">
+    <div>
+        <!-- op -->
+        <p class="texto-secundario">
+            Alta de un cliente para poder cotizarle. Los campos marcados con asterisco son obligatorios.
+        </p>
+    </div>
+    <div class="encabezado-pagina__acciones">
+        <a class="btn btn--secundario" href="/admin/clientes">Volver</a>
+    </div>
+</section>
+
+<section class="tarjeta">
+    <form class="formulario" action="/admin/clientes/crear" method="post"
+          enctype="multipart/form-data" data-validar novalidate>
+        <?php template('formularioClientes', ['cliente' => $cliente, 'errores' => $errores]); ?>
+    </form>
+</section>
+
+<?php template('footer'); ?>

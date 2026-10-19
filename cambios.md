@@ -1,0 +1,1002 @@
+# cambios.md — Diferencias con el proyecto base (`canastillasWep`)
+
+> Este documento registra **qué cambió** respecto al proyecto del que parte la
+> arquitectura, `~/Documentos/programacion/canastillasWep`.
+>
+> - **Proyecto base:** canastillasWep (CRUD de canastillas: usuarios, productos, pedidos, reportes).
+> - **Proyecto nuevo:** cotizaciones (app de cotización de productos para dos negocios, con correo y PDF).
+> - **Regla:** canastillasWep **no se modifica**; se usa sólo como referencia.
+
+---
+
+## 1. Qué se conserva tal cual (la base reutilizada)
+
+| Pieza | Detalle |
+|---|---|
+| Front controller + router | `index.php` que enruta todo y `Router.php` con comprobación de método y middlewares |
+| Capa de acceso a datos | Una clase por entidad en `/clases` con `setDB()`, `atributos()`, `sanitizarAtributos()`, `crear()`, `actualizar()`, `eliminar()`, `validar()`, `getErrores()` |
+| Bootstrap | `includes/app.php` carga funciones → conexión → autoload de Composer → inyecta la BD en cada clase |
+| Helpers | `template()`, `escaparValores()`, `validarID()`, `paginacion()`, middlewares `iniciarSesion()` / `soloAdmin()` |
+| Conexión | `config/database.php` con variables de entorno y `utf8mb4` |
+| Build | `gulpfile.js` con las tareas `css` y `js`, salida a `build/css` y `build/js` |
+| Estilo | SCSS en `src/scss` (carpetas `base/` y `layout/`), medidas en `rem`, flexbox/grid |
+
+---
+
+## 2. Cambios de estructura de archivos
+
+| canastillasWep | cotizaciones | Motivo |
+|---|---|---|
+| `views/` | `views/` | Se conserva |
+| `templates/` (10 archivos) | `templates/` (10 archivos, otros nuevos) | Ver §5 |
+| — | `mysql/cotizaciones.sql` | El proyecto base sólo tiene `canastillas.mwb` (archivo de Workbench, **sin SQL exportado**). Aquí se entrega el SQL reproducible con `DROP/CREATE DATABASE` |
+| — | `OPENCODE.md`, `plan.md`, `cambios.md` | Especificación, plan de fases y este documento |
+| — | `design/` | 13 maquetas HTML + PNG que definen la interfaz |
+| — | `.htaccess` | Rewriting hacia el front controller (faltaba en el proyecto base) |
+| `README.md`, `filtros.md`, `paginacion.md`, `pedidos-campos.md` | `plan.md` (reemplaza los documentos sueltos) | Un único plan de trabajo por fases |
+| `Dockerfile`, `deployment/`, `netlify.toml`, `deploy.sh`, `setup-dev-env.sh` | — | *No se copian:* no se pidió despliegue |
+| `backup-images/`, `backup-images.sh`, `restore-images.sh` | — | *No se copian:* canastillas tenía imágenes externas; aquí las imágenes subidas viven en `public/image/` |
+| `imagenes/` | `public/image/` | Carpeta pública única para subidas (Intervention Image) |
+
+---
+
+## 3. Base de datos
+
+| Aspecto | canastillasWep | cotizaciones |
+|---|---|---|
+| Nombre | `canastillas` | **`cotizaciones`** (independiente) |
+| Entregable | Sólo `mysql/canastillas.mwb` | **`mysql/cotizaciones.sql`** con 8 tablas, claves foráneas, índices y datos semilla |
+| Tablas | usuarios, productos, pedidos, reportes… (según el .mwb) | `usuarios`, `empresas`, `clientes`, `productos`, `precios_cliente`, `cotizaciones`, `cotizacion_detalles`, `notas` |
+| Múltiples negocios | No | **Sí:** `empresas` con los dos negocios y `productos.empresa_id` / `cotizaciones.empresa_id` |
+| Clientes | No existían como ficha | **Nueva tabla `clientes`** con nombre, empresa, alias, RFC, teléfono, email, ubicación, **VIP** y descuento global. *No inician sesión.* |
+| Motor de precios | Precio único en producto | **`productos.precio` = precio de lista (fijo)** + **`precios_cliente`** con el precio acordado por cliente y producto |
+| Cotización normalizada | Pedido en una tabla | Cabecera (`cotizaciones`) + partidas (`cotizacion_detalles`) con snapshot de precio |
+| Bitácora personal | — | **Nueva tabla `notas`** (sección "Notas Personales" del diseño) |
+| Sesión de usuarios | `rol` con admin/cliente/proveedor | Sólo `rol = 1` (admin) inicia sesión; "cliente" es una ficha, no un login |
+
+---
+
+## 4. Backend, rutas y seguridad
+
+| Aspecto | canastillasWep | cotizaciones |
+|---|---|---|
+| Rutas declaradas | 36 | **56**: los 4 CRUD + Notas + Cotizaciones (alta, edición, detalle, estado, eliminar, PDF, envío y precios del cliente) |
+| Protección | `soloAdmin`, `soloCliente`, `soloProveedor` | **`soloAdmin` en TODA ruta bajo `/admin`**, comprobado además **dentro de `Router.php`** (un 404 bajo `/admin` también exige sesión) |
+| Registro | — | **`soloRegistroAbierto`**: registro **cerrado por defecto**; se habilita con `REGISTRO_ABIERTO=1`. Motivo: en OPENCODE "los usuarios que se registren serán admin" |
+| Consultas SQL | Concatenación + `real_escape_string` | **Sentencias preparadas** (`prepare` / `bind_param`) en los CRUD nuevos |
+| Errores mysqli | Se propagan (PHP 8.1 lanza excepción) | `try/catch` sobre `mysqli_sql_exception` + `error_log`, con mensaje amable al usuario |
+| Registro inexistente | — | `paginaNoEncontrada()`: cuando la ruta existe pero el id no, muestra la vista 404 (**idéntico para todos los módulos, incluidos detalle/editar/PDF de cotizaciones**) |
+| Alertas flash | — | `agregarAlerta()` / `obtenerAlertas()` + `redirigir($ruta, $tipo, $texto)` para confirmar acciones tras un POST |
+| Variables de entorno | variables del servidor | **`config/entorno.php`** carga un `.env` (idempotente y **sin pisar** el entorno real) y alimenta `getenv()` en BD y correo |
+
+---
+
+## 5. Plantillas (`templates/`)
+
+| canastillasWep | cotizaciones | Motivo |
+|---|---|---|
+| `headerHTML.php` | **`header.php`** | Abre documento, sidebar y barra superior; recibe `titulo`, `subtitulo`, `acciones`, `mostrarSidebar` |
+| `footer.php` | **`footer.php`** | Cierra el panel e incluye el modal y la barra inferior |
+| `paginacion.php` | **`paginacion.php`** | Ahora respeta los parámetros de búsqueda al paginar (`?q=…&pagina=2`) |
+| `formularioUsuarios.php` | **`formularioUsuarios.php`** | Contraseña opcional en edición + rol informativo |
+| `formularioCrearProductos.php` | **`formularioProductos.php`** | + `input type="file"` con vista previa y `enctype="multipart/form-data"` |
+| `formularioPedidos.php` | **`formularioCotizaciones.php`** | Encabezado, catálogo visual, renglones, términos y resumen; **una sola plantilla para alta y edición** |
+| — | **`pdfCotizaciones.php`** | Documento HTML que alimenta el PDF: tablas e imágenes en base64 (dompdf no necesita red ni disco) |
+| `formularioReportes.php` | — | *No aplica:* no hay módulo de reportes |
+| `infoPedidos.php`, `entregas.php` | — | *No aplica:* eran vistas de la app anterior |
+| — | **`sidebar.php`** | Navegación lateral; **el estado activo se calcula desde la URL**, no desde cada vista |
+| — | **`bottomnav.php`** | Barra inferior de móvil (sólo iconos, estilo Facebook) con 6 destinos |
+| — | **`alertas.php`** | Toasts visuales que sustituyen a `alert()` |
+| — | **`modal.php`** | **Modal único** de la app: todos los diálogos usan este nodo para tener el mismo diseño |
+| — | **`formularioClientes.php`** | Alta y edición de clientes |
+| — | **`formularioEmpresas.php`** | Datos fiscales (RFC, régimen, domicilio, CP) + logo + condiciones |
+| — | **`formularioNotas.php`** | Alta y edición de notas personales |
+
+---
+
+## 6. JavaScript
+
+| canastillasWep | cotizaciones |
+|---|---|
+| Un solo archivo `src/js/app.js` | `src/js/app.js` (arranque) + **`src/js/modulos/`**: `alertas.js`, `modal.js`, `validacion.js`, `filePreview.js`, **`cotizador.js`** |
+| Sin módulos de confirmación | **`abrirModal()` / `confirmarAccion()`**: reemplazan a `window.confirm()` con el mismo diseño que el resto de ventanas |
+| — | Validación visual bajo cada campo (`.campo__error`) con `preventDefault()` en todo `submit` |
+| — | Vista previa de imagen con `FileReader` + validación de tipo y tamaño (6 MB, el mismo tope que `Imagenes::TAMANO_MAXIMO`) |
+| — | **`cotizador.js`**: filtra el catálogo, arma los renglones con `createElement`, recalcula el resumen en vivo y trae los precios del cliente con `fetch` (**JSON puro, nunca HTML**) |
+| 1 uso de `var` | **0** (`let` / `const` exclusivamente) |
+
+Reglas verificadas en el proyecto nuevo: `var` = 0 · `innerHTML` = 0 (sólo aparece en comentarios) ·
+`alert()/confirm()/prompt()` = 0 (sólo en comentarios) · `preventDefault()` en todos los `submit` y `click`.
+
+---
+
+## 7. Estilos (SCSS)
+
+| canastillasWep | cotizaciones |
+|---|---|
+| `_globales.scss`, `_pruebas.scss` | Reemplazados por `_tipografia.scss` y `_utilidades.scss` (sin hojas de prueba) |
+| `_navbar.scss` (menú superior público) | **`_sidebar.scss`** + **`_bottomnav.scss`** (menú lateral + barra inferior móvil) |
+| Estilos de página pública (`_nosotros`, `_contacto`, `_video`, `_novedades`, `_cobertura`, `_recibo`…) | Eliminados: **la nueva app no tiene sitio público**, sólo login/registro y panel |
+| — | `_cards.scss`, `_badges.scss`, `_modal.scss`, `_auth.scss`, `_notas.scss`, **`_cotizador.scss`** (nuevos) |
+| Paleta de canastillas | **Azul acero `#5A92C3` / `#4679A6` / `#EAF1F8`** tomado de `design/vanguard_commerce/DESIGN.md` y de las maquetas renderizadas |
+| `build` sólo hacía `watch` | **`npm run build` compila de verdad** `css` y `js` (el `gulpfile.js` original no compilaba) |
+
+**Uso compartido de estilos:** todas las alertas, botones, tablas, formularios, badges y
+**todas las ventanas modales** pasan a compartir los mismos parámetros/estado visual.
+
+---
+
+## 8. Funcionalidad nueva (no existía en canastillasWep)
+
+1. **Cotizador** — selector de cliente y de negocio, catálogo con imagen y cantidad, precio de
+   lista **de solo lectura** + precio editable por línea con el checkbox *"No recordar este precio"*,
+   descuento global del cliente, **IVA 16 % opcional**, condiciones de envío/compra y textarea de
+   comentarios, resumen con totales y folio automático.
+2. **Dos negocios** — `empresas` con RFC, régimen, domicilio, CP y logo rellenables desde el CRUD.
+3. **Clientes con VIP** — ficha mínima (nombre, RFC, teléfono, email, ubicación, VIP) más empresa,
+   alias, descuento global y notas; histórico de cotizaciones.
+4. **Notas Personales** — bitácora interna privada por usuario: categorías (recordatorio, acuerdo de
+   precios, tarea, general), fijado, búsqueda, filtros, referencia asociada y acciones
+   (editar / fijar / marcar hecha / eliminar).
+5. **Salida de la cotización** — envío por correo (**PHPMailer**) y exportación a **PDF (dompdf)**.
+6. **Registro de pedidos por cliente** — histórico con filtro y paginación.
+7. **Imágenes de producto** — sólo `input type="file"` + **Intervention Image** en formato cuadrado
+   (1000×1000) con miniatura 300×300. *Las URLs externas de las maquetas no se copian.*
+8. **Navegación móvil** — barra inferior fija con iconos y cajón lateral que **muestra el nombre de
+   cada sección junto a su icono**; desplazamiento horizontal cuando algo no cabe en la línea.
+9. **Salida de la cotización** — `App\Documentos` genera el PDF con **dompdf** desde
+   `templates/pdfCotizaciones.php` y `App\Correos` lo adjunta con **PHPMailer**. En desarrollo
+   (`CORREO_MODO=log`) el mensaje no se envía: queda en `storage/correos.log` y la pantalla lo
+   advierte con una alerta de advertencia para que no se confunda con una entrega real.
+10. **Historial de cotizaciones** — filtro por folio/cliente/alias/RFC, negocio, cliente, estado y
+    rango de fechas, con estadísticas, paginación, botón **Buscar** y ayuda **Limpiar**.
+11. **Folio robusto** — `siguienteFolio()` usa el **máximo numérico** de los folios del año, no un
+    `COUNT(*)`: si se borra una cotización, un conteo dejaría de coincidir con lo realmente emitido
+    y la siguiente alta intentaría reutilizar un folio ya ocupado.
+
+---
+
+## 9. Dependencias
+
+| | canastillasWep | cotizaciones |
+|---|---|---|
+| Composer | `intervention/image ^3.11` | `intervention/image ^3.11` · **`dompdf ^3.1.6`** · **`phpmailer ^6.12`** |
+| npm | gulp, gulp-sass, sass | iguales (mismo `gulpfile` corregido) |
+
+---
+
+## 10. Resumen en una tabla
+
+| | canastillasWep | cotizaciones |
+|---|---|---|
+| Base de datos | `canastillas` (sin SQL en repo) | `cotizaciones` + `cotizaciones.sql` (8 tablas) |
+| Entidades | usuarios, productos, pedidos, reportes | usuarios, empresas, **clientes**, productos, precios_cliente, cotizaciones, cotizacion_detalles, **notas** |
+| Roles | admin, cliente, proveedor | sólo admin inicia sesión |
+| SQL | concatenado | **preparado** |
+| Feedback | alertas visuales | alertas + **modal único** con `confirmarAccion()` |
+| JS | 1 archivo | **5 archivos** (app + 4 módulos) |
+| CSS | sitio público + admin | **sólo app de cotizaciones**, paleta azul acero |
+| Móvil | responsive básico | **barra inferior de iconos + cajón con nombres** |
+| Nada en común | `var` ×1 | `var` ×0 |
+
+---
+
+## 11. Ronda de pulido: fotos de perfil, bitácora, fieldset y móvil
+
+### 11.1 Fotos de perfil de usuarios y clientes
+
+| | Antes | Ahora |
+|---|---|---|
+| Columna | no existía | `usuarios.foto` y `clientes.foto` (`VARCHAR(150) NULL`) |
+| Formato | — | cuadrado **500×500** recortado al centro (Intervention `cover`) |
+| Visualización | — | círculo de **5rem (80 px)** con `object-fit: cover` |
+| Sin foto | — | `public/image/perfilSinfoto.jpg` (500×500, silueta azul acero) |
+
+- `Imagenes::subir()` admite el modo **`retrato`**; `Imagenes::retrato($archivo)` devuelve siempre
+  la URL correcta (usa `RETRATO_POR_DEFECTO` cuando no hay foto), así que las vistas no comprueban
+  el campo en ningún punto.
+- `Imagenes::subirRetrato()` centraliza las tres situaciones de un formulario: archivo nuevo,
+  casilla **"Quitar foto"** y ningún cambio. **No borra el archivo anterior**: eso lo hace la vista
+  sólo cuando la escritura en base de datos ya fue exitosa (mismo criterio que el logo).
+- La subida se hace **después** de `validar()`: un envío con errores ya no deja archivos huérfanos.
+- `Usuarios::eliminar()` y `Clientes::eliminar()` borran la foto junto con el registro.
+- Campo compartido en `templates/campoRetrato.php` (perfil, CRUD de usuarios y de clientes).
+- Clases nuevas: `.retrato` / `.retrato--sm` y `.perfil-fila` en `_utilidades.scss`, más
+  `.carga-imagen--retrato` (previsualización redonda) en `_formularios.scss`.
+- Se muestra en: ficha de cliente, primera columna del directorio y perfil del administrador.
+
+### 11.2 Categorías de la bitácora
+
+`enum('general','tarea','acuerdo','recordatorio')` → **`enum('recordatorio','cotizar','cambios','revisar','otro')`**
+(defecto `otro`). La migración se hizo con un puente a `VARCHAR` porque MySQL rechaza cambiar un
+`ENUM` mientras haya filas con valores antiguos; los existentes se remapearon
+(`acuerdo`→`cambios`, `tarea`→`revisar`, `general`→`otro`).
+
+`Notas::CATEGORIAS` + `datosCategoria()` dan icono, etiqueta y color; la tercera tarjeta de
+estadísticas pasó de "Acuerdos" a **"Por cotizar"** (`categoria = 'cotizar'`).
+
+### 11.3 Fieldset del cotizador
+
+- El `<legend>` **ya no se apoya en la línea superior**: flota dentro del recuadro
+  (`float: left`), se alinea con el contenido (`margin-left: 0`, sin relleno ni fondo) y todos los
+  hermanos hacen `clear: both`, de modo que el título queda **dentro** del campo con 16px de aire.
+- `.tarjeta--sin-relleno .formulario__acciones` recupera el margen lateral que la tarjeta no daba
+  (16px; en móvil el padding de la tarjeta lo aporta ella).
+
+### 11.4 Móvil: barra inferior y cajón
+
+**Causa raíz encontrada:** la tabla del cotizador (896px) estaba recortada por
+`.tabla-contenedor { overflow-x: auto }`, pero al ser un contenedor *estático* su desbordamiento
+se sumaba al del documento. En móvil el navegador ensanchaba el viewport de diseño de 390 a **918px**,
+con lo que cualquier elemento fijo (`left: 0; right: 0`) medía 918px: la barra inferior mostraba
+2,5 iconos de 6 y el botón "Más" (que abre el cajón) quedaba fuera de pantalla.
+
+**Arreglo:** `position: relative` en `.tabla-contenedor` (hace de bloque contenedor) → las nueve
+pantallas quedan en `innerWidth = doc = body = barra = 390`, con 6 ítems de 65px y
+`overflow-x: hidden`. `overflow-x: hidden` en `html`/`body` **no** servía.
+
+Además la barra pasó de `padding: 0 $espacio-xs` + `overflow-x: auto` a `padding: 0` +
+`overflow-x: hidden` (el redondeo subpixel de 6 × `flex: 1 1 0` abría 2px de scroll).
+
+### 11.5 Verificación automatizada
+
+`/tmp/opencode/navegador/` (Playwright 1.49.1, sin navegador de sistema):
+
+| Script | Resultado |
+|---|---|
+| `probar_filtros.mjs` | **41/41** — Buscar/Limpiar en las 6 listas, desplegables, chips de bitácora y estado vacío |
+| `viewport.mjs` | **9/9** — sin desbordamiento horizontal, barra inferior de 390px |
+| `revisar.mjs` | fieldset, botones de acción y cajón medidos y capturados |
+| `php -l` | **70/70** archivos correctos |
+
+---
+
+## 12. Ronda: logo amplio, duplicar cotización y ganancias por negocio
+
+### 12.1 Vista previa del logo de negocio (30rem)
+
+El logo de las empresas se guardaba en un cuadro fijo de `5rem × 5rem` con `object-fit: cover`,
+de modo que un logotipo anchado (como el de Canastillas de la Baja) se veía minúsculo.
+
+- `templates/formularioEmpresas.php` añade la clase `carga-imagen__preview--amplia`.
+- `_formularios.scss` la define como `width/height: auto`, `max-width: 30rem`, `max-height: 30rem`,
+  `object-fit: contain` y `flex-shrink: 1`: se ve completo hasta 480px y, si la caja es más
+  estrecha, encoge en vez de desbordar. El `max-height` protege la previsualización en vivo del
+  navegador, que todavía muestra el archivo original sin recortar.
+
+### 12.2 Botón "Duplicar" en el histórico de cotizaciones
+
+- **Ruta nueva:** `POST /admin/cotizaciones/duplicar` → `views/admin/cotizaciones/duplicar.php`
+  (sólo POST, con `soloAdmin`), registrada en `index.php`.
+- La copia nace con **folio nuevo, fecha de hoy y estado "pendiente"** y conserva negocio emisor,
+  cliente, vigencia, IVA, descuento global, condiciones comerciales y **todos los renglones**.
+  Se redirige a `/admin/cotizaciones/editar?id=<nuevo>` para que sólo se ajusten productos o
+  cantidades y se guarde.
+- **Detalle clave:** `validar()` y `guardarDetalles()` leen la *clave* del arreglo de renglones como
+  `producto_id`, y `lineasDesdeDetalles()` devuelve una lista numerada. Por eso los renglones se
+  reindexan antes de usarlos; sin eso se habrían guardado productos con id 0, 1, 2…
+- El botón convive con "Ver", "Editar" y "Eliminar" en `.tabla__acciones` (sin confirmación: no
+  destruye nada).
+
+### 12.3 Ganancias por negocio (debajo de "Accesos rápidos")
+
+Sección nueva en `views/admin/index.php` con **un panel por negocio activo** (hoy: Soluciones en
+Acero y Canastillas de la Baja), cada uno con su logo, la cifra de ganancias y cuatro datos de
+contexto (en cartera, total cotizado, cotizaciones, canceladas).
+
+- **"Ganancias" = suma del `total` de las cotizaciones con estado `vendido`.** Las pendientes se
+  muestran aparte como "En cartera" para no confundir lo vendido con lo cotizado.
+- **Filtros:** `Año` (los que ya tienen cotizaciones + el actual + "Todos los años"),
+  `Semestre` (1.º ene–jun / 2.º jul–dic) y `Mes`, con "Buscar" visible y "Limpiar" cuando el
+  periodo no es el por defecto. Prioridad **mes > semestre > año**; sin año, histórico completo.
+- **Sin JavaScript no se puede mezclar:** `app.js` bloquea mes y semestre cuando el año está en
+  "Todos los años" (y los deselecciona); el servidor los manda igualmente `disabled` al pintar.
+- Métodos nuevos en `Cotizaciones`: `anios()`, `rangoPeriodo()` y `ganancias()`; constantes
+  `MESES`. Estilos nuevos `.ganancia{__logo,__etiqueta,__valor,__nota,__rejilla,__dato}` en
+  `_cards.scss`.
+
+### 12.4 Corrección: porcentaje de descuento global
+
+Al abrir `/admin/cotizaciones/editar` la cotización FOL-2026-0001 mostraba **11,11 %** cuando el
+descuento real era **10,00 %** (así lo decían el detalle y el PDF). Guardar sin tocar nada
+habría cambiado el total de $3,946.32 a $3,897.65.
+
+- **Causa:** la función local `descuentoGlobalDe()` dividía `descuento / (subtotal − descuento)`,
+  es decir, calculaba el porcentaje sobre la base **ya descontada**, cuando `calcular()` lo aplica
+  sobre `subtotal − descuentoDeLosRenglones`.
+- **Arreglo:** nuevo `Cotizaciones::desgloseDescuento($cotizacion, $detalles)`, única fuente de
+  verdad, que devuelve `renglones`, `global`, `base` y `pct`. Ya la usan `editar.php`,
+  `duplicar.php`, `detalle.php` y `templates/pdfCotizaciones.php` (los dos últimos antes tenían
+  el mismo bloque copiado a mano).
+
+### 12.5 Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| `probar_panel.mjs` | **15/15** — logo 30rem, filtros de periodo, botón Duplicar |
+| `probar_filtros.mjs` | **41/41** — los filtros existentes siguen intactos |
+| `viewport.mjs` | **9/9** — sin desbordamiento horizontal (incluye el panel nuevo) |
+| Duplicar → editar → guardar | copia idéntica ($3,946.32); con cantidad 5→10 los totales recalcularon $5,825.52 |
+| `php -l` | **71/71** archivos correctos |
+| PDF | 1 página, "Descuento global (10.00%)" |
+
+Las cotizaciones de prueba creadas durante la verificación se eliminaron por id: la base sigue
+con sus **4 cotizaciones** originales.
+
+---
+
+## 13. Ronda: encabezados centrados, Ventas, Inventario y Proveedores
+
+### 13.1 Encabezados de tabla centrados (todas las columnas)
+
+- `_tablas.scss` → `.tabla thead th { text-align: center; }`. La regla se aplica **antes** de la
+  alineación a derecha (`.tabla--numerica`), que sólo afecta a las **celdas de datos**: los números
+  siguen alineados a la derecha y sus títulos quedan centrados, como se pidió.
+- Verificado por computado (`getComputedStyle(th).textAlign === 'center'`) en las 12 columnas de
+  Inventario, 7 de Histórico, 6 de Productos/Ventas/Proveedores/Entradas.
+
+### 13.2 Menú lateral: divisoria + tres secciones nuevas
+
+- `templates/sidebar.php` documenta la bandera **`divisor`**: dibuja `<hr class="sidebar__divisor">`
+  justo antes del enlace que la declara. Hoy sólo la declara **Ventas**, así que la línea separa
+  *Operación* de *Ventas / Inventario / Proveedores*.
+- Enlaces nuevos: **Ventas** (`point_of_sale`), **Inventario** (`warehouse`) y **Proveedores**
+  (`local_shipping`), todos con `subrutas => true` y `soloEscritorio => false`: aparecen tanto en el
+  escritorio como en el cajón de móvil **con su nombre junto al icono**. La barra inferior conserva
+  sus **6 accesos** originales (las tres secciones nuevas no se repiten ahí).
+- `_sidebar.scss` → `.sidebar__divisor`: `border-top`, `margin: 0.5rem 0`, `flex-shrink: 0`.
+
+### 13.3 Base de datos
+
+Migración aplicada en `mysql/migracion_ventas_inventario.sql` (respaldo previo en
+`/tmp/opencode/backups/cotizaciones-antes-ventas-inventario.sql`) y reflejada en
+`mysql/cotizaciones.sql` para instalaciones nuevas.
+
+| Cambio | Detalle |
+|---|---|
+| `productos.stock` | `INT NOT NULL DEFAULT 0` |
+| `movimientos_inventario` | bitácora: `producto_id`, `tipo` (`entrada`/`salida`/`ajuste`), `cantidad`, `saldo`, `cotizacion_id`, `usuario_id`, `notas` |
+| `ventas` | **UNIQUE `cotizacion_id`** (máx. una venta por cotización), `estado_previo ENUM`, `fecha`, `ubicacion`, `ubicacion_otra`, `importe`, `foto`, `notas` |
+| `proveedores` | directorio: `nombre`, `rfc`, `telefono`, `ubicacion`, `tipo_proveedor` |
+| `proveedor_entradas` | registros de recepción con `fecha`, `numero_pedido`, `categoria`, `descripcion`, `foto`, `notas` y FK a `proveedores` (borrado en cascada) |
+
+Las cuatro tablas nuevas se registran en `$clasesConectadas` (`includes/app.php`).
+
+### 13.4 Motor de inventario (`clases/Inventario.php`)
+
+- `stock()`, `faltantes($cotizacionId)` (devuelve `requerido` / `disponible` / `faltante` por
+  producto) y `cantidadesAgrupadas()`.
+- Movimientos privados `mover()` → `descontar()` / `devolver()`; **`ajustar()`** para la carga
+  manual (escribe la bitácora con notas *"Carga manual desde Inventario"*).
+- Listado paginado con filtros (`listar()` / `condiciones()` / `contar()`), `movimientos()` para la
+  historial y **`paraPdf()`**, que agrupa por empresa y calcula `piezas` e `importe`.
+- Constantes `TIPOS` (`entrada` / `salida` / `ajuste`).
+
+Las **únicas dos fuentes** de cambio de stock son la carga manual y la venta: los proveedores **no**
+mueven inventario (registran entradas de material como reporte).
+
+### 13.5 Ventas (`clases/Ventas.php`)
+
+- `UBICACIONES` (Loreto, Cd. Constitución, La Paz, Todos Santos, Barriles, Pescadero, Cabo San
+  Lucas, San José del Cabo, Otro — "Otro" guarda el texto libre en `ubicacion_otra`).
+- **`crearDesdeCotizacion()`** corre en **una sola transacción**: `UPDATE cotizaciones SET estado =
+  'vendido'` + descuento de existencias + `INSERT` de la venta; si algo falla se revierte todo.
+  También valida que la cotización **no tenga ya una venta**.
+- **`eliminar()`** revierte: devuelve las piezas al almacén y regresa la cotización a
+  `estado_previo`. El modal de confirmación advierte exactamente eso.
+- Consultas `listar()`, `contar()`, `condiciones()`, `buscarPorCotizacion()`,
+  `cotizacionesDisponibles()` y `ubicacionCompleta()`.
+
+### 13.6 Estado de la cotización ligado al stock (`clases/Cotizaciones.php`)
+
+- **`aplicarEstadoEnTransaccion($id, $estado, $usuarioId, $pdo)`**: con `SELECT … FOR UPDATE`,
+  sólo actúa en transiciones reales (`pendiente → vendido` descuenta; `vendido → pendiente`
+  devuelve) y evita el doble descuento.
+- **`cambiarEstado()`** envuelve esa lógica en transacción y queda como puerta de los botones de
+  estado del detalle.
+- **`crear()`** descuenta si la cotización nace `vendido`; **`actualizar()`** resincroniza el stock
+  según el estado anterior y el nuevo; **`eliminar()`** devuelve las piezas antes de borrar (y el
+  modal avisa que "el inventario devolverá las piezas descontadas").
+
+### 13.7 Inventario: pantalla y PDF
+
+| Pieza | Contenido |
+|---|---|
+| `views/admin/inventario/index.php` | lista con miniatura, empresa, categoría, precio y **cuadro de cantidad** (`input[type=number]`) que sube o baja y guarda por producto; botón **Exportar Inventario** |
+| `views/admin/inventario/{ajustar,pdf}.php` | carga manual con nota de bitácora · descarga del PDF |
+| `templates/pdfInventario.php` + `Documentos::{htmlInventario,pdfInventario,descargarInventario}` | **una tabla por empresa** con encabezado (fecha de exportación, logo, nombre), columnas **Código · Producto · Precio de lista · Cantidad en inventario · Monto total en inventario** y fila de totales (`piezas` e `importe`) por negocio |
+| `clases/Imagenes.php` | modo **`informe`** (`scaleDown(1600,1600)`, sin recorte ni reescalado) para las fotos de proveedor |
+
+### 13.8 Proveedores y reporte fotográfico
+
+- `views/admin/proveedores/{index,crear,editar,detalle,eliminar}.php` con
+  `templates/formularioProveedores.php`.
+- `views/admin/proveedores/entradas/{index,crear,editar,detalle,eliminar}.php` con
+  `templates/formularioProveedorEntradas.php` y selector de proveedor.
+- **`entradas/detalle.php` es el reporte**: encabezado (Nombre, RFC, Teléfono, Ubicación, Tipo de
+  proveedor, Número de pedido, Categoría) + sección *Descripción* + *Foto de entrega del proveedor*
+  + *Notas adicionales*, con la clase `.foto-acta` (y `--vacia` cuando no hay imagen).
+
+### 13.9 Integración en el detalle de la cotización
+
+- `Inventario::faltantes($id)` se consulta al abrir el detalle: si no alcanza el almacén se muestra
+  siempre la nota `nota--advertencia` con el detalle («X pide 5 y hay 0 (faltan 5)») y el botón
+  **Vendido** lleva `data-confirmacion-*`: el **modal** explica los faltantes y permite continuar
+  (el inventario queda en negativo). Nunca se bloquea y nunca se usa `window.confirm`.
+- Botón **"Registrar venta"** → `/admin/ventas/crear?cotizacion_id=N`; si ya existe la venta se
+  muestra **"Ver venta"**.
+- Plantillas nuevas: `templates/campoFoto.php` (foto de acta reutilizable),
+  `formularioVentas.php`.
+
+### 13.10 Rutas nuevas (`index.php`, todas `soloAdmin`)
+
+```
+/admin/inventario  /admin/inventario/ajustar  /admin/inventario/pdf
+/admin/ventas      /admin/ventas/crear        /admin/ventas/editar
+/admin/ventas/detalle                          /admin/ventas/eliminar
+/admin/proveedores /admin/proveedores/crear   /admin/proveedores/editar
+/admin/proveedores/detalle                     /admin/proveedores/eliminar
+/admin/proveedores/entradas[/crear|/editar|/detalle|/eliminar]
+```
+
+### 13.11 JavaScript y estilos
+
+- `src/js/app.js` → paso 8: al elegir *"Otro"* en la ubicación de la venta se abre
+  `#campo-ubicacion-otra` (`data-ubicacion`).
+- Estilos nuevos: `.sidebar__divisor`, `.campo--oculto`, `.inventario-cantidad{__campo,__campo--vacio}`,
+  `.lista-simple`, `.foto-acta{--vacia}` y `th` centrados.
+
+### 13.12 Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| `probar_stock.mjs` | **64/64** — divisoria, rutas nuevas, `th` centrados, carga manual + bitácora, PDF de inventario (totales por empresa cuadrados con la BD), modal de faltantes, venta atómica, 1 venta por cotización, reversión al borrar, alta de proveedor y reporte de entradas |
+| `probar_cajon.mjs` | **21/21** — cajón móvil con los tres nombres visibles, divisoria antes de Ventas, bottomnav intacta (6), resaltado de sección y sin desborde a 390 px |
+| `probar_filtros.mjs` | **41/41** (se hizo adaptable a los datos del día) |
+| `probar_panel.mjs` | **15/15** (el contador de cotizaciones ya no está fijo) |
+| `viewport.mjs` | **9/9** — sin desbordamiento horizontal |
+| `php -l` | **98/98** archivos correctos · `node --check app.js` correcto · `gulp build` correcto |
+| PDF de inventario | `pdfinfo`/`pdftotext`: encabezado con fecha y logo, una tabla por negocio y fila "Totales de …" con piezas e importe |
+
+La verificación crea una cotización duplicada, la venta y el proveedor de prueba, y **los borra al
+terminar** (restaurando stocks y bitácora): la base de datos queda exactamente como estaba.
+
+---
+
+## 14. Ronda: catálogo a PDF, logo ×2 y balance de proveedores
+
+### 14.1 Exportar catálogo de productos
+
+Botón **"Exportar catálogo de productos"** junto a *"Nuevo producto"* en
+`/admin/productos`. Abre en pestaña nueva y genera **un solo PDF con una tabla
+por negocio**.
+
+| Archivo | Qué hace |
+|---|---|
+| `views/admin/productos/index.php` | El botón, dentro de `acciones` del encabezado (a la izquierda de *"Nuevo producto"*) |
+| `GET /admin/productos/pdf` | Ruta nueva en `index.php` |
+| `views/admin/productos/pdf.php` | Sólo llama a `Documentos::descargarCatalogo()` |
+| `Documentos::htmlCatalogo()`, `pdfCatalogo()`, `descargarCatalogo()` | Composición, render con dompdf y envío al navegador |
+| `Productos::paraPdf()` | Filas agrupadas por empresa |
+| `templates/pdfCatalogo.php` | El documento HTML |
+
+- **Columnas en horizontal:** `Imagen · Clave · Nombre · Costo`.
+- **Leyenda al pie:** *"Los precios no incluyen iva (16%), las ventas son con
+  pago de contado."*
+- **Totales por negocio:** número de productos y suma de costos de esa empresa.
+- **Las imágenes van en base64** (miniaturas 300×300): dompdf trabaja con
+  `isRemoteEnabled = false`, así que nada sale a Internet.
+- **No respeta los filtros de la pantalla:** el botón vive en la barra de
+  acciones, fuera del formulario de búsqueda, y un catálogo es la oferta
+  completa del negocio (incluidos agotados y dados de baja).
+
+### 14.2 Logo del detalle y del PDF a doble tamaño
+
+| Dónde | Antes (×1.6) | Ahora (×2) |
+|---|---|---|
+| `src/scss/layout/_cotizador.scss` | `14.4rem × 6.4rem` | `28.8rem × 12.8rem` |
+| `templates/pdfCotizaciones.php` | `86.4px × 304px` | `172.8px × 608px` |
+
+- Se agregó **`max-width: 100%`**: sin él, la caja de `28.8rem` desborda el
+  viewport a 390 px y el menú inferior mide más que la pantalla.
+- Medido: caja en pantalla **460.8 × 204.8 px**; logo dibujado en el PDF
+  **129.6 pt** = 2 × los 64.8 pt anteriores (`pdfimages -list`, miniatura
+  300 px con `x-ppi` 167).
+- La cotización sigue saliendo en **1 página**.
+
+### 14.3 `monto` y `pagado` en `proveedor_entradas`
+
+```sql
+ALTER TABLE proveedor_entradas
+    ADD COLUMN monto  DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER categoria,
+    ADD COLUMN pagado TINYINT(1)    NOT NULL DEFAULT 0    AFTER monto;
+```
+
+- **Archivo:** `mysql/migracion_entradas_monto.sql` (idempotente: sólo añade la
+  columna si no existe) y el esquema regenerado en `mysql/cotizaciones.sql`.
+- **`monto NOT NULL DEFAULT 0`:** así `SUM()` no necesita `COALESCE` y las
+  entradas viejas cuentan como `$0.00` en vez de romper la suma.
+- **`pagado` arranca en 0:** por defecto todo está *por pagar*. Asumir lo
+  contrario haría que el contador mintiera hacia abajo.
+- `ProveedorEntradas` suma `monto` y `pagado` a `$columnasDB`, al constructor
+  (con `(float)` y `0/1`, porque `''` rompería una columna `DECIMAL` estricta)
+  y a `validar()` (`El monto no puede ser negativo`).
+- El formulario (`templates/formularioProveedorEntradas.php`) gana el campo
+  **Monto** (`type="number" min="0" step="0.01"`).
+
+### 14.4 Sección "Balance general" (`/admin/proveedores/detalle`)
+
+Nueva tarjeta con las **entregas del proveedor y su estado de pago**:
+
+| Columna | Contenido |
+|---|---|
+| Número de pedido | `numero_pedido` |
+| Categoría | secundaria (se oculta en móvil) |
+| Monto | `formatoMoneda()` |
+| Imagen de entrega | miniatura 3×3 rem **visible también en móvil** |
+| Pago | botón **verde** *"Pagado"* / botón *"Pendiente"* + badge |
+| Acciones | ver detalle · editar · eliminar (modal) |
+
+- Cuadro superior `rejilla-stats` con **Entregas · Total · Pagado ·
+  Pendiente por pagar**.
+- **`ProveedorEntradas::balance($filtros)`** calcula los tres importes **en una
+  sola consulta**: separados en queries distintos podrían no cuadrar entre sí.
+- **`ProveedorEntradas::alternarPagado($id, $pagado)`** recibe el estado deseado
+  (no un *toggle* ciego): dos pantallas abiertas a la vez no terminan en
+  contrario.
+- **Sin `confirm()`:** es una acción reversible, no destructiva. Sí exige **POST**
+  (`/admin/proveedores/entradas/pago`), porque un GET jamás cambia datos.
+- El campo `retorno` sólo acepta rutas internas (empiezan por `/`, sin `//`);
+  cualquier otra cosa cae al detalle del proveedor. Evita *open redirect*.
+- Paginación de 15 filas conservando `?id=`.
+
+### 14.5 Contador de pendientes y columna Monto (`/admin/proveedores/entradas`)
+
+- Badge **"Pendiente por pagar $X"** en la barra de filtros, envuelto en
+  `.tabla-toolbar__resumen` (con `justify-content: space-between` cada badge se
+  iría a un extremo distinto y dejarían un hueco enorme entre los dos).
+- `ProveedorEntradas::sumarMonto($filtros, true)` suma sólo las filas con
+  `pagado = 0`. **Respeta los filtros aplicados:** sin filtros es la deuda total;
+  filtrando por proveedor, la de ese proveedor.
+- Nueva columna **Monto** en la tabla, para que la suma se pueda verificar
+  renglón por renglón.
+
+### 14.6 Exportar datos: reporte anual de proveedores
+
+Botón **"Exportar datos"** a la izquierda de *"Entradas"* en
+`/admin/proveedores`. Genera **un solo PDF con las entradas de todos los
+proveedores del año activo**.
+
+| Archivo | Qué hace |
+|---|---|
+| `GET /admin/proveedores/pdf` | Ruta nueva |
+| `views/admin/proveedores/pdf.php` | `Documentos::descargarBalanceProveedores((int) date('Y'))` |
+| `ProveedorEntradas::paraPdf($anio)` | Una sección por proveedor, `WHERE YEAR(fecha) = ?` |
+| `templates/pdfProveedores.php` | El documento HTML |
+
+- Por proveedor: ficha (RFC, teléfono, ubicación, tipo) y tabla
+  `Fecha · Número de pedido · Categoría · Monto · Estado`, con fila resaltada
+  según esté pagado o no.
+- Fila de totales por proveedor y **tabla consolidada** al final
+  (Entregas · Total del año · Pagado · Pendiente por pagar): es el número que
+  decide a quién se le paga primero.
+
+### 14.7 Refactor: `ordenPorCodigo()` compartido
+
+El `ORDER BY` natural por código **se movió de `Inventario` a `Productos`** y
+pasó a `public static`. `Inventario` sólo lo delega.
+
+**Por qué:** desde esta ronda hay dos documentos que ordenan por código (inventario
+y catálogo). Si cada uno tuviera su propia copia de la expresión, encontrar un
+código "funcionaría" de pantalla en pantalla.
+
+### 14.8 Estilos nuevos
+
+| Clase | Para qué |
+|---|---|
+| `.btn--exito` | Botón verde de *"Pagado"* (`$color-exito` → `$color-exito-texto` en hover) |
+| `.tabla-toolbar__resumen` | Agrupador de contadores a la derecha de la barra de filtros |
+| `.tabla__pago` | Indicador + botón apilados y centrados en la celda de pago |
+
+### 14.9 Rutas nuevas
+
+```
+GET  /admin/productos/pdf
+GET  /admin/proveedores/pdf
+POST /admin/proveedores/entradas/pago
+```
+
+### 14.10 Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| `probar_ronda.mjs` | **39/39** — botones y su posición, logo ×2 en pantalla y en el PDF, Balance general (columnas, botones verdes, acciones), contador de pendientes, campo Monto, los dos PDF con su leyenda/columna, y sin desbordamiento horizontal en 7 pantallas a 1440 y 390 px |
+| `php -l` | **103/103** archivos correctos |
+| `gulp build` | correcto (SCSS compilado con `.btn--exito`, `.tabla__pago`, `.tabla-toolbar__resumen` y el logo ×2) |
+| Regresión | `/admin/inventario` conserva el orden natural (`C-1, C-3, RA-7 \| BB-1, RA-1, RA-3, … TM-3` / `TM-4` en la página 2) y el PDF de inventario sigue respondiendo |
+
+La prueba crea una cotización y una entrada, las mide y **las borra al terminar**:
+la base de datos queda exactamente como estaba.
+
+---
+
+## 15. Ronda: correcciones del catálogo, logo adaptativo y balance con categorías
+
+Ajustes sobre lo entregado en la ronda anterior, más dos mejoras de fondo en
+Proveedores.
+
+### 15.1 Catálogo de productos: sin suma y leyenda por empresa
+
+Tres correcciones pedidas a la exportación (`templates/pdfCatalogo.php`):
+
+| Pedido | Cómo se resolvió |
+|---|---|
+| *"quita la suma total de los productos"* | Se borró el `<tfoot>` con la fila *"N productos · Suma de costos de …"*, sus reglas CSS (`tr.total`) y el acumulador `'total'` de `Productos::paraPdf()`. El catálogo es una lista de precios para consultar, no un inventario valorizado. |
+| *"la nota del IVA debe ser por cada empresa, no por cada PDF"* | La leyenda se movió del final del documento a **dentro de cada `.seccion-empresa`**, justo debajo de su tabla. Ahora son N leyendas (una por negocio activo) y el lector nunca tiene que adivinar a qué empresa aplica el pie de la última página. |
+| *"que la tabla sea más compacta en vertical"* | La miniatura pasó de 40 a **30 px**, el relleno de `0.3` a **`0.12 rem`** y el interlineado de `1.3` a `1.2`; el encabezado bajó a `0.18 rem`. Cada renglón ocupa ~26 px en vez de ~51, es decir, casi el doble de productos por página. |
+
+### 15.2 Logo: `max-height: 20rem` con medidas automáticas
+
+Se sustituyó el tamaño fijo por un **tope** con ancho y alto `auto`, de modo
+que la proporción natural del archivo decida el dibujo:
+
+```scss
+// src/scss/layout/_cotizador.scss
+.cotizador-detalle__logo {
+  max-height: 20rem;   // 320 px: sólo manda si el logo es más alto
+  max-width: 100%;     // en móvil la caja nunca desborda el contenedor
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+```
+
+```php
+<!-- templates/pdfCotizaciones.php -->
+.logo { max-height: 320px; max-width: 700px; ... }
+```
+
+* **Por qué `auto`**: con `width: 28.8rem` la caja quedaba más ancha que alta
+  y el logo no crecía, sólo se recortaba con `object-fit`. Con `auto`, una
+  marca apaisada se encoge sin deformarse y una vertical conserva su forma.
+* **Por qué `max-width: 100%`**: sin él, un archivo de gran ancho
+  desbordaría el contenedor, el viewport se ensancharía y la barra
+  inferior mediría más que la pantalla.
+* **Medida real**: el archivo de logo se guarda en **300×300 px**, así que
+  el tope de 320 px no llega a aplicarse y el logo se dibuja a **300 px**
+  (antes 204.8 px en pantalla y 172.8 px / 129.6 pt en el PDF). Para
+  aprovechar los 320 px basta con subir un logo más grande: `max-height`
+  ya está ahí esperándolo.
+
+> **Actualizado en la ronda 16 (§16.5):** el tope bajó a `10rem` / `160px` en
+> pantalla **y se igualó el PDF** (`320px` → `160px`). Las cifras de arriba
+> documentan lo que se entregó en esta ronda; el valor lo fija el usuario y la
+> prueba lo lee de ambas fuentes, así que una discrepancia entre el `.scss` y la
+> plantilla del PDF se detecta sola.
+
+### 15.3 Balance general: estado visible antes y después de pagar
+
+Antes sólo se marcaba *"Pagado"* cuando ya estaba pagado; la fila pendiente
+sólo tenía el botón verde. Ahora **siempre hay un indicador** en la celda
+*Pago*:
+
+| Estado | Insignia | Botón |
+|---|---|---|
+| Sin pagar | `badge--pendiente` **Pendiente** | verde `btn--exito` **Pagado** (check_circle) |
+| Pagado | `badge--aprobado` **Pagado** | secundario **Deshacer** (replay) |
+
+### 15.4 Filtro por categoría en el Balance general
+
+Nuevo formulario `GET` (con **Buscar** y **Limpiar**, como todo listado) en
+la cabecera de la sección, sobre los indicadores.
+
+* El parámetro `?categoria=N` entra en **el mismo arreglo** que alimenta
+  `balance()` y `mostrarTodos()`, así que **la tabla y los cuatro números se
+  reducen juntos**: si se filtrara sólo la lista, la suma diría una cosa y
+  los renglones otra.
+* Se conserva en la paginación y en el `retorno` del botón de pago
+  (`$rutaBalance`), de modo que al pagar sigues en el filtro.
+* Un id fuera de la lista se trata como *"sin filtro"*; una categoría sin
+  pedidos muestra el aviso *"no tiene pedidos en la categoría …"* con
+  enlace a **Ver todos**.
+
+### 15.5 `proveedor_entradas.categoria` → entero con lista fija
+
+```
+0 Sin categoría · 1 Acero · 2 Canastillas · 3 Empaque
+4 Mano de obra  · 5 Servicio · 6 Otro
+```
+
+La lista vive en `ProveedorEntradas::CATEGORIAS` (única fuente de verdad) y
+se usa en el formulario, el filtro, las tablas, la ficha y los PDF.
+
+> **Actualizado en la ronda 16:** esa constante ya no existe. El catálogo migró a
+> la tabla `categorias_proveedor` con su CRUD en
+> `/admin/proveedores/categorias` y su única fuente de verdad es
+> `CategoriasProveedor::mapa()` (ver §16).
+
+* **Migración** `mysql/migracion_entradas_categoria.sql` (idempotente: sólo
+  convierte si la columna todavía es `VARCHAR`, así que una segunda pasada
+  jamás pone en 0 las categorías ya elegidas). El esquema completo quedó
+  actualizado en `mysql/cotizaciones.sql`.
+* **Por qué entero**: un campo libre produce *"acero"*, *"Acero"* y *"mat."*
+  como tres categorías distintas; con el id, filtrar es `categoria = 1` en
+  vez de `LIKE '%acero%'`, y renombrar una categoría es un cambio en un
+  arreglo, no un `UPDATE` de cientos de filas.
+* **Búsqueda**: como en la tabla ya no está el texto, `q` compara contra
+  `idPorNombre()` (escribe *"Acero"* y se busca por id) o contra el número
+  si el término es numérico. Un texto que no corresponde a ninguna categoría
+  no devuelve filas inventadas.
+* **Validación**: `categoria` debe ser 0 o un id de la lista; lo que esté
+  fuera produce el error *"La categoría seleccionada no es válida."* y no
+  se da de alta.
+
+> **Dato heredado**: las entradas que tenían texto libre (*"Fronteras"*,
+> *"Registros"*) quedaron en `0 = Sin categoría` porque esa información no
+> cabe en un entero. Se reasignan con el nuevo desplegable.
+
+### 15.6 Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| `probar_ronda2.mjs` | **57/57** — catálogo sin suma y con una leyenda por empresa, separación entre renglones < 30 pt, logo `max-height: 320px` y cuadrado en pantalla, 225 pt en el PDF, el PDF sigue en 1 página, insignia *Pendiente/Pagado*, contador *"1 pedido pendiente"*, filtro por categoría (tabla + indicadores + select + vacío), búsqueda por nombre de categoría, columna `TINYINT`, select de 7 opciones, alta inválida rechazada, sin desbordamiento a 1440 y 390 px |
+| `php -l` | **103/103** archivos correctos |
+| `gulp build` | correcto (logo con `max-height: 20rem`) |
+| Regresión | `/admin/proveedores/pdf`, `/admin/inventario/pdf` y `/admin/productos/pdf` siguen respondiendo |
+| Limpieza | la prueba crea su **propia** cuenta de usuario, su proveedor y sus entradas, y los borra al final (el proveedor arrastra las entradas por FK en cascada) |
+
+---
+
+## 16. Ronda: CRUD de categorías de proveedores
+
+Pedido exacto: *"genera un crud para las categorias de proveedores para poder
+seleccionar. En /admin/proveedores un boton de lado izq que diga Crear Categorias y
+dentro de categorias el poder crear las categorias. Estas categorias seran
+disponibles para todos los proveedores."*
+
+Antes de tocar código se aclaró la duda de fondo: se refiere a las **categorías de
+las entradas** (la lista fija `1 Acero … 6 Otro` de la ronda anterior, que es el
+único campo rotulado «Categoría» de la app), no al `ENUM tipo_proveedor` del
+directorio. Y se confirma lo que venía implícito en el pedido: **un catálogo único,
+compartido por todos los proveedores** — lo que se clasifica es el tipo de compra,
+concepto de la empresa, no de quien surte.
+
+### 16.1 Base de datos: de constante a tabla
+
+| Pieza | Detalle |
+|---|---|
+| Tabla nueva | `categorias_proveedor(id TINYINT UNSIGNED, nombre VARCHAR(80) UNIQUE, creado_en)` |
+| Siembra | ids **1–6 explícitos** con la lista existente, **sólo si la tabla está vacía** |
+| Esquema | `mysql/cotizaciones.sql` (+13.ª tabla y línea de migración en la cabecera) |
+| Migración | `mysql/migracion_categorias_proveedor.sql`, idempotente (`CREATE TABLE IF NOT EXISTS` + procedimiento guardado que sólo siembra con 0 filas) |
+| `proveedor_entradas.categoria` | sigue siendo `TINYINT … DEFAULT 0`, ahora documentado como `Id en categorias_proveedor` |
+
+* **Por qué ids explícitos**: cambiarlos reescribiría el significado de las
+  entradas ya capturadas. MySQL deja el `auto_increment` en 7 solo, así que la
+  próxima categoría creada desde el CRUD no choca con la siembra.
+* **Por qué NO hay clave foránea** (decisión, no olvido): `categoria` admite el
+  `0` = «Sin categoría» y el 0 no es una fila de la tabla (el auto_increment
+  arranca en 1), así que la FK rechazaría toda entrada sin clasificar. La misma
+  protección está en PHP: `CategoriasProveedor::eliminar()` cuenta el uso antes de
+  borrar y devuelve un error explicativo. Se pierde sólo la garantía en una carrera
+  entre dos administradores en la misma décima de segundo, riesgo asumible frente
+  al coste de reescribir la lógica de `0` como `NULL`.
+
+### 16.2 Modelo: `clases/CategoriasProveedor.php`
+
+Nueva clase con el esqueleto estándar (`setDB`, `atributos`, `crear`, `actualizar`,
+`eliminar`, `buscarID`, `mostrarTodos`, `contarTodos`, `validar`, `getErrores`) más
+cuatro piezas propias:
+
+| Método | Por qué existe |
+|---|---|
+| `mapa(): array` | **Única fuente de verdad** `id => nombre`. Cacheado en un `static` por petición: el Balance, la tabla de entradas y la ficha lo piden varias veces y un N+1 aquí sería gratuito. Se anula al crear, actualizar o eliminar. |
+| `nombre(int $id): string` | Un id desconocido (borrado en otra pestaña) cae en «Sin categoría» en vez de imprimir un número. |
+| `idPorNombre(string $texto): int` | Traduce *"Acero"* a `categoria = 1` para la búsqueda del listado, que ya no puede comparar texto. |
+| `enUso(int $id): int` | **La barrera de borrado**: sin clave foránea, esto es lo que impide dejar entradas apuntando a un id inexistente. |
+
+`ProveedorEntradas` **perdió** `CATEGORIAS` y `SIN_CATEGORIA` y conserva sólo dos
+delegaciones (`nombreCategoria()`, `idPorNombre()`), porque es la clase que guarda
+el id y quien pinte una entrada no debería tener que adivinar qué clase consultar.
+Las vistas que iteraban el arreglo ahora leen `CategoriasProveedor::mapa()`.
+
+### 16.3 Rutas y vistas
+
+Siete rutas nuevas en `index.php`, todas con `soloAdmin`:
+`GET/POST /admin/proveedores/categorias`, `GET/POST …/crear`, `GET/POST …/editar` y
+`POST …/eliminar` (sólo POST: un `<a>` de borrado se dispara con el prefetch).
+
+| Archivo | Rol |
+|---|---|
+| `views/admin/proveedores/categorias/index.php` | tabla *Categoría · Entradas · Acciones* con buscador **Buscar/Limpiar**, badge de conteo y paginación |
+| `…/crear.php` · `…/editar.php` | comparten `templates/formularioCategorias.php` (un solo campo) |
+| `…/eliminar.php` | sólo POST; si está en uso, redirige con alerta de error |
+| `views/admin/proveedores/index.php` | **«Crear Categorías» es el primer botón** de la barra de acciones (lado izquierdo), antes de *Exportar datos*, *Entradas* y *Nuevo proveedor* |
+
+Tres decisiones de interfaz:
+
+1. **El contador de uso es el enlace.** La columna *Entradas* de cada fila muestra
+   cuántas veces se usa esa categoría **y** lleva a `/admin/proveedores/entradas?q=<nombre>`,
+   que es exactamente la búsqueda por nombre que ya existía. Se responde "¿por qué
+   no puedo borrarla?" con un clic.
+2. **El modal dice si va a doler.** `data-confirmacion-mensaje` cambia según el
+   uso: *"la usan N entradas, así que no se podrá eliminar hasta liberarlas"* o
+   *"no está en uso, así que ninguna entrada se ve afectada"*. El botón sigue
+   visible aunque esté en uso: el servidor tiene la última palabra y el motivo se
+   entiende al intentarlo, no escondiéndolo.
+3. **Renombrar sí, borrar no.** Renombrar sólo cambia el texto de una fila y las
+   entradas conservan su id — ésa es la razón entera de guardar el id y no el texto.
+
+### 16.4 Bug detectado al releer el propio código
+
+`buscarPorNombre()` devuelve `0` cuando no encuentra nada, **no `null`**, y la
+condición `if ($existe !== null && $existe !== $this->id)` hacía que **renombrar
+una categoría sin cambiar el nombre** devolviera *"Ya existe otra categoría con ese
+nombre"*: `0 !== 3` es `true`. Corregido a `$existe > 0 && $existe !== (int) $this->id`
+y documentado en `cambios/cambios.md` §22.
+
+### 16.5 Cambio del usuario durante la ronda
+
+Mientras se trabajaba, el usuario bajó el tope del logo de la cotización de
+`20rem` a **`10rem`** en `src/scss/layout/_cotizador.scss` (y recompiló). **No se
+revierte**: es su decisión de diseño. Lo que sí cambió fue la prueba —
+`probar_ronda2.mjs` tenía el `320px` escrito a mano y empezó a acusar fallos que no
+existían. Ahora **lee el `max-height` de la fuente `.scss`**, comprueba que el CSS
+compilado coincida (eso sí detecta un build viejo) y valida el efecto: dibujo a
+`min(tamaño natural del archivo, tope)`. La misma suite dejó de reutilizar la
+primera cotización del histórico (con los 3 renglones del usuario "1 página" no
+significaba nada) y ahora siempre crea la suya de un renglón y la borra.
+
+> **Decidido con el usuario al cerrar la ronda:** el tope bajó a `10rem` en
+> pantalla **y se igualó el PDF** (`templates/pdfCotizaciones.php` pasa de `320px`
+> a `160px`, el mismo número en px porque dompdf no resuelve el rem como el
+> navegador). La prueba ahora lee el tope de **ambas** fuentes y comprueba que
+> coincidan, así que basta con cambiar un archivo para que falle la otra pieza.
+
+### 16.6 Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| `probar_categorias.mjs` (nuevo) | **55/55** — botón izquierdo, listado alfabético con uso, alta que llega al select de **todos** los proveedores, nombre repetido rechazado, HTML escapado, renombrar conserva el id, borrado en uso bloqueado con aviso, borrado libre permitido, búsqueda + *Limpiar*, estado vacío, `eliminar` que no acepta GET, sección activa y desbordamiento a 1440/390 px |
+| `probar_ronda2.mjs` | **66/66** (antes 62; se añadieron la sincronía fuente↔build del logo, la igualdad de tope pantalla↔PDF y la comprobación de dibujo a `min(natural, tope)`) |
+| `php -l` | **109/109** archivos correctos |
+| `npx gulp build` | correcto |
+| Regresión | `/admin/proveedores/pdf`, `/admin/inventario/pdf` y `/admin/productos/pdf` siguen respondiendo como PDF |
+| Limpieza | ambas suites crean su **propia** cuenta, proveedor, entradas y cotización, y los borran en el orden correcto (usuario el **último**, por el `RESTRICT` de `usuario_id`) |
+| Base después de las pruebas | 2 usuarios · 1 proveedor · 15 entradas · **6 categorías** · 1 cotización · 51 movimientos |
+
+> **Dato pendiente de decisión:** las 15 entradas del cliente quedaron en
+> `0 = Sin categoría` desde la migración anterior (sus textos libres no cabe en un
+> entero). Si el usuario quiere, se pueden asignar masivamente a una categoría
+> (por ejemplo *Acero*) con un solo `UPDATE`.
+
+---
+
+## 17. Ronda: revisión de diseño, interfaz y accesibilidad
+
+### 17.1 Contraste WCAG AA: la paleta se rehace
+
+Una auditoría automática recorriendo la cadena de fondos (no sólo el color plano)
+encontró **888 fallos de contraste**. Casi todos venían de tres decisiones viejas:
+el azul y el gris elegidos «a ojo» y el gris repetido dentro de los PDF.
+
+| Token | Antes | Ahora | Contraste |
+|---|---|---|---|
+| `$color-primario` (relleno) | `#5a92c3` | **`#4679a6`** | blanco encima **4.6:1** (antes 3.3) |
+| `$color-primario-oscuro` (hover) | `#4679a6` | **`#38648c`** | **6.2:1** |
+| `$color-primario-texto` (nuevo) | — | **`#3d6d99`** | **5.5:1** |
+| `$color-texto-secundario` | `#8c8c90` | **`#64646a`** | **5.9:1** (antes 3.4) |
+| `$color-rust-texto` (nuevo) | `#b46424` | **`#9a5220`** sobre `#faede3` | **5.1:1** |
+
+- **Nace el tercer azul:** el mismo tono no sirve igual como fondo (donde el texto
+  es blanco) que como texto. Se separaron 21 usos `color: $color-primario` a
+  `$color-primario-texto` con un patrón negativo lookbehind para no tocar
+  `background-color` ni `border-color`.
+- El **chip activo** reemplazó el texto azul por una píldora blanca; la flecha del
+  `<select>` pasó a SVG codificado (una ligadura de Material Symbols no se podía
+  colorear por CSS).
+- Las **cuatro plantillas de PDF** usaban `#8c8c90`; dompdf no lee `app.css`, así
+  que hay que tocarlas aparte.
+- **Resultado: 888 → 0** (`pruebas/auditar_profundo.mjs`).
+
+### 17.2 Encabezados: un solo `<h1>` y un `<title>` con sentido
+
+- `templates/header.php` gana el parámetro **`$mostrarEncabezado`** (por defecto
+  `true`). `clientes/detalle` y `cotizaciones/detalle` lo ponen en `false` y
+  pintan el suyo: así el nombre del cliente deja de aparecer **dos veces** y
+  queda exactamente un `<h1>` por página.
+- Las **6 vistas `editar`** (clientes, usuarios, empresas, notas, productos,
+  cotizaciones) perdieron su `<h1>` duplicado y se quedaron sólo con la
+  descripción, igual que ya hacían las `crear`.
+- El `<title>` de `cotizaciones/detalle` decía «Cotizaciones · Cotizaciones»:
+  ahora es **`FOL-2026-0001 · Cotizaciones`**, y el título de la pestaña sale del
+  mismo `$titulo`.
+- En ese detalle se eliminó además el **segundo botón «Editar»** duplicado y se
+  movió el «Volver al Histórico» junto a las demás acciones.
+
+### 17.3 Tablas, campos y objetivos táctiles
+
+- **`<caption class="solo-lectores">`** en las 3 tablas que faltaban (histórico,
+  detalle de cotización y `#tabla-renglones`): **13/13**.
+- **`<label for>` + `id`** en los 3 campos de solo lectura que no lo tenían
+  (`rol-fijo`, `alta-fija`, `folio-cotizacion`).
+- **Objetivos táctiles ≥ 24×24 px** (WCAG 2.5.8): `.alerta__cerrar` de 1.5 a
+  **2rem** y `a.badge`/`button.badge` de 22px a **24px**. La regla quedó
+  *fuera* del bloque `.badge` porque Sass rechaza `a&`.
+- Las auditorías aprendieron las **excepciones de la norma** (controles nativos
+  con etiqueta, enlaces en línea, texto con `aria-hidden`) y arreglaron un
+  falso positivo en `esquema.mjs` que marcaba `campoFoto`/`campoRetrato`.
+
+### 17.4 Enlace de salto y foco
+
+- **«Saltar al contenido»** al principio del `<body>` (`.saltar-contenido`,
+  `z-index: 100`) con destino `id="contenido-principal"` en ambos `<main>`: es el
+  primer elemento con Tab y se ve sólo con foco.
+- `focus-visible` verificado en 9 puntos del CSS compilado.
+
+### 17.5 Las auditorías y suites se mudan a `pruebas/`
+
+`playwright@1.56.1` pasa a *devDependency* del proyecto y **todo el material de
+prueba vive ya en `pruebas/`**, no en `/tmp`:
+
+| Comando | Qué ejecuta | Resultado |
+|---|---|---|
+| `npm run pruebas` | `probar_ronda` + `probar_ronda2` + `probar_categorias` | **46 + 67 + 56 = 169** |
+| `npm run auditorias` | `auditar_ui` + `auditar_profundo` + `auditar_consola` | **0 hallazgos** en 36 y 26 pantallas |
+| `node pruebas/esquema.mjs <url>` | árbol de encabezados, `title`, regiones, etiquetas | 1 `<h1>` y captions correctos |
+
+- Los scripts se hicieron **portables**: `RAIZ` se calcula desde
+  `import.meta.url` (ya no hay ruta absoluta escrita a mano) y los PDF
+  temporales van al `tmpdir()` del sistema.
+- **`probar_ronda.mjs`** dejó de esperar medidas escritas a mano: ahora lee el
+  tope del logo de `src/scss/layout/_cotizador.scss` y de
+  `templates/pdfCotizaciones.php`, comprueba que lo compilado le siga la pista y
+  que la imagen dibujada no lo rebase. **Fue la corrección de esta ronda:** al
+  oscurecer la paleta y cambiar el tope, las tres comprobaciones fijas dejaron de
+  coincidir (28.8rem / 12.8rem / 129.6pt) y ahora detectan un *build* viejo en
+  lugar de un cambio legítimo del usuario.
+- **Y los datos que el usuario administra también se leen de la base.** Las
+  suites nacieron con «6 categorías» y los ids `1`/`2` escritos a mano: al
+  rehacerse el catálogo (10 categorías, ids 18–27) la de ronda2 rechazó las
+  altas y la de categorías quedó a un paso de **borrar la «Acero» del usuario**,
+  porque esperaba que el servidor se negara a un id que ya no estaba en uso.
+  Ahora catálogos, recuentos y órdenes salen de `SELECT … ORDER BY nombre`, la
+  categoría protegida es una que la propia prueba pone en uso antes de
+  intentar borrarla, y la preparación limpia también los restos de corridas
+  interrumpidas (cotizaciones y proveedores de la cuenta de prueba, que las FK
+  `RESTRICT` bloqueaban).
+- `probar_ronda.mjs` **ya no usa `admin@cotizaciones.local`** (que fue borrada en
+  rondas anteriores): crea `prueba.ronda14@cotizaciones.local` y la elimina el
+  último, después de su cotización, porque `usuario_id` es `RESTRICT`.
+
+### 17.6 Documentación
+
+Se crea **`cambios/documentacion.md`** (760 líneas, 19 secciones): qué es la app,
+stack, montaje desde cero, `.env`, mapa de carpetas, ciclo de la petición, las 13
+tablas, roles, guía módulo por módulo, reglas de negocio, PDF y correo, sistema de
+diseño con ratios de contraste, accesibilidad, JavaScript, cómo ejecutar las
+pruebas, despliegue, solución de problemas, glosario y documentación relacionada.
+Se corrige además el credencial obsoleto que `plan.md` seguía publicando.
+
+### 17.7 Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| `npm run pruebas` | **169/169** |
+| `npm run auditorias` | **0 hallazgos** en 36 pantallas (UI), contraste/táctiles limpios y **0** errores en consola |
+| `pruebas/esquema.mjs` sobre 28 rutas | un solo `<h1>` en todas, `<title>` correcto y `<caption>` presente |
+| `php -l` | 109/109 archivos correctos |
+| `npx gulp build` | correcto |
+| Base después de las pruebas | 2 usuarios · 13 clientes · 16 productos · 1 cotización · 1 proveedor · 15 entradas · **10 categorías** · 2 empresas · 51 movimientos |
+
+---
+
+## Ronda — Ventas directas y listado unificado (2026-10-17)
+
+- **Ventas reemplazada.** Se elimina el registro de entrega ligado a cotización (tabla, clase, vistas, JS de ubicación). Sus datos no se migran.
+- **Venta directa** (`ventas` + `venta_detalles`, folio `VEN-AAAA-NNNN`): mismo formulario, cálculo y *Resumen de liquidación* que la cotización (`templates/formularioCotizaciones.php` con `$documento = 'venta'`), PDF con la misma plantilla.
+- **Inventario:** crear descuenta, editar devuelve y vuelve a descontar, cancelar/eliminar devuelve. Si no alcanza queda en negativo y se avisa (sin bloquear). `movimientos_inventario.venta_id` registra el origen.
+- **Listado `/admin/ventas`:** une ventas directas y cotizaciones vendidas, de todos los negocios (filtros por origen, negocio, cliente y fechas).
+- **Ganancias del panel:** suman también las ventas directas.
+- **Correo eliminado** (cotizaciones y ventas): se borran `Correos.php`, `enviar.php`, la ruta y la sección del detalle.
+- **Migración:** `mysql/migracion_ventas_directas.sql` (respaldar antes).

@@ -1,0 +1,121 @@
+# ===========================================================================
+# Deployment de la app (PHP 8.3 + Apache).
+#
+#  · initContainer: si el PVC de imágenes está vacío (primer deploy),
+#    copia las imágenes que vienen en la imagen Docker.
+#  · env: credenciales DB y SMTP desde el Secret 'cotizaciones'.
+#    config/entorno.php da prioridad a las variables de entorno reales
+#    sobre el .env, así que no hace falta tocar código.
+# ===========================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cotizaciones
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cotizaciones
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: cotizaciones
+  template:
+    metadata:
+      labels:
+        app: cotizaciones
+    spec:
+      initContainers:
+        - name: precargar-imagenes
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              if [ -z "$(ls -A /destino 2>/dev/null)" ]; then
+                echo "PVC vacío: precargando imágenes del repositorio..."
+                cp -a /var/www/html/public/image/. /destino/
+                echo "Precarga completada."
+              else
+                echo "El PVC ya tiene imágenes: no se toca nada."
+              fi
+          volumeMounts:
+            - name: images
+              mountPath: /destino
+      containers:
+        - name: cotizaciones
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DB_HOST
+              value: mysql
+            - name: DB_NAME
+              value: {{ .Values.mysql.database | quote }}
+            - name: DB_USER
+              value: {{ .Values.mysql.user | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: DB_PASSWORD
+            - name: REGISTRO_ABIERTO
+              value: {{ .Values.app.registroAbierto | quote }}
+            - name: CORREO_MODO
+              value: {{ .Values.correo.modo | quote }}
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: SMTP_HOST
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: SMTP_PORT
+            - name: SMTP_SEGURO
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: SMTP_SEGURO
+            - name: SMTP_USUARIO
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: SMTP_USUARIO
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: SMTP_PASS
+            - name: SMTP_DESDE
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: SMTP_DESDE
+            - name: SMTP_DESDE_NOMBRE
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: SMTP_DESDE_NOMBRE
+          ports:
+            - containerPort: 80
+          resources:
+            {{- toYaml .Values.resources.app | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: images
+              mountPath: /var/www/html/public/image
+      volumes:
+        - name: images
+          persistentVolumeClaim:
+            claimName: cotizaciones-images

@@ -1,0 +1,243 @@
+/* ==========================================================================
+   _sidebar.scss — Navegación lateral.
+   Escritorio: 260px fijo.
+   Tablet:     64px, sólo iconos.
+   Móvil:      fuera de pantalla (off-canvas) con fondo desenfocado detrás.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: $ancho-sidebar;
+  min-width: $ancho-sidebar;
+  height: 100vh;
+  overflow-y: auto;
+  background-color: $color-superficie;
+  border-right: 1px solid $color-borde;
+  transition: transform $transicion, width $transicion, min-width $transicion;
+
+  /* --- Marca / logo --- */
+  &__marca {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    min-height: $alto-topbar;
+    padding: $espacio-sm $espacio-lg;
+    border-bottom: 1px solid $color-borde;
+    text-decoration: none;
+    color: $color-texto;
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    background-color: $color-primario;
+    border-radius: $radio;
+    color: $color-texto-invertido;
+    font-family: $fuente-titulos;
+    font-weight: 700;
+    font-size: $fuente-sm;
+  }
+
+  &__nombre {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+  }
+
+  &__nombre strong {
+    font-family: $fuente-titulos;
+    font-size: $fuente-base;
+    font-weight: 700;
+    @include texto-una-linea;
+  }
+
+  &__nombre span {
+    font-size: $fuente-xs;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  /* --- Bloque de enlaces --- */
+  &__bloque {
+    padding: $espacio-md $espacio-sm;
+  }
+
+  &__titulo-bloque {
+    padding: $espacio-xs $espacio-sm $espacio-sm;
+    @include etiqueta-superior;
+  }
+
+  &__nav {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-xs;
+  }
+
+  /* Línea divisoria: separa el bloque de operación de las secciones de
+     almacén (ventas, inventario y proveedores). Sólo es una regla: no
+     añade un rótulo nuevo. */
+  &__divisor {
+    width: 100%;
+    height: 0;
+    margin: $espacio-sm 0;
+    border: 0;
+    border-top: 1px solid $color-borde;
+    flex-shrink: 0;
+  }
+
+  /* --- Cada enlace --- */
+  &__enlace {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    padding: $espacio-sm $espacio-md;
+    border-radius: $radio-lg;
+    color: $color-texto;
+    font-size: $fuente-sm;
+    text-decoration: none;
+    transition: background-color $transicion-rapida, color $transicion-rapida;
+
+    &:hover {
+      background-color: $color-superficie-baja;
+      text-decoration: none;
+    }
+  }
+
+  /* Estado activo: igual que la maqueta (fondo azul acero y texto blanco). */
+  &__enlace--activo {
+    background-color: $color-primario !important;
+    color: $color-texto-invertido !important;
+    font-weight: 600;
+
+    .sidebar__icono {
+      color: $color-texto-invertido;
+    }
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    flex-shrink: 0;
+    color: $color-texto-secundario;
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  &__texto {
+    @include texto-una-linea;
+  }
+
+  /* --- Pie del sidebar (sesión del usuario) --- */
+  &__pie {
+    margin-top: auto;
+    padding: $espacio-md $espacio-lg;
+    border-top: 1px solid $color-borde;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   TABLET (< 1200px): se contrae a un riel de sólo iconos.
+   -------------------------------------------------------------------------- */
+@include hasta-tablet {
+  .sidebar {
+    width: $ancho-sidebar-rail;
+    min-width: $ancho-sidebar-rail;
+
+    &__marca {
+      justify-content: center;
+      padding: $espacio-sm;
+    }
+
+    &__nombre,
+    &__titulo-bloque,
+    &__texto,
+    &__pie {
+      display: none;
+    }
+
+    &__enlace {
+      justify-content: center;
+      padding: $espacio-sm;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   MÓVIL (< 768px): fuera de pantalla, se despliega con el menú inferior.
+   Aquí el cajón vuelve a ser ancho y DEBE mostrar el nombre de cada sección
+   junto a su icono (la regla de tablet oculta el texto: hay que revertirla).
+   -------------------------------------------------------------------------- */
+@include hasta-movil {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 70;
+    width: $ancho-sidebar;
+    min-width: $ancho-sidebar;
+    transform: translateX(-100%);
+    box-shadow: $sombra-3;
+
+    &--abierto {
+      transform: translateX(0);
+    }
+
+    /* Se revierte el riel de tablet: icono + nombre de la sección. */
+    &__marca {
+      justify-content: flex-start;
+      padding: $espacio-sm $espacio-lg;
+    }
+
+    &__nombre {
+      display: flex;
+    }
+
+    &__titulo-bloque,
+    &__pie {
+      display: block;
+    }
+
+    &__texto {
+      display: block;
+      font-weight: 500;
+    }
+
+    &__enlace {
+      justify-content: flex-start;
+      padding: $espacio-sm $espacio-md;
+      font-size: $fuente-base;
+    }
+
+    /* Cada sección se muestra UNA sola vez: las que ya tienen su acceso
+       propio en la barra inferior no se repiten dentro del cajón. */
+    &__enlace--solo-escritorio {
+      display: none;
+    }
+
+    &__icono {
+      font-size: 1.375rem;
+    }
+  }
+}
