@@ -25,6 +25,7 @@ const cliente = sql('SELECT id FROM clientes LIMIT 1');
 
 function limpiar() {
   sql("DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL");
+  sql('DELETE FROM entregas'); sql('DELETE FROM preparaciones');
   sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }
 limpiar();

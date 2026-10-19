@@ -114,6 +114,24 @@ $porCliente = Entregas::pendientesPorCliente();
 $prueba('solo queda el cliente de la venta de cotización', count($porCliente) === 1 && $porCliente[0]['piezas'] === 3, json_encode(array_column($porCliente, 'piezas')));
 $prueba('cancelar una preparación sin entregas', Entregas::cambiarEstado($prep2, 'cancelada', $usuario));
 
+
+echo "Devolución cierra la entrega\n";
+$vE = $venta((int) $clientes[0], [37 => $L(4)]);
+$prueba('venta nueva aparece por entregar', in_array($vE, array_map(fn ($v) => (int) $v['id'], Entregas::ventasPendientes([], 50, 0))));
+Entregas::crearPreparacion([$vE], '', $usuario);
+$prepE = Entregas::$ultimoId;
+Entregas::registrarEntrega($vE, $prepE, [37 => 1], $hoy, bin2hex(random_bytes(16)), '', $usuario);
+$prueba('con 1 de 4 entregada sigue pendiente (3)', Entregas::pendientesDeVentas([$vE])[$vE][37]['pendiente'] === 3);
+$prueba('devolver 1 pieza registra la devolución', App\Inventario::devolverDeVenta($vE, [37 => 1], 'Cliente rechazó', $usuario), implode('|', App\Inventario::getErrores()));
+$prueba('la devolución cierra la entrega (pendiente 0)', Entregas::pendientesDeVentas([$vE])[$vE][37]['pendiente'] === 0);
+$prueba('ya no aparece por entregar', !in_array($vE, array_map(fn ($v) => (int) $v['id'], Entregas::ventasPendientes([], 50, 0))));
+$prueba('la venta sigue registrada (sigue siendo ingreso)', $uno("SELECT estado FROM ventas WHERE id = $vE") === 'registrada');
+$prueba('su preparación pasa a entregada', Entregas::buscarPreparacion($prepE)['estado'] === 'entregada');
+$prueba('ya no se puede registrar entrega', !Entregas::registrarEntrega($vE, $prepE, [37 => 1], $hoy, bin2hex(random_bytes(16)), '', $usuario));
+Entregas::getErrores();
+$prueba('ya no se puede preparar de nuevo', !Entregas::crearPreparacion([$vE], '', $usuario));
+Entregas::getErrores();
+
 echo "Concurrencia: dos entregas simultáneas de la misma pieza\n";
 $vD = $venta((int) $clientes[0], [37 => $L(2)]);
 $raiz = dirname(__DIR__, 2);

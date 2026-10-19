@@ -41,6 +41,11 @@ template('header', ['titulo' => 'Devolución · ' . $venta->folio, 'subtitulo' =
 ?>
 
 <section class="tarjeta">
+    <p class="nota nota--advertencia mb-lg" role="status">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
+        <span>Al registrar una devolución se <strong>cierra la entrega</strong> de esta venta: lo que aún faltara
+            por entregar deja de estar pendiente.</span>
+    </p>
     <?php if ($errores) : ?>
         <div class="nota nota--error mb-lg" role="alert">
             <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>

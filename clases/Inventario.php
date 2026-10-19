@@ -493,6 +493,16 @@ class Inventario
                 return false;
             }
 
+            // La devolución cierra la entrega: lo que faltaba por entregar ya no se entrega.
+            $cerrar = self::$db->prepare(
+                "UPDATE ventas SET entrega_cerrada_en = NOW(), entrega_cerrada_motivo = 'Devolución de cliente'
+                  WHERE id = ? AND entrega_cerrada_en IS NULL"
+            );
+            $cerrar->bind_param('i', $ventaId);
+            $cerrar->execute();
+            $cerrar->close();
+            Entregas::avanzarPreparaciones($ventaId);
+
             Auditoria::registrar('venta', $ventaId, 'devolucion', $usuarioId, trim($razon), ['piezas' => $piezas]);
             self::$db->commit();
             return true;

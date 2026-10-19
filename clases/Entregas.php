@@ -116,6 +116,19 @@ class Entregas
         }
         $consulta->close();
 
+        // Una venta con la entrega cerrada (p. ej. por una devolución) ya no debe nada.
+        $consulta = self::$db->prepare(
+            "SELECT id FROM ventas WHERE id IN ($marcadores) AND entrega_cerrada_en IS NOT NULL"
+        );
+        $consulta->bind_param($tipos, ...$ventaIds);
+        $consulta->execute();
+        foreach ($consulta->get_result() as $fila) {
+            foreach ($resultado[(int) $fila['id']] ?? [] as $p => $_) {
+                $resultado[(int) $fila['id']][$p]['pendiente'] = 0;
+            }
+        }
+        $consulta->close();
+
         return $resultado;
     }
 
@@ -126,7 +139,7 @@ class Entregas
     /** @return array{0: string, 1: string, 2: array<int, mixed>} */
     private static function condicionesVentas(array $filtros): array
     {
-        $donde   = ['v.estado = "registrada"'];
+        $donde   = ['v.estado = "registrada"', 'v.entrega_cerrada_en IS NULL'];
         $tipos   = '';
         $valores = [];
 
@@ -259,7 +272,7 @@ class Entregas
                 }
                 if ($faltan <= 0) {
                     self::$db->rollBack();
-                    self::$errores[] = 'La venta ' . $venta['folio'] . ' ya fue entregada por completo.';
+                    self::$errores[] = 'La venta ' . $venta['folio'] . ' ya no tiene piezas por entregar (entregada o cerrada).';
                     return false;
                 }
             }
@@ -625,7 +638,7 @@ class Entregas
      * Tras una entrega: las preparaciones activas de esa venta pasan a «En
      * reparto» (si hubo entrega parcial) o a «Entregado» (si todo se entregó).
      */
-    private static function avanzarPreparaciones(int $ventaId): void
+    public static function avanzarPreparaciones(int $ventaId): void
     {
         $activos = "'" . implode("','", self::ACTIVOS) . "'";
         $consulta = self::$db->prepare(

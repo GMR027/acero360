@@ -27,6 +27,10 @@ Tablas: `preparaciones`, `preparacion_ventas`, `entregas`, `entrega_renglones`.
 - Manual: Ventas → Pantalla de entrega → marcar 2 ventas con el mismo producto → ver la suma → Crear
   preparación → cambiar estados → Registrar entrega parcial → PDF.
 
-## Pendiente
-- Una devolución de cliente (Etapa 3) no reduce lo «por entregar» de la venta.
-- No hay aún rutas/orden de reparto ni asignación de repartidor.
+## Devolución = cierre de la entrega (migración 005)
+Una devolución de cliente (Etapa 3) **cierra la entrega** de la venta (`ventas.entrega_cerrada_en`): lo que
+faltaba por entregar deja de estar pendiente, la venta sale de «por entregar», no se puede preparar ni
+entregar de nuevo y sus preparaciones activas se recalculan. La venta sigue registrada (es ingreso).
+
+## Decisiones
+- No habrá rutas de reparto ni asignación de repartidor (decisión del usuario).
