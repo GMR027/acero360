@@ -244,6 +244,9 @@ $etiquetaProductos = static function (int $cantidad): string {
                     </tr>
                 </tfoot>
             </table>
+            <?php if ($indice === 0 && count($secciones) > 1) : ?>
+                <p class="datos" style="margin-top:.4rem">Los productos asignados a varios negocios aparecen en cada uno; las existencias son las mismas y no se duplican físicamente.</p>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 

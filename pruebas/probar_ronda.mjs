@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, unlinkSync, existsSync, readFileSync } from 'node:fs';
 
-const BASE = 'http://127.0.0.1:8017';
+const BASE = (process.env.BASE_URL || 'http://127.0.0.1:8017');
 /** Ruta del proyecto, para leer la fuente de verdad de las medidas. */
 const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));  // esta carpeta está en <proyecto>/pruebas
 // Los usuarios reales son del cliente: esta prueba entra con una cuenta
@@ -30,7 +30,7 @@ const EMAIL = 'prueba.ronda14@cotizaciones.local';
 const CLAVE = 'Prueba1234!';
 
 const sql = (consulta) =>
-  execFileSync('mysql', ['-u', 'root', 'cotizaciones', '-N', '-B', '-e', consulta], {
+  execFileSync('mysql', ['-u', 'root', (process.env.DB_NAME || 'cotizaciones'), '-N', '-B', '-e', consulta], {
     encoding: 'utf8',
   }).trim();
 

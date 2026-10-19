@@ -23,7 +23,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, unlinkSync, existsSync, readFileSync } from 'node:fs';
 
-const BASE = 'http://127.0.0.1:8017';
+const BASE = (process.env.BASE_URL || 'http://127.0.0.1:8017');
 /** Ruta del proyecto (para leer la fuente de verdad de los estilos). */
 const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));  // esta carpeta está en <proyecto>/pruebas
 // Los usuarios reales son del cliente: las pruebas entran con una cuenta
@@ -48,7 +48,7 @@ function comprobar(nombre, condicion, detalle = '') {
 
 /** Consulta de una sola celda a la base local. */
 const sql = (consulta) =>
-  execFileSync('mysql', ['-u', 'root', 'cotizaciones', '-N', '-B', '-e', consulta], {
+  execFileSync('mysql', ['-u', 'root', (process.env.DB_NAME || 'cotizaciones'), '-N', '-B', '-e', consulta], {
     encoding: 'utf8',
   }).trim();
 
@@ -612,7 +612,7 @@ try {
 
   /* ------------------------------------------- 6. Campo de categoría (alta) */
   console.log('\n6. Categoría como entero con lista fija');
-  const tipoColumna = sql("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = 'cotizaciones' AND TABLE_NAME = 'proveedor_entradas' AND COLUMN_NAME = 'categoria'");
+  const tipoColumna = sql("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '" + (process.env.DB_NAME || 'cotizaciones') + "' AND TABLE_NAME = 'proveedor_entradas' AND COLUMN_NAME = 'categoria'");
   comprobar('la columna es TINYINT (no texto)', /^tinyint/.test(tipoColumna), tipoColumna);
 
   await page.goto(`${BASE}/admin/proveedores/entradas/crear`, { waitUntil: 'domcontentloaded' });

@@ -496,9 +496,13 @@ class Inventario
         $valores  = [$termino, $patron, $patron, $patron];
 
         if ($empresaId > 0) {
-            $donde[]   = 'p.empresa_id = ?';
+            $donde[]   = 'EXISTS (SELECT 1 FROM producto_empresa pe WHERE pe.producto_id = p.id AND pe.empresa_id = ?)';
             $tipos    .= 'i';
             $valores[] = $empresaId;
+        }
+
+        if ($estado === 'minimo') {
+            $donde[] = 'p.stock_minimo IS NOT NULL AND p.stock <= p.stock_minimo';
         }
 
         if ($estado === 'bajo') {
@@ -563,7 +567,8 @@ class Inventario
             'SELECT p.sku, p.nombre, p.precio, p.stock,
                     e.id AS empresa_id, e.nombre AS empresa_nombre, e.logo AS empresa_logo
                FROM productos p
-               JOIN empresas e ON e.id = p.empresa_id
+               JOIN producto_empresa pe ON pe.producto_id = p.id
+               JOIN empresas e ON e.id = pe.empresa_id
               WHERE e.activa = 1 AND (p.activo = 1 OR p.stock <> 0)
               ORDER BY ' . self::ordenPorCodigo()
         );

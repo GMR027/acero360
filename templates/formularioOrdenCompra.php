@@ -57,7 +57,7 @@ $lineas = $lineas ?: [['producto_id' => 0, 'cantidad' => 1, 'costo' => '0.00', '
                         <select class="control" name="producto_id[]" aria-label="Producto" required>
                             <option value="">— Producto —</option>
                             <?php foreach ($catalogo as $prod) : ?>
-                                <option value="<?= (int) $prod['id'] ?>" data-costo="<?= escaparValores((string) ($prod['costo'] ?? '')) ?>"
+                                <option value="<?= (int) $prod['id'] ?>" data-costo-catalogo="<?= escaparValores((string) ($prod['costo'] ?? '')) ?>"
                                     <?= (int) $l['producto_id'] === $prod['id'] ? 'selected' : '' ?>>
                                     <?= escaparValores(($prod['sku'] ? $prod['sku'] . ' · ' : '') . $prod['nombre']) ?>
                                 </option>

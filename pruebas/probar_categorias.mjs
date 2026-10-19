@@ -23,7 +23,7 @@
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
 
-const BASE = 'http://127.0.0.1:8017';
+const BASE = (process.env.BASE_URL || 'http://127.0.0.1:8017');
 const EMAIL_PRUEBA = 'prueba.categorias@cotizaciones.local';
 const CLAVE_PRUEBA = 'Prueba1234!';
 const PROVEEDOR_PRUEBA = 'ZZ Proveedor CRUD categorías';
@@ -46,7 +46,7 @@ function comprobar(nombre, condicion, detalle = '') {
 
 /** Consulta de una sola celda a la base local. */
 const sql = (consulta) =>
-  execFileSync('mysql', ['-u', 'root', 'cotizaciones', '-N', '-B', '-e', consulta], {
+  execFileSync('mysql', ['-u', 'root', (process.env.DB_NAME || 'cotizaciones'), '-N', '-B', '-e', consulta], {
     encoding: 'utf8',
   }).trim();
 

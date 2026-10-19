@@ -19,7 +19,7 @@ $termino   = trim($_GET['q'] ?? '');
 $empresaId = (int) ($_GET['empresa'] ?? 0);
 $estado    = $_GET['estado'] ?? 'todos';
 
-if (!in_array($estado, ['todos', 'bajo'], true)) {
+if (!in_array($estado, ['todos', 'bajo', 'minimo'], true)) {
     $estado = 'todos';
 }
 
@@ -88,6 +88,7 @@ template('header', [
                 <!-- stock <= 0 cubre tanto el 0 (agotado) como los negativos
                      (piezas vendidas de más), que también hay que fabricar. -->
                 <option value="bajo"<?= $estado === 'bajo' ? ' selected' : '' ?>>Sin existencias (0 o menos)</option>
+                <option value="minimo"<?= $estado === 'minimo' ? ' selected' : '' ?>>En o bajo la cantidad mínima</option>
             </select>
 
             <button class="btn btn--secundario btn--sm" type="submit">
@@ -147,6 +148,11 @@ template('header', [
                             <td>
                                 <div class="tabla__producto-textos">
                                     <strong><?= escaparValores($producto->nombre) ?></strong>
+                                    <?php if ($producto->stock_minimo !== null && $stock <= (int) $producto->stock_minimo) : ?>
+                                        <span class="badge badge--error" data-alerta-minimo>
+                                            Stock bajo · mínimo <?= (int) $producto->stock_minimo ?>
+                                        </span>
+                                    <?php endif; ?>
                                     <span class="texto-xs texto-secundario texto-una-linea">
                                         <?= escaparValores($producto->empresa_nombre) ?>
                                     </span>

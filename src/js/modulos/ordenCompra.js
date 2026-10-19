@@ -56,7 +56,7 @@ function iniciarOrdenCompra() {
     if (evento.target.tagName !== 'SELECT') {
       return;
     }
-    const costo = evento.target.selectedOptions[0].getAttribute('data-costo');
+    const costo = evento.target.selectedOptions[0].getAttribute('data-costo-catalogo');
     const campo = evento.target.closest('[data-partida]').querySelector('[data-costo]');
     if (costo && Number.parseFloat(campo.value) === 0) {
       campo.value = Number.parseFloat(costo).toFixed(2);

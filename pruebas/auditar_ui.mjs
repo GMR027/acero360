@@ -19,12 +19,12 @@
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
 
-const BASE = 'http://127.0.0.1:8017';
+const BASE = (process.env.BASE_URL || 'http://127.0.0.1:8017');
 const EMAIL = 'prueba.audit@cotizaciones.local';
 const CLAVE = 'Prueba1234!';
 
 const sql = (c) =>
-  execFileSync('mysql', ['-u', 'root', 'cotizaciones', '-N', '-B', '-e', c], {
+  execFileSync('mysql', ['-u', 'root', (process.env.DB_NAME || 'cotizaciones'), '-N', '-B', '-e', c], {
     encoding: 'utf8',
   }).trim();
 
