@@ -115,7 +115,12 @@ spec:
           volumeMounts:
             - name: images
               mountPath: /var/www/html/public/image
+            - name: documentos
+              mountPath: /var/www/html/storage/documentos
       volumes:
         - name: images
           persistentVolumeClaim:
             claimName: cotizaciones-images
+        - name: documentos
+          persistentVolumeClaim:
+            claimName: cotizaciones-documentos

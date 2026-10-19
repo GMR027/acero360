@@ -1090,7 +1090,7 @@ class Cotizaciones
                     (int) ($_SESSION['id'] ?? 0),
                     'Se devuelve el stock del folio ' . $cotizacion->folio . ' (cotización eliminada)'
                 )) {
-                    self::$errores = array_merge(self::$errores, Inventario::getErrores());
+                    self::$errores = array_merge(self::$errores, Ventas::getErrores(), Inventario::getErrores());
                     self::$db->rollBack();
                     return false;
                 }

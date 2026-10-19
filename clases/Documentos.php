@@ -252,6 +252,30 @@ class Documentos
     }
 
     /* --------------------------------------------------------------------
+     * CONTABILIDAD
+     * ------------------------------------------------------------------ */
+
+    /**
+     * PDF de ventas sin facturar. Solo lectura.
+     *
+     * @param array<string, mixed> $sf      Contabilidad::sinFacturar()
+     * @param array<string, int>   $periodo anio / mes / empresa
+     */
+    public static function descargarSinFacturar(array $sf, array $periodo): void
+    {
+        ob_start();
+        \template('pdfSinFacturar', ['sf' => $sf, 'periodo' => $periodo]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'el reporte de ventas sin facturar');
+        if ($bytes === null) {
+            \redirigir('/admin/contabilidad/sin-facturar', 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, 'ventas-sin-facturar-' . $periodo['anio'] . ($periodo['mes'] ? sprintf('-%02d', $periodo['mes']) : ''));
+    }
+
+    /* --------------------------------------------------------------------
      * PANTALLA DE ENTREGA
      * ------------------------------------------------------------------ */
 

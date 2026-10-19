@@ -33,6 +33,7 @@ $hoy = date('Y-m-d');
 
 // ---- limpieza de corridas anteriores y estado conocido ---------------------
 $db->query("DELETE FROM movimientos_inventario WHERE notas LIKE '%[e3]%' OR venta_id IS NOT NULL OR cotizacion_id IS NOT NULL OR motivo = 'correccion'");
+$db->query('DELETE FROM documentos'); $db->query('DELETE FROM cobros'); $db->query('DELETE FROM ingresos');
 $db->query('DELETE FROM entregas');
 $db->query('DELETE FROM preparaciones');
 $db->query('DELETE FROM ventas');

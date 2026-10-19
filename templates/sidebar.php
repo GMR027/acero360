@@ -120,6 +120,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/contabilidad',
+        'icono'         => 'account_balance',
+        'texto'         => 'Contabilidad',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/inventario',
         'icono'         => 'warehouse',
         'texto'         => 'Inventario',

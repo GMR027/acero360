@@ -27,6 +27,7 @@ $_SESSION['id'] = $usuario;
 $hoy = date('Y-m-d');
 
 // Estado limpio
+$db->query('DELETE FROM documentos'); $db->query('DELETE FROM cobros'); $db->query('DELETE FROM ingresos');
 $db->query('DELETE FROM entregas'); $db->query('DELETE FROM preparaciones');
 $db->query('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
 $db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');

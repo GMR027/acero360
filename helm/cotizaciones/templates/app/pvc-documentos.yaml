@@ -1,0 +1,19 @@
+# ===========================================================================
+# PVC para storage/documentos — comprobantes fiscales (PDF, imágenes, XML).
+# Es información contable: persiste entre upgrades y debe entrar en los
+# respaldos junto con la base de datos. Nunca se sirve por web (el código la
+# entrega solo a administradores autenticados).
+# ===========================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cotizaciones-documentos
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cotizaciones
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: microk8s-hostpath
+  resources:
+    requests:
+      storage: {{ .Values.persistence.documentos.size }}

@@ -18,7 +18,11 @@
  * ------------------------------------------------------------------------- */
 if (PHP_SAPI === 'cli-server') {
     $archivoEstatico = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-    if (is_string($archivoEstatico) && $archivoEstatico !== '/' && file_exists(__DIR__ . $archivoEstatico)) {
+    // Nunca se sirven directamente carpetas internas (documentos fiscales, código, configuración).
+    $interno = is_string($archivoEstatico)
+        && preg_match('#^/(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules)(/|$)|^/\.#', $archivoEstatico);
+
+    if (is_string($archivoEstatico) && !$interno && $archivoEstatico !== '/' && file_exists(__DIR__ . $archivoEstatico)) {
         return false;
     }
 }
@@ -140,6 +144,27 @@ $router->post('/admin/inventario/ajustar', 'views/admin/inventario/ajustar.php',
 $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    'soloAdmin');
 
 // Proveedores: directorio de proveedores y entradas (reporte fotográfico).
+// --- Contabilidad, documentos y archivo mensual (Etapa 5) ---
+$router->get('/admin/contabilidad',                         'views/admin/contabilidad/index.php',                'soloAdmin');
+$router->get('/admin/contabilidad/ingresos',                'views/admin/contabilidad/ingresos/index.php',       'soloAdmin');
+$router->get('/admin/contabilidad/ingresos/detalle',        'views/admin/contabilidad/ingresos/detalle.php',     'soloAdmin');
+$router->post('/admin/contabilidad/ingresos/accion',        'views/admin/contabilidad/ingresos/accion.php',      'soloAdmin');
+$router->get('/admin/contabilidad/gastos',                  'views/admin/contabilidad/gastos/index.php',         'soloAdmin');
+$router->get('/admin/contabilidad/gastos/crear',            'views/admin/contabilidad/gastos/crear.php',         'soloAdmin');
+$router->post('/admin/contabilidad/gastos/crear',           'views/admin/contabilidad/gastos/crear.php',         'soloAdmin');
+$router->get('/admin/contabilidad/gastos/editar',           'views/admin/contabilidad/gastos/editar.php',        'soloAdmin');
+$router->post('/admin/contabilidad/gastos/editar',          'views/admin/contabilidad/gastos/editar.php',        'soloAdmin');
+$router->get('/admin/contabilidad/gastos/detalle',          'views/admin/contabilidad/gastos/detalle.php',       'soloAdmin');
+$router->post('/admin/contabilidad/gastos/accion',          'views/admin/contabilidad/gastos/accion.php',        'soloAdmin');
+$router->get('/admin/contabilidad/documentos',              'views/admin/contabilidad/documentos/index.php',     'soloAdmin');
+$router->post('/admin/contabilidad/documentos/subir',       'views/admin/contabilidad/documentos/subir.php',     'soloAdmin');
+$router->get('/admin/contabilidad/documentos/descargar',    'views/admin/contabilidad/documentos/descargar.php', 'soloAdmin');
+$router->post('/admin/contabilidad/documentos/baja',        'views/admin/contabilidad/documentos/baja.php',      'soloAdmin');
+$router->get('/admin/contabilidad/sin-facturar',            'views/admin/contabilidad/sin-facturar/index.php',   'soloAdmin');
+$router->get('/admin/contabilidad/sin-facturar/exportar',   'views/admin/contabilidad/sin-facturar/exportar.php','soloAdmin');
+$router->get('/admin/contabilidad/zip',                     'views/admin/contabilidad/zip.php',                  'soloAdmin');
+$router->get('/admin/contabilidad/periodos',                'views/admin/contabilidad/periodos.php',             'soloAdmin');
+
 // --- Pantalla de entrega (Etapa 4) ---
 $router->get('/admin/entregas',          'views/admin/entregas/index.php',    'soloAdmin');
 $router->get('/admin/entregas/clientes', 'views/admin/entregas/clientes.php', 'soloAdmin');

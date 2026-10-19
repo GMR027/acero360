@@ -392,3 +392,61 @@ function numeroALetras($monto): string
 
     return $texto;
 }
+
+/* ---------------------------------------------------------------------------
+ * 8. FORMULARIOS DE UN SOLO USO Y PERIODO CONTABLE
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Token de un solo uso para un formulario: reenviarlo (doble clic, recargar el
+ * POST) no repite la operación. Se guarda en la sesión y se consume al validar.
+ */
+function tokenFormulario(): string
+{
+    sesionActiva();
+    $token = bin2hex(random_bytes(16));
+    $_SESSION['tokens_formulario'][$token] = time();
+
+    // Se conservan solo los 50 más recientes.
+    if (count($_SESSION['tokens_formulario']) > 50) {
+        asort($_SESSION['tokens_formulario']);
+        $_SESSION['tokens_formulario'] = array_slice($_SESSION['tokens_formulario'], -50, null, true);
+    }
+
+    return $token;
+}
+
+/** Consume el token: true la primera vez, false si ya se usó o no existe. */
+function consumirToken(?string $token): bool
+{
+    sesionActiva();
+
+    if (!is_string($token) || !isset($_SESSION['tokens_formulario'][$token])) {
+        return false;
+    }
+
+    unset($_SESSION['tokens_formulario'][$token]);
+    return true;
+}
+
+/**
+ * Año, mes y negocio elegidos en el selector de periodo (querystring).
+ *
+ * @return array{anio: int, mes: int, empresa: int}
+ */
+function periodoSeleccionado(bool $mesObligatorio = true): array
+{
+    $anio = (int) ($_GET['anio'] ?? date('Y'));
+    $anio = ($anio >= 2000 && $anio <= 2100) ? $anio : (int) date('Y');
+
+    $mes = isset($_GET['mes']) ? (int) $_GET['mes'] : ($mesObligatorio ? (int) date('n') : 0);
+    $mes = ($mes >= 1 && $mes <= 12) ? $mes : ($mesObligatorio ? (int) date('n') : 0);
+
+    return ['anio' => $anio, 'mes' => $mes, 'empresa' => max(0, (int) ($_GET['empresa'] ?? 0))];
+}
+
+/** Nombre del mes en español. */
+function nombreMes(int $mes): string
+{
+    return [1 => 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][$mes] ?? '';
+}

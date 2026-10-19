@@ -605,13 +605,28 @@ class Ventas
         self::copiarEncabezado($cotizacion, $ventaId, $usuarioId);
         self::copiarRenglones($cotizacionId, $ventaId);
 
-        return Inventario::descontar(
+        if (!Inventario::descontar(
             self::detalles($ventaId),
             0,
             $usuarioId,
             'Salida por la venta de la cotización ' . $cotizacion->folio,
             $ventaId
-        );
+        )) {
+            return false;
+        }
+
+        return self::sincronizarContabilidad($ventaId, $usuarioId);
+    }
+
+    /** Refleja la venta en su ingreso contable; propaga el error si el periodo está cerrado. */
+    private static function sincronizarContabilidad(int $ventaId, int $usuarioId): bool
+    {
+        if (Contabilidad::sincronizarIngreso($ventaId, $usuarioId)) {
+            return true;
+        }
+
+        self::$errores = array_merge(self::$errores, Contabilidad::getErrores());
+        return false;
     }
 
     /** La cotización deja de estar vendida: la venta se cancela y el stock regresa. */
@@ -634,7 +649,7 @@ class Ventas
         $cancelar->execute();
         $cancelar->close();
 
-        return true;
+        return self::sincronizarContabilidad($ventaId, $usuarioId);
     }
 
     /** Se editó una cotización vendida: la venta y el stock siguen sus nuevos renglones. */
@@ -662,13 +677,17 @@ class Ventas
         self::copiarEncabezado($cotizacion, $ventaId, $usuarioId);
         self::copiarRenglones($cotizacionId, $ventaId);
 
-        return Inventario::descontar(
+        if (!Inventario::descontar(
             self::detalles($ventaId),
             0,
             $usuarioId,
             'Salida por la venta de la cotización ' . $cotizacion->folio,
             $ventaId
-        );
+        )) {
+            return false;
+        }
+
+        return self::sincronizarContabilidad($ventaId, $usuarioId);
     }
 
     /* --------------------------------------------------------------------
@@ -810,6 +829,12 @@ class Ventas
                     return false;
                 }
 
+                if (!Contabilidad::sincronizarIngreso((int) $venta->id, $usuarioId)) {
+                    self::$errores = array_merge(self::$errores, Contabilidad::getErrores());
+                    self::$db->rollBack();
+                    return false;
+                }
+
                 self::$db->commit();
                 return true;
             } catch (\mysqli_sql_exception $excepcion) {
@@ -933,6 +958,12 @@ class Ventas
                 return false;
             }
 
+            if (!Contabilidad::sincronizarIngreso($id, $usuarioId)) {
+                self::$errores = array_merge(self::$errores, Contabilidad::getErrores());
+                self::$db->rollBack();
+                return false;
+            }
+
             self::$db->commit();
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
@@ -974,6 +1005,17 @@ class Ventas
                     'Se devuelve el stock de la venta ' . $venta->folio . ' (eliminada)',
                     $id
                 )) {
+                self::$db->rollBack();
+                return false;
+            }
+
+            // El ingreso contable no se borra: queda cancelado (y sin venta de origen).
+            $marcar = self::$db->prepare('UPDATE ventas SET estado = "cancelada" WHERE id = ?');
+            $marcar->bind_param('i', $id);
+            $marcar->execute();
+            $marcar->close();
+            if (!Contabilidad::sincronizarIngreso($id, $usuarioId)) {
+                self::$errores = array_merge(self::$errores, Contabilidad::getErrores());
                 self::$db->rollBack();
                 return false;
             }

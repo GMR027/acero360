@@ -44,6 +44,8 @@ correo:
 persistence:
   images:
     size: 1Gi            # public/image (fotos de productos, perfiles, logos)
+  documentos:
+    size: 5Gi            # storage/documentos (comprobantes fiscales: PDF, imágenes y XML)
 
 resources:
   app:
