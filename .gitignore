@@ -10,3 +10,7 @@
 /helm/cotizaciones/values.local.yaml
 /mysql/dump-inicial.sql
 .deploy-tag
+
+# Aplicación de escritorio (Electron): dependencias y paquetes generados
+/desktop/node_modules/
+/desktop/dist/

@@ -27,7 +27,7 @@ const paginas = [
   '/admin/compras', '/admin/compras/crear', '/admin/entregas', '/admin/entregas/clientes',
   '/admin/contabilidad', '/admin/contabilidad/ingresos', '/admin/contabilidad/gastos', '/admin/contabilidad/gastos/crear',
   '/admin/contabilidad/documentos', '/admin/contabilidad/sin-facturar', '/admin/contabilidad/cierre',
-  '/admin/fiscal', '/admin/fiscal/registros', '/admin/fiscal/catalogo', '/admin/fiscal/configuracion', '/admin/estadisticas',
+  '/admin/fiscal', '/admin/fiscal/registros', '/admin/fiscal/catalogo', '/admin/fiscal/configuracion', '/admin/estadisticas', '/admin/escritorio',
 ];
 const MIN = 44;
 

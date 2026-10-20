@@ -4,7 +4,7 @@ RewriteEngine On
 
 # Rutas y archivos internos: nunca se sirven directamente (documentos fiscales,
 # configuración, código, migraciones…). Solo public/ y build/ son públicos.
-RewriteRule ^(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules)(/|$) - [F,L]
+RewriteRule ^(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop)(/|$) - [F,L]
 RewriteRule ^\.(?!well-known) - [F,L]
 RewriteRule \.(env|md|sql|lock|log|sh|json|ya?ml|ini|example)$ - [F,L]
 RewriteRule ^(Dockerfile|Router\.php|gulpfile\.js|deploy\.sh)$ - [F,L]

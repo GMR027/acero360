@@ -33,3 +33,6 @@ mysql/dump-inicial.sql
 # SO/cache del editor
 .DS_Store
 Thumbs.db
+
+# La aplicación de escritorio no viaja en la imagen del servidor
+desktop/

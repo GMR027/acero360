@@ -89,6 +89,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/escritorio',
+        'icono'         => 'desktop_windows',
+        'texto'         => 'App de escritorio',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => true,
+    ],
+    [
         'ruta'          => '/admin/usuarios',
         'icono'         => 'manage_accounts',
         'texto'         => 'Usuarios & Perfil',

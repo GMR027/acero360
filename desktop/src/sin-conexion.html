@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src data:">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sin conexión · Cotizaciones</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #ededed; color: #4d4c53; font-family: system-ui, sans-serif; }
+    main { max-width: 32rem; margin: 1.5rem; padding: 2rem; background: #fff; border: 1px solid #e4e6ea; border-radius: .75rem; }
+    h1 { margin: 0 0 .5rem; font-size: 1.4rem; color: #3d6d99; }
+    p { line-height: 1.5; }
+    code { background: #eaf1f8; padding: .1rem .4rem; border-radius: .25rem; }
+    button { min-height: 2.75rem; padding: 0 1.25rem; font-size: 1rem; font-weight: 600; color: #fff; background: #4679a6; border: 0; border-radius: .375rem; cursor: pointer; }
+    button:focus-visible { outline: 3px solid #1b4f80; outline-offset: 2px; }
+    .detalle { font-size: .875rem; color: #6b6b70; }
+  </style>
+</head>
+<body>
+  <main role="alert">
+    <h1>No se pudo conectar con la plataforma</h1>
+    <p>Revisa tu conexión a Internet. Tus datos no se perdieron: viven en el servidor y la aplicación no guarda una copia local.</p>
+    <p class="detalle">Dirección: <code id="direccion">—</code><br>Motivo: <span id="motivo">—</span></p>
+    <button id="reintentar" type="button">Reintentar</button>
+  </main>
+  <script>
+    const parametros = new URLSearchParams(location.search);
+    document.getElementById('direccion').textContent = parametros.get('url') || '—';
+    document.getElementById('motivo').textContent = parametros.get('motivo') || '—';
+    const boton = document.getElementById('reintentar');
+    boton.addEventListener('click', function () { boton.disabled = true; window.escritorio.reintentar(); });
+    boton.focus();
+  </script>
+</body>
+</html>

@@ -51,6 +51,7 @@ $clasesConectadas = [
     App\MotorFiscal::class,
     App\CierrePeriodo::class,
     App\Estadisticas::class,
+    App\PaquetesEscritorio::class,
 ];
 
 foreach ($clasesConectadas as $clase) {
