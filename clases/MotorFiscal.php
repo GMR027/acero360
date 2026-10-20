@@ -287,8 +287,8 @@ class MotorFiscal
             }
         }
         if ($faltantes) {
-            $avisos[] = 'Faltan por registrar los pagos provisionales de ISR de los meses ' . implode(', ', $faltantes)
-                . ': se toman como $0 y el ISR estimado puede quedar INFLADO. Regístralos en Fiscal → Registros.';
+            $avisos[] = 'No has anotado pagos de ISR de los meses ' . implode(', ', $faltantes)
+                . '. Si ya pagaste alguno, anótalo en «Pagos al SAT y ajustes»; si no, el ISR de este cálculo saldrá más alto de lo real.';
         }
 
         $isr = [
@@ -313,10 +313,10 @@ class MotorFiscal
         /* --- 6. Gastos que no entraron, para que se vea por qué ---------------------- */
         $r['gastos_excluidos'] = $excluidos;
         if ($excluidos['no_validados'] > 0) {
-            $avisos[] = $excluidos['no_validados'] . ' gasto(s) pagado(s) siguen «por validar» y NO se consideran deducibles ni acreditables en la estimación.';
+            $avisos[] = $excluidos['no_validados'] . ' gasto(s) pagado(s) siguen «por validar» y no se restan en el cálculo.';
         }
         if ($excluidos['sin_comprobante'] > 0) {
-            $avisos[] = $excluidos['sin_comprobante'] . ' gasto(s) validado(s) no tienen comprobante fiscal marcado y no se consideran.';
+            $avisos[] = $excluidos['sin_comprobante'] . ' gasto(s) pagado(s) no tienen factura y no se restan de tus impuestos.';
         }
 
         /* --- 7. Pagos reales registrados y comparación ------------------------------ */
