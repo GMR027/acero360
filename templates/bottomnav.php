@@ -34,11 +34,12 @@ $activoClientes  = $coincide($rutaNav, '/admin/clientes', '/admin/clientes/');
 $activoNotas     = $coincide($rutaNav, '/admin/notas', '/admin/notas/');
 
 // El botón "Más" queda activo cuando la pantalla pertenece al cajón lateral
-// (incluye el perfil del usuario, que se abre desde "Usuarios & Perfil").
+// (incluye el perfil del usuario, que se abre desde "Usuarios y perfil").
 $activoMas = $coincide($rutaNav, '/admin/productos', '/admin/productos/')
     || $coincide($rutaNav, '/admin/empresas', '/admin/empresas/')
     || $coincide($rutaNav, '/admin/escritorio', '/admin/escritorio/')
     || $coincide($rutaNav, '/admin/usuarios', '/admin/usuarios/')
+    || $coincide($rutaNav, '/admin/ayuda', '/admin/ayuda/')
     || $rutaNav === '/admin/perfil';
 
 /**

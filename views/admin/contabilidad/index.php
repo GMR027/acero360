@@ -24,23 +24,30 @@ $pend = \App\Contabilidad::pendientes($periodo['anio'], $periodo['mes'], (int) $
 $entra = $r['ventas']['total'];
 $sale  = $gasto($g['total']);
 $queda = $entra - $sale;
+[$anioAnt, $mesAnt] = \App\Contabilidad::mesAnterior($periodo['anio'], $periodo['mes']);
+$ra = \App\Contabilidad::resumenPeriodo($anioAnt, $mesAnt, $periodo['empresa']);
+$entraAnt = $ra['ventas']['total'];
+$saleAnt  = $gasto($ra['gastos']['total']);
 ?>
 <?php if ($cerrado) : ?>
     <p class="nota nota--advertencia mb-lg" role="note"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lock</span>
         <span><strong>Este mes ya está cerrado.</strong> No se pueden cambiar sus ventas ni gastos.</span></p>
 <?php endif; ?>
 
-<section class="rejilla-stats mb-lg" aria-label="Resumen del mes">
-    <div class="stat"><span class="stat__etiqueta">Vendiste</span>
-        <span class="stat__valor"><?= formatoMoneda($entra) ?></span>
-        <span class="stat__pie"><?= number_format($r['ventas']['operaciones']) ?> ventas · ya cobraste <?= formatoMoneda($r['cobrado_en_periodo']) ?></span></div>
-    <div class="stat"><span class="stat__etiqueta">Gastaste</span>
-        <span class="stat__valor"><?= formatoMoneda($sale) ?></span>
-        <span class="stat__pie"><?= number_format($g['operaciones']) ?> gastos · ya pagaste <?= formatoMoneda($gasto($g['pagado'])) ?></span></div>
-    <div class="stat"><span class="stat__etiqueta">Te queda (antes de impuestos)</span>
-        <span class="stat__valor"><?= formatoMoneda($queda) ?></span>
-        <span class="stat__pie">Ventas menos gastos del mes</span></div>
-</section>
+<?php
+template('resumenReporte', [
+    'tarjetas' => [
+        ['etiqueta' => 'Vendiste', 'valor' => formatoMoneda($entra), 'pie' => number_format($r['ventas']['operaciones']) . ' ventas · ya cobraste ' . formatoMoneda($r['cobrado_en_periodo']),
+            'variacion' => \App\Contabilidad::variacion($entra, $entraAnt)],
+        ['etiqueta' => 'Gastaste', 'valor' => formatoMoneda($sale), 'pie' => number_format($g['operaciones']) . ' gastos · ya pagaste ' . formatoMoneda($gasto($g['pagado'])),
+            'variacion' => \App\Contabilidad::variacion($sale, $saleAnt), 'subeEsBueno' => false],
+        ['etiqueta' => 'Te queda (antes de impuestos)', 'valor' => formatoMoneda($queda), 'pie' => 'Ventas menos gastos del mes',
+            'variacion' => \App\Contabilidad::variacion($queda, $entraAnt - $saleAnt)],
+    ],
+    'etiquetaComparativa' => 'vs. ' . nombreMes($mesAnt) . ' ' . $anioAnt,
+    'exportar' => '/admin/fiscal/exportar?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'tipo' => 'movimientos']),
+]);
+?>
 
 <?php
 $avisos = [];
@@ -92,7 +99,7 @@ if ($pend['gastos_sin_factura'] > 0) {
         <div class="stat"><span class="stat__etiqueta">IVA pagado en gastos</span><span class="stat__valor"><?= formatoMoneda($gasto($g['iva'])) ?></span></div>
     </section>
     <section class="rejilla-stats mb-lg" aria-label="Facturación">
-        <?php foreach (['facturada' => 'Ventas facturadas', 'no_facturada' => 'Ventas sin factura', 'sin_clasificar' => 'Sin indicar'] as $clave => $etiqueta) : ?>
+        <?php foreach (['facturada' => 'Ventas facturadas', 'no_facturada' => 'Ventas no facturadas', 'sin_clasificar' => 'Pendiente de facturar'] as $clave => $etiqueta) : ?>
             <div class="stat"><span class="stat__etiqueta"><?= $etiqueta ?></span>
                 <span class="stat__valor"><?= formatoMoneda($r['facturacion'][$clave]['total']) ?></span>
                 <span class="stat__pie"><?= number_format($r['facturacion'][$clave]['operaciones']) ?> ventas</span></div>

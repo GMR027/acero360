@@ -238,3 +238,19 @@
     }
   }
 }
+
+.sidebar__version {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  color: $color-texto-secundario;
+}
+
+.sidebar__titulo-grupo {
+  margin-top: $espacio-sm;
+  padding-bottom: $espacio-xs;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}

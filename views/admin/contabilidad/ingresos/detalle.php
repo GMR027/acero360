@@ -58,7 +58,7 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
         <input type="hidden" name="accion" value="facturacion">
         <div class="formulario__rejilla">
             <div class="campo">
-                <label class="campo__etiqueta" data-ayuda="Sí si ya le diste factura al cliente; No si no hizo falta; Sin indicar si aún no lo sabes." for="estado_facturacion">¿Se le dio factura al cliente?</label>
+                <label class="campo__etiqueta" data-ayuda="Facturada si ya existe la factura; No facturada si no se emitió; Pendiente si aún falta confirmarlo." for="estado_facturacion">¿Se le dio factura al cliente?</label>
                 <select class="control" id="estado_facturacion" name="estado_facturacion" <?= $editable ? '' : 'disabled' ?>>
                     <?php foreach (\App\Contabilidad::FACTURACION as $clave => $d) : ?>
                         <option value="<?= $clave ?>"<?= $ingreso['estado_facturacion'] === $clave ? ' selected' : '' ?>><?= escaparValores($d['etiqueta']) ?></option>
@@ -78,7 +78,13 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
                 <input class="control" type="date" id="fecha_facturacion" name="fecha_facturacion" value="<?= escaparValores((string) $ingreso['fecha_facturacion']) ?>" <?= $editable ? '' : 'disabled' ?>>
             </div>
         </div>
-        <?php if ($editable) : ?><div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar</button></div><?php endif; ?>
+        <?php if ($editable) : ?>
+            <?php if (!\App\Contabilidad::cfdiDeIngreso($id)) : ?>
+                <label class="comprobacion mt-md" for="confirma_manual"><input type="checkbox" id="confirma_manual" name="confirma_manual" value="1">
+                    Sin CFDI adjunto: confirmo manualmente que ya se facturó (queda registrado)</label>
+            <?php endif; ?>
+            <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar</button></div>
+        <?php endif; ?>
     </form>
 </section>
 
@@ -135,8 +141,10 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
                     <span class="campo__ayuda">Saldo pendiente: <?= formatoMoneda($ingreso['saldo']) ?></span></div>
                 <div class="campo"><label class="campo__etiqueta" data-ayuda="Efectivo, transferencia, etc." for="cobro-metodo">¿Cómo te pagaron?</label>
                     <select class="control" id="cobro-metodo" name="metodo">
-                        <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?><option><?= escaparValores($m) ?></option><?php endforeach; ?>
-                    </select></div>
+                        <?php $sugerido = \App\Contabilidad::metodoSugerido($ingreso); ?>
+                        <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?><option<?= $m === $sugerido ? ' selected' : '' ?>><?= escaparValores($m) ?></option><?php endforeach; ?>
+                    </select>
+                    <span class="campo__ayuda">Sugerida: <?= escaparValores($sugerido) ?> (<?= \App\Contabilidad::llevaIva($ingreso) ? 'con' : 'sin' ?> IVA). Cámbiala si te pagaron de otra forma.</span></div>
                 <div class="campo"><label class="campo__etiqueta" for="cobro-ref">Referencia (opcional)</label>
                     <input class="control" type="text" id="cobro-ref" name="referencia" maxlength="80"></div>
             </div>

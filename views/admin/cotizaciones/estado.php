@@ -26,17 +26,22 @@ if (!in_array($estado, \App\Cotizaciones::ESTADOS, true)) {
     redirigir('/admin/cotizaciones/detalle?id=' . $id, 'error', 'Estado no reconocido.');
 }
 
+// Solo se acepta volver al Centro de seguimiento (ruta interna fija), nunca una URL arbitraria.
+$volver = preg_match('#^/admin/seguimiento(\?[a-z_=&]*)?$#', (string) ($_POST['volver'] ?? ''))
+    ? $_POST['volver']
+    : '/admin/cotizaciones/detalle?id=' . $id;
+
 if (\App\Cotizaciones::cambiarEstado($id, $estado)) {
     $etiqueta = \App\Cotizaciones::datosEstado($estado)['etiqueta'];
     redirigir(
-        '/admin/cotizaciones/detalle?id=' . $id,
+        $volver,
         'exito',
         'Cotización ' . $previa->folio . ' marcada como ' . mb_strtolower($etiqueta) . '.'
     );
 }
 
 redirigir(
-    '/admin/cotizaciones/detalle?id=' . $id,
+    $volver,
     'error',
     \App\Cotizaciones::getErrores()[0] ?? 'No fue posible cambiar el estado.'
 );

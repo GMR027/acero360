@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $stockNegativo = \App\Configuracion::permitirStockNegativo();
 
-$seccion = ($_GET['seccion'] ?? '') === 'acerca' ? 'acerca' : 'general';
+$seccion = in_array($_GET['seccion'] ?? '', ['version', 'novedades'], true) ? $_GET['seccion'] : 'general';
 
 template('header', ['titulo' => 'Ajustes', 'subtitulo' => 'Preferencias de la plataforma', 'rutaActiva' => '/admin/ajustes']);
 template('tabsAjustes', ['tab' => $seccion]);
@@ -42,13 +42,27 @@ template('tabsAjustes', ['tab' => $seccion]);
     <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar ajustes</button></div>
 </form>
 
-<p class="campo__ayuda mb-lg">Usuarios y contraseñas: <a href="/admin/usuarios">Usuarios y perfil</a>.</p>
+<p class="campo__ayuda mb-lg">Usuarios, perfil, empresas, datos fiscales y la aplicación de escritorio están en las demás pestañas.</p>
+<?php elseif ($seccion === 'novedades') : ?>
+<section class="mb-lg" aria-labelledby="titulo-novedades">
+    <h2 class="titulo-4 mb-md" id="titulo-novedades">Novedades de la plataforma</h2>
+    <?php foreach (\App\Seguimiento::NOVEDADES as [$version, $fecha, $titulo, $texto, $enlace]) : ?>
+        <article class="tarjeta mb-md">
+            <div class="flex-entre fila--envuelto">
+                <h3 class="titulo-5"><?= escaparValores($titulo) ?></h3>
+                <span class="badge badge--info">v<?= escaparValores($version) ?> · <?= escaparValores($fecha) ?></span>
+            </div>
+            <p class="texto-secundario mt-sm"><?= escaparValores($texto) ?></p>
+            <div class="formulario__acciones"><a class="btn btn--secundario btn--sm" href="<?= escaparValores($enlace) ?>">Ver</a></div>
+        </article>
+    <?php endforeach; ?>
+</section>
 <?php else : ?>
 <section class="tarjeta mb-lg" id="acerca" aria-labelledby="titulo-acerca">
     <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap" class="mb-md">
         <img src="/public/brand/acero360-marca.svg" alt="" width="64" height="64" style="border-radius:.75rem">
         <div>
-            <h2 class="titulo-4" id="titulo-acerca">Acerca de Acero 360</h2>
+            <h2 class="titulo-4" id="titulo-acerca">Acero 360 · versión y actualizaciones</h2>
             <p class="texto-secundario">Plataforma comercial, contable y administrativa para cotizar, vender, entregar y controlar inventario e impuestos.</p>
         </div>
     </div>

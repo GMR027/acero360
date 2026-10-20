@@ -28,9 +28,10 @@ class Contabilidad
     protected static $errores = [];
 
     public const FACTURACION = [
-        'sin_clasificar' => ['etiqueta' => 'Sin indicar', 'clase' => 'badge--pendiente'],
-        'facturada'      => ['etiqueta' => 'Facturada',     'clase' => 'badge--aprobado'],
-        'no_facturada'   => ['etiqueta' => 'No se facturó', 'clase' => 'badge--neutro'],
+        // 'sin_clasificar' es la clave interna histórica de «Pendiente de facturar».
+        'sin_clasificar' => ['etiqueta' => 'Pendiente de facturar', 'clase' => 'badge--pendiente'],
+        'facturada'      => ['etiqueta' => 'Facturada',             'clase' => 'badge--aprobado'],
+        'no_facturada'   => ['etiqueta' => 'No facturada',          'clase' => 'badge--neutro'],
     ];
 
     public const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Cheque', 'Tarjeta', 'Otro'];
@@ -167,19 +168,23 @@ class Contabilidad
 
             $crear = self::$db->prepare(
                 'INSERT INTO ingresos (venta_id, contribuyente_id, empresa_id, cliente_id, fecha, folio, concepto,
-                                       subtotal, descuento, iva, total, estado)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                                       subtotal, descuento, iva, total, estado, estado_facturacion, facturacion_origen)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "regla_iva")'
             );
+            $inicial = self::facturacionInicial($venta);
             $crear->bind_param(
-                'iiiissssssss',
+                'iiiisssssssss',
                 $ventaId, $contribuyente, $venta['empresa_id'], $venta['cliente_id'], $venta['fecha'], $venta['folio'],
-                $concepto, $venta['subtotal'], $venta['descuento'], $venta['iva'], $venta['total'], $estado
+                $concepto, $venta['subtotal'], $venta['descuento'], $venta['iva'], $venta['total'], $estado, $inicial
             );
             $crear->execute();
             $id = (int) self::$db->insert_id;
             $crear->close();
 
             Auditoria::registrar('ingreso', $id, 'crear', $usuarioId, null, ['venta' => $venta['folio'], 'total' => $venta['total']]);
+            Auditoria::registrar('ingreso', $id, 'facturacion', $usuarioId, 'Clasificación inicial por la regla de IVA', [
+                'antes' => null, 'despues' => $inicial, 'origen' => 'regla_iva', 'aplica_iva' => (int) self::llevaIva($venta),
+            ]);
             return true;
         }
 
@@ -196,6 +201,16 @@ class Contabilidad
         }
         if ($ingreso['estado'] !== $estado) {
             $cambios['estado'] = [$ingreso['estado'], $estado];
+        }
+
+        // Mientras nadie haya fijado la facturación a mano, la clasificación inicial sigue al IVA de la venta.
+        $reclasificar = null;
+        if ($ingreso['facturacion_origen'] === 'regla_iva' && $estado === 'vigente') {
+            $nueva = self::facturacionInicial($venta);
+            if ($nueva !== $ingreso['estado_facturacion']) {
+                $reclasificar = $nueva;
+                $cambios['estado_facturacion'] = [$ingreso['estado_facturacion'], $nueva];
+            }
         }
 
         if (!$cambios) {
@@ -223,8 +238,100 @@ class Contabilidad
         $actualizar->execute();
         $actualizar->close();
 
+        if ($reclasificar !== null) {
+            $fijar = self::$db->prepare('UPDATE ingresos SET estado_facturacion = ? WHERE id = ?');
+            $fijar->bind_param('si', $reclasificar, $id);
+            $fijar->execute();
+            $fijar->close();
+            Auditoria::registrar('ingreso', $id, 'facturacion', $usuarioId, 'Se reclasificó porque cambió el IVA de la venta', [
+                'antes' => $ingreso['estado_facturacion'], 'despues' => $reclasificar, 'origen' => 'regla_iva',
+            ]);
+        }
+
         Auditoria::registrar('ingreso', $id, 'actualizar', $usuarioId, 'Cambio en la venta ' . $venta['folio'], $cambios);
         return true;
+    }
+
+    /** Ingreso (y su facturación) de una venta; null si aún no existe. @return array<string, mixed>|null */
+    public static function ingresoDeVenta(int $ventaId): ?array
+    {
+        $consulta = self::$db->prepare('SELECT id FROM ingresos WHERE venta_id = ?');
+        $consulta->bind_param('i', $ventaId);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ? self::buscarIngreso((int) $fila['id']) : null;
+    }
+
+    /** ¿La venta lleva IVA? (casilla de IVA activada o IVA con importe). */
+    public static function llevaIva(array $venta): bool
+    {
+        return (int) ($venta['aplica_iva'] ?? 0) === 1 || self::centavos($venta['iva'] ?? 0) > 0;
+    }
+
+    /**
+     * Forma de pago sugerida al registrar un cobro: con IVA → transferencia; sin IVA → efectivo.
+     * Es solo un valor predeterminado: la forma real se elige al cobrar y no cambia el estado de cobro.
+     */
+    public static function metodoSugerido(array $venta): string
+    {
+        return self::llevaIva($venta) ? 'Transferencia' : 'Efectivo';
+    }
+
+    /**
+     * Clasificación comercial inicial: con IVA → pendiente de facturar; sin IVA → no facturada.
+     * Es solo un punto de partida; no prueba que exista (ni que falte) un CFDI.
+     */
+    public static function facturacionInicial(array $venta): string
+    {
+        return self::llevaIva($venta) ? 'sin_clasificar' : 'no_facturada';
+    }
+
+    /**
+     * CFDI adjunto al ingreso que respalda una factura: activo y con timbre (revisión documental, no ante el SAT).
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function cfdiDeIngreso(int $ingresoId): ?array
+    {
+        $consulta = self::$db->prepare(
+            "SELECT id, nombre_original, uuid_fiscal FROM documentos
+              WHERE entidad = 'ingreso' AND entidad_id = ? AND activo = 1 AND tipo IN ('xml', 'factura_pdf')
+                AND estado_validacion = 'cfdi_con_timbre' AND uuid_fiscal IS NOT NULL
+              ORDER BY id DESC LIMIT 1"
+        );
+        $consulta->bind_param('i', $ingresoId);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ?: null;
+    }
+
+    /**
+     * Historial de cambios de facturación de un ingreso (más reciente primero).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function historialFacturacion(int $ingresoId): array
+    {
+        $consulta = self::$db->prepare(
+            "SELECT a.creado_en, a.motivo, a.detalle, u.nombre AS usuario_nombre
+               FROM auditoria a LEFT JOIN usuarios u ON u.id = a.usuario_id
+              WHERE a.entidad = 'ingreso' AND a.entidad_id = ? AND a.accion = 'facturacion'
+              ORDER BY a.id DESC"
+        );
+        $consulta->bind_param('i', $ingresoId);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        foreach ($filas as &$fila) {
+            $fila['detalle'] = json_decode((string) $fila['detalle'], true) ?: [];
+        }
+
+        return $filas;
     }
 
     /** @return array<string, mixed>|null */
@@ -290,7 +397,8 @@ class Contabilidad
         string $folio,
         string $uuid,
         string $fechaFactura,
-        int $usuarioId
+        int $usuarioId,
+        bool $confirmaManual = false
     ): bool {
         self::$errores = [];
         $ingreso = self::buscarIngreso($ingresoId);
@@ -338,19 +446,44 @@ class Contabilidad
             }
         }
 
+        // «Facturada» se respalda con un CFDI adjunto o con una confirmación manual explícita.
+        $documentoId = null;
+        $manual      = 0;
+        if ($estado === 'facturada') {
+            $cfdi = self::cfdiDeIngreso($ingresoId);
+            if ($cfdi) {
+                $documentoId = (int) $cfdi['id'];
+                if ($uuid === '') {
+                    $uuid = (string) $cfdi['uuid_fiscal'];
+                } elseif ($uuid !== strtoupper((string) $cfdi['uuid_fiscal'])) {
+                    self::$errores[] = 'El UUID no coincide con el del CFDI adjunto (' . $cfdi['uuid_fiscal'] . ').';
+                    return false;
+                }
+            } elseif (!$confirmaManual) {
+                self::$errores[] = 'No hay un CFDI adjunto que respalde la factura. Adjunta el XML o confirma de forma manual que ya se emitió.';
+                return false;
+            } else {
+                $manual = 1;
+            }
+        }
+
         $folio = trim($folio) ?: null;
         $uuid  = $uuid ?: null;
         $fechaFactura = $fechaFactura ?: null;
 
         $consulta = self::$db->prepare(
-            'UPDATE ingresos SET estado_facturacion = ?, factura_folio = ?, uuid_fiscal = ?, fecha_facturacion = ? WHERE id = ?'
+            'UPDATE ingresos SET estado_facturacion = ?, factura_folio = ?, uuid_fiscal = ?, fecha_facturacion = ?,
+                    facturacion_origen = "usuario", facturacion_manual = ?, factura_documento_id = ?,
+                    facturacion_usuario_id = ?, facturacion_en = NOW()
+              WHERE id = ?'
         );
-        $consulta->bind_param('ssssi', $estado, $folio, $uuid, $fechaFactura, $ingresoId);
+        $consulta->bind_param('ssssiiii', $estado, $folio, $uuid, $fechaFactura, $manual, $documentoId, $usuarioId, $ingresoId);
         $consulta->execute();
         $consulta->close();
 
-        Auditoria::registrar('ingreso', $ingresoId, 'facturacion', $usuarioId, null, [
-            'antes' => $ingreso['estado_facturacion'], 'despues' => $estado, 'uuid' => $uuid,
+        Auditoria::registrar('ingreso', $ingresoId, 'facturacion', $usuarioId, $manual ? 'Confirmación manual: sin CFDI verificable' : null, [
+            'antes' => $ingreso['estado_facturacion'], 'despues' => $estado, 'uuid' => $uuid, 'folio' => $folio,
+            'origen' => 'usuario', 'manual' => (bool) $manual, 'documento_id' => $documentoId,
         ]);
         return true;
     }
@@ -512,6 +645,16 @@ class Contabilidad
             $tipos .= 's';
             $valores[] = $f['facturacion'];
         }
+        foreach (['desde' => 'i.fecha >= ?', 'hasta' => 'i.fecha <= ?'] as $campo => $sql) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($f[$campo] ?? ''))) {
+                $donde[] = $sql;
+                $tipos .= 's';
+                $valores[] = $f[$campo];
+            }
+        }
+        if (($f['cobro'] ?? '') === 'pendiente') {
+            $donde[] = "ROUND(i.total * 100) > COALESCE((SELECT SUM(ROUND(c.importe * 100)) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente'), 0)";
+        }
         if (($f['estado'] ?? '') === 'cancelado') {
             $donde[] = "i.estado = 'cancelado'";
         } else {
@@ -578,6 +721,121 @@ class Contabilidad
         return $n;
     }
 
+    /** Grupos de la vista de documentos fiscales (cada venta cae en uno solo). */
+    public const GRUPOS_FISCALES = [
+        'pendientes' => ['etiqueta' => 'Ventas pendientes de facturar', 'clase' => 'badge--pendiente'],
+        'emitidos'   => ['etiqueta' => 'CFDI emitidos',                 'clase' => 'badge--aprobado'],
+        'cancelados' => ['etiqueta' => 'CFDI cancelados',               'clase' => 'badge--error'],
+        'por_validar' => ['etiqueta' => 'Documentos por validar',       'clase' => 'badge--advertencia'],
+        'sin_factura' => ['etiqueta' => 'Ventas sin facturación',       'clase' => 'badge--neutro'],
+    ];
+
+    /**
+     * Reparte las ventas del periodo en los cinco grupos fiscales. Cada venta aparece una sola vez:
+     *  • emitidos     facturada con CFDI con timbre vinculado y sin alertas (fecha = fecha de la factura);
+     *  • por_validar  facturada por confirmación manual, o con CFDI sin timbre/con alertas;
+     *  • cancelados   ventas canceladas que ya tenían factura (cancelación interna: no se verifica ante el SAT);
+     *  • pendientes   con IVA, sin CFDI vinculado;  • sin_factura  sin IVA.
+     *
+     * @return array{grupos: array<string, array<int, array<string, mixed>>>, totales: array<string, array{operaciones: int, total: float}>}
+     */
+    public static function documentosFiscales(int $anio, int $mes, int $empresaId = 0, int $clienteId = 0): array
+    {
+        $donde = ['YEAR(COALESCE(i.fecha_facturacion, i.fecha)) = ?'];
+        $tipos = 'i';
+        $valores = [$anio];
+        foreach ([[$mes, 'MONTH(COALESCE(i.fecha_facturacion, i.fecha)) = ?'], [$empresaId, 'i.empresa_id = ?'], [$clienteId, 'i.cliente_id = ?']] as [$v, $sql]) {
+            if ($v > 0) {
+                $donde[] = $sql;
+                $tipos .= 'i';
+                $valores[] = $v;
+            }
+        }
+
+        $consulta = self::$db->prepare(
+            "SELECT i.*, e.nombre AS empresa_nombre, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                    d.estado_validacion AS cfdi_validacion,
+                    JSON_LENGTH(COALESCE(JSON_EXTRACT(d.datos_cfdi, '$.alertas'), JSON_ARRAY())) AS cfdi_alertas
+               FROM ingresos i JOIN empresas e ON e.id = i.empresa_id JOIN clientes cl ON cl.id = i.cliente_id
+               LEFT JOIN documentos d ON d.id = i.factura_documento_id AND d.activo = 1
+              WHERE " . implode(' AND ', $donde) . ' ORDER BY COALESCE(i.fecha_facturacion, i.fecha), i.id'
+        );
+        $consulta->bind_param($tipos, ...$valores);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        $grupos = array_fill_keys(array_keys(self::GRUPOS_FISCALES), []);
+        $centavos = array_fill_keys(array_keys(self::GRUPOS_FISCALES), 0);
+        foreach ($filas as $f) {
+            $facturada = $f['estado_facturacion'] === 'facturada';
+            if ($f['estado'] === 'cancelado') {
+                if (!$facturada) {
+                    continue; // una venta cancelada sin factura no es un documento fiscal
+                }
+                $g = 'cancelados';
+                $f['nota'] = 'Cancelada en el sistema; la cancelación ante el SAT no se verifica.';
+            } elseif ($facturada) {
+                $respaldado = !(int) $f['facturacion_manual'] && $f['cfdi_validacion'] === 'cfdi_con_timbre' && (int) $f['cfdi_alertas'] === 0;
+                $g = $respaldado ? 'emitidos' : 'por_validar';
+                $f['nota'] = $respaldado ? '' : ((int) $f['facturacion_manual'] ? 'Confirmada de forma manual, sin CFDI verificable.' : 'El CFDI vinculado tiene alertas o no trae timbre.');
+            } else {
+                $g = $f['estado_facturacion'] === 'no_facturada' ? 'sin_factura' : 'pendientes';
+                $f['nota'] = '';
+            }
+            $f['fecha_fiscal'] = $g === 'emitidos' || $g === 'por_validar' || $g === 'cancelados' ? ($f['fecha_facturacion'] ?: $f['fecha']) : $f['fecha'];
+            $grupos[$g][] = $f;
+            $centavos[$g] += self::centavos($f['total']);
+        }
+
+        $totales = [];
+        foreach ($grupos as $g => $lista) {
+            $totales[$g] = ['operaciones' => count($lista), 'total' => $centavos[$g] / 100.0];
+        }
+        return ['grupos' => $grupos, 'totales' => $totales];
+    }
+
+    /**
+     * Totales de los ingresos que cumplen los filtros (sin paginar), en pesos.
+     *
+     * @return array{n: int, subtotal: float, iva: float, total: float, cobrado: float, saldo: float}
+     */
+    public static function totalesIngresos(array $filtros): array
+    {
+        [$donde, $tipos, $valores] = self::condicionesIngresos($filtros);
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(ROUND(i.subtotal * 100) - ROUND(i.descuento * 100)), 0) AS subtotal,
+                    COALESCE(SUM(ROUND(i.iva * 100)), 0) AS iva, COALESCE(SUM(ROUND(i.total * 100)), 0) AS total,
+                    COALESCE(SUM((SELECT COALESCE(SUM(ROUND(c.importe * 100)), 0) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente')), 0) AS cobrado
+               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id WHERE $donde"
+        );
+        if ($tipos !== '') {
+            $consulta->bind_param($tipos, ...$valores);
+        }
+        $consulta->execute();
+        $f = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return [
+            'n' => (int) $f['n'], 'subtotal' => $f['subtotal'] / 100, 'iva' => $f['iva'] / 100, 'total' => $f['total'] / 100,
+            'cobrado' => $f['cobrado'] / 100, 'saldo' => ($f['total'] - $f['cobrado']) / 100,
+        ];
+    }
+
+    /** Mes inmediato anterior: [año, mes]. */
+    public static function mesAnterior(int $anio, int $mes): array
+    {
+        return $mes <= 1 ? [$anio - 1, 12] : [$anio, $mes - 1];
+    }
+
+    /**
+     * Variación porcentual contra el periodo anterior; null si no hay base para comparar.
+     */
+    public static function variacion(float $actual, float $anterior): ?float
+    {
+        return abs($anterior) < 0.005 ? null : round(($actual - $anterior) / abs($anterior) * 100, 1);
+    }
+
     /**
      * Ventas que NO están marcadas como facturadas (sin clasificar y no
      * facturadas), con subtotales por estado y por negocio. Cada venta
@@ -585,9 +843,12 @@ class Contabilidad
      *
      * @return array{filas: array<int, array<string, mixed>>, totales: array<string, mixed>, por_negocio: array<int, array<string, mixed>>}
      */
-    public static function sinFacturar(int $anio, int $mes, int $empresaId = 0): array
+    public static function sinFacturar(int $anio, int $mes, int $empresaId = 0, string $estadoFacturacion = '', int $clienteId = 0): array
     {
         $donde = ["i.estado = 'vigente'", "i.estado_facturacion <> 'facturada'", 'YEAR(i.fecha) = ?'];
+        if (in_array($estadoFacturacion, ['sin_clasificar', 'no_facturada'], true)) {
+            $donde[] = "i.estado_facturacion = '" . $estadoFacturacion . "'";
+        }
         $tipos = 'i';
         $valores = [$anio];
         if ($mes > 0) {
@@ -599,6 +860,11 @@ class Contabilidad
             $donde[] = 'i.empresa_id = ?';
             $tipos .= 'i';
             $valores[] = $empresaId;
+        }
+        if ($clienteId > 0) {
+            $donde[] = 'i.cliente_id = ?';
+            $tipos .= 'i';
+            $valores[] = $clienteId;
         }
 
         $consulta = self::$db->prepare(

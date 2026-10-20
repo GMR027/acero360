@@ -284,7 +284,7 @@ $leyenda = 'Los precios no incluyen iva (16%), las ventas son con pago de contad
 <?php endforeach; ?>
 
 <p class="pie">
-    Catálogo generado el <?= escaparValores($fecha) ?> · Cotizaciones Multi-Negocio
+    Catálogo generado el <?= escaparValores($fecha) ?> · Acero 360
 </p>
 
 </body>

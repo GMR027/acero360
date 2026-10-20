@@ -28,7 +28,9 @@ template('header', [
     'acciones'  => '<a class="btn btn--primario" href="/admin/usuarios/crear">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">person_add</span>'
         . '<span>Nuevo usuario</span></a>',
+    'rutaActiva' => '/admin/ajustes',
 ]);
+template('tabsAjustes', ['tab' => 'usuarios']);
 ?>
 
 <section class="tarjeta tarjeta--sin-relleno">

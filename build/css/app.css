@@ -12,7 +12,7 @@
    _index.scss — Punto de entrada de la capa base.
    ========================================================================== */
 /* ==========================================================================
-   _variables.scss — Sistema de diseño de la app de cotizaciones.
+   _variables.scss — Sistema de diseño de Acero 360.
    Paleta tomada del design system del proyecto (carpeta /design) tal como se
    renderiza en las maquetas: azul acero como color primario.
    Todas las medidas se expresan en rem (1rem = 16px).
@@ -457,6 +457,37 @@ body {
   display: none;
 }
 
+/* --- Campana de avisos (topbar) ------------------------------------------- */
+.campana {
+  position: relative;
+}
+.campana__n {
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  background-color: #e11d48;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.125rem;
+  text-align: center;
+}
+
+/* --- Centro de seguimiento ------------------------------------------------ */
+.seguimiento-aviso {
+  border-left: 4px solid #c9cdd4;
+}
+.seguimiento-aviso[data-prioridad=alta] {
+  border-left-color: #e11d48;
+}
+.seguimiento-aviso[data-prioridad=media] {
+  border-left-color: #d97706;
+}
+.seguimiento-aviso--leida {
+  opacity: 0.7;
+}
+
 /* ==========================================================================
    _sidebar.scss — Navegación lateral.
    Escritorio: 260px fijo.
@@ -682,6 +713,21 @@ body {
     font-size: 1.375rem;
   }
 }
+.sidebar__version {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  color: #64646a;
+}
+
+.sidebar__titulo-grupo {
+  margin-top: 0.5rem;
+  padding-bottom: 0.25rem;
+}
+.sidebar__titulo-grupo:first-child {
+  margin-top: 0;
+}
+
 /* ==========================================================================
    _botones.scss — Sistema de botones unificado.
    Variantes: primario, secundario, peligro, éxito, texto, fantasma.
@@ -1281,6 +1327,53 @@ button.badge {
   font-size: 0.75rem;
   color: #64646a;
 }
+.stat {
+  /* Indicador que abre los registros que lo generan. */
+}
+.stat--enlace {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.stat--enlace:hover, .stat--enlace:focus-visible {
+  border-color: #4679a6;
+  box-shadow: 0 0 0 1px #4679a6;
+}
+.stat--alerta .stat__valor {
+  color: #4679a6;
+}
+
+/* Listado corto de actividad del panel. */
+.actividad {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.actividad__fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #e4e6ea;
+  color: inherit;
+  text-decoration: none;
+}
+.actividad__fila:hover .actividad__titulo {
+  text-decoration: underline;
+}
+.actividad__titulo {
+  font-weight: 600;
+}
+.actividad__detalle {
+  display: block;
+  font-size: 0.75rem;
+  color: #64646a;
+}
+.actividad__importe {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 
 /* --- Ganancias por negocio (panel de administración) ---------------------- */
 .ganancia {
@@ -1512,6 +1605,36 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   opacity: 0.5;
 }
 
+/* --- Logotipo animado del panel ------------------------------------------- */
+.panel-marca {
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+}
+.panel-marca .a360-anillo {
+  transform-origin: 32px 32px;
+  animation: a360-giro 12s linear infinite;
+}
+.panel-marca .a360-letra {
+  animation: a360-pulso 3.6s ease-in-out infinite;
+  transform-origin: 32px 32px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-marca .a360-anillo, .panel-marca .a360-letra {
+    animation: none;
+  }
+}
+
+@keyframes a360-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes a360-pulso {
+  50% {
+    transform: scale(1.06);
+  }
+}
 /* ==========================================================================
    _tablas.scss — Tablas de datos de listados.
    Cabecera con fondo gris claro, filas con separadores finos, columnas

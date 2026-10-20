@@ -65,6 +65,12 @@ $GLOBALS['mostrarSidebar'] = $mostrarSidebar;
             </div>
 
             <div class="topbar__acciones">
+                <?php $noLeidas = \App\Seguimiento::contarNoLeidas((int) ($_SESSION['id'] ?? 0)); ?>
+                <a class="btn btn--secundario btn--sm campana" href="/admin/seguimiento"
+                   aria-label="Centro de seguimiento<?= $noLeidas ? ': ' . $noLeidas . ' sin leer' : '' ?>" title="Centro de seguimiento">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">notifications</span>
+                    <?php if ($noLeidas > 0) : ?><span class="campana__n" aria-hidden="true"><?= $noLeidas > 99 ? '99+' : $noLeidas ?></span><?php endif; ?>
+                </a>
                 <a class="btn btn--secundario btn--sm" href="/admin/perfil">
                     <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">account_circle</span>
                     <span class="oculto-en-movil">Mi perfil</span>

@@ -210,7 +210,7 @@ $prueba('enero cerrado: no se registra una retención de enero', !RegistrosFisca
 $prueba('pero sí se registra el pago real de enero después del cierre', RegistrosFiscales::guardarDeclaracion($contrib, 2026, 1, 'IVA', 320, 0, 320, '', '', '', '', $usuario));
 
 $prueba('febrero: bloquea por ventas sin clasificar', ($ver(2)['sin_clasificar']['nivel'] ?? '') === 'error');
-Contabilidad::actualizarFacturacion($i2, 'facturada', 'F-1', '', '2026-02-04', $usuario);
+Contabilidad::actualizarFacturacion($i2, 'facturada', 'F-1', '', '2026-02-04', $usuario, true);
 $v = $ver(2);
 $prueba('febrero: avisos esperados (sin validar, factura sin adjuntar, sin comprobante no, mes anterior cerrado)', isset($v['gastos_por_validar'], $v['facturas_sin_adjuntar']) && !isset($v['mes_anterior_abierto']), implode(',', array_keys($v)));
 $prueba('cerrar febrero SIN reconocer los avisos se rechaza', !CierrePeriodo::cerrar($contrib, 2026, 2, $usuario, [], '')

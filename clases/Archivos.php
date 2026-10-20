@@ -205,6 +205,18 @@ class Archivos
             $consulta->execute();
             $otro = $consulta->get_result()->fetch_assoc();
             $consulta->close();
+            if (!$otro && $entidad === 'ingreso') {
+                // También cuenta el UUID capturado a mano en otra venta.
+                $consulta = self::$db->prepare('SELECT folio FROM ingresos WHERE uuid_fiscal = ? AND id <> ? LIMIT 1');
+                $consulta->bind_param('si', $uuid, $entidadId);
+                $consulta->execute();
+                $venta = $consulta->get_result()->fetch_assoc();
+                $consulta->close();
+                if ($venta) {
+                    self::$errores[] = 'El UUID ' . $uuid . ' ya está registrado en la venta ' . $venta['folio'] . ': no se duplica.';
+                    return false;
+                }
+            }
             if ($otro) {
                 self::$errores[] = 'El UUID ' . $uuid . ' ya está adjunto a otra operación (' . $otro['entidad'] . ' #' . $otro['entidad_id'] . '): no se duplica.';
                 return false;

@@ -125,8 +125,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 template('header', [
     'titulo'     => 'Mi perfil',
     'subtitulo'  => 'Cuenta de administrador',
-    'rutaActiva' => '/admin/perfil',
+    'rutaActiva' => '/admin/ajustes',
 ]);
+template('tabsAjustes', ['tab' => 'perfil']);
 ?>
 
 <?php if (!empty($errores)) : ?>

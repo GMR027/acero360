@@ -62,7 +62,7 @@ try {
   verifica('el puente expone solo 3 funciones y está congelado', JSON.stringify(api.claves) === '["abrirAyuda","informacion","reintentar"]' && api.congelado, JSON.stringify(api));
   const info = await ventana.evaluate(() => window.escritorio.informacion());
   verifica('informacion() devuelve versión y servidor', info.version === '1.0.0' && info.servidor === BASE, JSON.stringify(info));
-  verifica('el agente de usuario identifica a la aplicación', (await ventana.evaluate(() => navigator.userAgent)).includes('CotizacionesEscritorio/1.0.0'));
+  verifica('el agente de usuario identifica a la aplicación', (await ventana.evaluate(() => navigator.userAgent)).includes('Acero360Escritorio/1.0.0'));
 
   console.log('Sesión y uso normal');
   await ventana.fill('#email', EMAIL);

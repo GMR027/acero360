@@ -38,8 +38,8 @@ $c = $venta('2026-01-05', $c1, 1, [37 => $L(3, 500)]);   // 1,500 + 240 = 1,740
 $d = $venta('2026-01-25', $c1, 1, [36 => $L(2, 300)]);   //   600 +  96 =   696
 $e = $venta('2026-04-15', $c2, 2, [36 => $L(4, 300)]);   // 1,200 + 192 = 1,392 (T2 2026)
 
-Contabilidad::actualizarFacturacion($a, 'facturada', 'A1', '', '2025-01-11', $usuario);
-Contabilidad::actualizarFacturacion($c, 'facturada', 'A2', '', '2026-01-06', $usuario);
+Contabilidad::actualizarFacturacion($a, 'facturada', 'A1', '', '2025-01-11', $usuario, true);
+Contabilidad::actualizarFacturacion($c, 'facturada', 'A2', '', '2026-01-06', $usuario, true);
 Contabilidad::registrarCobro($a, '2025-01-15', 500, 'Efectivo', '', $usuario);
 Contabilidad::registrarCobro($c, '2026-02-02', 1740, 'Transferencia', '', $usuario);   // cobra en FEBRERO
 

@@ -269,7 +269,7 @@ try {
     new RegExp(`${nombresBase.length}\\s+categor`, 'i').test(badgeTotal || ''),
     `"${badgeTotal}"`
   );
-  const activo = await page.getAttribute('a[href="/admin/compras"][aria-current]', 'aria-current');
+  const activo = await page.getAttribute('a[href="/admin/proveedores"][aria-current]', 'aria-current');
   comprobar('la sección "Proveedores" queda activa', activo === 'page', `${activo}`);
 
   /* ------------------------------------------------------- 3. Alta */

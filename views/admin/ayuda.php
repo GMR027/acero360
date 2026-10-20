@@ -7,7 +7,8 @@ soloAdmin();
 
 $secciones = require __DIR__ . '/../../includes/manual.php';
 
-template('header', ['titulo' => 'Ayuda', 'subtitulo' => 'Manual de usuario: cómo hacer cada cosa paso a paso', 'rutaActiva' => '/admin/ayuda']);
+template('header', ['titulo' => 'Ayuda', 'subtitulo' => 'Manual de usuario: cómo hacer cada cosa paso a paso', 'rutaActiva' => '/admin/ajustes']);
+template('tabsAjustes', ['tab' => 'ayuda']);
 ?>
 
 <nav class="chip-grupo mb-lg" aria-label="Temas del manual">

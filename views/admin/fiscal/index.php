@@ -71,7 +71,7 @@ $isrPagar = $f['habilitado'] ? (int) ($f['isr']['a_pagar'] ?? 0) : 0;
     <div class="stat"><span class="stat__etiqueta">Facturadas</span><span class="stat__valor"><?= formatoMoneda($reg['facturacion']['facturada']['total']) ?></span><span class="stat__pie"><?= (int) $reg['facturacion']['facturada']['operaciones'] ?> operaciones</span></div>
     <div class="stat"><span class="stat__etiqueta">Sin facturar</span>
         <span class="stat__valor"><?= formatoMoneda($reg['facturacion']['no_facturada']['total'] + $reg['facturacion']['sin_clasificar']['total']) ?></span>
-        <span class="stat__pie">no facturadas + sin clasificar</span></div>
+        <span class="stat__pie">no facturadas + pendientes de facturar</span></div>
     <div class="stat"><span class="stat__etiqueta">Subtotal de operaciones</span><span class="stat__valor"><?= formatoMoneda($reg['ventas']['subtotal']) ?></span><span class="stat__pie">antes de IVA</span></div>
     <div class="stat"><span class="stat__etiqueta">IVA trasladado registrado</span><span class="stat__valor"><?= formatoMoneda($reg['ventas']['iva']) ?></span><span class="stat__pie">de las ventas del mes, cobradas o no</span></div>
     <div class="stat"><span class="stat__etiqueta">Gastos y compras</span><span class="stat__valor"><?= formatoMoneda($gastos['total'] / 100) ?></span><span class="stat__pie"><?= (int) $gastos['operaciones'] ?> gastos</span></div>

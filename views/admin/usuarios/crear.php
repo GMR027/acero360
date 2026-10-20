@@ -47,8 +47,9 @@ if ($esEnvio) {
 template('header', [
     'titulo'     => 'Nuevo usuario',
     'subtitulo'  => 'Módulo de usuarios',
-    'rutaActiva' => '/admin/usuarios',
+    'rutaActiva' => '/admin/ajustes',
 ]);
+template('tabsAjustes', ['tab' => 'usuarios']);
 ?>
 
 <section class="encabezado-pagina">

@@ -10,12 +10,27 @@ $filtros = $periodo + [
     'q' => trim($_GET['q'] ?? ''), 'pago' => (string) ($_GET['pago'] ?? ''),
     'sin_comprobante' => ($_GET['sin_comprobante'] ?? '') === '1' ? '1' : '',
     'estado' => ($_GET['estado'] ?? '') === 'cancelado' ? 'cancelado' : '',
+    'desde' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['desde'] ?? '')) ? $_GET['desde'] : '',
+    'hasta' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['hasta'] ?? '')) ? $_GET['hasta'] : '',
 ];
+// Enlaces del panel principal: rango de fechas (o «todos», sin periodo) en lugar de año y mes.
+if ($filtros['desde'] !== '' || $filtros['hasta'] !== '' || ($_GET['todos'] ?? '') === '1') {
+    $filtros['anio'] = 0;
+    $filtros['mes'] = 0;
+}
 $total    = \App\Gastos::contar($filtros);
 $pagina   = paginacion(15, $total);
 $gastos   = \App\Gastos::listar($filtros, $pagina['limite'], $pagina['offset']);
 $empresas = \App\Empresas::mostrarTodos(100, 0);
-$parametros = array_filter($filtros, static fn ($v) => $v !== '' && $v !== 0);
+$tot = \App\Gastos::totales($filtros);
+$comparar = $filtros['anio'] > 0 && $filtros['mes'] > 0;
+$ant = null;
+if ($comparar) {
+    [$anioAnt, $mesAnt] = \App\Contabilidad::mesAnterior($filtros['anio'], $filtros['mes']);
+    $ant = \App\Gastos::totales(['anio' => $anioAnt, 'mes' => $mesAnt] + $filtros);
+}
+$var = static fn (string $k): ?float => $ant ? \App\Contabilidad::variacion($tot[$k], $ant[$k]) : null;
+$parametros = array_filter($filtros + ['todos' => $filtros['anio'] ? '' : '1'], static fn ($v) => $v !== '' && $v !== 0);
 $rutaBase = '/admin/contabilidad/gastos' . ($parametros ? '?' . http_build_query($parametros) : '');
 
 template('header', [
@@ -25,6 +40,16 @@ template('header', [
 ]);
 template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/contabilidad/gastos', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true]);
+template('resumenReporte', [
+    'tarjetas' => [
+        ['etiqueta' => 'Gastos sin IVA', 'valor' => formatoMoneda($tot['subtotal']), 'pie' => number_format($tot['n']) . ' gastos', 'variacion' => $var('subtotal'), 'subeEsBueno' => false],
+        ['etiqueta' => 'IVA pagado', 'valor' => formatoMoneda($tot['iva']), 'pie' => 'Incluido en el total', 'variacion' => $var('iva'), 'subeEsBueno' => false],
+        ['etiqueta' => 'Total gastado', 'valor' => formatoMoneda($tot['total']), 'pie' => 'Por pagar: ' . formatoMoneda($tot['por_pagar']), 'variacion' => $var('total'), 'subeEsBueno' => false],
+        ['etiqueta' => 'Sin comprobante', 'valor' => number_format($tot['sin_comprobante']), 'pie' => 'No se restan de impuestos', 'variacion' => $var('sin_comprobante'), 'subeEsBueno' => false],
+    ],
+    'etiquetaComparativa' => $comparar ? 'vs. ' . nombreMes($mesAnt) . ' ' . $anioAnt : '',
+    'exportar' => '/admin/contabilidad/gastos/exportar' . ($parametros ? '?' . http_build_query($parametros) : ''),
+]);
 ?>
 
 <section class="tarjeta tarjeta--sin-relleno">
@@ -76,11 +101,14 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/gastos', 'periodo'
                             <td class="tabla--numerica cifra"><strong><?= formatoMoneda($g['total']) ?></strong></td>
                             <td class="tabla--centro"><?= $g['estado_pago'] === 'pagado' ? '<span class="badge badge--aprobado">Pagado</span>' : '<span class="badge badge--pendiente">Pendiente</span>' ?></td>
                             <td class="tabla--centro"><?= (int) $g['comprobante_fiscal'] === 1 ? '<span class="badge badge--aprobado">Sí</span>' : '<span class="badge badge--neutro">No</span>' ?>
-                                <span class="texto-xs texto-secundario"><br><?= (int) $g['documentos'] ?> doc.</span></td>
+                                <br><a class="texto-xs" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>#documentos" aria-label="Ver los documentos del gasto"><?= (int) $g['documentos'] ?> doc.</a></td>
                             <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>">Abrir</a></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
+                <tfoot><tr><td colspan="4"><strong>Total de los <?= number_format($tot['n']) ?> gastos filtrados</strong></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($tot['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($tot['iva']) ?></td>
+                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="3"></td></tr></tfoot>
             </table>
         </div>
         <?php template('paginacion', ['pagina' => $pagina, 'rutaBase' => $rutaBase, 'total' => $total]); ?>

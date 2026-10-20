@@ -69,7 +69,13 @@ class CfdiXml
             'receptor_rfc'    => strtoupper($atributo($receptor, 'Rfc') ?: $atributo($receptor, 'rfc')),
             'receptor_nombre' => $atributo($receptor, 'Nombre') ?: $atributo($receptor, 'nombre'),
             'uuid'            => $uuid,
+            'forma_pago'      => $atributo($comprobante, 'FormaPago') ?: $atributo($comprobante, 'formaDePago'),
+            'metodo_pago'     => $atributo($comprobante, 'MetodoPago') ?: $atributo($comprobante, 'metodoDePago'),
+            'iva'             => self::iva($xpath, $atributo),
+            'conceptos'       => self::conceptos($xpath, $atributo),
         ];
+        // El folio comercial (Serie+Folio) NO es el UUID fiscal: se guardan por separado.
+        $datos['folio_comercial'] = trim($datos['serie'] . $datos['folio']);
 
         $incompleto = $datos['total'] === '' || $datos['emisor_rfc'] === '' || $datos['receptor_rfc'] === '';
 
@@ -79,5 +85,44 @@ class CfdiXml
             'error'  => null,
             'datos'  => $datos,
         ];
+    }
+
+    /** IVA trasladado (impuesto 002) del comprobante; '' si no viene desglosado. */
+    private static function iva(\DOMXPath $xpath, callable $atributo): string
+    {
+        $suma = 0.0;
+        $hay  = false;
+        foreach ($xpath->query('/*/*[local-name()="Impuestos"]/*[local-name()="Traslados"]/*[local-name()="Traslado"]') as $traslado) {
+            if ($atributo($traslado, 'Impuesto') === '002' && $atributo($traslado, 'Importe') !== '') {
+                $suma += (float) $atributo($traslado, 'Importe');
+                $hay = true;
+            }
+        }
+        if (!$hay) {
+            $total = $xpath->query('/*/*[local-name()="Impuestos"]')->item(0);
+            $texto = $atributo($total, 'TotalImpuestosTrasladados');
+            return $texto !== '' ? $texto : '';
+        }
+
+        return number_format($suma, 2, '.', '');
+    }
+
+    /** @return array<int, array{descripcion: string, cantidad: string, valor_unitario: string, importe: string}> */
+    private static function conceptos(\DOMXPath $xpath, callable $atributo): array
+    {
+        $lista = [];
+        foreach ($xpath->query('/*/*[local-name()="Conceptos"]/*[local-name()="Concepto"]') as $c) {
+            $lista[] = [
+                'descripcion'    => $atributo($c, 'Descripcion'),
+                'cantidad'       => $atributo($c, 'Cantidad'),
+                'valor_unitario' => $atributo($c, 'ValorUnitario'),
+                'importe'        => $atributo($c, 'Importe'),
+            ];
+            if (count($lista) >= 100) {
+                break;
+            }
+        }
+
+        return $lista;
     }
 }

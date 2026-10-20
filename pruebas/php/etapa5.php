@@ -90,11 +90,11 @@ $db->query("UPDATE periodos_contables SET estado = 'abierto' WHERE contribuyente
 
 echo "Facturación explícita\n";
 $uuid = '11111111-2222-3333-4444-555555555555';
-$prueba('marcar facturada con UUID', Contabilidad::actualizarFacturacion((int) $iA['id'], 'facturada', 'A-100', $uuid, $hoy, $usuario), implode('|', Contabilidad::getErrores()));
+$prueba('marcar facturada con UUID', Contabilidad::actualizarFacturacion((int) $iA['id'], 'facturada', 'A-100', $uuid, $hoy, $usuario, true), implode('|', Contabilidad::getErrores()));
 $iC = $ingresoDe($vC);
-$prueba('el mismo UUID en otra venta se rechaza', !Contabilidad::actualizarFacturacion((int) $iC['id'], 'facturada', 'A-101', $uuid, $hoy, $usuario));
+$prueba('el mismo UUID en otra venta se rechaza', !Contabilidad::actualizarFacturacion((int) $iC['id'], 'facturada', 'A-101', $uuid, $hoy, $usuario, true));
 Contabilidad::getErrores();
-$prueba('UUID mal formado se rechaza', !Contabilidad::actualizarFacturacion((int) $iC['id'], 'facturada', '', 'abc', $hoy, $usuario));
+$prueba('UUID mal formado se rechaza', !Contabilidad::actualizarFacturacion((int) $iC['id'], 'facturada', '', 'abc', $hoy, $usuario, true));
 Contabilidad::getErrores();
 $prueba('UUID con «no facturada» se rechaza', !Contabilidad::actualizarFacturacion((int) $iC['id'], 'no_facturada', '', $uuid, '', $usuario));
 Contabilidad::getErrores();

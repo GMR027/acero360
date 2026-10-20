@@ -110,6 +110,13 @@ template('header', [
     </p>
 <?php endif; ?>
 
+<?php
+$ingresoVenta = \App\Contabilidad::ingresoDeVenta($id);
+if ($ingresoVenta) {
+    template('facturacionVenta', ['ingreso' => $ingresoVenta, 'volver' => '/admin/ventas/detalle?id=' . $id]);
+}
+?>
+
 <div class="cotizador-detalle">
     <!-- Documento -->
     <section class="tarjeta mb-lg">

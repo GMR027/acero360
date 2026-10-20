@@ -8,18 +8,21 @@ soloAdmin();
 
 $periodo  = periodoSeleccionado(false);
 $empresas = \App\Empresas::mostrarTodos(100, 0);
-$sf       = \App\Contabilidad::sinFacturar($periodo['anio'], $periodo['mes'], $periodo['empresa']);
+$vista    = in_array($_GET['vista'] ?? '', ['sin_clasificar', 'no_facturada'], true) ? $_GET['vista'] : '';
+$cliente  = max(0, (int) ($_GET['cliente'] ?? 0));
+$sf       = \App\Contabilidad::sinFacturar($periodo['anio'], $periodo['mes'], $periodo['empresa'], $vista, $cliente);
 $t        = $sf['totales'];
-$consulta = http_build_query(array_filter($periodo, static fn ($v) => $v !== 0));
+$consulta = http_build_query(array_filter($periodo + ['cliente' => $cliente], static fn ($v) => $v !== 0));
+$consultaVista = $consulta . ($vista !== '' ? '&vista=' . $vista : '');
 
-template('header', ['titulo' => 'Ventas sin facturar', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
+template('header', ['titulo' => 'Ventas sin facturar', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad/sin-facturar']);
 template('tabsContabilidad', ['tab' => 'sin', 'periodo' => $periodo]);
-template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true]);
+template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true, 'extra' => ['vista' => $vista], 'clientes' => \App\Clientes::paraSelector(), 'cliente' => $cliente]);
 ?>
 
 <section class="rejilla-stats mb-lg" aria-label="Resumen de ventas sin facturar">
     <div class="stat"><span class="stat__etiqueta">Operaciones</span><span class="stat__valor"><?= number_format($t['operaciones']) ?></span>
-        <span class="stat__pie"><?= (int) $t['no_facturada'] ?> no facturadas · <?= (int) $t['sin_clasificar'] ?> sin clasificar</span></div>
+        <span class="stat__pie"><?= (int) $t['no_facturada'] ?> no facturadas · <?= (int) $t['sin_clasificar'] ?> pendientes de facturar</span></div>
     <div class="stat"><span class="stat__etiqueta">Subtotal</span><span class="stat__valor"><?= formatoMoneda($t['subtotal']) ?></span><span class="stat__pie">antes de IVA</span></div>
     <div class="stat"><span class="stat__etiqueta">IVA registrado</span><span class="stat__valor"><?= formatoMoneda($t['iva']) ?></span><span class="stat__pie">no es IVA a cargo</span></div>
     <div class="stat"><span class="stat__etiqueta">Total</span><span class="stat__valor"><?= formatoMoneda($t['total']) ?></span><span class="stat__pie">IVA incluido</span></div>
@@ -27,12 +30,17 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'pe
 
 <div class="encabezado-pagina__acciones mb-lg">
     <?php foreach (['pdf' => ['PDF', 'picture_as_pdf'], 'xlsx' => ['Excel', 'table_view'], 'csv' => ['CSV', 'csv']] as $formato => [$texto, $icono]) : ?>
-        <a class="btn btn--secundario" href="/admin/contabilidad/sin-facturar/exportar?<?= $consulta ?>&formato=<?= $formato ?>"<?= $formato === 'pdf' ? ' target="_blank" rel="noopener"' : '' ?>>
+        <a class="btn btn--secundario" href="/admin/contabilidad/sin-facturar/exportar?<?= $consultaVista ?>&formato=<?= $formato ?>"<?= $formato === 'pdf' ? ' target="_blank" rel="noopener"' : '' ?>>
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem"><?= $icono ?></span><span>Exportar <?= $texto ?></span></a>
     <?php endforeach; ?>
 </div>
 
-<p class="campo__ayuda mb-md">Incluye las ventas <strong>sin clasificar</strong> y las marcadas <strong>no facturadas</strong>. La falta de un PDF adjunto no las clasifica: hazlo desde el detalle de cada ingreso.</p>
+<nav class="mb-md" aria-label="Apartados">
+    <?php foreach (['' => 'Todas', 'sin_clasificar' => 'Pendientes de facturar (con IVA)', 'no_facturada' => 'No facturadas (sin IVA)'] as $clave => $texto) : ?>
+        <a class="btn btn--sm <?= $vista === $clave ? 'btn--primario' : 'btn--secundario' ?>" href="/admin/contabilidad/sin-facturar?<?= $consulta . ($clave !== '' ? '&vista=' . $clave : '') ?>"<?= $vista === $clave ? ' aria-current="page"' : '' ?>><?= $texto ?></a>
+    <?php endforeach; ?>
+</nav>
+<p class="campo__ayuda mb-md">Ninguna de estas ventas cuenta como CFDI emitido. Clasifícalas desde su detalle: una factura se confirma con el CFDI adjunto o de forma manual.</p>
 
 <section class="tarjeta tarjeta--sin-relleno">
     <?php if (!$sf['filas']) : ?>

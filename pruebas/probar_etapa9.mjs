@@ -50,7 +50,7 @@ try {
 
   await pagina.goto(BASE + '/admin/escritorio');
   const t = await pagina.locator('main').innerText();
-  verifica('muestra versión, arquitectura, tamaño y fecha de publicación', t.includes('Cotizaciones 1.0.0') && t.includes('amd64') && /\d+\.\d MB/.test(t) && /\d{2}\/\d{2}\/\d{4}/.test(t));
+  verifica('muestra versión, arquitectura, tamaño y fecha de publicación', t.includes('Acero 360 1.0.0') && t.includes('amd64') && /\d+\.\d MB/.test(t) && /\d{2}\/\d{2}\/\d{4}/.test(t));
   verifica('muestra la suma SHA-256 completa', t.includes(hash));
   verifica('trae instrucciones de instalación, actualización y desinstalación', t.includes('sudo apt install') && t.includes('Actualizar') && t.includes('sudo apt remove'));
   verifica('aclara que no tiene base de datos propia y que el servidor debe seguir disponible', t.toLowerCase().includes('no guarda una base de datos propia') && t.includes('servidor'));

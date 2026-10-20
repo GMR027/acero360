@@ -12,6 +12,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $id = (int) ($_POST['id'] ?? 0);
 $destino = '/admin/contabilidad/gastos/detalle?id=' . $id;
 
+// Solo se acepta volver al Centro de seguimiento (ruta interna fija), nunca una URL arbitraria.
+if (preg_match('#^/admin/seguimiento(\?[a-z_=&]*)?$#', (string) ($_POST['volver'] ?? ''))) {
+    $destino = $_POST['volver'];
+}
+
+if (($_POST['accion'] ?? '') === 'pagar') {
+    if (\App\Gastos::marcarPagado($id, (string) ($_POST['metodo'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {
+        redirigir($destino, 'exito', 'Gasto marcado como pagado.');
+    }
+    redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible marcar el gasto como pagado.');
+}
+
 if (\App\Gastos::cancelar($id, (string) ($_POST['motivo'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {
     redirigir($destino, 'exito', 'Gasto cancelado. Queda en el historial con su motivo.');
 }

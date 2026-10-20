@@ -17,8 +17,9 @@
 11. Estadísticas
 12. Aplicación de escritorio
 13. Respaldos y cuidados
-14. Acerca de Acero 360
-15. Palabras que verás
+14. Centro de seguimiento
+15. Acerca de Acero 360
+16. Palabras que verás
 
 ---
 
@@ -321,7 +322,29 @@ Tu información importa.
 
 ---
 
-## 14. Acerca de Acero 360
+## 14. Centro de seguimiento
+
+Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, gastos, entregas pendientes, productos con poco stock y novedades de la plataforma.
+
+### Dónde verlo
+
+- La campana de arriba muestra cuántos avisos tienes sin leer. También está en el menú → «Centro de seguimiento».
+
+### Prioridades
+
+- Alta, media o baja según los días que lleva la operación (por ejemplo, un cobro de más de 30 días es de prioridad alta). Los más urgentes salen primero.
+
+### Abrir y marcar
+
+1. «Abrir registro» te lleva a la venta, el gasto o el producto de origen.
+2. «Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.
+
+> **Consejos**
+> - Una venta pendiente de cobro y una pendiente de factura son avisos distintos: una venta ya facturada no aparece como «factura por definir».
+
+---
+
+## 15. Acerca de Acero 360
 
 Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.
 
@@ -332,7 +355,7 @@ Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de
 
 ### Dónde está
 
-- Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, cambiar de pestaña a Empresas y razón social, Datos fiscales y Aplicación de escritorio, y ver la versión en «Acerca de».
+- Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, usar las pestañas: Configuración general, Usuarios y permisos, Perfil, Empresas y razones sociales, Datos fiscales, Aplicación de escritorio, Versión y actualizaciones, Novedades de la plataforma y Ayuda y manual.
 
 ### Aplicación de escritorio
 
@@ -343,7 +366,7 @@ Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de
 
 ---
 
-## 15. Palabras que verás
+## 16. Palabras que verás
 
 Qué significan, en pocas palabras.
 

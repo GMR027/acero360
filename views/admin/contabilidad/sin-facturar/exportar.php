@@ -8,7 +8,7 @@ soloAdmin();
 
 $periodo = periodoSeleccionado(false);
 $formato = (string) ($_GET['formato'] ?? 'csv');
-$sf      = \App\Contabilidad::sinFacturar($periodo['anio'], $periodo['mes'], $periodo['empresa']);
+$sf      = \App\Contabilidad::sinFacturar($periodo['anio'], $periodo['mes'], $periodo['empresa'], (string) ($_GET['vista'] ?? ''), max(0, (int) ($_GET['cliente'] ?? 0)));
 $sufijo  = $periodo['anio'] . ($periodo['mes'] ? sprintf('-%02d', $periodo['mes']) : '');
 
 if ($formato === 'pdf') {

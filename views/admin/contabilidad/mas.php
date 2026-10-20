@@ -12,6 +12,8 @@ $opciones = [
     ['/admin/contabilidad/cierre?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'event_available', 'Cerrar el mes',
         'Cuando el mes ya está completo, la plataforma lo revisa y lo «congela» para que nadie lo cambie sin querer.'],
     ['/admin/contabilidad/periodos', 'lock', 'Meses ya cerrados', 'La lista de meses cerrados y su resumen.'],
+    ['/admin/fiscal/documentos?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'fact_check', 'Documentos fiscales',
+        'Qué está pendiente de facturar, qué CFDI están emitidos, cancelados o por validar, y qué ventas no llevan factura.'],
     ['/admin/fiscal', 'request_quote', 'Impuestos', 'Cuánto separar este mes para el SAT (estimado).'],
 ];
 

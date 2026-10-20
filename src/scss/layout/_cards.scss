@@ -115,6 +115,60 @@
     font-size: $fuente-xs;
     color: $color-texto-secundario;
   }
+
+  /* Indicador que abre los registros que lo generan. */
+  &--enlace {
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:hover,
+    &:focus-visible {
+      border-color: $color-primario;
+      box-shadow: 0 0 0 1px $color-primario;
+    }
+  }
+
+  &--alerta &__valor {
+    color: $color-primario;
+  }
+}
+
+/* Listado corto de actividad del panel. */
+.actividad {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  &__fila {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: $espacio-md;
+    padding: $espacio-sm 0;
+    border-top: 1px solid $color-borde;
+    color: inherit;
+    text-decoration: none;
+
+    &:hover .actividad__titulo {
+      text-decoration: underline;
+    }
+  }
+
+  &__titulo {
+    font-weight: 600;
+  }
+
+  &__detalle {
+    display: block;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+
+  &__importe {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* --- Ganancias por negocio (panel de administración) ---------------------- */
@@ -355,3 +409,27 @@
     }
   }
 }
+
+/* --- Logotipo animado del panel ------------------------------------------- */
+.panel-marca {
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+
+  .a360-anillo {
+    transform-origin: 32px 32px;
+    animation: a360-giro 12s linear infinite;
+  }
+
+  .a360-letra {
+    animation: a360-pulso 3.6s ease-in-out infinite;
+    transform-origin: 32px 32px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .a360-anillo, .a360-letra { animation: none; }
+  }
+}
+
+@keyframes a360-giro { to { transform: rotate(360deg); } }
+@keyframes a360-pulso { 50% { transform: scale(1.06); } }

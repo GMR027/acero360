@@ -131,6 +131,13 @@ class Gastos
             $tipos .= 'i';
             $valores[] = (int) $f['mes'];
         }
+        foreach (['desde' => 'g.fecha >= ?', 'hasta' => 'g.fecha <= ?'] as $campo => $sql) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($f[$campo] ?? ''))) {
+                $donde[] = $sql;
+                $tipos .= 's';
+                $valores[] = $f[$campo];
+            }
+        }
         if ((int) ($f['empresa'] ?? 0) > 0) {
             $donde[] = '(g.empresa_id = ? OR EXISTS (SELECT 1 FROM gasto_reparto r WHERE r.gasto_id = g.id AND r.empresa_id = ?))';
             $tipos .= 'ii';
@@ -191,6 +198,34 @@ class Gastos
         $consulta->close();
 
         return $n;
+    }
+
+    /**
+     * Totales de los gastos que cumplen los filtros (sin paginar), en pesos.
+     *
+     * @return array{n: int, subtotal: float, iva: float, total: float, por_pagar: float, sin_comprobante: int}
+     */
+    public static function totales(array $filtros): array
+    {
+        [$donde, $tipos, $valores] = self::condiciones($filtros);
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(ROUND(g.subtotal * 100)), 0) AS subtotal, COALESCE(SUM(ROUND(g.iva * 100)), 0) AS iva,
+                    COALESCE(SUM(ROUND(g.total * 100)), 0) AS total,
+                    COALESCE(SUM(CASE WHEN g.estado_pago = 'pendiente' THEN ROUND(g.total * 100) ELSE 0 END), 0) AS por_pagar,
+                    COALESCE(SUM(g.comprobante_fiscal = 0), 0) AS sin_comprobante
+               FROM gastos g WHERE $donde"
+        );
+        if ($tipos !== '') {
+            $consulta->bind_param($tipos, ...$valores);
+        }
+        $consulta->execute();
+        $f = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return [
+            'n' => (int) $f['n'], 'subtotal' => $f['subtotal'] / 100, 'iva' => $f['iva'] / 100, 'total' => $f['total'] / 100,
+            'por_pagar' => $f['por_pagar'] / 100, 'sin_comprobante' => (int) $f['sin_comprobante'],
+        ];
     }
 
     /**
@@ -513,6 +548,35 @@ class Gastos
             self::$errores[] = 'No fue posible actualizar el gasto.';
             return false;
         }
+    }
+
+    /** Marca como pagado un gasto pendiente (fecha de pago = hoy). */
+    public static function marcarPagado(int $id, string $metodo, int $usuarioId): bool
+    {
+        self::$errores = [];
+        $gasto = self::buscarID($id);
+
+        if (!$gasto || $gasto['estado'] !== 'vigente') {
+            self::$errores[] = 'El gasto no existe o está cancelado.';
+            return false;
+        }
+        if ($gasto['estado_pago'] === 'pagado') {
+            self::$errores[] = 'El gasto ya estaba pagado.';
+            return false;
+        }
+        if (Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $gasto['fecha'])) {
+            self::$errores[] = Contabilidad::mensajePeriodoCerrado($gasto['fecha']);
+            return false;
+        }
+
+        $metodo = in_array($metodo, Contabilidad::METODOS_PAGO, true) ? $metodo : null;
+        $consulta = self::$db->prepare("UPDATE gastos SET estado_pago = 'pagado', fecha_pago = CURDATE(), metodo_pago = COALESCE(?, metodo_pago) WHERE id = ?");
+        $consulta->bind_param('si', $metodo, $id);
+        $consulta->execute();
+        $consulta->close();
+
+        Auditoria::registrar('gasto', $id, 'pagar', $usuarioId, null, ['metodo' => $metodo]);
+        return true;
     }
 
     /** Cancela un gasto (no se borra). Exige motivo. */

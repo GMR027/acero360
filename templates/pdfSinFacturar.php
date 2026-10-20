@@ -27,7 +27,7 @@ $rotulo = ($periodo['mes'] ? nombreMes($periodo['mes']) . ' ' : 'Año ') . $peri
 <body>
     <h1>Ventas sin facturar · <?= escaparValores($rotulo) ?></h1>
     <p>Emitido <?= date('d/m/Y H:i') ?> · <?= (int) $t['operaciones'] ?> operaciones
-        (<?= (int) $t['no_facturada'] ?> no facturadas, <?= (int) $t['sin_clasificar'] ?> sin clasificar)</p>
+        (<?= (int) $t['no_facturada'] ?> no facturadas, <?= (int) $t['sin_clasificar'] ?> pendientes de facturar)</p>
 
     <h2>Por negocio</h2>
     <table>
@@ -55,7 +55,7 @@ $rotulo = ($periodo['mes'] ? nombreMes($periodo['mes']) . ' ' : 'Año ') . $peri
         </tbody>
         <tfoot><tr class="total"><td colspan="5">Total</td><td class="num"><?= $mx($t['subtotal']) ?></td><td class="num"><?= $mx($t['iva']) ?></td><td class="num"><?= $mx($t['total']) ?></td></tr></tfoot>
     </table>
-    <p class="aviso">Importes registrados en el sistema. «Sin clasificar» significa que aún no se indicó si la venta se facturó.
+    <p class="aviso">Importes registrados en el sistema. «Pendiente de facturar» es una venta con IVA aún sin factura confirmada.
         Este reporte no es una declaración ni un cálculo fiscal.</p>
 </body>
 </html>

@@ -172,3 +172,30 @@
     display: none;
   }
 }
+
+/* --- Campana de avisos (topbar) ------------------------------------------- */
+.campana {
+  position: relative;
+
+  &__n {
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 0.25rem;
+    border-radius: $radio-full;
+    background-color: $color-error;
+    color: $color-texto-invertido;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.125rem;
+    text-align: center;
+  }
+}
+
+/* --- Centro de seguimiento ------------------------------------------------ */
+.seguimiento-aviso {
+  border-left: 4px solid $color-borde-fuerte;
+
+  &[data-prioridad='alta'] { border-left-color: $color-error; }
+  &[data-prioridad='media'] { border-left-color: $color-advertencia; }
+  &--leida { opacity: 0.7; }
+}

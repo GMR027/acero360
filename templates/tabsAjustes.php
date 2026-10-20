@@ -1,13 +1,17 @@
 <?php
 /**
- * templates/tabsAjustes.php — Pestañas de Ajustes. Variable: $tab (general | empresas | fiscal | escritorio | acerca).
+ * templates/tabsAjustes.php — Pestañas de Ajustes. Variable: $tab (general | usuarios | perfil | empresas | fiscal | escritorio | version | novedades | ayuda).
  */
 $secciones = [
-    'general'    => ['/admin/ajustes', 'General', 'settings'],
-    'empresas'   => ['/admin/empresas', 'Empresas y razón social', 'corporate_fare'],
+    'general'    => ['/admin/ajustes', 'Configuración general', 'settings'],
+    'usuarios'   => ['/admin/usuarios', 'Usuarios y permisos', 'manage_accounts'],
+    'perfil'     => ['/admin/perfil', 'Perfil', 'account_circle'],
+    'empresas'   => ['/admin/empresas', 'Empresas y razones sociales', 'corporate_fare'],
     'fiscal'     => ['/admin/fiscal/configuracion', 'Datos fiscales', 'tune'],
     'escritorio' => ['/admin/escritorio', 'Aplicación de escritorio', 'desktop_windows'],
-    'acerca'     => ['/admin/ajustes?seccion=acerca', 'Acerca de', 'info'],
+    'version'    => ['/admin/ajustes?seccion=version', 'Versión y actualizaciones', 'info'],
+    'novedades'  => ['/admin/ajustes?seccion=novedades', 'Novedades de la plataforma', 'campaign'],
+    'ayuda'      => ['/admin/ayuda', 'Ayuda y manual', 'help'],
 ];
 ?>
 <nav class="chip-grupo entregas-tabs" aria-label="Secciones de Ajustes">

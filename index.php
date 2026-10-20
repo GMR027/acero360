@@ -150,6 +150,8 @@ $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    
 // Proveedores: directorio de proveedores y entradas (reporte fotográfico).
 // --- Contabilidad, documentos y archivo mensual (Etapa 5) ---
 $router->get('/admin/contabilidad',                         'views/admin/contabilidad/index.php',                'soloAdmin');
+$router->get('/admin/seguimiento',  'views/admin/seguimiento.php', 'soloAdmin');
+$router->post('/admin/seguimiento', 'views/admin/seguimiento.php', 'soloAdmin');
 $router->get('/admin/ajustes',  'views/admin/ajustes.php', 'soloAdmin');
 $router->post('/admin/ajustes', 'views/admin/ajustes.php', 'soloAdmin');
 $router->get('/admin/ayuda',                                'views/admin/ayuda.php',                             'soloAdmin');
@@ -157,6 +159,7 @@ $router->get('/admin/contabilidad/mas',                     'views/admin/contabi
 $router->get('/admin/contabilidad/ingresos',                'views/admin/contabilidad/ingresos/index.php',       'soloAdmin');
 $router->get('/admin/contabilidad/ingresos/detalle',        'views/admin/contabilidad/ingresos/detalle.php',     'soloAdmin');
 $router->post('/admin/contabilidad/ingresos/accion',        'views/admin/contabilidad/ingresos/accion.php',      'soloAdmin');
+$router->get('/admin/contabilidad/ingresos/exportar',      'views/admin/contabilidad/ingresos/exportar.php',    'soloAdmin');
 $router->get('/admin/contabilidad/gastos',                  'views/admin/contabilidad/gastos/index.php',         'soloAdmin');
 $router->get('/admin/contabilidad/gastos/crear',            'views/admin/contabilidad/gastos/crear.php',         'soloAdmin');
 $router->post('/admin/contabilidad/gastos/crear',           'views/admin/contabilidad/gastos/crear.php',         'soloAdmin');
@@ -164,6 +167,7 @@ $router->get('/admin/contabilidad/gastos/editar',           'views/admin/contabi
 $router->post('/admin/contabilidad/gastos/editar',          'views/admin/contabilidad/gastos/editar.php',        'soloAdmin');
 $router->get('/admin/contabilidad/gastos/detalle',          'views/admin/contabilidad/gastos/detalle.php',       'soloAdmin');
 $router->post('/admin/contabilidad/gastos/accion',          'views/admin/contabilidad/gastos/accion.php',        'soloAdmin');
+$router->get('/admin/contabilidad/gastos/exportar',        'views/admin/contabilidad/gastos/exportar.php',      'soloAdmin');
 $router->get('/admin/contabilidad/documentos',              'views/admin/contabilidad/documentos/index.php',     'soloAdmin');
 $router->post('/admin/contabilidad/documentos/subir',       'views/admin/contabilidad/documentos/subir.php',     'soloAdmin');
 $router->get('/admin/contabilidad/documentos/descargar',    'views/admin/contabilidad/documentos/descargar.php', 'soloAdmin');
@@ -189,6 +193,7 @@ $router->get('/admin/contabilidad/cierre/exportar', 'views/admin/contabilidad/ci
 $router->get('/admin/fiscal',                       'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->post('/admin/fiscal',                      'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->get('/admin/fiscal/detalle',               'views/admin/fiscal/index.php',                 'soloAdmin');
+$router->get('/admin/fiscal/documentos',           'views/admin/fiscal/documentos.php',            'soloAdmin');
 $router->get('/admin/fiscal/movimientos',           'views/admin/fiscal/movimientos.php',           'soloAdmin');
 $router->get('/admin/fiscal/exportar',              'views/admin/fiscal/exportar.php',              'soloAdmin');
 $router->post('/admin/fiscal/guardar',              'views/admin/fiscal/guardar.php',               'soloAdmin');

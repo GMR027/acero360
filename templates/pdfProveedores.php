@@ -310,7 +310,7 @@ foreach ($secciones as $seccion) {
 <?php endif; ?>
 
 <p class="pie">
-    Reporte del año <?= (int) $anio ?> generado el <?= escaparValores($fecha) ?> · Cotizaciones Multi-Negocio
+    Reporte del año <?= (int) $anio ?> generado el <?= escaparValores($fecha) ?> · Acero 360
 </p>
 
 </body>

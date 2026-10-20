@@ -605,6 +605,12 @@ class Ventas
         self::copiarEncabezado($cotizacion, $ventaId, $usuarioId);
         self::copiarRenglones($cotizacionId, $ventaId);
 
+        // Quién y cuándo hizo la conversión (se renueva si la venta se reactiva tras cancelarse).
+        $marca = self::$db->prepare('UPDATE ventas SET convertida_en = NOW(), convertida_por = ? WHERE id = ?');
+        $marca->bind_param('ii', $usuarioId, $ventaId);
+        $marca->execute();
+        $marca->close();
+
         if (!Inventario::descontar(
             self::detalles($ventaId),
             0,

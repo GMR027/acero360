@@ -41,7 +41,7 @@ try {
   await Promise.all([pagina.waitForURL('**/admin'), pagina.click('button[type=submit]')]);
 
   console.log('Resumen fiscal de febrero 2026');
-  await pagina.goto(`${BASE}/admin/fiscal?anio=2026&mes=2`);
+  await pagina.goto(`${BASE}/admin/fiscal/detalle?anio=2026&mes=2`);
   await abrirTodo(pagina);
   const t = await pagina.locator('main').innerText();
   verifica('separa importes registrados, estimación y pagos reales', t.includes('Lo que has anotado') && t.includes('El cálculo') && t.includes('Lo que ya declaraste'));
@@ -82,14 +82,14 @@ try {
   await pagina.fill('#d-decl', '782'); await pagina.fill('#d-pag', '700'); await pagina.fill('#d-fpag', '2026-03-17');
   await pagina.click('button:has-text("Guardar importes reales")');
   verifica('registra lo declarado y pagado', sql("SELECT CONCAT(importe_declarado,'/',importe_pagado) FROM declaraciones WHERE impuesto='IVA' AND mes=2") === '782.00/700.00');
-  await pagina.goto(`${BASE}/admin/fiscal?anio=2026&mes=2`);
+  await pagina.goto(`${BASE}/admin/fiscal/detalle?anio=2026&mes=2`);
   await abrirTodo(pagina);
   verifica('el panel muestra pendiente de pago $82.00 y diferencia $0.00', (await pagina.locator('main').innerText()).includes('$82.00'));
   await pagina.goto(BASE + '/admin/fiscal/registros?anio=2026');
   await pagina.fill('#a-importe', '100'); await pagina.selectOption('#a-mes', '2'); await pagina.selectOption('#a-concepto', 'saldo_favor_iva_anterior');
   await pagina.click('button:has-text("Registrar ajuste")');
   verifica('registra un ajuste (saldo a favor anterior)', sql("SELECT COUNT(*) FROM ajustes_fiscales WHERE concepto='saldo_favor_iva_anterior'") === '1');
-  await pagina.goto(`${BASE}/admin/fiscal?anio=2026&mes=2`);
+  await pagina.goto(`${BASE}/admin/fiscal/detalle?anio=2026&mes=2`);
   verifica('el ajuste baja el IVA a cargo a $682.00', (await pagina.locator('main').innerText()).includes('$682.00'));
   sql('DELETE FROM ajustes_fiscales');
 
@@ -131,7 +131,7 @@ try {
 
   console.log('Móvil');
   await pagina.setViewportSize({ width: 390, height: 800 });
-  for (const ruta of ['/admin/fiscal?anio=2026&mes=2', '/admin/fiscal/registros?anio=2026', '/admin/fiscal/catalogo', '/admin/fiscal/configuracion',
+  for (const ruta of ['/admin/fiscal/detalle?anio=2026&mes=2', '/admin/fiscal/registros?anio=2026', '/admin/fiscal/catalogo', '/admin/fiscal/configuracion',
     '/admin/contabilidad/cierre?anio=2026&mes=2', `/admin/fiscal/catalogo/detalle?id=${sql("SELECT MAX(id) FROM catalogo_fiscal")}`]) {
     await pagina.goto(BASE + ruta);
     const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

@@ -2,20 +2,12 @@
 /**
  * views/admin/index.php — Panel principal del administrador.
  *
- * Muestra un resumen operativo: número de cotizaciones, clientes, productos
- * y empresas registradas, accesos directos a los módulos y las ganancias
- * de cada negocio por separado, con filtro por mes, semestre o año.
+ * Centro de control operativo: indicadores enlazados a los registros que los
+ * generan, listados de actividad, accesos directos y ganancias de cada negocio,
+ * con filtro por mes, semestre o año.
  */
 
 soloAdmin();
-
-/** Cuenta segura de registros (0 si la tabla todavía no existe). */
-$conteos = [
-    'cotizaciones' => contarRegistros($db, 'cotizaciones'),
-    'clientes'     => contarRegistros($db, 'clientes'),
-    'productos'    => contarRegistros($db, 'productos'),
-    'empresas'     => contarRegistros($db, 'empresas'),
-];
 
 /** Accesos rápidos a los módulos del panel. */
 $accesos = [
@@ -78,6 +70,31 @@ foreach ($negocios as $negocio) {
     );
 }
 
+$usuarioId   = (int) ($_SESSION['id'] ?? 0);
+$indicadores = \App\Panel::indicadores($periodo['desde'], $periodo['hasta'], $usuarioId);
+
+/** Tarjetas: clave => [etiqueta, icono, texto del pie, ¿llama la atención si es mayor que cero?]. */
+$tarjetas = [
+    'ventas'         => ['Ventas del periodo', 'point_of_sale', 'ventas registradas', false],
+    'cotizaciones'   => ['Cotizaciones por dar seguimiento', 'request_quote', 'pendientes de respuesta', true],
+    'cobrar'         => ['Ventas por cobrar', 'payments', 'falta por cobrar', true],
+    'facturar'       => ['Ventas por facturar', 'receipt_long', 'sin indicar si se factura', true],
+    'entregas'       => ['Entregas pendientes', 'package_2', 'ventas con piezas por entregar', true],
+    'devoluciones'   => ['Devoluciones del periodo', 'assignment_return', 'ventas con piezas devueltas', false],
+    'gastos'         => ['Gastos del periodo', 'receipt', 'gastos registrados', false],
+    'notificaciones' => ['Notificaciones sin leer', 'notifications', 'avisos nuevos', true],
+];
+$sinImporte = ['entregas', 'devoluciones', 'notificaciones'];
+
+$ultimasCotizaciones = \App\Panel::ultimasCotizaciones();
+$ultimasVentas = \App\Panel::ultimasVentas();
+$porCobrar     = \App\Panel::ventasPorCobrar();
+$porFacturar   = \App\Panel::ventasPorFacturar();
+$convertidas   = \App\Panel::convertidasSinFactura();
+$nConvertidas  = \App\Panel::contarConvertidasSinFactura();
+$entregas      = \App\Panel::entregasPendientes();
+$devoluciones  = \App\Panel::devolucionesRecientes();
+
 template('header', [
     'titulo'     => 'Resumen general',
     'subtitulo'  => 'Panel de administración',
@@ -85,30 +102,215 @@ template('header', [
 ]);
 ?>
 
+<section class="mb-lg" aria-label="Periodo">
+    <div class="flex-entre fila--envuelto">
+        <svg class="panel-marca" viewBox="0 0 64 64" role="img" aria-label="Acero 360"><defs><linearGradient id="pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4679a6"/><stop offset="1" stop-color="#2b4d6e"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#pg)"/><g class="a360-anillo"><path d="M52.67 24.48A22 22 0 1 1 39.52 11.33" fill="none" stroke="#fff" stroke-width="4"/><path d="M41.06 7.1 45.1 13.4 37.98 15.56z" fill="#F2A56B" stroke="#F2A56B" stroke-width="1.5" stroke-linejoin="round"/></g><g class="a360-letra" fill="none" stroke="#fff" stroke-width="5"><path d="M23 44 32 20l9 24"/><path d="M26.5 36.5h11" stroke="#F2A56B" stroke-width="4"/></g></svg>
+        <p class="texto-secundario">Periodo: <strong><?= escaparValores($periodo['etiqueta']) ?></strong>.
+            Ventas, devoluciones y gastos usan este periodo; lo pendiente se cuenta completo, sin importar la fecha.</p>
+    <form class="buscador" action="/admin" method="get" role="search" data-validar>
+        <label class="solo-lectores" for="filtro-anio">Año</label>
+        <select class="control control--compacto" id="filtro-anio" name="anio">
+            <?php foreach ($anios as $anio) : ?>
+                <option value="<?= $anio ?>"<?= $anio === $anioFiltro ? ' selected' : '' ?>>
+                    Año <?= $anio ?>
+                </option>
+            <?php endforeach; ?>
+            <option value=""<?= $anioFiltro <= 0 ? ' selected' : '' ?>>Todos los años</option>
+        </select>
+
+        <label class="solo-lectores" for="filtro-semestre">Semestre</label>
+        <select class="control control--compacto" id="filtro-semestre" name="semestre"
+                <?= $anioFiltro <= 0 ? 'disabled' : '' ?>>
+            <option value="">Todo el semestre</option>
+            <option value="1"<?= $semestreFiltro === 1 ? ' selected' : '' ?>>1.er semestre (ene–jun)</option>
+            <option value="2"<?= $semestreFiltro === 2 ? ' selected' : '' ?>>2.º semestre (jul–dic)</option>
+        </select>
+
+        <label class="solo-lectores" for="filtro-mes">Mes</label>
+        <select class="control control--compacto" id="filtro-mes" name="mes"
+                <?= $anioFiltro <= 0 ? 'disabled' : '' ?>>
+            <option value="">Todo el año</option>
+            <?php foreach (\App\Cotizaciones::MESES as $indice => $nombre) :
+                $valorMes = $indice + 1; ?>
+                <option value="<?= $valorMes ?>"<?= $mesFiltro === $valorMes ? ' selected' : '' ?>>
+                    <?= escaparValores($nombre) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <button class="btn btn--secundario btn--sm" type="submit">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">search</span>
+            <span>Buscar</span>
+        </button>
+
+        <?php if ($hayFiltros) : ?>
+            <a class="btn btn--texto btn--sm" href="/admin"
+               aria-label="Restablecer el periodo">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">close</span>
+                <span>Limpiar</span>
+            </a>
+        <?php endif; ?>
+    </form>
+    </div>
+</section>
+
 <section class="rejilla-stats mb-lg" aria-label="Indicadores">
-    <article class="stat">
-        <span class="stat__etiqueta">Cotizaciones</span>
-        <span class="stat__valor cifra"><?= number_format($conteos['cotizaciones']) ?></span>
-        <span class="stat__pie">Emitidas hasta hoy</span>
-    </article>
+    <?php foreach ($tarjetas as $clave => [$etiqueta, $icono, $pie, $alerta]) :
+        $dato = $indicadores[$clave];
+        $principal = in_array($clave, $sinImporte, true) ? number_format($dato['n']) : formatoMoneda((float) $dato['monto']);
+        $detalle = in_array($clave, $sinImporte, true) ? '' : number_format($dato['n']) . ' ';
+        ?>
+        <a class="stat stat--enlace<?= $alerta && $dato['n'] > 0 ? ' stat--alerta' : '' ?>" href="<?= escaparValores($dato['enlace']) ?>">
+            <span class="stat__etiqueta">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem;vertical-align:-0.2em"><?= $icono ?></span>
+                <?= escaparValores($etiqueta) ?>
+            </span>
+            <span class="stat__valor cifra"><?= $principal ?></span>
+            <span class="stat__pie"><?= $detalle . escaparValores($pie) ?></span>
+        </a>
+    <?php endforeach; ?>
+</section>
 
-    <article class="stat">
-        <span class="stat__etiqueta">Clientes</span>
-        <span class="stat__valor cifra"><?= number_format($conteos['clientes']) ?></span>
-        <span class="stat__pie">Fichas registradas</span>
-    </article>
+<?php
+$vacio = static function (string $texto): string {
+    return '<p class="texto-secundario">' . $texto . '</p>';
+};
+?>
+<section class="mb-lg" aria-labelledby="titulo-actividad">
+    <h2 class="titulo-4 mb-md" id="titulo-actividad">Actividad</h2>
 
-    <article class="stat">
-        <span class="stat__etiqueta">Productos</span>
-        <span class="stat__valor cifra"><?= number_format($conteos['productos']) ?></span>
-        <span class="stat__pie">En el catálogo</span>
-    </article>
+    <div class="rejilla-2">
+        <article class="tarjeta">
+            <div class="tarjeta__cabecera">
+                <h3 class="tarjeta__titulo">Últimas cotizaciones</h3>
+                <a class="btn btn--texto btn--sm" href="/admin/cotizaciones">Ver todas</a>
+            </div>
+            <?php if (!$ultimasCotizaciones) : ?><?= $vacio('Todavía no hay cotizaciones.') ?><?php else : ?>
+                <ul class="actividad">
+                    <?php foreach ($ultimasCotizaciones as $f) :
+                        $estado = \App\Cotizaciones::datosEstado($f['estado']); ?>
+                        <li><a class="actividad__fila" href="/admin/cotizaciones/detalle?id=<?= (int) $f['id'] ?>">
+                            <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
+                                <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?>
+                                    · <span class="badge <?= $estado['clase'] ?>"><?= escaparValores($estado['etiqueta']) ?></span></span></span>
+                            <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>
+                        </a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
 
-    <article class="stat">
-        <span class="stat__etiqueta">Empresas</span>
-        <span class="stat__valor cifra"><?= number_format($conteos['empresas']) ?></span>
-        <span class="stat__pie">Negocios activos</span>
-    </article>
+        <article class="tarjeta">
+            <div class="tarjeta__cabecera">
+                <h3 class="tarjeta__titulo">Últimas ventas</h3>
+                <a class="btn btn--texto btn--sm" href="/admin/ventas">Ver todas</a>
+            </div>
+            <?php if (!$ultimasVentas) : ?><?= $vacio('Todavía no hay ventas.') ?><?php else : ?>
+                <ul class="actividad">
+                    <?php foreach ($ultimasVentas as $f) : ?>
+                        <li><a class="actividad__fila" href="/admin/ventas/detalle?id=<?= (int) $f['id'] ?>">
+                            <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
+                                <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?></span></span>
+                            <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>
+                        </a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
+
+        <article class="tarjeta">
+            <div class="tarjeta__cabecera">
+                <h3 class="tarjeta__titulo">Ventas pendientes de cobro</h3>
+                <a class="btn btn--texto btn--sm" href="<?= escaparValores($indicadores['cobrar']['enlace']) ?>">Ver todas (<?= $indicadores['cobrar']['n'] ?>)</a>
+            </div>
+            <?php if (!$porCobrar) : ?><?= $vacio('No hay ventas por cobrar.') ?><?php else : ?>
+                <ul class="actividad">
+                    <?php foreach ($porCobrar as $f) : ?>
+                        <li><a class="actividad__fila" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">
+                            <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
+                                <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · venta del <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?></span></span>
+                            <span class="actividad__importe"><?= formatoMoneda((float) $f['saldo']) ?></span>
+                        </a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
+
+        <article class="tarjeta">
+            <div class="tarjeta__cabecera">
+                <h3 class="tarjeta__titulo">Ventas pendientes de facturación</h3>
+                <a class="btn btn--texto btn--sm" href="<?= escaparValores($indicadores['facturar']['enlace']) ?>">Ver todas (<?= $indicadores['facturar']['n'] ?>)</a>
+            </div>
+            <?php if (!$porFacturar) : ?><?= $vacio('No hay ventas por definir en facturación.') ?><?php else : ?>
+                <ul class="actividad">
+                    <?php foreach ($porFacturar as $f) : ?>
+                        <li><a class="actividad__fila" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">
+                            <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
+                                <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · venta del <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?></span></span>
+                            <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>
+                        </a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
+
+        <article class="tarjeta">
+            <div class="tarjeta__cabecera">
+                <h3 class="tarjeta__titulo">Cotizaciones vendidas sin factura emitida</h3>
+                <a class="btn btn--texto btn--sm" href="/admin/contabilidad/ingresos?todos=1">Ver ingresos (<?= $nConvertidas ?>)</a>
+            </div>
+            <?php if (!$convertidas) : ?><?= $vacio('Todas las cotizaciones vendidas ya tienen factura.') ?><?php else : ?>
+                <ul class="actividad">
+                    <?php foreach ($convertidas as $f) :
+                        $fact = \App\Contabilidad::FACTURACION[$f['estado_facturacion']] ?? ['etiqueta' => $f['estado_facturacion'], 'clase' => 'badge--neutro']; ?>
+                        <li><a class="actividad__fila" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">
+                            <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
+                                <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · <span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span></span></span>
+                            <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>
+                        </a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
+
+        <article class="tarjeta">
+            <div class="tarjeta__cabecera">
+                <h3 class="tarjeta__titulo">Entregas pendientes</h3>
+                <a class="btn btn--texto btn--sm" href="/admin/entregas">Ver todas (<?= $indicadores['entregas']['n'] ?>)</a>
+            </div>
+            <?php if (!$entregas) : ?><?= $vacio('No hay entregas pendientes.') ?><?php else : ?>
+                <ul class="actividad">
+                    <?php foreach ($entregas as $f) :
+                        $faltan = (int) $f['piezas'] - (int) $f['entregadas']; ?>
+                        <li><a class="actividad__fila" href="/admin/ventas/detalle?id=<?= (int) $f['id'] ?>">
+                            <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
+                                <span class="actividad__detalle"><?= escaparValores($f['cliente_nombre']) ?> · venta del <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?></span></span>
+                            <span class="actividad__importe">faltan <?= $faltan ?> pza<?= $faltan === 1 ? '' : 's' ?></span>
+                        </a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
+
+        <article class="tarjeta">
+            <div class="tarjeta__cabecera">
+                <h3 class="tarjeta__titulo">Devoluciones recientes</h3>
+                <a class="btn btn--texto btn--sm" href="/admin/inventario/movimientos?motivo=devolucion">Ver todas</a>
+            </div>
+            <?php if (!$devoluciones) : ?><?= $vacio('No hay devoluciones registradas.') ?><?php else : ?>
+                <ul class="actividad">
+                    <?php foreach ($devoluciones as $f) : ?>
+                        <li><a class="actividad__fila" href="/admin/ventas/detalle?id=<?= (int) $f['venta_id'] ?>">
+                            <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
+                                <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?></span></span>
+                            <span class="actividad__importe"><?= (int) $f['piezas'] ?> pza<?= (int) $f['piezas'] === 1 ? '' : 's' ?></span>
+                        </a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+            <p class="texto-secundario mt-md">Los cambios de producto aún no se registran por separado.</p>
+        </article>
+    </div>
 </section>
 
 <section class="mb-lg" aria-labelledby="titulo-accesos">
@@ -131,54 +333,7 @@ template('header', [
 </section>
 
 <section class="mb-lg" aria-labelledby="titulo-ganancias">
-    <div class="flex-entre fila--envuelto mb-md">
-        <h2 class="titulo-4" id="titulo-ganancias">Ganancias por negocio</h2>
-
-        <form class="buscador" action="/admin" method="get" role="search" data-validar>
-            <label class="solo-lectores" for="filtro-anio">Año</label>
-            <select class="control control--compacto" id="filtro-anio" name="anio">
-                <?php foreach ($anios as $anio) : ?>
-                    <option value="<?= $anio ?>"<?= $anio === $anioFiltro ? ' selected' : '' ?>>
-                        Año <?= $anio ?>
-                    </option>
-                <?php endforeach; ?>
-                <option value=""<?= $anioFiltro <= 0 ? ' selected' : '' ?>>Todos los años</option>
-            </select>
-
-            <label class="solo-lectores" for="filtro-semestre">Semestre</label>
-            <select class="control control--compacto" id="filtro-semestre" name="semestre"
-                    <?= $anioFiltro <= 0 ? 'disabled' : '' ?>>
-                <option value="">Todo el semestre</option>
-                <option value="1"<?= $semestreFiltro === 1 ? ' selected' : '' ?>>1.er semestre (ene–jun)</option>
-                <option value="2"<?= $semestreFiltro === 2 ? ' selected' : '' ?>>2.º semestre (jul–dic)</option>
-            </select>
-
-            <label class="solo-lectores" for="filtro-mes">Mes</label>
-            <select class="control control--compacto" id="filtro-mes" name="mes"
-                    <?= $anioFiltro <= 0 ? 'disabled' : '' ?>>
-                <option value="">Todo el año</option>
-                <?php foreach (\App\Cotizaciones::MESES as $indice => $nombre) :
-                    $valorMes = $indice + 1; ?>
-                    <option value="<?= $valorMes ?>"<?= $mesFiltro === $valorMes ? ' selected' : '' ?>>
-                        <?= escaparValores($nombre) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-
-            <button class="btn btn--secundario btn--sm" type="submit">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">search</span>
-                <span>Buscar</span>
-            </button>
-
-            <?php if ($hayFiltros) : ?>
-                <a class="btn btn--texto btn--sm" href="/admin"
-                   aria-label="Restablecer el periodo">
-                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">close</span>
-                    <span>Limpiar</span>
-                </a>
-            <?php endif; ?>
-        </form>
-    </div>
+    <h2 class="titulo-4 mb-md" id="titulo-ganancias">Ganancias por negocio</h2>
 
     <p class="texto-secundario mb-md">
         Periodo contabilizado: <strong><?= escaparValores($periodo['etiqueta']) ?></strong>.

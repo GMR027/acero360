@@ -148,7 +148,7 @@ class ResumenFiscal
 
         $sql = "SELECT i.fecha, 'Venta' AS tipo, i.folio AS referencia,
                        COALESCE(NULLIF(c.nombre_empresa, ''), c.nombre) AS contraparte, e.nombre AS negocio,
-                       CASE i.estado_facturacion WHEN 'facturada' THEN 'Facturada' WHEN 'no_facturada' THEN 'Sin factura' ELSE 'Sin clasificar' END AS detalle,
+                       CASE i.estado_facturacion WHEN 'facturada' THEN 'Facturada' WHEN 'no_facturada' THEN 'No facturada' ELSE 'Pendiente de facturar' END AS detalle,
                        i.estado_facturacion AS facturacion,
                        i.subtotal - i.descuento AS subtotal, i.iva AS iva, i.total AS total
                   FROM ingresos i

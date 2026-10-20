@@ -11,19 +11,48 @@ $filtros = $periodo + [
     'facturacion' => (string) ($_GET['facturacion'] ?? ''),
     'q'           => trim($_GET['q'] ?? ''),
     'estado'      => ($_GET['estado'] ?? '') === 'cancelado' ? 'cancelado' : '',
+    'cobro'       => ($_GET['cobro'] ?? '') === 'pendiente' ? 'pendiente' : '',
+    'desde'       => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['desde'] ?? '')) ? $_GET['desde'] : '',
+    'hasta'       => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['hasta'] ?? '')) ? $_GET['hasta'] : '',
 ];
+// Enlaces del panel principal: rango de fechas (o «todos», sin periodo) en lugar de año y mes.
+if ($filtros['desde'] !== '' || $filtros['hasta'] !== '' || ($_GET['todos'] ?? '') === '1') {
+    $filtros['anio'] = 0;
+    $filtros['mes'] = 0;
+}
 $total    = \App\Contabilidad::contarIngresos($filtros);
 $pagina   = paginacion(15, $total);
 $ingresos = \App\Contabilidad::listarIngresos($filtros, $pagina['limite'], $pagina['offset']);
 $empresas = \App\Empresas::mostrarTodos(100, 0);
 
-$parametros = array_filter($periodo + ['facturacion' => $filtros['facturacion'], 'q' => $filtros['q'], 'estado' => $filtros['estado']],
+// Resumen del filtro y comparativa con el mes anterior (solo cuando se mira un mes concreto).
+$tot = \App\Contabilidad::totalesIngresos($filtros);
+$comparar = $filtros['anio'] > 0 && $filtros['mes'] > 0;
+$ant = null;
+if ($comparar) {
+    [$anioAnt, $mesAnt] = \App\Contabilidad::mesAnterior($filtros['anio'], $filtros['mes']);
+    $ant = \App\Contabilidad::totalesIngresos(['anio' => $anioAnt, 'mes' => $mesAnt] + $filtros);
+}
+$var = static fn (string $k): ?float => $ant ? \App\Contabilidad::variacion($tot[$k], $ant[$k]) : null;
+
+$parametros = array_filter(['anio' => $filtros['anio'], 'mes' => $filtros['mes'], 'empresa' => $periodo['empresa'], 'facturacion' => $filtros['facturacion'], 'q' => $filtros['q'],
+    'estado' => $filtros['estado'], 'cobro' => $filtros['cobro'], 'desde' => $filtros['desde'], 'hasta' => $filtros['hasta'], 'todos' => $filtros['anio'] ? '' : '1'],
     static fn ($v) => $v !== '' && $v !== 0);
 $rutaBase = '/admin/contabilidad/ingresos' . ($parametros ? '?' . http_build_query($parametros) : '');
 
 template('header', ['titulo' => 'Ingresos por ventas', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/contabilidad/ingresos', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true]);
+template('resumenReporte', [
+    'tarjetas' => [
+        ['etiqueta' => 'Ventas sin IVA', 'valor' => formatoMoneda($tot['subtotal']), 'pie' => number_format($tot['n']) . ' ingresos', 'variacion' => $var('subtotal')],
+        ['etiqueta' => 'IVA cobrado', 'valor' => formatoMoneda($tot['iva']), 'pie' => 'Incluido en el total', 'variacion' => $var('iva')],
+        ['etiqueta' => 'Total vendido', 'valor' => formatoMoneda($tot['total']), 'pie' => 'Ya cobrado: ' . formatoMoneda($tot['cobrado']), 'variacion' => $var('total')],
+        ['etiqueta' => 'Por cobrar', 'valor' => formatoMoneda($tot['saldo']), 'pie' => 'Saldo de estas ventas', 'variacion' => $var('saldo'), 'subeEsBueno' => false],
+    ],
+    'etiquetaComparativa' => $comparar ? 'vs. ' . nombreMes($mesAnt) . ' ' . $anioAnt : '',
+    'exportar' => '/admin/contabilidad/ingresos/exportar' . ($parametros ? '?' . http_build_query($parametros) : ''),
+]);
 ?>
 
 <section class="tarjeta tarjeta--sin-relleno">
@@ -68,6 +97,7 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/ingresos', 'period
                     <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th>
                     <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Facturación</th>
                     <th scope="col" class="tabla--centro">Cobro</th><th scope="col" class="tabla--numerica">Saldo</th>
+                    <th scope="col" class="tabla--centro">Documentos</th>
                     <th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                 <tbody>
                     <?php foreach ($ingresos as $i) :
@@ -84,10 +114,15 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/ingresos', 'period
                             <td class="tabla--centro"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span></td>
                             <td class="tabla--centro"><span class="badge <?= $cobro['clase'] ?>"><?= escaparValores($cobro['etiqueta']) ?></span></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($i['saldo']) ?></td>
+                            <td class="tabla--centro"><a href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $i['id'] ?>#documentos" aria-label="Ver los documentos de la venta <?= escaparValores($i['folio']) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : '<span class="badge badge--neutro badge--sin-punto">Sin documentos</span>' ?></a></td>
                             <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $i['id'] ?>">Abrir</a></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
+                <tfoot><tr><td colspan="4"><strong>Total de los <?= number_format($tot['n']) ?> ingresos filtrados</strong></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($tot['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($tot['iva']) ?></td>
+                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="2"></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($tot['saldo']) ?></td><td colspan="2"></td></tr></tfoot>
             </table>
         </div>
         <?php template('paginacion', ['pagina' => $pagina, 'rutaBase' => $rutaBase, 'total' => $total]); ?>

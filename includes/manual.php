@@ -119,11 +119,20 @@ return [
      ],
      'consejos' => []],
 
+    ['id' => 'seguimiento', 'titulo' => 'Centro de seguimiento', 'icono' => 'notifications',
+     'intro' => 'Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, gastos, entregas pendientes, productos con poco stock y novedades de la plataforma.',
+     'pasos' => [
+        ['Dónde verlo', ['La campana de arriba muestra cuántos avisos tienes sin leer. También está en el menú → «Centro de seguimiento».']],
+        ['Prioridades', ['Alta, media o baja según los días que lleva la operación (por ejemplo, un cobro de más de 30 días es de prioridad alta). Los más urgentes salen primero.']],
+        ['Abrir y marcar', ['«Abrir registro» te lleva a la venta, el gasto o el producto de origen.', '«Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.']],
+     ],
+     'consejos' => ['Una venta pendiente de cobro y una pendiente de factura son avisos distintos: una venta ya facturada no aparece como «factura por definir».']],
+
     ['id' => 'acerca', 'titulo' => 'Acerca de Acero 360', 'icono' => 'info',
      'intro' => 'Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.',
      'pasos' => [
         ['Qué cambió', ['Nuevo nombre y logotipo (una viga en I dentro de un anillo de 360°) en el menú, el inicio de sesión, los PDF y la aplicación de escritorio.', 'La dirección web, tus datos y tu contraseña no cambian.']],
-        ['Dónde está', ['Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, cambiar de pestaña a Empresas y razón social, Datos fiscales y Aplicación de escritorio, y ver la versión en «Acerca de».']],
+        ['Dónde está', ['Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, usar las pestañas: Configuración general, Usuarios y permisos, Perfil, Empresas y razones sociales, Datos fiscales, Aplicación de escritorio, Versión y actualizaciones, Novedades de la plataforma y Ayuda y manual.']],
         ['Aplicación de escritorio', ['Se instala igual y conserva tu sesión; el nuevo nombre y el icono aparecen al instalar la versión más reciente del paquete .deb.']],
      ],
      'consejos' => ['Si ves el logotipo anterior en la pestaña del navegador, recarga con Ctrl + Shift + R.']],

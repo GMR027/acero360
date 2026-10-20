@@ -117,12 +117,13 @@ try {
 
   console.log('Ingreso: facturación explícita y cobros');
   await pagina.goto(`${BASE}/admin/contabilidad/ingresos?anio=${anio}&mes=${mes}`);
-  verifica('lista 2 ingresos «sin clasificar»', (await pagina.locator('tbody tr').count()) === 2 && (await pagina.locator('tbody .badge:has-text("Sin indicar")').count()) === 2);
+  verifica('lista 2 ingresos pendientes de facturar', (await pagina.locator('tbody tr').count()) === 2 && (await pagina.locator('tbody .badge:has-text("Pendiente de facturar")').count()) === 2);
   const ingresoId = sql(`SELECT i.id FROM ingresos i JOIN ventas v ON v.id=i.venta_id WHERE v.cliente_id=${c1}`);
   await pagina.goto(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}`);
   await pagina.selectOption('#estado_facturacion', 'facturada');
   await pagina.fill('#factura_folio', 'A-77');
   await pagina.fill('#uuid_fiscal', uuid);
+  await pagina.check('#confirma_manual');
   await pagina.click('form:has(#estado_facturacion) button[type=submit]');
   verifica('queda facturada con su UUID', sql(`SELECT CONCAT(estado_facturacion,'/',uuid_fiscal) FROM ingresos WHERE id=${ingresoId}`) === `facturada/${uuid}`);
   await pagina.fill('#cobro-importe', '50');

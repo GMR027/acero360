@@ -2,7 +2,7 @@
 /**
  * templates/selectorPeriodo.php — Selector de año, mes y negocio (GET).
  * Variables: $accion (ruta del formulario), $periodo, $empresas, $conTodoElAnio (bool),
- *            $extra (campos ocultos opcionales: array nombre => valor)
+ *            $clientes/$cliente (opcional: filtro por cliente), $extra (campos ocultos opcionales: array nombre => valor)
  */
 $conTodoElAnio = $conTodoElAnio ?? false;
 $extra = $extra ?? [];
@@ -31,5 +31,14 @@ $extra = $extra ?? [];
             <option value="<?= (int) $e->id ?>"<?= $periodo['empresa'] === (int) $e->id ? ' selected' : '' ?>><?= escaparValores($e->nombre) ?></option>
         <?php endforeach; ?>
     </select>
+    <?php if (isset($clientes)) : ?>
+        <label class="solo-lectores" for="sel-cliente">Cliente</label>
+        <select class="control control--compacto" id="sel-cliente" name="cliente">
+            <option value="0">Todos los clientes</option>
+            <?php foreach ($clientes as $c) : ?>
+                <option value="<?= (int) $c['id'] ?>"<?= ($cliente ?? 0) === (int) $c['id'] ? ' selected' : '' ?>><?= escaparValores($c['etiqueta']) ?></option>
+            <?php endforeach; ?>
+        </select>
+    <?php endif; ?>
     <button class="btn btn--secundario btn--sm" type="submit">Ver periodo</button>
 </form>

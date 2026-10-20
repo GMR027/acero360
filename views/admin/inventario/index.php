@@ -121,7 +121,7 @@ template('header', [
             <p class="vacio__titulo"><?= $hayFiltros ? 'Sin coincidencias' : 'Aún no hay productos' ?></p>
             <p><?= $hayFiltros
                     ? 'Ningún producto coincide con los filtros aplicados.'
-                    : 'Cargá el catálogo desde "Catálogo Productos" para llevar el control de almacén.' ?></p>
+                    : 'Cargá el catálogo desde "Productos" para llevar el control de almacén.' ?></p>
             <?php if ($hayFiltros) : ?>
                 <a class="btn btn--secundario" href="/admin/inventario">Restablecer filtros</a>
             <?php endif; ?>
