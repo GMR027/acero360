@@ -18,18 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $stockNegativo = \App\Configuracion::permitirStockNegativo();
-$tasaIsr       = \App\Configuracion::obtener('isr_tasa_simple', '');
-$negocios      = array_filter(\App\Empresas::mostrarTodos(100, 0), static fn ($e) => (int) $e->activa === 1);
 
-$atajos = [
-    ['/admin/empresas', 'corporate_fare', 'Empresas y razón social', 'Datos, logotipo y condiciones de cada empresa que emite cotizaciones (' . count($negocios) . ' activos).'],
-    ['/admin/usuarios', 'manage_accounts', 'Usuarios y perfil', 'Quién entra a la plataforma y su contraseña.'],
-    ['/admin/fiscal/configuracion', 'tune', 'Datos fiscales', 'RFC, régimen y porcentaje de ISR' . ($tasaIsr !== '' ? ' (hoy ' . rtrim(rtrim($tasaIsr, '0'), '.') . ' %)' : '') . ' para el resumen de impuestos.'],
-    ['/admin/escritorio', 'desktop_windows', 'Aplicación de escritorio', 'Descarga e instrucciones de instalación.'],
-];
+$seccion = ($_GET['seccion'] ?? '') === 'acerca' ? 'acerca' : 'general';
 
 template('header', ['titulo' => 'Ajustes', 'subtitulo' => 'Preferencias de la plataforma', 'rutaActiva' => '/admin/ajustes']);
+template('tabsAjustes', ['tab' => $seccion]);
 ?>
+
+<?php if ($seccion === 'general') : ?>
 
 <form action="/admin/ajustes" method="post" class="tarjeta mb-lg" data-validar>
     <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
@@ -46,21 +42,8 @@ template('header', ['titulo' => 'Ajustes', 'subtitulo' => 'Preferencias de la pl
     <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar ajustes</button></div>
 </form>
 
-<section class="mb-lg" aria-labelledby="titulo-atajos">
-    <h2 class="titulo-4 mb-md" id="titulo-atajos">Otras configuraciones</h2>
-    <div class="rejilla-2">
-        <?php foreach ($atajos as [$ruta, $icono, $titulo, $texto]) : ?>
-            <a class="tarjeta tarjeta--enlace" href="<?= escaparValores($ruta) ?>">
-                <div class="tarjeta__cabecera">
-                    <h3 class="tarjeta__titulo"><span class="material-symbols-outlined" aria-hidden="true"><?= escaparValores($icono) ?></span> <?= escaparValores($titulo) ?></h3>
-                    <span class="material-symbols-outlined texto-secundario" aria-hidden="true">arrow_forward</span>
-                </div>
-                <p class="tarjeta__descripcion"><?= escaparValores($texto) ?></p>
-            </a>
-        <?php endforeach; ?>
-    </div>
-</section>
-
+<p class="campo__ayuda mb-lg">Usuarios y contraseñas: <a href="/admin/usuarios">Usuarios y perfil</a>.</p>
+<?php else : ?>
 <section class="tarjeta mb-lg" id="acerca" aria-labelledby="titulo-acerca">
     <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap" class="mb-md">
         <img src="/public/brand/acero360-marca.svg" alt="" width="64" height="64" style="border-radius:.75rem">
@@ -77,5 +60,7 @@ template('header', ['titulo' => 'Ajustes', 'subtitulo' => 'Preferencias de la pl
     </dl>
     <p class="campo__ayuda mt-md">Los cálculos de impuestos son una estimación informativa; confírmalos con tu contador.</p>
 </section>
+
+<?php endif; ?>
 
 <?php template('footer'); ?>

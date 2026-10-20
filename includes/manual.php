@@ -108,7 +108,7 @@ return [
 
     ['id' => 'escritorio', 'titulo' => 'Aplicación de escritorio', 'icono' => 'desktop_windows',
      'intro' => 'La misma plataforma en una ventana propia, sin abrir el navegador.',
-     'pasos' => [['Instalarla', ['Menú → «Ajustes» → «Aplicación de escritorio» → descarga el paquete .deb.', 'En una terminal: sudo apt install ./cotizaciones-escritorio_1.0.0_amd64.deb', 'Ábrela desde el menú de aplicaciones como «Acero 360».']]],
+     'pasos' => [['Instalarla', ['Menú → «Ajustes» → pestaña «Aplicación de escritorio» → descarga el paquete .deb.', 'En una terminal: sudo apt install ./cotizaciones-escritorio_1.0.0_amd64.deb', 'Ábrela desde el menú de aplicaciones como «Acero 360».']]],
      'consejos' => ['Usa los mismos datos y la misma sesión que la web.']],
 
     ['id' => 'seguridad', 'titulo' => 'Respaldos y cuidados', 'icono' => 'shield',
@@ -123,7 +123,7 @@ return [
      'intro' => 'Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.',
      'pasos' => [
         ['Qué cambió', ['Nuevo nombre y logotipo (una viga en I dentro de un anillo de 360°) en el menú, el inicio de sesión, los PDF y la aplicación de escritorio.', 'La dirección web, tus datos y tu contraseña no cambian.']],
-        ['Dónde está', ['Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, entrar a Empresas y razón social, Usuarios, Datos fiscales y Aplicación de escritorio, y ver la versión de Acero 360.']],
+        ['Dónde está', ['Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, cambiar de pestaña a Empresas y razón social, Datos fiscales y Aplicación de escritorio, y ver la versión en «Acerca de».']],
         ['Aplicación de escritorio', ['Se instala igual y conserva tu sesión; el nuevo nombre y el icono aparecen al instalar la versión más reciente del paquete .deb.']],
      ],
      'consejos' => ['Si ves el logotipo anterior en la pestaña del navegador, recarga con Ctrl + Shift + R.']],

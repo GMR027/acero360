@@ -36,8 +36,8 @@ $vigente   = \App\RegistrosFiscales::configuracion($contrib);
 $historial = \App\RegistrosFiscales::historialConfiguracion($contrib);
 $empresas  = \App\Empresas::mostrarTodos(100, 0);
 
-template('header', ['titulo' => 'Configuración fiscal', 'subtitulo' => 'Fiscal', 'rutaActiva' => '/admin/fiscal']);
-template('tabsFiscal', ['tab' => 'configuracion', 'periodo' => ['anio' => (int) date('Y'), 'mes' => (int) date('n')]]);
+template('header', ['titulo' => 'Configuración fiscal', 'subtitulo' => 'Fiscal', 'rutaActiva' => '/admin/ajustes']);
+template('tabsAjustes', ['tab' => 'fiscal']);
 ?>
 
 <section class="tarjeta mb-lg">

@@ -12,6 +12,7 @@ $tam      = static fn (int $b): string => number_format($b / 1048576, 1) . ' MB'
 $host     = $_SERVER['HTTP_HOST'] ?? 'tu-servidor';
 
 template('header', ['titulo' => 'Aplicación de escritorio', 'subtitulo' => 'Linux (paquete .deb)', 'rutaActiva' => '/admin/ajustes']);
+template('tabsAjustes', ['tab' => 'escritorio']);
 ?>
 
 <p class="nota nota--advertencia mb-lg" role="note">

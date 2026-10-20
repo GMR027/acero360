@@ -23,7 +23,9 @@ template('header', [
     'acciones'  => '<a class="btn btn--primario" href="/admin/empresas/crear">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_business</span>'
         . '<span>Nuevo negocio</span></a>',
+    'rutaActiva' => '/admin/ajustes',
 ]);
+template('tabsAjustes', ['tab' => 'empresas']);
 ?>
 
 <section class="tarjeta tarjeta--sin-relleno">

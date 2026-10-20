@@ -132,7 +132,7 @@ $enlaces = [
         'icono'         => 'request_quote',
         'texto'         => 'Impuestos',
         'subrutas'      => true,
-        'excluir'       => [],
+        'excluir'       => ['/admin/fiscal/configuracion'],   // «Datos fiscales» vive en Ajustes
         'soloEscritorio' => false,
     ],
     [
@@ -159,7 +159,7 @@ $enlaces = [
         'subrutas'      => false,
         'excluir'       => [],
         // Empresas y razón social y la app de escritorio se abren desde Ajustes.
-        'prefijos'      => ['/admin/empresas', '/admin/escritorio'],
+        'prefijos'      => ['/admin/empresas', '/admin/escritorio', '/admin/fiscal/configuracion'],
         'divisor'       => true,
         'soloEscritorio' => false,
     ],

@@ -54,6 +54,7 @@ template('header', [
     'subtitulo'  => 'Módulo de empresas',
     'rutaActiva' => '/admin/ajustes',
 ]);
+template('tabsAjustes', ['tab' => 'empresas']);
 ?>
 
 <section class="encabezado-pagina">
