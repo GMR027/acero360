@@ -98,9 +98,13 @@ return [
      'consejos' => ['Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.', 'Los pagos provisionales se presentan a más tardar el día 17 del mes siguiente.', 'Para que funcione, el administrador debe tener activas las reglas del SAT (Impuestos → Reglas del SAT).']],
 
     ['id' => 'estadisticas', 'titulo' => 'Estadísticas', 'icono' => 'monitoring',
-     'intro' => 'Gráficas de ventas, ganancias y productos más vendidos.',
-     'pasos' => [['Usarlas', ['Elige el periodo y el negocio. Puedes descargar el reporte.']]],
-     'consejos' => []],
+     'intro' => 'Cómo van tus ventas, con tres números grandes y cuatro gráficas fáciles de leer.',
+     'pasos' => [
+        ['Ver tus números', ['Arriba elige «Este mes», «Este año» o «Año pasado», o usa los filtros de periodo y negocio y pulsa «Ver estadísticas».', '«Vendiste», «Cobraste» y «Facturaste» son tres cosas distintas: vender es cuando haces la venta, cobrar cuando te pagan y facturar cuando das factura.', 'Debajo de «Vendiste» dice cuánto subió o bajó contra el año anterior.']],
+        ['Las gráficas', ['Ventas por mes (o por día, trimestre…), año contra año, productos que más vendes y clientes que más compran.', 'Pasa el cursor sobre una barra o punto para ver su cifra exacta.']],
+        ['Filtros y descargas', ['«Más filtros» permite elegir un cliente o un producto y cuántos años comparar.', '«Ver las tablas con todos los números» muestra el detalle, y arriba puedes descargar PDF, Excel o CSV.']],
+     ],
+     'consejos' => ['Si el periodo no ha terminado, la comparación usa el mismo avance del año anterior para ser justa.']],
 
     ['id' => 'escritorio', 'titulo' => 'Aplicación de escritorio', 'icono' => 'desktop_windows',
      'intro' => 'La misma plataforma en una ventana propia, sin abrir el navegador.',

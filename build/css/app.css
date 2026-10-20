@@ -3146,6 +3146,7 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
    _estadisticas.scss — Gráficas SVG y bloques del módulo de estadísticas.
    ========================================================================== */
 .grafica {
+  position: relative;
   margin: 0;
   padding: 1rem;
   background-color: #ffffff;
@@ -3161,10 +3162,49 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 .grafica__rejilla {
   stroke: #e4e6ea;
   stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.grafica__base {
+  stroke: #c9cdd4;
+  stroke-width: 1.5;
+}
+.grafica__texto--valor {
+  fill: #4d4c53;
+  font-size: 12px;
+  font-weight: 700;
+}
+.grafica__texto--etiqueta {
+  fill: #4d4c53;
+  font-size: 12px;
+}
+.grafica__barra {
+  animation: grafica-crece 0.5s ease-out both;
+  transition: filter 0.15s;
+}
+.grafica__marca {
+  cursor: pointer;
+  transition: r 0.15s;
+}
+.grafica__marca--activa {
+  filter: brightness(1.12) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+.grafica__globo {
+  position: absolute;
+  z-index: 5;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.4rem;
+  background: #1f2a37;
+  color: #fff;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.grafica__globo[hidden] {
+  display: none;
 }
 .grafica__texto {
   fill: #64646a;
-  font-size: 11px;
+  font-size: 12px;
 }
 .grafica__leyenda {
   display: flex;
@@ -3201,6 +3241,41 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
   gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@keyframes grafica-crece {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grafica__barra {
+    animation: none;
+  }
+}
+/* Resumen de la página de estadísticas */
+.estadisticas-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.estadisticas-resumen__valor {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.estadisticas-periodos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
   margin-bottom: 1.5rem;
 }
 

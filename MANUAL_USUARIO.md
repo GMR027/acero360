@@ -266,11 +266,26 @@ Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT 
 
 ## 11. Estadísticas
 
-Gráficas de ventas, ganancias y productos más vendidos.
+Cómo van tus ventas, con tres números grandes y cuatro gráficas fáciles de leer.
 
-### Usarlas
+### Ver tus números
 
-- Elige el periodo y el negocio. Puedes descargar el reporte.
+1. Arriba elige «Este mes», «Este año» o «Año pasado», o usa los filtros de periodo y negocio y pulsa «Ver estadísticas».
+2. «Vendiste», «Cobraste» y «Facturaste» son tres cosas distintas: vender es cuando haces la venta, cobrar cuando te pagan y facturar cuando das factura.
+3. Debajo de «Vendiste» dice cuánto subió o bajó contra el año anterior.
+
+### Las gráficas
+
+1. Ventas por mes (o por día, trimestre…), año contra año, productos que más vendes y clientes que más compran.
+2. Pasa el cursor sobre una barra o punto para ver su cifra exacta.
+
+### Filtros y descargas
+
+1. «Más filtros» permite elegir un cliente o un producto y cuántos años comparar.
+2. «Ver las tablas con todos los números» muestra el detalle, y arriba puedes descargar PDF, Excel o CSV.
+
+> **Consejos**
+> - Si el periodo no ha terminado, la comparación usa el mismo avance del año anterior para ser justa.
 
 ---
 

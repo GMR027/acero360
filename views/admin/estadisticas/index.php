@@ -50,36 +50,76 @@ if ($conProducto) {
 $graficaSerie = ['tipo' => count($r['serie']) > 18 ? 'linea' : 'barras', 'formato' => 'moneda', 'etiquetas' => array_map('strval', array_keys($r['serie'])),
     'series' => [['nombre' => 'Ventas realizadas', 'valores' => array_map(static fn ($x) => $x['importe'] / 100, array_values($r['serie']))]]];
 
+
+// Gráficas de rankings (barras horizontales)
+$graficaProductos = ['tipo' => 'barras-h', 'formato' => 'moneda', 'etiquetas' => array_map(static fn ($x) => (string) $x['nombre'], $r['productos']),
+    'series' => [['nombre' => 'Importe', 'valores' => array_map(static fn ($x) => $x['importe'] / 100, $r['productos'])]]];
+$graficaClientes = ['tipo' => 'barras-h', 'formato' => 'moneda', 'etiquetas' => array_map(static fn ($x) => (string) $x['nombre'], $r['clientes']),
+    'series' => [['nombre' => 'Importe', 'valores' => array_map(static fn ($x) => $x['importe'] / 100, $r['clientes'])]]];
+$graficaComp['destacar'] = 'ultimo';
+// En la comparación entre años solo se dibujan ventas y cobros (lo demás queda en la tabla).
+if (!$conProducto) {
+    $graficaComp['series'] = [$graficaComp['series'][0], $graficaComp['series'][2] ?? $graficaComp['series'][1]];
+    $graficaComp['destacar'] = '';
+}
+$graficaComp['series'] = array_values($graficaComp['series']);
+
+/** Frase de variación contra el año anterior, en palabras. */
+$frase = static function (?array $v, string $anterior): string {
+    if ($v === null || $v['porcentual'] === null) {
+        return 'Sin año anterior con qué comparar';
+    }
+    if ($v['absoluta'] == 0) {
+        return 'Igual que ' . $anterior;
+    }
+    return ($v['absoluta'] > 0 ? '▲ ' : '▼ ') . number_format(abs($v['porcentual']), 1) . ' % ' . ($v['absoluta'] > 0 ? 'más' : 'menos') . ' que ' . $anterior;
+};
+$anteriorTexto = (string) ($p['anio'] - 1);
+$fraseVentas = $frase($actual['variacion_mismo_avance'] ?? $actual['variacion'] ?? null, $anteriorTexto);
+$hoyAnio = (int) date('Y');
+
 template('header', [
-    'titulo' => 'Estadísticas de ventas', 'subtitulo' => 'Métricas históricas', 'rutaActiva' => '/admin/estadisticas',
+    'titulo' => 'Estadísticas', 'subtitulo' => 'Cómo van tus ventas', 'rutaActiva' => '/admin/estadisticas',
     'acciones' => '<a class="btn btn--secundario" href="/admin/estadisticas/exportar?' . escaparValores($consulta) . '&formato=pdf" target="_blank" rel="noopener">PDF</a>'
         . '<a class="btn btn--secundario" href="/admin/estadisticas/exportar?' . escaparValores($consulta) . '&formato=xlsx">Excel</a>'
         . '<a class="btn btn--secundario" href="/admin/estadisticas/exportar?' . escaparValores($consulta) . '&formato=csv">CSV</a>',
 ]);
 ?>
 
+<div class="estadisticas-periodos" role="group" aria-label="Periodos rápidos">
+    <span class="campo__etiqueta" style="margin:0">Ver:</span>
+    <a class="chip" href="/admin/estadisticas?tipo=mes&indice=<?= (int) date('n') ?>&anio=<?= $hoyAnio ?>&empresa=<?= (int) $f['empresa'] ?>">Este mes</a>
+    <a class="chip" href="/admin/estadisticas?tipo=anio&anio=<?= $hoyAnio ?>&empresa=<?= (int) $f['empresa'] ?>">Este año</a>
+    <a class="chip" href="/admin/estadisticas?tipo=anio&anio=<?= $hoyAnio - 1 ?>&empresa=<?= (int) $f['empresa'] ?>">Año pasado</a>
+</div>
+
 <form class="tarjeta mb-lg" action="/admin/estadisticas" method="get" aria-label="Filtros de estadísticas">
     <div class="formulario__rejilla">
-        <div class="campo"><label class="campo__etiqueta" for="tipo">Periodo a comparar</label>
+        <div class="campo"><label class="campo__etiqueta" data-ayuda="Compara un mes, trimestre, semestre o el año completo." for="tipo">Periodo</label>
             <select class="control" id="tipo" name="tipo"><?php foreach (\App\Estadisticas::TIPOS_PERIODO as $k => $t) : ?><option value="<?= $k ?>"<?= $p['tipo'] === $k ? ' selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select></div>
         <div class="campo"><label class="campo__etiqueta" for="indice">Cuál</label>
             <select class="control" id="indice" name="indice"><?php for ($i = 1; $i <= $maximoIndice; $i++) : ?><option value="<?= $i ?>"<?= $p['indice'] === $i ? ' selected' : '' ?>><?= escaparValores($etiquetasIndice($p['tipo'], $i)) ?></option><?php endfor; ?></select></div>
         <div class="campo"><label class="campo__etiqueta" for="anio">Año</label>
-            <select class="control" id="anio" name="anio"><?php for ($a = (int) date('Y') + 0; $a >= 2020; $a--) : ?><option value="<?= $a ?>"<?= $p['anio'] === $a ? ' selected' : '' ?>><?= $a ?></option><?php endfor; ?></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="atras">Comparar con años anteriores</label>
-            <select class="control" id="atras" name="atras"><?php for ($i = 1; $i <= 4; $i++) : ?><option value="<?= $i ?>"<?= $p['atras'] === $i ? ' selected' : '' ?>><?= $i ?></option><?php endfor; ?></select></div>
+            <select class="control" id="anio" name="anio"><?php for ($a = $hoyAnio; $a >= 2020; $a--) : ?><option value="<?= $a ?>"<?= $p['anio'] === $a ? ' selected' : '' ?>><?= $a ?></option><?php endfor; ?></select></div>
         <div class="campo"><label class="campo__etiqueta" for="empresa">Negocio</label>
             <select class="control" id="empresa" name="empresa"><option value="0">Ambos negocios</option><?php foreach ($empresas as $e) : ?><option value="<?= (int) $e->id ?>"<?= $f['empresa'] === (int) $e->id ? ' selected' : '' ?>><?= escaparValores($e->nombre) ?></option><?php endforeach; ?></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="cliente">Cliente</label>
-            <select class="control" id="cliente" name="cliente"><option value="0">Todos</option><?php foreach ($clientes as $c) : ?><option value="<?= (int) $c->id ?>"<?= $f['cliente'] === (int) $c->id ? ' selected' : '' ?>><?= escaparValores($c->nombre_empresa ?: $c->nombre) ?></option><?php endforeach; ?></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="producto">Producto</label>
-            <select class="control" id="producto" name="producto"><option value="0">Todos</option><?php foreach ($productos as $pr) : ?><option value="<?= (int) $pr->id ?>"<?= $f['producto'] === (int) $pr->id ? ' selected' : '' ?>><?= escaparValores(($pr->sku ? $pr->sku . ' · ' : '') . $pr->nombre) ?></option><?php endforeach; ?></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="base">Importes</label>
-            <select class="control" id="base" name="base"><option value="total"<?= $p['base'] === 'total' ? ' selected' : '' ?>>Con IVA</option><option value="subtotal"<?= $p['base'] === 'subtotal' ? ' selected' : '' ?>>Sin IVA (con descuentos)</option></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="agrupacion">Agrupar la serie por</label>
-            <select class="control" id="agrupacion" name="agrupacion"><?php foreach (\App\Estadisticas::AGRUPACIONES as $k => $t) : ?><option value="<?= $k ?>"<?= $p['agrupacion'] === $k ? ' selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select></div>
     </div>
-    <div class="formulario__acciones"><a class="btn btn--texto" href="/admin/estadisticas">Restablecer</a><button class="btn btn--primario" type="submit">Actualizar</button></div>
+    <details class="mt-md">
+        <summary class="boton-enlace" style="cursor:pointer">Más filtros (cliente, producto, años a comparar…)</summary>
+        <div class="formulario__rejilla mt-md">
+            <div class="campo"><label class="campo__etiqueta" for="cliente">Cliente</label>
+                <select class="control" id="cliente" name="cliente"><option value="0">Todos</option><?php foreach ($clientes as $c) : ?><option value="<?= (int) $c->id ?>"<?= $f['cliente'] === (int) $c->id ? ' selected' : '' ?>><?= escaparValores($c->nombre_empresa ?: $c->nombre) ?></option><?php endforeach; ?></select></div>
+            <div class="campo"><label class="campo__etiqueta" for="producto">Producto</label>
+                <select class="control" id="producto" name="producto"><option value="0">Todos</option><?php foreach ($productos as $pr) : ?><option value="<?= (int) $pr->id ?>"<?= $f['producto'] === (int) $pr->id ? ' selected' : '' ?>><?= escaparValores(($pr->sku ? $pr->sku . ' · ' : '') . $pr->nombre) ?></option><?php endforeach; ?></select></div>
+            <div class="campo"><label class="campo__etiqueta" for="atras">Comparar con cuántos años anteriores</label>
+                <select class="control" id="atras" name="atras"><?php for ($i = 1; $i <= 4; $i++) : ?><option value="<?= $i ?>"<?= $p['atras'] === $i ? ' selected' : '' ?>><?= $i ?></option><?php endfor; ?></select></div>
+            <div class="campo"><label class="campo__etiqueta" for="base">Importes</label>
+                <select class="control" id="base" name="base"><option value="total"<?= $p['base'] === 'total' ? ' selected' : '' ?>>Con IVA</option><option value="subtotal"<?= $p['base'] === 'subtotal' ? ' selected' : '' ?>>Sin IVA (con descuentos)</option></select></div>
+            <div class="campo"><label class="campo__etiqueta" for="agrupacion">Agrupar la gráfica por</label>
+                <select class="control" id="agrupacion" name="agrupacion"><?php foreach (\App\Estadisticas::AGRUPACIONES as $k => $t) : ?><option value="<?= $k ?>"<?= $p['agrupacion'] === $k ? ' selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select></div>
+        </div>
+    </details>
+    <div class="formulario__acciones"><a class="btn btn--texto" href="/admin/estadisticas">Restablecer</a><button class="btn btn--primario" type="submit">Ver estadísticas</button></div>
 </form>
 
 <?php if ($conProducto) : ?>
@@ -90,37 +130,55 @@ template('header', [
 <?php if (!$actual['completo']) : ?>
     <p class="nota nota--advertencia mb-lg" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">hourglass_top</span>
         <span><strong><?= $actual['futuro'] ? 'Periodo futuro.' : 'Periodo incompleto.' ?></strong>
-            <?= $actual['futuro'] ? 'Aún no empieza.' : 'Los datos llegan al ' . date('d/m/Y', strtotime($actual['corte'])) . '. Compararlo con un periodo completo exagera la caída: usa la variación «mismo avance».' ?></span></p>
+            <?= $actual['futuro'] ? 'Aún no empieza.' : 'Los datos llegan al ' . date('d/m/Y', strtotime($actual['corte'])) . '; la comparación usa el mismo avance del año anterior.' ?></span></p>
 <?php endif; ?>
 
 <h2 class="titulo-5 mb-md"><?= escaparValores($etiquetaPeriodo) ?></h2>
-<section class="rejilla-stats mb-lg" aria-label="Medidas del periodo">
-    <div class="stat"><span class="stat__etiqueta">Ventas realizadas</span><span class="stat__valor"><?= $m($actual['realizadas']['importe']) ?></span>
-        <span class="stat__pie"><?= number_format($actual['realizadas']['operaciones']) ?> operaciones · <?= number_format($actual['realizadas']['unidades']) ?> piezas</span></div>
-    <div class="stat"><span class="stat__etiqueta">Ventas facturadas</span><span class="stat__valor"><?= $m($actual['facturadas']['importe']) ?></span>
-        <span class="stat__pie"><?= number_format($actual['facturadas']['operaciones']) ?> operaciones marcadas como facturadas</span></div>
-    <div class="stat"><span class="stat__etiqueta">Cobros recibidos</span><span class="stat__valor"><?= $m($actual['cobros']['importe']) ?></span>
-        <span class="stat__pie"><?= number_format($actual['cobros']['operaciones']) ?> cobros en el periodo (con IVA)</span></div>
-    <div class="stat"><span class="stat__etiqueta">Tendencia (serie mensual)</span><span class="stat__valor texto-sm"><?= escaparValores($r['tendencia']['etiqueta']) ?></span>
-        <span class="stat__pie"><?= $r['tendencia']['direccion'] === 'sin_datos' ? '' : escaparValores(($r['tendencia']['pendiente_pct'] > 0 ? '+' : '') . $r['tendencia']['pendiente_pct'] . ' % por mes') ?></span></div>
+<section class="estadisticas-resumen" aria-label="Medidas del periodo">
+    <div class="tarjeta"><span class="stat__etiqueta">Vendiste</span>
+        <span class="estadisticas-resumen__valor"><?= $m($actual['realizadas']['importe']) ?></span>
+        <span class="stat__pie"><?= escaparValores($fraseVentas) ?></span>
+        <span class="stat__pie"><?= number_format($actual['realizadas']['operaciones']) ?> ventas · <?= number_format($actual['realizadas']['unidades']) ?> piezas</span></div>
+    <div class="tarjeta"><span class="stat__etiqueta">Cobraste</span>
+        <span class="estadisticas-resumen__valor"><?= $m($actual['cobros']['importe']) ?></span>
+        <span class="stat__pie"><?= number_format($actual['cobros']['operaciones']) ?> pagos recibidos</span></div>
+    <div class="tarjeta"><span class="stat__etiqueta">Facturaste</span>
+        <span class="estadisticas-resumen__valor"><?= $m($actual['facturadas']['importe']) ?></span>
+        <span class="stat__pie"><?= number_format($actual['facturadas']['operaciones']) ?> ventas con factura</span></div>
 </section>
-<p class="campo__ayuda mb-lg">No son lo mismo: una venta se <strong>realiza</strong> el día que se vende, se <strong>factura</strong> cuando la marcas como facturada y se <strong>cobra</strong> cuando el cliente paga (puede ser otro mes).</p>
+<p class="campo__ayuda mb-lg">Una venta se <strong>vende</strong> el día que la haces, se <strong>factura</strong> cuando le das factura y se <strong>cobra</strong> cuando el cliente paga (puede ser otro mes).
+    <?= $r['tendencia']['direccion'] === 'sin_datos' ? '' : escaparValores($r['tendencia']['etiqueta']) . '.' ?></p>
 
 <div class="estadisticas-rejilla">
     <section>
-        <h2 class="titulo-5 mb-md">Comparación entre años · <?= escaparValores(\App\Estadisticas::TIPOS_PERIODO[$p['tipo']]) ?></h2>
-        <figure class="grafica" data-grafica="<?= escaparValores(json_encode($graficaComp, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Comparación de <?= escaparValores($etiquetaPeriodo) ?> entre años"></figure>
-    </section>
-    <section>
-        <h2 class="titulo-5 mb-md">Ventas realizadas por <?= escaparValores(mb_strtolower(\App\Estadisticas::AGRUPACIONES[$p['agrupacion']])) ?></h2>
+        <h2 class="titulo-5 mb-md">Ventas por <?= escaparValores(mb_strtolower(\App\Estadisticas::AGRUPACIONES[$p['agrupacion']])) ?></h2>
         <?php if ($r['serie']) : ?>
             <figure class="grafica" data-grafica="<?= escaparValores(json_encode($graficaSerie, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Serie de ventas realizadas"></figure>
         <?php else : ?>
             <div class="vacio"><p class="vacio__titulo">Sin ventas en este rango</p></div>
         <?php endif; ?>
     </section>
+    <section>
+        <h2 class="titulo-5 mb-md">Año contra año · <?= escaparValores(\App\Estadisticas::TIPOS_PERIODO[$p['tipo']]) ?></h2>
+        <figure class="grafica" data-grafica="<?= escaparValores(json_encode($graficaComp, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Comparación de <?= escaparValores($etiquetaPeriodo) ?> entre años"></figure>
+    </section>
+    <section>
+        <h2 class="titulo-5 mb-md">Productos que más vendes</h2>
+        <?php if ($r['productos']) : ?>
+            <figure class="grafica" data-grafica="<?= escaparValores(json_encode($graficaProductos, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Productos más vendidos"></figure>
+        <?php else : ?><div class="vacio"><p class="vacio__titulo">Sin ventas en el periodo</p></div><?php endif; ?>
+    </section>
+    <section>
+        <h2 class="titulo-5 mb-md">Clientes que más compran</h2>
+        <?php if ($r['clientes']) : ?>
+            <figure class="grafica" data-grafica="<?= escaparValores(json_encode($graficaClientes, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Clientes con mayor volumen"></figure>
+        <?php else : ?><div class="vacio"><p class="vacio__titulo">Sin ventas en el periodo</p></div><?php endif; ?>
+    </section>
 </div>
 
+<details class="mb-lg">
+    <summary class="boton-enlace" style="cursor:pointer"><strong>Ver las tablas con todos los números</strong></summary>
+    <div class="mt-md">
 <section class="tarjeta tarjeta--sin-relleno mb-lg">
     <div class="tabla-contenedor">
         <table class="tabla">
@@ -201,5 +259,8 @@ template('header', [
         </div>
     </section>
 <?php endforeach; ?>
+
+    </div>
+</details>
 
 <?php template('footer'); ?>

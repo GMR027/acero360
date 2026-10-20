@@ -32,7 +32,8 @@ const pagina = await navegador.newPage({ viewport: { width: 1440, height: 900 } 
 const errores = [];
 pagina.on('pageerror', (e) => errores.push(e.message));
 pagina.on('console', (m) => { if (m.type() === 'error') errores.push(m.text()); });
-const texto = async () => pagina.locator('main').innerText();
+const abrirTodo = () => pagina.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
+const texto = async () => { await abrirTodo(); return pagina.locator('main').innerText(); };
 
 try {
   await pagina.goto(BASE + '/login');
@@ -45,27 +46,30 @@ try {
   let t = await texto();
   verifica('importes de ambos años: $2,436.00 y $1,508.00', t.includes('$2,436.00') && t.includes('$1,508.00'));
   verifica('variación absoluta +$928.00 y +61.54 %', t.includes('+$928.00') && t.includes('+61.54 %'));
-  verifica('separa ventas realizadas, facturadas y cobros', t.includes('Ventas realizadas') && t.includes('Ventas facturadas') && t.includes('Cobros recibidos'));
-  verifica('explica por qué no son lo mismo', t.includes('No son lo mismo'));
-  verifica('hay dos gráficas SVG con datos y valores accesibles', (await pagina.locator('svg.grafica__svg').count()) === 2 && (await pagina.locator('svg.grafica__svg title').count()) > 0);
-  verifica('la gráfica tiene leyenda con las 3 medidas', (await pagina.locator('.grafica__leyenda li').count()) === 3);
+  verifica('separa ventas realizadas, facturadas y cobros', /vendiste/i.test(t) && /cobraste/i.test(t) && /facturaste/i.test(t));
+  verifica('explica por qué no son lo mismo', t.includes('se vende el día que la haces'));
+  verifica('hay cuatro gráficas SVG con datos y valores accesibles', (await pagina.locator('svg.grafica__svg').count()) === 4 && (await pagina.locator('svg.grafica__svg title').count()) > 0);
+  verifica('la comparación entre años tiene leyenda con ventas y cobros', (await pagina.locator('.grafica__leyenda li').count()) === 2);
   verifica('productos más vendidos: RA-3 con 3 piezas', (await pagina.locator('table:has(caption:text("Productos más vendidos")) tbody tr').first().innerText()).includes('RA-3'));
   verifica('clientes con mayor volumen listados', (await pagina.locator('table:has(caption:text("Clientes con mayor volumen")) tbody tr').count()) >= 1);
   verifica('matriz de productos por varios años', (await pagina.locator('table:has(caption:text("varios años")) tbody tr').count()) >= 1);
 
   console.log('Filtros interactivos');
+  await abrirTodo();
   await pagina.selectOption('#empresa', '2');
-  await pagina.click('button:has-text("Actualizar")');
+  await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
   verifica('solo el negocio 2: aparece $348.00 y desaparece $2,436.00', t.includes('$348.00') && !t.includes('$2,436.00'));
+  await abrirTodo();
   await pagina.selectOption('#empresa', '0');
   await pagina.selectOption('#base', 'subtotal');
-  await pagina.click('button:has-text("Actualizar")');
+  await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
   verifica('sin IVA: $2,100.00 contra $1,300.00', t.includes('$2,100.00') && t.includes('$1,300.00'));
+  await abrirTodo();
   await pagina.selectOption('#base', 'total');
   await pagina.selectOption('#producto', '37');
-  await pagina.click('button:has-text("Actualizar")');
+  await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
   verifica('con producto avisa que mide renglones sin IVA', t.includes('Con un producto elegido') && t.includes('$1,500.00'));
 
@@ -80,7 +84,7 @@ try {
   console.log('Agrupaciones y comparaciones');
   for (const [agr, esperado] of [['dia', '2026-01-05'], ['mes', '2026-01'], ['trimestre', '2026-T1'], ['semestre', '2026-S1'], ['anio', '2026']]) {
     await pagina.goto(`${BASE}/admin/estadisticas?tipo=mes&indice=1&anio=2026&atras=1&agrupacion=${agr}`);
-    const datos = await pagina.locator('figure[data-grafica]').nth(1).getAttribute('data-grafica');
+    const datos = await pagina.locator('figure[data-grafica]').nth(0).getAttribute('data-grafica');
     verifica(`serie por ${agr}`, JSON.parse(datos).etiquetas.includes(esperado), datos.slice(0, 120));
   }
   for (const [tipo, indice] of [['trimestre', 1], ['semestre', 1], ['anio', 1]]) {

@@ -5,6 +5,7 @@
 @use '../base/variables' as *;
 
 .grafica {
+  position: relative;
   margin: 0;
   padding: $espacio-md;
   background-color: $color-superficie;
@@ -21,11 +22,56 @@
   &__rejilla {
     stroke: $color-borde;
     stroke-width: 1;
+    stroke-dasharray: 3 4;
+  }
+
+  &__base {
+    stroke: $color-borde-fuerte;
+    stroke-width: 1.5;
+  }
+
+  &__texto--valor {
+    fill: $color-texto;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  &__texto--etiqueta {
+    fill: $color-texto;
+    font-size: 12px;
+  }
+
+  &__barra {
+    animation: grafica-crece 0.5s ease-out both;
+    transition: filter 0.15s;
+  }
+
+  &__marca {
+    cursor: pointer;
+    transition: r 0.15s;
+  }
+
+  &__marca--activa {
+    filter: brightness(1.12) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  }
+
+  &__globo {
+    position: absolute;
+    z-index: 5;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.4rem;
+    background: #1f2a37;
+    color: #fff;
+    font-size: $fuente-sm;
+    white-space: nowrap;
+    pointer-events: none;
+
+    &[hidden] { display: none; }
   }
 
   &__texto {
     fill: $color-texto-secundario;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   &__leyenda {
@@ -63,5 +109,37 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
   gap: $espacio-lg;
+  margin-bottom: $espacio-lg;
+}
+
+@keyframes grafica-crece {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grafica__barra { animation: none; }
+}
+
+/* Resumen de la página de estadísticas */
+.estadisticas-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: $espacio-md;
+  margin-bottom: $espacio-lg;
+
+  &__valor {
+    display: block;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+}
+
+.estadisticas-periodos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $espacio-sm;
+  align-items: center;
   margin-bottom: $espacio-lg;
 }
