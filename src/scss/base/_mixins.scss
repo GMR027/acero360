@@ -43,7 +43,7 @@
 @mixin anillo-foco {
   outline: 1px solid $color-primario;
   outline-offset: 1px;
-  box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.25);
+  box-shadow: 0 0 0 2px $color-foco;
 }
 
 /* Texto en una sola línea con puntos suspensivos. */

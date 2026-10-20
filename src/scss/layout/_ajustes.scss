@@ -1,0 +1,161 @@
+/* ==========================================================================
+   _ajustes.scss — Pantalla de Ajustes: pestañas, tarjetas con cabecera,
+   interruptor y ficha de versión.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* Pestañas y temas: los chips pasan a la línea siguiente, sin deslizar */
+.ajustes-tabs,
+.chip-grupo--envuelto {
+  flex-wrap: wrap;
+  overflow-x: visible;
+
+  .chip { gap: $espacio-xs; }
+
+  .material-symbols-outlined { font-size: 1.125rem; }
+}
+
+.ajustes-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  gap: $espacio-lg;
+  align-items: start;
+  margin-bottom: $espacio-lg;
+
+  > .tarjeta { margin-bottom: 0; }
+}
+
+.ajustes-cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: $espacio-md;
+  margin-bottom: $espacio-md;
+
+  &__icono {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: $radio-md;
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+  }
+
+  h2 { margin: 0; }
+  p { margin: 0; }
+}
+
+/* Interruptor (checkbox con aspecto de switch) */
+.interruptor {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $espacio-md;
+  padding: $espacio-md;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde-fuerte;
+  border-radius: $radio-md;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+  }
+
+  &__pista {
+    position: relative;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    background-color: $color-borde-fuerte;
+    transition: background-color $transicion-rapida;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0.2rem;
+      left: 0.2rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      border-radius: 50%;
+      background-color: #fff;
+      transition: transform $transicion-rapida;
+    }
+  }
+
+  input:checked ~ &__pista { background-color: $color-primario; }
+  input:checked ~ &__pista::after { transform: translateX(1.25rem); }
+  input:focus-visible ~ &__pista { outline: 2px solid $color-primario; outline-offset: 2px; }
+}
+
+/* Ficha de versión */
+.ajustes-marca {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $espacio-md;
+  margin-bottom: $espacio-md;
+
+  img {
+    width: 4rem;
+    height: 4rem;
+    border-radius: $radio-lg;
+  }
+
+  h2, p { margin: 0; }
+}
+
+.tarjeta--sin-relleno > .ajustes-titulo { padding: $espacio-md $espacio-md $espacio-sm; }
+
+/* Celular: pestañas en cuadrícula de dos columnas, tema en una fila y controles a todo el ancho. */
+@include hasta-movil {
+  .ajustes-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: $espacio-sm;
+
+    .chip {
+      justify-content: flex-start;
+      min-width: 0;
+      padding-inline: $espacio-sm;
+      border-radius: $radio-md;
+      font-size: 0.8125rem;
+      line-height: 1.2;
+      text-align: left;
+      white-space: normal;
+      overflow: visible;
+      height: auto;
+      padding-block: $espacio-xs;
+    }
+  }
+
+  .selector-tema {
+    grid-template-columns: repeat(3, 1fr);
+    gap: $espacio-sm;
+
+    &__tarjeta {
+      justify-items: center;
+      padding: $espacio-sm;
+      text-align: center;
+
+      .texto-xs { display: none; }
+    }
+  }
+
+  .interruptor {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+    line-height: 1.4;
+
+    .texto-xs { line-height: 1.4; }
+  }
+
+  .ajustes-rejilla .formulario__acciones .btn {
+    width: 100%;
+  }
+}

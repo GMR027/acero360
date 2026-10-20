@@ -33,20 +33,15 @@ $p = static fn ($v) => '$' . number_format((float) $v, 2);
         <tr><td>Gastos y compras (total)</td><td class="num"><?= $mx($s['contabilidad']['gastos']['total']) ?></td></tr>
     </table>
 
-    <h2>Estimación fiscal (flujo de efectivo)</h2>
+    <h2>Estimación de impuestos del mes</h2>
     <table>
         <tr><th>Concepto</th><th class="num">Importe</th></tr>
-        <tr><td>IVA trasladado cobrado</td><td class="num"><?= $mx($f['iva']['trasladado_cobrado'] ?? null) ?></td></tr>
-        <tr><td>IVA acreditable considerado</td><td class="num"><?= $mx($f['iva']['acreditable_considerado'] ?? null) ?></td></tr>
-        <tr><td>IVA estimado a cargo</td><td class="num"><?= $mx($f['iva']['a_cargo'] ?? null) ?></td></tr>
-        <tr><td>Ingresos acumulados del ejercicio</td><td class="num"><?= $mx($f['isr']['ingresos_acumulados'] ?? null) ?></td></tr>
-        <tr><td>Deducciones registradas</td><td class="num"><?= $mx($f['isr']['deducciones_acumuladas'] ?? null) ?></td></tr>
-        <tr><td>Base gravable</td><td class="num"><?= $mx($f['isr']['utilidad_fiscal'] ?? null) ?></td></tr>
-        <tr><td>ISR determinado</td><td class="num"><?= $mx($f['isr']['impuesto_determinado'] ?? null) ?></td></tr>
-        <tr><td>Pagos provisionales anteriores y retenciones</td><td class="num"><?= $mx(($f['isr']['pagos_provisionales_anteriores'] ?? 0) + ($f['isr']['retenciones_acumuladas'] ?? 0)) ?></td></tr>
-        <tr><td><strong>ISR provisional estimado</strong></td><td class="num"><strong><?= $mx($f['isr']['a_pagar'] ?? null) ?></strong></td></tr>
+        <tr><td>Facturado</td><td class="num"><?= $p($f['facturado'] ?? 0) ?></td></tr>
+        <tr><td>Pagos y gastos</td><td class="num"><?= $p($f['pagos'] ?? 0) ?></td></tr>
+        <tr><td>IVA por pagar</td><td class="num"><?= $p($f['iva_por_pagar'] ?? 0) ?></td></tr>
+        <tr><td>ISR por pagar</td><td class="num"><?= $p($f['isr_por_pagar'] ?? 0) ?></td></tr>
+        <tr><td><strong>Impuestos por pagar</strong></td><td class="num"><strong><?= $p($f['impuestos'] ?? 0) ?></strong></td></tr>
     </table>
-    <p>Reglas usadas: ISR v#<?= (int) ($f['versiones']['isr'] ?? 0) ?> · IVA v#<?= (int) ($f['versiones']['iva'] ?? 0) ?> · criterios v#<?= (int) ($f['versiones']['reglas'] ?? 0) ?></p>
 
     <h2>Verificaciones al cierre</h2>
     <table>
@@ -56,6 +51,6 @@ $p = static fn ($v) => '$' . number_format((float) $v, 2);
         <?php endforeach; ?>
         <?php if (!$s['verificaciones']) : ?><tr><td colspan="3">Sin hallazgos.</td></tr><?php endif; ?>
     </table>
-    <p class="aviso">Estimación administrativa calculada con las reglas instaladas. Debe validarse con el contador antes de presentar declaraciones.</p>
+    <p class="aviso">Estimación simple (facturado menos pagos). Debe validarse con el contador antes de presentar declaraciones.</p>
 </body>
 </html>

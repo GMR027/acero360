@@ -110,9 +110,25 @@ template('header', [
     </p>
 <?php endif; ?>
 
+<?php template('devolucionesVenta', ['ventaId' => $id, 'registrada' => $cotizacion->estado === 'registrada']); ?>
+
 <?php
 $ingresoVenta = \App\Contabilidad::ingresoDeVenta($id);
 if ($ingresoVenta) {
+    $cobroVenta = \App\Contabilidad::etiquetaCobro($ingresoVenta['estado_cobro']);
+    ?>
+    <section class="tarjeta mb-lg" id="cobro">
+        <div style="display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap">
+            <div>
+                <h2 class="titulo-5">Cobro <span class="badge <?= $cobroVenta['clase'] ?>"><?= escaparValores($cobroVenta['etiqueta']) ?></span></h2>
+                <p class="campo__ayuda">Cobrado <?= formatoMoneda($ingresoVenta['cobrado']) ?> de <?= formatoMoneda($ingresoVenta['total']) ?> · Saldo pendiente <strong><?= formatoMoneda($ingresoVenta['saldo']) ?></strong></p>
+            </div>
+            <?php if ($ingresoVenta['estado'] === 'vigente') : ?>
+                <a class="btn btn--primario btn--sm" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $ingresoVenta['id'] ?>#cobros">Anotar pago recibido</a>
+            <?php endif; ?>
+        </div>
+    </section>
+    <?php
     template('facturacionVenta', ['ingreso' => $ingresoVenta, 'volver' => '/admin/ventas/detalle?id=' . $id]);
 }
 ?>
@@ -333,7 +349,7 @@ if ($ingresoVenta) {
     <form action="/admin/ventas/eliminar" method="post" data-validar
           data-confirmacion-sobre="<?= escaparValores($cotizacion->folio) ?>"
           data-confirmacion="¿Eliminar esta venta?"
-          data-confirmacion-mensaje="Se borrará la venta <?= escaparValores($cotizacion->folio) ?> y todos sus renglones.<?php if ($cotizacion->estado === 'registrada') : ?> El inventario recuperará las piezas descontadas.<?php endif; ?> Esta acción no se puede deshacer."
+          data-confirmacion-mensaje="Se borrará la venta <?= escaparValores($cotizacion->folio) ?> y todos sus renglones.<?php if ($cotizacion->estado === 'registrada') : ?> El inventario recuperará las piezas descontadas.<?php endif; ?> Irá a Ajustes → Papelera y ahí podrás restaurarla durante 90 días."
           data-confirmacion-boton="Sí, eliminar">
         <input type="hidden" name="id" value="<?= $id ?>">
         <button type="submit" class="btn btn--peligro">

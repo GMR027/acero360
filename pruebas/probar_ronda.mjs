@@ -20,6 +20,13 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, unlinkSync, existsSync, readFileSync } from 'node:fs';
 
+/** Las pruebas que mandan POST «a mano» deben llevar la llave anti-falsificación (CSRF) de la sesión, como lo hace el navegador. */
+async function postCsrf(pagina, url, opciones = {}) {
+  const token = await pagina.evaluate(() => (document.querySelector('meta[name="csrf"]') || {}).content || '');
+  return pagina.request.post(url, { ...opciones, headers: { ...(opciones.headers || {}), 'X-CSRF-Token': token } });
+}
+
+
 const BASE = (process.env.BASE_URL || 'http://127.0.0.1:8017');
 /** Ruta del proyecto, para leer la fuente de verdad de las medidas. */
 const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));  // esta carpeta está en <proyecto>/pruebas
@@ -100,8 +107,9 @@ function topeDeLogo() {
  * porque dompdf no resuelve el rem igual que el navegador).
  */
 function topeDeLogoPdf() {
-  const php = readFileSync(`${RAIZ}/templates/pdfCotizaciones.php`, 'utf8');
-  const regla = php.match(/\.logo\s*\{[^}]*max-height:\s*([\d.]+)px/);
+  // El tamaño lo calcula Imagenes::logoPdf dentro de una caja por empresa; el tope absoluto es esta constante.
+  const php = readFileSync(`${RAIZ}/clases/Imagenes.php`, 'utf8');
+  const regla = php.match(/LOGO_PDF_ALTO_MAX\s*=\s*(\d+)/);
   return regla ? Number(regla[1]) : null;
 }
 
@@ -160,7 +168,7 @@ async function prepararCotizacion(page) {
   }
 
   const clave = `lineas[${datos.producto}]`;
-  const respuesta = await page.request.post(`${BASE}/admin/cotizaciones/crear`, {
+  const respuesta = await postCsrf(page, `${BASE}/admin/cotizaciones/crear`, {
     maxRedirects: 0,
     form: {
       empresa_id: datos.empresa,
@@ -311,11 +319,11 @@ try {
       encabezados.join(', ')
     );
 
-    const botonesPago = await page.$$('section[aria-labelledby="titulo-balance"] .tabla__pago form');
+    const botonesPago = await page.$$('section[aria-labelledby="titulo-balance"] form.tabla__pago');
     comprobar('cada entrega trae su botón de pago', botonesPago.length > 0, `${botonesPago.length} botones`);
 
-    const verdes = await page.$$('section[aria-labelledby="titulo-balance"] .btn--exito');
-    comprobar('las pendientes traen botón verde "Pagado"', verdes.length > 0, `${verdes.length} verdes`);
+    const selectores = await page.$$('section[aria-labelledby="titulo-balance"] form.tabla__pago select[name="pagado"]');
+    comprobar('cada entrega tiene su selector de estado de pago', selectores.length === botonesPago.length, `${selectores.length} selectores`);
 
     const accionesFila = await page.$$eval(
       'section[aria-labelledby="titulo-balance"] tbody .tabla__acciones',
@@ -396,7 +404,7 @@ try {
 
     // El logo se incrusta como miniatura 300×300: x-ppi revela su tamaño
     // dibujado (puntos) = ancho_px * 72 / x-ppi.
-    const coincidencia = filas.split('\n').find((l) => /^\s*\d+\s+\d+\s+image\s+300\s+300\s/.test(l));
+    const coincidencia = filas.split('\n').find((l) => /^\s*\d+\s+\d+\s+image\s+300\s+\d+\s/.test(l));
     comprobar('el logo aparece en el PDF', Boolean(coincidencia), filas.trim().split('\n').slice(0, 4).join(' | '));
 
     if (coincidencia) {
@@ -416,13 +424,13 @@ try {
       const topePantalla = topeDeLogo();
 
       comprobar(
-        'el tope del logo está declarado en la plantilla del PDF',
+        'el tope máximo del logo del PDF está declarado',
         topePdf !== null,
         `${topePdf}px`
       );
       comprobar(
-        'el PDF usa el MISMO tope que la pantalla (8rem = 128px)',
-        topePdf !== null && topePantalla.fuente !== null && topePdf === topePantalla.fuente,
+        'el tope del PDF no supera al de la pantalla (8rem = 128px)',
+        topePdf !== null && topePantalla.fuente !== null && topePdf <= topePantalla.fuente,
         `pantalla=${topePantalla.fuente}px pdf=${topePdf}px`
       );
       comprobar(
@@ -461,7 +469,7 @@ try {
 } finally {
   // Limpieza: sólo lo que creó la prueba. La base queda como estaba.
   if (cotizacionPropia > 0) {
-    await page.request.post(`${BASE}/admin/cotizaciones/eliminar`, {
+    await postCsrf(page, `${BASE}/admin/cotizaciones/eliminar`, {
       maxRedirects: 0,
       form: { id: String(cotizacionPropia) },
     }).catch(() => null);

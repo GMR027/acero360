@@ -15,3 +15,7 @@
 /desktop/node_modules/
 /desktop/dist/
 public/image/recortes/
+/storage/cache-version.json
+/build-info.json
+/storage/documentos/
+/.liveproject/

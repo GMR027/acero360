@@ -82,7 +82,15 @@ fi
 
 # --- Build ------------------------------------------------------------------
 verde "==> Construyendo imagen..."
-docker build -t "$REPO:$TAG" -t "$REPO:latest" "$ROOT_DIR"
+VERSION_APP="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+COMMIT="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo desconocido)"
+git -C "$ROOT_DIR" diff --quiet HEAD 2>/dev/null || COMMIT="$COMMIT+cambios-locales"
+FECHA_BUILD="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# La versión sale del archivo VERSION (única fuente); el chart la refleja en appVersion.
+sed -i "s/^appVersion:.*/appVersion: \"$VERSION_APP\"/" "$CHART_DIR/Chart.yaml"
+docker build -t "$REPO:$TAG" -t "$REPO:latest" \
+    --build-arg ACERO_VERSION="$VERSION_APP" --build-arg ACERO_IMAGEN="$REPO" --build-arg ACERO_TAG="$TAG" \
+    --build-arg ACERO_COMMIT="$COMMIT" --build-arg ACERO_FECHA="$FECHA_BUILD" "$ROOT_DIR"
 
 # --- Push -------------------------------------------------------------------
 verde "==> Subiendo a Docker Hub..."

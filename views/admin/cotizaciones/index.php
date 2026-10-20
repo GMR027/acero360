@@ -126,7 +126,7 @@ template('header', [
 <section class="tarjeta tarjeta--sin-relleno">
     <!-- Filtros del histórico -->
     <div class="tabla-toolbar">
-        <form class="buscador" action="/admin/cotizaciones" method="get" role="search" data-validar>
+        <form class="buscador buscador--filtros" action="/admin/cotizaciones" method="get" role="search" data-validar>
             <div class="buscador__campo">
                 <span class="material-symbols-outlined buscador__icono" aria-hidden="true">search</span>
                 <label class="solo-lectores" for="q">Buscar cotización</label>
@@ -209,7 +209,7 @@ template('header', [
         </div>
     <?php else : ?>
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla tabla--documentos">
                 <caption class="solo-lectores">Histórico de cotizaciones y pedidos</caption>
                 <thead>
                     <tr>
@@ -231,25 +231,25 @@ template('header', [
                         }
                         ?>
                         <tr>
-                            <td>
+                            <td class="doc-folio">
                                 <a href="/admin/cotizaciones/detalle?id=<?= (int) $cotizacion->id ?>"><strong><?= escaparValores($cotizacion->folio) ?></strong></a>
                             </td>
-                            <td><?= date('d/m/Y', strtotime($cotizacion->fecha)) ?></td>
-                            <td>
+                            <td class="doc-fecha"><?= date('d/m/Y', strtotime($cotizacion->fecha)) ?></td>
+                            <td class="doc-cliente">
                                 <div class="tabla__producto-textos">
                                     <span><?= escaparValores($clienteEtiqueta) ?></span>
                                     <span class="texto-secundario"><?= escaparValores((string) $cotizacion->cliente_rfc) ?></span>
                                 </div>
                             </td>
-                            <td><?= escaparValores((string) $cotizacion->empresa_nombre) ?></td>
-                            <td>
+                            <td class="doc-negocio"><?= escaparValores((string) $cotizacion->empresa_nombre) ?></td>
+                            <td class="doc-estado">
                                 <span class="badge <?= $estado['clase'] ?>">
                                     <span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem"><?= $estado['icono'] ?></span>
                                     <?= $estado['etiqueta'] ?>
                                 </span>
                             </td>
-                            <td class="tabla--numerica cifra"><strong><?= formatoMoneda($cotizacion->total) ?></strong></td>
-                            <td class="tabla__acciones">
+                            <td class="tabla--numerica cifra doc-total"><strong><?= formatoMoneda($cotizacion->total) ?></strong></td>
+                            <td class="tabla__acciones doc-acciones">
                                 <a class="btn btn--texto btn--sm"
                                    href="/admin/cotizaciones/detalle?id=<?= (int) $cotizacion->id ?>">
                                     <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">visibility</span>
@@ -277,7 +277,7 @@ template('header', [
                                 <form action="/admin/cotizaciones/eliminar" method="post" data-validar
                                       data-confirmacion-sobre="<?= escaparValores($cotizacion->folio) ?>"
                                       data-confirmacion="¿Eliminar esta cotización?"
-                                      data-confirmacion-mensaje="Se borrará la cotización <?= escaparValores($cotizacion->folio) ?> y todos sus renglones.<?php if ($cotizacion->estado === 'vendido') : ?> Al estar Vendida, el inventario devolverá las piezas descontadas.<?php endif; ?> Esta acción no se puede deshacer."
+                                      data-confirmacion-mensaje="Se borrará la cotización <?= escaparValores($cotizacion->folio) ?> y todos sus renglones.<?php if ($cotizacion->estado === 'vendido') : ?> Al estar Vendida, el inventario devolverá las piezas descontadas.<?php endif; ?> Irá a Ajustes → Papelera y ahí podrás restaurarla durante 90 días."
                                       data-confirmacion-boton="Sí, eliminar">
                                     <input type="hidden" name="id" value="<?= (int) $cotizacion->id ?>">
                                     <button type="submit" class="btn btn--peligro btn--sm btn--icono"

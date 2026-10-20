@@ -30,6 +30,11 @@ if (PHP_SAPI === 'cli-server') {
 require __DIR__ . '/includes/app.php';
 require __DIR__ . '/Router.php';
 
+// Cabeceras de seguridad, llave anti-falsificación en todo POST y campo _csrf en los formularios.
+cabecerasSeguridad();
+verificarCsrf();
+ob_start('inyectarCsrf');
+
 $router = new Router();
 
 /* ---------------------------------------------------------------------------
@@ -133,6 +138,7 @@ $router->get('/admin/ventas/editar',    'views/admin/ventas/editar.php',     'so
 $router->post('/admin/ventas/editar',   'views/admin/ventas/editar.php',     'soloAdmin');
 $router->get('/admin/ventas/devolucion',  'views/admin/ventas/devolucion.php', 'soloAdmin');
 $router->post('/admin/ventas/devolucion', 'views/admin/ventas/devolucion.php', 'soloAdmin');
+$router->post('/admin/ventas/cambio',     'views/admin/ventas/cambio.php',     'soloAdmin');
 $router->get('/admin/ventas/pdf',       'views/admin/ventas/pdf.php',        'soloAdmin');
 // Baja de una venta directa: sólo POST y con confirmación (devuelve el stock).
 $router->post('/admin/ventas/eliminar', 'views/admin/ventas/eliminar.php',   'soloAdmin');
@@ -145,6 +151,7 @@ $router->get('/admin/inventario/movimientos', 'views/admin/inventario/movimiento
 $router->get('/admin/inventario/fotos',       'views/admin/inventario/fotos.php',       'soloAdmin');
 $router->post('/admin/inventario/fotos',      'views/admin/inventario/fotos.php',       'soloAdmin');
 $router->get('/admin/inventario/exportar',    'views/admin/inventario/exportar.php',    'soloAdmin');
+$router->get('/admin/inventario/completo', 'views/admin/inventario/completo.php', 'soloAdmin');
 $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    'soloAdmin');
 
 // Proveedores: directorio de proveedores y entradas (reporte fotográfico).
@@ -152,6 +159,8 @@ $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    
 $router->get('/admin/contabilidad',                         'views/admin/contabilidad/index.php',                'soloAdmin');
 $router->get('/admin/seguimiento',  'views/admin/seguimiento.php', 'soloAdmin');
 $router->post('/admin/seguimiento', 'views/admin/seguimiento.php', 'soloAdmin');
+$router->get('/admin/seguimiento/campana',  'views/admin/seguimiento-campana.php', 'soloAdmin');
+$router->post('/admin/seguimiento/campana', 'views/admin/seguimiento-campana.php', 'soloAdmin');
 $router->get('/admin/ajustes',  'views/admin/ajustes.php', 'soloAdmin');
 $router->post('/admin/ajustes', 'views/admin/ajustes.php', 'soloAdmin');
 $router->get('/admin/ayuda',                                'views/admin/ayuda.php',                             'soloAdmin');
@@ -168,6 +177,10 @@ $router->post('/admin/contabilidad/gastos/editar',          'views/admin/contabi
 $router->get('/admin/contabilidad/gastos/detalle',          'views/admin/contabilidad/gastos/detalle.php',       'soloAdmin');
 $router->post('/admin/contabilidad/gastos/accion',          'views/admin/contabilidad/gastos/accion.php',        'soloAdmin');
 $router->get('/admin/contabilidad/gastos/exportar',        'views/admin/contabilidad/gastos/exportar.php',      'soloAdmin');
+$router->get('/admin/contabilidad/lectura',               'views/admin/contabilidad/lectura/index.php',        'soloAdmin');
+$router->post('/admin/contabilidad/lectura',              'views/admin/contabilidad/lectura/index.php',        'soloAdmin');
+$router->get('/admin/contabilidad/lectura/revisar',       'views/admin/contabilidad/lectura/revisar.php',      'soloAdmin');
+$router->post('/admin/contabilidad/lectura/revisar',      'views/admin/contabilidad/lectura/revisar.php',      'soloAdmin');
 $router->get('/admin/contabilidad/documentos',              'views/admin/contabilidad/documentos/index.php',     'soloAdmin');
 $router->post('/admin/contabilidad/documentos/subir',       'views/admin/contabilidad/documentos/subir.php',     'soloAdmin');
 $router->get('/admin/contabilidad/documentos/descargar',    'views/admin/contabilidad/documentos/descargar.php', 'soloAdmin');
@@ -183,6 +196,10 @@ $router->get('/admin/escritorio/descargar',  'views/admin/escritorio/descargar.p
 $router->post('/admin/escritorio/retirar',   'views/admin/escritorio/retirar.php',    'soloAdmin');
 
 // --- Estadísticas (Etapa 7) ---
+$router->post('/admin/ajustes/tema', 'views/admin/ajustes-tema.php', 'soloAdmin');
+// Papelera: ventas y cotizaciones eliminadas (se restauran durante 90 días).
+$router->get('/admin/ajustes/papelera',  'views/admin/ajustes-papelera.php', 'soloAdmin');
+$router->post('/admin/ajustes/papelera', 'views/admin/ajustes-papelera.php', 'soloAdmin');
 $router->get('/admin/estadisticas',          'views/admin/estadisticas/index.php',    'soloAdmin');
 $router->get('/admin/estadisticas/exportar', 'views/admin/estadisticas/exportar.php', 'soloAdmin');
 
@@ -192,18 +209,11 @@ $router->post('/admin/contabilidad/cierre/accion',  'views/admin/contabilidad/ci
 $router->get('/admin/contabilidad/cierre/exportar', 'views/admin/contabilidad/cierre-exportar.php', 'soloAdmin');
 $router->get('/admin/fiscal',                       'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->post('/admin/fiscal',                      'views/admin/fiscal/resumen.php',               'soloAdmin');
-$router->get('/admin/fiscal/detalle',               'views/admin/fiscal/index.php',                 'soloAdmin');
 $router->get('/admin/fiscal/documentos',           'views/admin/fiscal/documentos.php',            'soloAdmin');
 $router->get('/admin/fiscal/movimientos',           'views/admin/fiscal/movimientos.php',           'soloAdmin');
 $router->get('/admin/fiscal/exportar',              'views/admin/fiscal/exportar.php',              'soloAdmin');
-$router->post('/admin/fiscal/guardar',              'views/admin/fiscal/guardar.php',               'soloAdmin');
 $router->get('/admin/fiscal/resumen',               'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->post('/admin/fiscal/resumen',              'views/admin/fiscal/resumen.php',               'soloAdmin');
-$router->get('/admin/fiscal/registros',             'views/admin/fiscal/registros.php',             'soloAdmin');
-$router->post('/admin/fiscal/registros/accion',     'views/admin/fiscal/registros-accion.php',      'soloAdmin');
-$router->get('/admin/fiscal/catalogo',              'views/admin/fiscal/catalogo/index.php',        'soloAdmin');
-$router->get('/admin/fiscal/catalogo/detalle',      'views/admin/fiscal/catalogo/detalle.php',      'soloAdmin');
-$router->post('/admin/fiscal/catalogo/accion',      'views/admin/fiscal/catalogo/accion.php',       'soloAdmin');
 $router->get('/admin/fiscal/configuracion',         'views/admin/fiscal/configuracion.php',         'soloAdmin');
 $router->post('/admin/fiscal/configuracion',        'views/admin/fiscal/configuracion.php',         'soloAdmin');
 
@@ -217,6 +227,7 @@ $router->post('/admin/entregas/estado',  'views/admin/entregas/estado.php',   's
 $router->get('/admin/entregas/entregar', 'views/admin/entregas/entregar.php', 'soloAdmin');
 $router->post('/admin/entregas/entregar','views/admin/entregas/entregar.php', 'soloAdmin');
 $router->get('/admin/entregas/pdf',      'views/admin/entregas/pdf.php',      'soloAdmin');
+$router->get('/admin/entregas/imprimir', 'views/admin/entregas/imprimir.php', 'soloAdmin');
 
 // --- Órdenes de compra y recepciones (Etapa 2) ---
 $router->get('/admin/compras',          'views/admin/compras/index.php',   'soloAdmin');

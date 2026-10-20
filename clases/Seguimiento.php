@@ -12,15 +12,14 @@ namespace App;
  * Cada aviso: clave (tipo:id), categoria, prioridad (alta|media|baja), titulo, detalle, fecha (de la
  * operación, o null), dias (antigüedad), enlace y huella (estado actual; si cambia, el aviso vuelve a ser nuevo).
  *
- * Prioridad según la fecha disponible de la operación (antigüedad en días):
- *   cotización pendiente  supera su vigencia alta · ≥ 7 media · si no baja
- *   cobro pendiente   ≥ 30 alta · ≥ 15 media · si no baja
- *   factura por definir ≥ 30 alta · ≥ 10 media · si no baja
- *   gasto por pagar   ≥ 30 alta · ≥ 15 media · si no baja
- *   gasto sin comprobante ≥ 30 media · si no baja
- *   entrega pendiente ≥ 14 alta · ≥ 7 media · si no baja
- *   stock mínimo      sin existencias alta · si no media (no hay fecha)
- *   novedad           baja (no hay fecha de operación)
+ * Prioridad (4 niveles) calculada SOLO con fechas y estados reales; si no hay fecha de vencimiento no se inventa:
+ *   urgente      producto sin existencias
+ *   alta         cotización con vigencia vencida o que vence en ≤ 2 días (fecha + vigencia_dias);
+ *                venta ya cobrada por completo y aún pendiente de facturar
+ *   normal       lo demás: cobros, facturas, gastos y entregas pendientes (la plataforma no registra
+ *                fecha de vencimiento de cobros ni de entregas; se muestra su antigüedad, no un vencimiento)
+ *   informativa  novedades y mejoras de la plataforma
+ * Facturación y cobro son estados independientes: nunca se deduce uno del otro (solo se muestran ambos).
  */
 class Seguimiento
 {
@@ -37,7 +36,15 @@ class Seguimiento
         'novedad'    => ['Novedades', 'campaign'],
     ];
 
-    public const PRIORIDADES = ['alta' => 0, 'media' => 1, 'baja' => 2];
+    public const PRIORIDADES = ['urgente' => 0, 'alta' => 1, 'normal' => 2, 'informativa' => 3];
+
+    /** Nivel => [etiqueta, icono, clase de badge]. El texto y el icono acompañan siempre al color. */
+    public const NIVELES = [
+        'urgente'     => ['Urgente', 'error', 'badge--error'],
+        'alta'        => ['Alta', 'priority_high', 'badge--pendiente'],
+        'normal'      => ['Normal', 'schedule', 'badge--neutro'],
+        'informativa' => ['Informativa', 'info', 'badge--info'],
+    ];
 
     /** Máximo de avisos por categoría (para no cargar listas enormes). */
     private const LIMITE = 200;
@@ -53,13 +60,14 @@ class Seguimiento
         self::$db = $database;
     }
 
-    private static function prioridad(?int $dias, int $alta, ?int $media): string
+    /** Texto del botón que abre el registro de un aviso, según su tipo. */
+    public static function etiquetaAbrir(string $clave): string
     {
-        if ($dias === null) {
-            return 'baja';
-        }
-
-        return $dias >= $alta ? 'alta' : (($media !== null && $dias >= $media) ? 'media' : 'baja');
+        return [
+            'cotizacion' => 'Abrir cotización', 'cobro' => 'Abrir venta', 'factura' => 'Abrir venta para facturar',
+            'gasto_pago' => 'Abrir gasto', 'gasto_comp' => 'Abrir gasto', 'entrega' => 'Ver entrega pendiente', 'cambio' => 'Entregar cambio',
+            'stock' => 'Abrir producto', 'novedad' => 'Ver novedad',
+        ][explode(':', $clave)[0]] ?? 'Abrir registro';
     }
 
     private static function dias(?string $fecha): ?int
@@ -100,11 +108,14 @@ class Seguimiento
         )->fetch_all(MYSQLI_ASSOC);
         foreach ($cotizaciones as $f) {
             $dias = self::dias($f['fecha']);
-            $vigente = $dias !== null && $dias <= (int) $f['vigencia_dias'];
+            // Vencimiento real: fecha de la cotización + sus días de vigencia.
+            $restan = (int) $f['vigencia_dias'] - (int) $dias;
+            $venc = $restan < 0 ? ' · vigencia vencida hace ' . (-$restan) . ($restan === -1 ? ' día' : ' días')
+                : ($restan === 0 ? ' · vence hoy' : ' · vence en ' . $restan . ($restan === 1 ? ' día' : ' días'));
             $avisos[] = [
-                'clave' => 'cotizacion:' . $f['id'], 'categoria' => 'cotizacion', 'prioridad' => self::prioridad($dias, max(1, (int) $f['vigencia_dias']) + 1, 7),
+                'clave' => 'cotizacion:' . $f['id'], 'categoria' => 'cotizacion', 'prioridad' => $restan <= 2 ? 'alta' : 'normal',
                 'titulo' => 'Cotización sin respuesta · ' . $f['folio'],
-                'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · enviada ' . self::antiguedad($dias) . ($vigente ? '' : ' · vigencia vencida'),
+                'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · enviada ' . self::antiguedad($dias) . $venc,
                 'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => '/admin/cotizaciones/detalle?id=' . (int) $f['id'],
                 'huella' => 'pendiente',
             ];
@@ -125,7 +136,7 @@ class Seguimiento
             $dias = self::dias($f['fecha']);
             $parcial = (int) $f['cobrado'] > 0;
             $avisos[] = [
-                'clave' => 'cobro:' . $f['id'], 'categoria' => 'cobro', 'prioridad' => self::prioridad($dias, 30, 15),
+                'clave' => 'cobro:' . $f['id'], 'categoria' => 'cobro', 'prioridad' => 'normal',
                 'titulo' => ($parcial ? 'Pago parcial' : 'Venta sin cobrar') . ' · ' . $f['folio'],
                 'detalle' => self::nombreCliente($f) . ' · falta cobrar ' . $moneda($saldoC / 100) . ' · venta ' . self::antiguedad($dias),
                 'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => '/admin/contabilidad/ingresos/detalle?id=' . (int) $f['id'],
@@ -136,19 +147,23 @@ class Seguimiento
 
         // Facturas por definir: solo las que nadie ha marcado como facturada ni como no facturada.
         $sin = self::$db->query(
-            "SELECT i.id, i.folio, i.fecha, i.total, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa
+            "SELECT i.id, i.venta_id, i.folio, i.fecha, i.total, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                    COALESCE((SELECT SUM(ROUND(k.importe * 100)) FROM cobros k WHERE k.ingreso_id = i.id AND k.estado = 'vigente'), 0) AS cobrado
                FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id
               WHERE i.estado = 'vigente' AND i.estado_facturacion = 'sin_clasificar'
               ORDER BY i.fecha, i.id LIMIT $lim"
         )->fetch_all(MYSQLI_ASSOC);
         foreach ($sin as $f) {
             $dias = self::dias($f['fecha']);
+            $cobradaTodo = (int) $f['cobrado'] >= (int) round((float) $f['total'] * 100);
             $avisos[] = [
-                'clave' => 'factura:' . $f['id'], 'categoria' => 'factura', 'prioridad' => self::prioridad($dias, 30, 10),
-                'titulo' => 'Falta indicar la factura · ' . $f['folio'],
-                'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · venta ' . self::antiguedad($dias) . '. Indica si ya está facturada o no se facturará.',
-                'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => '/admin/contabilidad/ingresos/detalle?id=' . (int) $f['id'],
-                'huella' => 'sin_clasificar',
+                'clave' => 'factura:' . $f['id'], 'categoria' => 'factura', 'prioridad' => $cobradaTodo ? 'alta' : 'normal',
+                'titulo' => 'Pendiente de facturar · ' . $f['folio'],
+                'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · venta ' . self::antiguedad($dias)
+                    . ' · cobro: ' . ($cobradaTodo ? 'ya cobrada por completo' : ((int) $f['cobrado'] > 0 ? 'pago parcial' : 'sin cobrar')) . '.',
+                'fecha' => $f['fecha'], 'dias' => $dias,
+                'enlace' => $f['venta_id'] ? '/admin/ventas/detalle?id=' . (int) $f['venta_id'] : '/admin/contabilidad/ingresos/detalle?id=' . (int) $f['id'],
+                'huella' => 'sin_clasificar' . ($cobradaTodo ? ':cobrada' : ''),
             ];
         }
 
@@ -163,7 +178,7 @@ class Seguimiento
             $base = ['categoria' => 'gasto', 'fecha' => $g['fecha'], 'dias' => $dias, 'enlace' => '/admin/contabilidad/gastos/detalle?id=' . (int) $g['id']];
             if ($g['estado_pago'] === 'pendiente') {
                 $avisos[] = $base + [
-                    'clave' => 'gasto_pago:' . $g['id'], 'prioridad' => self::prioridad($dias, 30, 15),
+                    'clave' => 'gasto_pago:' . $g['id'], 'prioridad' => 'normal',
                     'titulo' => 'Gasto por pagar · ' . $g['beneficiario'],
                     'detalle' => $g['concepto'] . ' · ' . $moneda($g['total']) . ' · gasto ' . self::antiguedad($dias),
                     'huella' => 'pendiente',
@@ -171,7 +186,7 @@ class Seguimiento
             }
             if ((int) $g['comprobante_fiscal'] === 0) {
                 $avisos[] = $base + [
-                    'clave' => 'gasto_comp:' . $g['id'], 'prioridad' => self::prioridad($dias, 30, null) === 'alta' ? 'media' : 'baja',
+                    'clave' => 'gasto_comp:' . $g['id'], 'prioridad' => 'normal',
                     'titulo' => 'Gasto sin comprobante fiscal · ' . $g['beneficiario'],
                     'detalle' => $g['concepto'] . ' · ' . $moneda($g['total']) . ' · sin factura no se puede deducir.',
                     'huella' => 'sin_comprobante',
@@ -184,11 +199,23 @@ class Seguimiento
             $faltan = (int) $v['piezas'] - (int) $v['entregadas'];
             $dias = self::dias($v['fecha']);
             $avisos[] = [
-                'clave' => 'entrega:' . $v['id'], 'categoria' => 'entrega', 'prioridad' => self::prioridad($dias, 14, 7),
+                'clave' => 'entrega:' . $v['id'], 'categoria' => 'entrega', 'prioridad' => 'normal',
                 'titulo' => 'Entrega pendiente · ' . $v['folio'],
                 'detalle' => self::nombreCliente($v) . ' · faltan ' . $faltan . ' pieza' . ($faltan === 1 ? '' : 's') . ' · venta ' . self::antiguedad($dias),
                 'fecha' => $v['fecha'], 'dias' => $dias, 'enlace' => '/admin/ventas/detalle?id=' . (int) $v['id'],
                 'huella' => 'faltan' . $faltan,
+            ];
+        }
+
+        // Cambios por entregar: piezas devueltas que el cliente debe recibir de nuevo.
+        foreach (Inventario::ventasConCambiosPendientes($lim) as $v) {
+            $dias = self::dias($v['fecha']);
+            $avisos[] = [
+                'clave' => 'cambio:' . $v['id'], 'categoria' => 'entrega', 'prioridad' => 'normal',
+                'titulo' => 'Cambio por entregar · ' . $v['folio'],
+                'detalle' => self::nombreCliente($v) . ' · se deben ' . (int) $v['pendiente'] . ' pieza' . ((int) $v['pendiente'] === 1 ? '' : 's') . ' · venta ' . self::antiguedad($dias),
+                'fecha' => $v['fecha'], 'dias' => $dias, 'enlace' => '/admin/ventas/detalle?id=' . (int) $v['id'] . '#cambios',
+                'huella' => 'debe' . (int) $v['pendiente'],
             ];
         }
 
@@ -199,7 +226,7 @@ class Seguimiento
         )->fetch_all(MYSQLI_ASSOC);
         foreach ($productos as $p) {
             $avisos[] = [
-                'clave' => 'stock:' . $p['id'], 'categoria' => 'inventario', 'prioridad' => (int) $p['stock'] <= 0 ? 'alta' : 'media',
+                'clave' => 'stock:' . $p['id'], 'categoria' => 'inventario', 'prioridad' => (int) $p['stock'] <= 0 ? 'urgente' : 'normal',
                 'titulo' => 'Stock bajo · ' . $p['nombre'],
                 'detalle' => 'Hay ' . (int) $p['stock'] . ' y el mínimo es ' . (int) $p['stock_minimo'] . '.',
                 'fecha' => null, 'dias' => null, 'enlace' => '/admin/productos/editar?id=' . (int) $p['id'],
@@ -209,7 +236,7 @@ class Seguimiento
 
         foreach (self::NOVEDADES as [$version, $fecha, $titulo, $texto, $enlace]) {
             $avisos[] = [
-                'clave' => 'novedad:' . $version, 'categoria' => 'novedad', 'prioridad' => 'baja', 'titulo' => $titulo, 'detalle' => $texto,
+                'clave' => 'novedad:' . $version, 'categoria' => 'novedad', 'prioridad' => 'informativa', 'titulo' => $titulo, 'detalle' => $texto,
                 'fecha' => $fecha, 'dias' => self::dias($fecha), 'enlace' => $enlace, 'huella' => 'v' . $version,
             ];
         }

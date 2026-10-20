@@ -1,0 +1,59 @@
+/* ==========================================================================
+   _apariencia.scss — Selector de tema (Ajustes → Apariencia).
+   ========================================================================== */
+
+@use '../base/variables' as *;
+
+.selector-tema {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: $espacio-md;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  legend {
+    padding: 0;
+    margin-bottom: $espacio-sm;
+    grid-column: 1 / -1;
+  }
+
+  &__opcion {
+    position: relative;
+    display: block;
+    cursor: pointer;
+
+    input {
+      position: absolute;
+      opacity: 0;
+      inset: 0;
+    }
+  }
+
+  &__tarjeta {
+    display: grid;
+    gap: $espacio-xs;
+    justify-items: start;
+    height: 100%;
+    padding: $espacio-md;
+    background-color: $color-superficie-baja;
+    border: 2px solid $color-borde-fuerte;
+    border-radius: $radio-lg;
+    color: $color-texto;
+    transition: border-color $transicion-rapida, background-color $transicion-rapida;
+
+    .material-symbols-outlined { color: $color-primario-texto; }
+  }
+
+  &__opcion:hover &__tarjeta { border-color: $color-primario; }
+
+  input:checked + &__tarjeta {
+    border-color: $color-primario;
+    background-color: $color-primario-claro;
+  }
+
+  input:focus-visible + &__tarjeta {
+    outline: 2px solid $color-primario;
+    outline-offset: 2px;
+  }
+}

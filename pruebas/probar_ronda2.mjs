@@ -23,6 +23,13 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, unlinkSync, existsSync, readFileSync } from 'node:fs';
 
+/** Las pruebas que mandan POST «a mano» deben llevar la llave anti-falsificación (CSRF) de la sesión, como lo hace el navegador. */
+async function postCsrf(pagina, url, opciones = {}) {
+  const token = await pagina.evaluate(() => (document.querySelector('meta[name="csrf"]') || {}).content || '');
+  return pagina.request.post(url, { ...opciones, headers: { ...(opciones.headers || {}), 'X-CSRF-Token': token } });
+}
+
+
 const BASE = (process.env.BASE_URL || 'http://127.0.0.1:8017');
 /** Ruta del proyecto (para leer la fuente de verdad de los estilos). */
 const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));  // esta carpeta está en <proyecto>/pruebas
@@ -87,8 +94,9 @@ function topeDeLogo() {
  * igualdad la comprueba el test.
  */
 function topeDeLogoPdf() {
-  const php = readFileSync(`${RAIZ}/templates/pdfCotizaciones.php`, 'utf8');
-  const regla = php.match(/\.logo\s*\{[^}]*max-height:\s*([\d.]+)px/);
+  // El tamaño lo calcula Imagenes::logoPdf dentro de una caja por empresa; el tope absoluto es esta constante.
+  const php = readFileSync(`${RAIZ}/clases/Imagenes.php`, 'utf8');
+  const regla = php.match(/LOGO_PDF_ALTO_MAX\s*=\s*(\d+)/);
   return regla ? Number(regla[1]) : null;
 }
 
@@ -157,7 +165,7 @@ async function prepararCotizacion(page) {
   if (!datos) return { id: 0, propia: false };
 
   const clave = `lineas[${datos.producto}]`;
-  const respuesta = await page.request.post(`${BASE}/admin/cotizaciones/crear`, {
+  const respuesta = await postCsrf(page, `${BASE}/admin/cotizaciones/crear`, {
     maxRedirects: 0,
     form: {
       empresa_id: datos.empresa,
@@ -393,18 +401,16 @@ try {
     const mayor = [...portada].sort((a, b) => b.alto / b.ppi - a.alto / a.ppi)[0];
     const topePdf = topeDeLogoPdf();
 
-    comprobar('el tope del PDF está en la plantilla', topePdf !== null, `${topePdf}`);
-    comprobar('el PDF usa el MISMO tope que la pantalla', topePdf === tope.fuente,
+    comprobar('el tope máximo del logo del PDF está declarado', topePdf !== null, `${topePdf}`);
+    comprobar('el tope del PDF no supera al de la pantalla', topePdf !== null && topePdf <= tope.fuente,
       `${topePdf}px vs ${tope.fuente}px`);
 
-    if (mayor && topePdf && naturalLogo) {
+    if (mayor && topePdf) {
       const puntos = (mayor.alto / mayor.ppi) * 72;
-      // px → pt en dompdf: 96 dpi sobre 72 dpi. El dibujo es el archivo a su
-      // tamaño natural, salvo que el tope lo recorte — igual que en pantalla.
-      const esperado = Math.min(naturalLogo, topePdf) * 0.75;
-      comprobar('el logo del PDF respeta el tope', Math.abs(puntos - esperado) <= 4,
-        `${puntos.toFixed(1)}pt · esperado ${esperado}pt · ${resumen}`);
-      comprobar('la marca sigue siendo visible en el documento', puntos >= 40,
+      // px → pt en dompdf: 96 dpi sobre 72 dpi. El logo se ajusta dentro de la caja de su empresa (máximo topePdf).
+      comprobar('el logo del PDF no rebasa el tope máximo', puntos <= topePdf * 0.75 + 4,
+        `${puntos.toFixed(1)}pt · máximo ${topePdf * 0.75}pt · ${resumen}`);
+      comprobar('la marca sigue siendo visible en el documento', puntos >= 30,
         `${puntos.toFixed(1)}pt`);
     } else {
       comprobar('se encontró el logo en el PDF', false, resumen || 'sin imágenes');
@@ -419,7 +425,7 @@ try {
   // sumaría otro y `SELECT ... WHERE nombre = ...` devolvería el viejo.
   sql(`DELETE FROM proveedores WHERE nombre = '${PROVEEDOR_PRUEBA}'`);
 
-  await page.request.post(`${BASE}/admin/proveedores/crear`, {
+  await postCsrf(page, `${BASE}/admin/proveedores/crear`, {
     maxRedirects: 0,
     form: {
       nombre: PROVEEDOR_PRUEBA,
@@ -454,7 +460,7 @@ try {
     ['PED-ACERO', catA.id, '100.00'],
     ['PED-CANA', catB.id, '200.00'],
   ]) {
-    const r = await page.request.post(`${BASE}/admin/proveedores/entradas/crear`, {
+    const r = await postCsrf(page, `${BASE}/admin/proveedores/entradas/crear`, {
       maxRedirects: 0,
       form: {
         proveedor_id: String(idPrueba),
@@ -500,7 +506,12 @@ try {
         return {
           pedido: f.querySelector('td:nth-child(1)')?.textContent.replace(/\s+/g, ' ').trim() || '',
           categoria: f.querySelector('td:nth-child(2)')?.textContent.replace(/\s+/g, ' ').trim() || '',
-          estado: f.querySelector('.tabla__pago .badge')?.textContent.replace(/\s+/g, ' ').trim() || '',
+          // El estado de pago es un selector «Pendiente de pago / Pagado»: se normaliza a Pendiente | Pagado.
+          estado: (() => {
+            const t = f.querySelector('.tabla__pago select option:checked')?.textContent.trim() || '';
+            return t.startsWith('Pendiente') ? 'Pendiente' : t;
+          })(),
+          opciones: [...f.querySelectorAll('.tabla__pago select option')].map((o) => o.textContent.trim()).join('|'),
           boton: etiqueta,
           clase: boton?.className || '',
         };
@@ -527,8 +538,8 @@ try {
   comprobar('ambas aparecen como "Pendiente"',
     vista?.filas.every((f) => f.estado === 'Pendiente'),
     vista?.filas.map((f) => `${f.pedido}:${f.estado}`).join(', '));
-  comprobar('el botón verde dice "Pagado"',
-    vista?.filas.every((f) => f.boton === 'Pagado' && f.clase.includes('btn--exito')));
+  comprobar('cada fila ofrece el selector «Pendiente de pago» / «Pagado» y su botón Guardar',
+    vista?.filas.every((f) => f.opciones === 'Pendiente de pago|Pagado' && f.boton === 'Guardar'));
   // El orden de la tabla no está garantizado (más reciente primero): se
   // compara como conjunto para que la prueba no dependa del orden.
   const categorias = (vista?.filas || []).map((f) => f.categoria).sort().join('|');
@@ -538,7 +549,7 @@ try {
 
   // --- b) Marcar uno como pagado ---------------------------------------
   const rutaRetorno = `/admin/proveedores/detalle?id=${idPrueba}`;
-  const marca = await page.request.post(`${BASE}/admin/proveedores/entradas/pago`, {
+  const marca = await postCsrf(page, `${BASE}/admin/proveedores/entradas/pago`, {
     maxRedirects: 0,
     form: { id: String(idAcero), pagado: '1', retorno: rutaRetorno },
   });
@@ -581,7 +592,7 @@ try {
     vista?.vacio.slice(0, 80));
 
   // --- d) Revertir el pago ---------------------------------------------
-  const revierte = await page.request.post(`${BASE}/admin/proveedores/entradas/pago`, {
+  const revierte = await postCsrf(page, `${BASE}/admin/proveedores/entradas/pago`, {
     maxRedirects: 0,
     form: { id: String(idAcero), retorno: rutaRetorno },
   });
@@ -631,7 +642,7 @@ try {
   comprobar('los valores son enteros',
     selector?.opciones.every((o) => /^\d+$/.test(o.valor)), JSON.stringify(selector?.opciones));
 
-  const rechazo = await page.request.post(`${BASE}/admin/proveedores/entradas/crear`, {
+  const rechazo = await postCsrf(page, `${BASE}/admin/proveedores/entradas/crear`, {
     maxRedirects: 0,
     form: {
       proveedor_id: String(idPrueba),

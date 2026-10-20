@@ -108,7 +108,7 @@ template('header', [
             <p class="vacio__titulo"><?= $hayFiltros ? 'Sin coincidencias' : 'Aún no hay productos' ?></p>
             <p><?= $hayFiltros
                     ? 'Ningún producto coincide con los filtros aplicados.'
-                    : 'Cargá el primer producto del catálogo para poder cotizar.' ?></p>
+                    : 'Carga el primer producto del catálogo para poder cotizar.' ?></p>
             <?php if ($hayFiltros) : ?>
                 <a class="btn btn--secundario" href="/admin/productos">Restablecer filtros</a>
             <?php else : ?>

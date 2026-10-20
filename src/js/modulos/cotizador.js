@@ -316,12 +316,13 @@ function filaCotizador(linea, indice) {
 
   // 1. Número de renglón.
   const celdaIndice = document.createElement('td');
-  celdaIndice.className = 'tabla--numerica cifra';
+  celdaIndice.className = 'tabla--numerica cifra cotizador-celda-indice';
   celdaIndice.textContent = String(indice + 1);
   fila.appendChild(celdaIndice);
 
   // 2. Producto con su imagen.
   const celdaProducto = document.createElement('td');
+  celdaProducto.className = 'cotizador-celda-producto';
   const envoltorio = nodoCotizador('div', 'tabla__producto');
 
   const rutaMiniatura = miniaturaCotizador(linea.imagen);
@@ -346,15 +347,13 @@ function filaCotizador(linea, indice) {
   textos.appendChild(nodoCotizador('span', '', linea.nombre));
 
   const detalle = nodoCotizador('span', 'texto-secundario');
-  const partes = [];
   if (linea.sku) {
-    partes.push(linea.sku);
+    detalle.appendChild(nodoCotizador('span', 'tabla__codigo', linea.sku));
   }
   if (linea.categoria) {
-    partes.push(linea.categoria);
+    detalle.appendChild(document.createTextNode((linea.sku ? ' · ' : '') + linea.categoria));
   }
-  if (partes.length > 0) {
-    detalle.textContent = partes.join(' · ');
+  if (linea.sku || linea.categoria) {
     textos.appendChild(detalle);
   }
 
@@ -370,7 +369,7 @@ function filaCotizador(linea, indice) {
 
   // 3. Precio de lista (sólo lectura: es el precio fijo del catálogo).
   const celdaLista = document.createElement('td');
-  celdaLista.className = 'tabla--numerica cifra';
+  celdaLista.className = 'tabla--numerica cifra cotizador-celda-lista';
   celdaLista.textContent = monedaCotizador(linea.precio_lista);
   fila.appendChild(celdaLista);
 
@@ -442,14 +441,14 @@ function filaCotizador(linea, indice) {
 
   // 7. Importe del renglón.
   const celdaTotal = document.createElement('td');
-  celdaTotal.className = 'tabla--numerica cifra';
+  celdaTotal.className = 'tabla--numerica cifra cotizador-celda-total';
   celdaTotal.setAttribute('data-fila-total', String(linea.id));
   celdaTotal.textContent = monedaCotizador(totalLineaCotizador(linea));
   fila.appendChild(celdaTotal);
 
   // 8. Eliminar renglón.
   const celdaAccion = document.createElement('td');
-  celdaAccion.className = 'tabla--centro';
+  celdaAccion.className = 'tabla--centro cotizador-celda-accion';
 
   const botonQuitar = document.createElement('button');
   botonQuitar.type = 'button';

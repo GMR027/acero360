@@ -81,11 +81,11 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/cierre', 'periodo'
 <?php else : ?>
     <section class="tarjeta mb-lg">
         <h2 class="titulo-5 mb-md">Resumen del cierre</h2>
-        <?php $f = $estado['snapshot']['fiscal'] ?? []; $mx = static fn ($c) => $c === null ? '—' : formatoMoneda($c / 100); ?>
+        <?php $f = $estado['snapshot']['fiscal'] ?? []; ?>
         <dl class="cotizador-detalle__cliente">
             <div><dt>Ventas del periodo</dt><dd><?= formatoMoneda($estado['snapshot']['contabilidad']['ventas']['total'] ?? 0) ?></dd></div>
-            <div><dt>IVA estimado a cargo</dt><dd><?= $mx($f['iva']['a_cargo'] ?? null) ?></dd></div>
-            <div><dt>ISR provisional estimado</dt><dd><?= $mx($f['isr']['a_pagar'] ?? null) ?></dd></div>
+            <div><dt>IVA por pagar (estimado)</dt><dd><?= formatoMoneda($f['iva_por_pagar'] ?? 0) ?></dd></div>
+            <div><dt>ISR por pagar (estimado)</dt><dd><?= formatoMoneda($f['isr_por_pagar'] ?? 0) ?></dd></div>
             <div><dt>Avisos reconocidos</dt><dd><?= count($estado['snapshot']['avisos_reconocidos'] ?? []) ?></dd></div>
         </dl>
         <div class="encabezado-pagina__acciones mt-md">

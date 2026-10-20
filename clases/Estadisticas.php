@@ -9,7 +9,8 @@ namespace App;
  *   • «Ventas realizadas»  → tabla `ventas` (estado registrada). Una cotización vendida es UNA venta.
  *   • «Ventas facturadas»  → `ingresos` vigentes marcados `facturada` (dato explícito, no un PDF adjunto).
  *   • «Cobros recibidos»   → `cobros` vigentes, por fecha de cobro (siempre con IVA).
- * Las tres medidas NO son equivalentes y se muestran por separado.
+ *   • «Gastos»             → `gastos` vigentes por fecha del gasto (los compartidos se reparten por su % entre negocios).
+ * Estas medidas NO son equivalentes y se muestran por separado: nunca se mezclan en una misma serie.
  *
  * Comparaciones: mes, trimestre, semestre o año contra el mismo periodo de años anteriores. Si el
  * periodo actual no ha terminado se marca «incompleto» y además se compara contra el MISMO avance
@@ -28,6 +29,7 @@ class Estadisticas
         'realizadas' => 'Ventas realizadas',
         'facturadas' => 'Ventas facturadas',
         'cobros'     => 'Cobros recibidos',
+        'gastos'     => 'Gastos',
     ];
 
     public static function setDB($database): void
@@ -98,7 +100,27 @@ class Estadisticas
         $tipos = '';
         $valores = [];
 
-        if ($metrica === 'cobros') {
+        if ($metrica === 'gastos') {
+            if ($producto > 0 || $cliente > 0) {
+                return []; // un gasto no pertenece a un producto ni a un cliente
+            }
+            $columna = $base === 'subtotal' ? 'g.subtotal' : 'g.total';
+            $grupo = self::grupoSql($agrupacion, 'g.fecha');
+            if ($empresa > 0) {
+                // Con un negocio elegido: el gasto completo si es suyo o la parte que le toca de uno compartido.
+                $sql = "SELECT $grupo AS g, SUM(ROUND($columna * IF(g.empresa_id = ?, 1, r.porcentaje / 100) * 100)) AS importe, COUNT(*) AS operaciones, 0 AS unidades
+                          FROM gastos g LEFT JOIN gasto_reparto r ON r.gasto_id = g.id AND r.empresa_id = ?
+                         WHERE g.estado = 'vigente' AND g.fecha BETWEEN ? AND ? AND (g.empresa_id = ? OR r.empresa_id IS NOT NULL)
+                         GROUP BY g ORDER BY g";
+                $tipos = 'iissi';
+                $valores = [$empresa, $empresa, $desde, $hasta, $empresa];
+            } else {
+                $sql = "SELECT $grupo AS g, SUM(ROUND($columna * 100)) AS importe, COUNT(*) AS operaciones, 0 AS unidades
+                          FROM gastos g WHERE g.estado = 'vigente' AND g.fecha BETWEEN ? AND ? GROUP BY g ORDER BY g";
+                $tipos = 'ss';
+                $valores = [$desde, $hasta];
+            }
+        } elseif ($metrica === 'cobros') {
             if ($producto > 0) {
                 return []; // un cobro no se reparte por producto
             }
@@ -174,7 +196,7 @@ class Estadisticas
      * ------------------------------------------------------------------ */
 
     /** Misma fecha en otro año (29-feb → 28-feb). */
-    private static function mismaFechaEnAnio(string $fecha, int $anio): string
+    public static function mismaFechaEnAnio(string $fecha, int $anio): string
     {
         $mes = (int) substr($fecha, 5, 2);
         $dia = (int) substr($fecha, 8, 2);
@@ -210,20 +232,29 @@ class Estadisticas
 
         // Variaciones contra el año anterior; si el periodo más reciente está incompleto,
         // la comparación justa es contra el mismo avance del año anterior.
-        $ultimo = count($filas) - 1;
         foreach ($filas as $i => &$fila) {
             $fila['variacion'] = null;
             $fila['variacion_mismo_avance'] = null;
+            $fila['variaciones'] = array_fill_keys(array_keys(self::METRICAS), null);
+            $fila['variaciones_mismo_avance'] = $fila['variaciones'];
+            $fila['previo_mismo_avance_metricas'] = [];
             if ($i === 0) {
                 continue;
             }
             $previa = $filas[$i - 1];
-            $fila['variacion'] = self::variacion($previa['realizadas']['importe'], $fila['realizadas']['importe']);
+            foreach (array_keys(self::METRICAS) as $m) {
+                $fila['variaciones'][$m] = self::variacion($previa[$m]['importe'], $fila[$m]['importe']);
+            }
+            $fila['variacion'] = $fila['variaciones']['realizadas'];
             if (!$fila['completo'] && !$fila['futuro']) {
                 $corteComparable = self::mismaFechaEnAnio($fila['corte'], (int) $previa['anio']);
-                $mismoAvance = self::total('realizadas', $previa['desde'], min($previa['hasta'], $corteComparable), $f, $base);
-                $fila['previo_mismo_avance'] = $mismoAvance;
-                $fila['variacion_mismo_avance'] = self::variacion($mismoAvance['importe'], $fila['realizadas']['importe']);
+                foreach (array_keys(self::METRICAS) as $m) {
+                    $mismoAvance = self::total($m, $previa['desde'], min($previa['hasta'], $corteComparable), $f, $base);
+                    $fila['previo_mismo_avance_metricas'][$m] = $mismoAvance;
+                    $fila['variaciones_mismo_avance'][$m] = self::variacion($mismoAvance['importe'], $fila[$m]['importe']);
+                }
+                $fila['previo_mismo_avance'] = $fila['previo_mismo_avance_metricas']['realizadas'];
+                $fila['variacion_mismo_avance'] = $fila['variaciones_mismo_avance']['realizadas'];
             }
         }
         unset($fila);
@@ -458,8 +489,11 @@ class Estadisticas
 
         [$pd, $ph] = self::rango($p['tipo'], $p['anio'], $p['indice']);
         $ph = min($ph, $p['hoy']);
+        $ok = $desde <= $hasta;
+        $anioDesde = $p['anio'] - $p['atras'];
+        $semestres = $ok ? self::serie('realizadas', 'semestre', "$anioDesde-01-01", min($p['anio'] . '-12-31', $p['hoy']), $f, $p['base']) : [];
 
-        return [
+        $reporte = [
             'parametros' => $p,
             'comparacion' => $comparacion,
             'actual' => $actual,
@@ -470,7 +504,42 @@ class Estadisticas
             'matriz_productos' => self::porAnios('producto', $p['anio'] - $p['atras'], $p['anio'], $f, $p['base'], 8),
             'matriz_clientes' => self::porAnios('cliente', $p['anio'] - $p['atras'], $p['anio'], $f, $p['base'], 8),
             'periodo' => [$pd, $ph],
+            'rango_serie' => [$desde, $hasta],
+            'semestres' => $semestres,
         ];
+        $reporte['analisis'] = Analisis::datos($p, $comparacion);
+        $reporte['kpis'] = self::kpis($reporte);
+        $reporte['graficas'] = Analisis::graficas($reporte);
+
+        return $reporte;
+    }
+
+    /**
+     * Indicadores del periodo con su variación contra el MISMO avance del año anterior.
+     *
+     * @return array<int, array{clave: string, nombre: string, importe: int, previo: int, variacion: array, nota: string}>
+     */
+    private static function kpis(array $r): array
+    {
+        $p = $r['parametros'];
+        $f = $p['filtros'];
+        $actual = $r['actual'];
+        [$pd1, $ph1] = $r['analisis']['rango_previo'];
+        $previo = static fn (string $m): int => $pd1 > $ph1 ? 0 : self::total($m, $pd1, $ph1, $f, $p['base'])['importe'];
+
+        $kpis = [
+            ['clave' => 'realizadas', 'nombre' => 'Ventas realizadas', 'importe' => $actual['realizadas']['importe'], 'previo' => $previo('realizadas'), 'detalle' => number_format($actual['realizadas']['operaciones']) . ' ventas · ' . number_format($actual['realizadas']['unidades']) . ' piezas'],
+            ['clave' => 'cobros', 'nombre' => 'Cobros recibidos', 'importe' => $actual['cobros']['importe'], 'previo' => $previo('cobros'), 'detalle' => number_format($actual['cobros']['operaciones']) . ($actual['cobros']['operaciones'] == 1 ? ' pago' : ' pagos')],
+            ['clave' => 'facturadas', 'nombre' => 'Ventas facturadas', 'importe' => $actual['facturadas']['importe'], 'previo' => $previo('facturadas'), 'detalle' => number_format($actual['facturadas']['operaciones']) . ($actual['facturadas']['operaciones'] == 1 ? ' venta con factura' : ' ventas con factura')],
+            ['clave' => 'gastos', 'nombre' => 'Gastos', 'importe' => $r['analisis']['gastos_periodo'], 'previo' => $r['analisis']['gastos_previo'], 'detalle' => 'Gastos vigentes del periodo'],
+        ];
+        foreach ($kpis as &$k) {
+            $k['variacion'] = $r['analisis']['rango_previo'][0] > $r['analisis']['rango_previo'][1] || ($k['previo'] === 0 && $k['importe'] === 0) ? null : self::variacion($k['previo'], $k['importe']);
+            $k['sentido'] = $k['clave'] === 'gastos' ? 'inverso' : 'directo';
+        }
+        unset($k);
+
+        return $kpis;
     }
 
     /**
@@ -510,8 +579,138 @@ class Estadisticas
                 }
             }
         }
+        foreach ($r['graficas'] as $g) {
+            foreach ($g['categorias'] as $i => $cat) {
+                foreach ($g['series'] as $serie) {
+                    if (($serie['datos'][$i] ?? null) === null) { continue; }
+                    $filas[] = ['Gráfica: ' . $g['titulo'], $serie['nombre'], (string) $cat, $serie['datos'][$i], '', '', '', '', $g['formato'] === 'moneda' ? 'Importe en pesos' : 'Piezas'];
+                }
+            }
+        }
         $filas[] = ['Tendencia', $r['tendencia']['etiqueta'], '', '', '', '', '', $r['tendencia']['pendiente_pct'], 'Pendiente por periodo ÷ promedio'];
 
         return [$enc, $filas];
+    }
+
+    /** Filtros aplicados, con nombres (no números de registro). @return string[] */
+    public static function filtrosTexto(array $p): array
+    {
+        $f = $p['filtros'];
+        $buscar = static function (string $sql, int $id): ?string {
+            $c = self::$db->prepare($sql);
+            $c->bind_param('i', $id);
+            $c->execute();
+            $fila = $c->get_result()->fetch_row();
+            $c->close();
+
+            return $fila ? (string) $fila[0] : null;
+        };
+        $texto = [];
+        $texto[] = 'Negocio: ' . ($f['empresa'] ? ($buscar('SELECT nombre FROM empresas WHERE id = ?', $f['empresa']) ?? '#' . $f['empresa']) : 'todos');
+        $texto[] = 'Cliente: ' . ($f['cliente'] ? ($buscar("SELECT COALESCE(NULLIF(nombre_empresa, ''), nombre) FROM clientes WHERE id = ?", $f['cliente']) ?? '#' . $f['cliente']) : 'todos');
+        $texto[] = 'Producto: ' . ($f['producto'] ? ($buscar("SELECT CONCAT(COALESCE(CONCAT(sku, ' · '), ''), nombre) FROM productos WHERE id = ?", $f['producto']) ?? '#' . $f['producto']) . ' (renglones sin IVA)' : 'todos');
+
+        return $texto;
+    }
+
+    /** Líneas de contexto que acompañan a toda exportación. @return string[] */
+    public static function contexto(array $r): array
+    {
+        $p = $r['parametros'];
+        $lineas = [
+            'Periodo: ' . self::etiquetaPeriodo($p['tipo'], $p['anio'], $p['indice']) . ' (' . date('d/m/Y', strtotime($r['periodo'][0])) . ' al ' . date('d/m/Y', strtotime($r['periodo'][1])) . ')',
+            'Comparado con los ' . $p['atras'] . ' año(s) anterior(es) · Importes ' . ($p['base'] === 'subtotal' ? 'sin IVA (con descuentos)' : 'con IVA'),
+            implode(' · ', self::filtrosTexto($p)),
+            'Emitido ' . date('d/m/Y H:i'),
+        ];
+        if (!$r['actual']['completo']) {
+            $lineas[] = ($r['actual']['futuro'] ? 'Periodo futuro.' : 'PERIODO INCOMPLETO: datos al ' . date('d/m/Y', strtotime($r['actual']['corte'] ?? $p['hoy'])) . '; las variaciones comparan el mismo avance del año anterior.');
+        }
+
+        return $lineas;
+    }
+
+    /** Ventas por semestre y año con variación contra el mismo semestre del año anterior. @return array<int, array<string, mixed>> */
+    public static function semestresFilas(array $r): array
+    {
+        $filas = [];
+        $previo = null;
+        foreach ($r['analisis']['anios'] as $a) {
+            $s1 = $r['analisis']['semestres'][$a][1] ?? 0;
+            $s2 = $r['analisis']['semestres'][$a][2] ?? 0;
+            $filas[] = ['anio' => $a, 's1' => $s1, 's2' => $s2, 'total' => $s1 + $s2,
+                'var1' => $previo ? self::variacion($previo[0], $s1) : null, 'var2' => $previo ? self::variacion($previo[1], $s2) : null];
+            $previo = [$s1, $s2];
+        }
+
+        return $filas;
+    }
+
+    /** Libro de Excel: resumen + una hoja por gráfica (con la gráfica nativa) + rankings. */
+    public static function libroExcel(array $r): ?string
+    {
+        $p = $r['parametros'];
+        $m = static fn (int $c): float => round($c / 100, 2);
+        $pct = static fn (?array $v) => $v && $v['porcentual'] !== null ? $v['porcentual'] : null;
+        $contexto = self::contexto($r);
+
+        $resumen = [[['v' => 'Estadísticas de ventas · ' . self::etiquetaPeriodo($p['tipo'], $p['anio'], $p['indice']), 'f' => 'titulo']]];
+        foreach ($contexto as $l) { $resumen[] = [['v' => $l, 'f' => 'nota']]; }
+        $resumen[] = [];
+        $resumen[] = array_map(static fn ($t) => ['v' => $t, 'f' => 'neg'], ['Indicador', 'Importe del periodo', 'Mismo periodo año anterior', 'Variación', 'Variación %', 'Detalle']);
+        foreach ($r['kpis'] as $k) {
+            $resumen[] = [$k['nombre'], ['v' => $m($k['importe']), 'f' => 'moneda'], ['v' => $m($k['previo']), 'f' => 'moneda'],
+                ['v' => $k['variacion'] ? $m($k['variacion']['absoluta']) : null, 'f' => 'monedaNeg'], ['v' => $pct($k['variacion']), 'f' => 'pct'], $k['detalle']];
+        }
+        $resumen[] = [];
+        $resumen[] = array_map(static fn ($t) => ['v' => $t, 'f' => 'neg'], ['Comparación entre años', 'Ventas realizadas', 'Operaciones', 'Piezas', 'Variación vs año anterior', 'Variación %', 'Facturadas', 'Cobros recibidos', 'Nota']);
+        foreach (array_reverse($r['comparacion']) as $x) {
+            $resumen[] = [$x['etiqueta'], ['v' => $m($x['realizadas']['importe']), 'f' => 'moneda'], ['v' => $x['realizadas']['operaciones'], 'f' => 'entero'], ['v' => $x['realizadas']['unidades'], 'f' => 'entero'],
+                ['v' => $x['variacion'] ? $m($x['variacion']['absoluta']) : null, 'f' => 'monedaNeg'], ['v' => $pct($x['variacion']), 'f' => 'pct'],
+                ['v' => $m($x['facturadas']['importe']), 'f' => 'moneda'], ['v' => $m($x['cobros']['importe']), 'f' => 'moneda'],
+                $x['futuro'] ? 'Periodo futuro' : ($x['completo'] ? '' : 'INCOMPLETO al ' . $x['corte'])];
+        }
+        $resumen[] = [];
+        $resumen[] = [['v' => 'Ventas realizadas = ventas del periodo; Facturadas = marcadas como facturadas; Cobros = dinero recibido en el periodo (con IVA). No son equivalentes.', 'f' => 'nota']];
+        $resumen[] = [['v' => $r['tendencia']['etiqueta'] . ($r['tendencia']['direccion'] !== 'sin_datos' ? ' (' . $r['tendencia']['pendiente_pct'] . ' % por mes)' : ''), 'f' => 'nota']];
+
+        $hojas = [['nombre' => 'Resumen', 'filas' => $resumen, 'anchos' => [0 => 34, 1 => 20, 2 => 24, 3 => 18, 4 => 22, 5 => 16, 6 => 16, 7 => 18, 8 => 32]]];
+
+        $nombres = ['ventas-serie' => 'Ventas', 'ventas-anios' => 'Ventas por año', 'semestres' => 'Semestres', 'ingresos-acumulados' => 'Ingresos acumulados',
+            'ventas-vs-cobros' => 'Ventas y cobros', 'cobrado-pendiente' => 'Cobrado y pendiente', 'facturacion' => 'Facturación', 'gastos-anios' => 'Gastos',
+            'gastos-categoria' => 'Gastos por categoría', 'negocios' => 'Negocios', 'productos-top' => 'Productos top', 'productos-menor' => 'Productos menor mov.', 'clientes-top' => 'Clientes top'];
+        foreach ($r['graficas'] as $g) {
+            $hojas[] = Analisis::hojaExcel($g, $nombres[$g['id']] ?? mb_substr($g['titulo'], 0, 31), $contexto);
+        }
+
+        // Negocios: participación y variación
+        if ($r['analisis']['negocios']) {
+            $totalPeriodo = array_sum(array_column($r['analisis']['negocios'], 'periodo'));
+            $fila = [array_map(static fn ($t) => ['v' => $t, 'f' => 'neg'], ['Negocio', 'Ventas del periodo', 'Operaciones', 'Mismo avance año anterior', 'Variación', 'Variación %', 'Participación %'])];
+            foreach ($r['analisis']['negocios'] as $n) {
+                $v = self::variacion($n['previo'], $n['periodo']);
+                $fila[] = [$n['nombre'], ['v' => $m($n['periodo']), 'f' => 'moneda'], ['v' => $n['ventas'], 'f' => 'entero'], ['v' => $m($n['previo']), 'f' => 'moneda'],
+                    ['v' => $m($v['absoluta']), 'f' => 'monedaNeg'], ['v' => $pct($v), 'f' => 'pct'], ['v' => $totalPeriodo > 0 ? round($n['periodo'] * 100 / $totalPeriodo, 2) : null, 'f' => 'pct']];
+            }
+            $hojas[] = ['nombre' => 'Comparación de negocios', 'filas' => array_merge([[['v' => 'Comparación entre negocios · ' . self::etiquetaPeriodo($p['tipo'], $p['anio'], $p['indice']), 'f' => 'titulo']], [['v' => 'No se aplica el filtro de negocio; el cliente y el producto sí se respetan donde aplican.', 'f' => 'nota']], []], $fila),
+                'anchos' => [0 => 30, 1 => 20, 2 => 14, 3 => 24, 4 => 18, 5 => 16, 6 => 18]];
+        }
+
+        // Semestres con variación
+        $fila = [[['v' => 'Semestres', 'f' => 'titulo']], [], array_map(static fn ($t) => ['v' => $t, 'f' => 'neg'], ['Año', 'Primer semestre', 'Variación %', 'Segundo semestre', 'Variación %', 'Total'])];
+        foreach (self::semestresFilas($r) as $x) {
+            $fila[] = [(string) $x['anio'], ['v' => $m($x['s1']), 'f' => 'moneda'], ['v' => $pct($x['var1']), 'f' => 'pct'], ['v' => $m($x['s2']), 'f' => 'moneda'], ['v' => $pct($x['var2']), 'f' => 'pct'], ['v' => $m($x['total']), 'f' => 'moneda']];
+        }
+        $hojas[] = ['nombre' => 'Detalle semestres', 'filas' => $fila, 'anchos' => [0 => 12, 1 => 20, 2 => 14, 3 => 20, 4 => 14, 5 => 20]];
+
+        // Productos sin movimiento
+        $sin = $r['analisis']['sin_movimiento'];
+        $fila = [[['v' => 'Productos sin movimiento · ' . self::etiquetaPeriodo($p['tipo'], $p['anio'], $p['indice']), 'f' => 'titulo']],
+            [['v' => $sin['total'] . ' producto(s) activo(s) sin una sola venta en el periodo (se muestran los de mayor existencia).', 'f' => 'nota']], [],
+            array_map(static fn ($t) => ['v' => $t, 'f' => 'neg'], ['Producto', 'SKU', 'Existencia'])];
+        foreach ($sin['lista'] as $x) { $fila[] = [$x['nombre'], $x['sku'], ['v' => $x['stock'], 'f' => 'entero']]; }
+        $hojas[] = ['nombre' => 'Sin movimiento', 'filas' => $fila, 'anchos' => [0 => 40, 1 => 16, 2 => 14]];
+
+        return Exportador::libro($hojas);
     }
 }

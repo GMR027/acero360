@@ -51,7 +51,8 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                 <label class="comprobacion mt-md" for="fv_manual"><input type="checkbox" id="fv_manual" name="confirma_manual" value="1">
                     Confirmo bajo mi responsabilidad que la factura ya se emitió (sin documento verificable)</label>
             <?php endif; ?>
-            <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar facturación</button></div>
+            <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar facturación</button>
+                <a class="btn btn--secundario" href="/admin/contabilidad/lectura?destino=venta&ingreso=<?= (int) $ingreso['id'] ?>">Leer factura (XML, PDF o foto)</a></div>
         </form>
     <?php elseif ($cerrado) : ?>
         <p class="texto-secundario">El periodo contable está cerrado: la facturación no se puede modificar.</p>

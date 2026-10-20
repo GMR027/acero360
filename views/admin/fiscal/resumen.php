@@ -1,7 +1,7 @@
 <?php
 /**
  * views/admin/fiscal/resumen.php — Impuestos: cuánto se debe pagar cada mes (estimación simple).
- * Facturado − pagos → IVA y ISR por pagar. El cálculo detallado con la tarifa del SAT vive en «Cálculo detallado».
+ * Facturado − pagos → IVA y ISR por pagar.
  */
 
 soloAdmin();
@@ -74,7 +74,13 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
     <button class="btn btn--secundario btn--sm" type="submit">Ver</button>
 </form>
 
-<section class="tarjeta mb-lg" aria-label="Impuestos del mes">
+<section class="impuestos-movil solo-movil" aria-label="Resumen de <?= escaparValores(nombreMes($mes)) ?> <?= $anio ?>">
+    <div class="impuestos-movil__fila"><span>Facturado en <?= escaparValores(mb_strtolower(nombreMes($mes))) ?></span><strong class="impuestos-movil__valor"><?= $m($actual['facturado']) ?></strong></div>
+    <div class="impuestos-movil__fila"><span>Pagado en <?= escaparValores(mb_strtolower(nombreMes($mes))) ?></span><strong class="impuestos-movil__valor"><?= $m($actual['pagos']) ?></strong></div>
+    <div class="impuestos-movil__fila impuestos-movil__fila--destacada"><span><?= $aPagar >= 0 ? 'Impuestos por pagar' : 'Saldo a tu favor' ?></span><strong class="impuestos-movil__valor"><?= $m(abs($aPagar)) ?></strong></div>
+</section>
+
+<section class="tarjeta mb-lg movil-oculto" aria-label="Impuestos del mes">
     <p class="texto-secundario"><?= $aPagar >= 0 ? 'Impuestos por pagar de' : 'Saldo a tu favor en' ?> <?= escaparValores(nombreMes($mes)) ?> <?= $anio ?></p>
     <p class="titulo-2" style="margin:.25rem 0"><?= $m(abs($aPagar)) ?></p>
     <ul class="lista-simple mt-md">
@@ -92,12 +98,12 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
 </section>
 
 <?php if ($r['sin_clasificar'] > 0) : ?>
-    <p class="nota nota--advertencia mb-lg" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lightbulb</span>
+    <p class="nota nota--advertencia mb-lg movil-oculto" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lightbulb</span>
         <span><?= (int) $r['sin_clasificar'] ?> venta(s) de <?= $anio ?> no indican si se facturaron y <strong>no se cuentan</strong>. Solo cuentan las ventas marcadas como facturadas.
             <a href="/admin/contabilidad/sin-facturar?anio=<?= $anio ?>">Revisarlas</a>.</span></p>
 <?php endif; ?>
 
-<section class="tarjeta tarjeta--sin-relleno mb-lg">
+<section class="tarjeta tarjeta--sin-relleno mb-lg movil-oculto">
     <div class="tabla-contenedor">
         <table class="tabla tabla--numerica">
             <caption class="solo-lectores">Impuestos por pagar mes por mes, <?= $anio ?></caption>
@@ -105,7 +111,7 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
                 <tr>
                     <th scope="col">Concepto</th>
                     <?php for ($i = 1; $i <= 12; $i++) : ?>
-                        <th scope="col"<?= $i === $mes ? ' aria-current="true" style="background:#eaf1f8"' : '' ?>><a href="/admin/fiscal?anio=<?= $anio ?>&amp;mes=<?= $i ?>"><?= escaparValores(mb_substr(nombreMes($i), 0, 3)) ?></a></th>
+                        <th scope="col"<?= $i === $mes ? ' aria-current="true" style="background:var(--color-primario-claro)"' : '' ?>><a href="/admin/fiscal?anio=<?= $anio ?>&amp;mes=<?= $i ?>"><?= escaparValores(mb_substr(nombreMes($i), 0, 3)) ?></a></th>
                     <?php endfor; ?>
                     <th scope="col">Año</th>
                 </tr>
@@ -115,7 +121,7 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
                     <tr>
                         <th scope="row"><?= $fuerte ? '<strong>' . escaparValores($titulo) . '</strong>' : escaparValores($titulo) ?></th>
                         <?php for ($i = 1; $i <= 12; $i++) : $v = $r['meses'][$i][$clave]; ?>
-                            <td class="cifra<?= $fuerte && $v < 0 ? ' variacion--sube' : '' ?>"<?= $i === $mes ? ' style="background:#eaf1f8"' : '' ?>><?= $fuerte ? '<strong>' . $m($v) . '</strong>' : $m($v) ?></td>
+                            <td class="cifra<?= $fuerte && $v < 0 ? ' variacion--sube' : '' ?>"<?= $i === $mes ? ' style="background:var(--color-primario-claro)"' : '' ?>><?= $fuerte ? '<strong>' . $m($v) . '</strong>' : $m($v) ?></td>
                         <?php endfor; ?>
                         <td class="cifra"><strong><?= $m($t[$clave]) ?></strong></td>
                     </tr>
@@ -124,10 +130,10 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
         </table>
     </div>
 </section>
-<p class="campo__ayuda mb-lg">Un número en verde significa que ese mes quedó <strong>a tu favor</strong>. En el año, los meses a favor se descuentan de los demás
+<p class="campo__ayuda mb-lg movil-oculto">Un número en verde significa que ese mes quedó <strong>a tu favor</strong>. En el año, los meses a favor se descuentan de los demás
     (<?= $m($t['impuestos']) ?>); sumando solo los meses con pago serían <?= $m($t['a_pagar_meses']) ?>.</p>
 
-<details class="mb-lg">
+<details class="mb-lg movil-oculto">
     <summary class="boton-enlace" style="cursor:pointer"><strong>¿Cómo se calcula?</strong></summary>
     <div class="mt-md">
         <p class="campo__ayuda mb-md">Cuenta <strong>todos</strong> los gastos registrados como deducibles y solo las ventas marcadas como <strong>facturadas</strong>.
@@ -153,7 +159,7 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
     </div>
 </details>
 
-<details class="mb-lg"<?= $r['hay_reales'] ? ' open' : '' ?>>
+<details class="mb-lg movil-oculto"<?= $r['hay_reales'] ? ' open' : '' ?>>
     <summary class="boton-enlace" style="cursor:pointer"><strong>Comparar con lo que declaró mi contador</strong> (opcional)</summary>
     <form class="mt-md" action="/admin/fiscal" method="post" novalidate>
         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">

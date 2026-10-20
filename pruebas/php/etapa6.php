@@ -32,7 +32,7 @@ foreach (['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_f
     $db->query("DELETE FROM $t");
 }
 $db->query('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
-$db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
+$db->query('DELETE FROM venta_cambios_entregados'); $db->query('DELETE FROM venta_devoluciones'); $db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
 $db->query('DELETE FROM catalogo_fiscal');
 $db->query('DELETE FROM configuracion_fiscal WHERE id > (SELECT MIN(id) FROM (SELECT id FROM configuracion_fiscal) x)');
 $db->query('UPDATE configuracion_fiscal SET vigente_hasta = NULL, tipo_persona = "fisica", confirmada_con_contador = 0');
@@ -200,9 +200,8 @@ Contabilidad::actualizarFacturacion($i1, 'no_facturada', '', '', '', $usuario);
 $prueba('enero ya no tiene errores', !array_filter(CierrePeriodo::verificaciones($contrib, 2026, 1), fn ($v) => $v['nivel'] === 'error'), json_encode(array_column(CierrePeriodo::verificaciones($contrib, 2026, 1), 'codigo')));
 $prueba('cierra enero', CierrePeriodo::cerrar($contrib, 2026, 1, $usuario, [], 'Cierre de enero'), implode('|', CierrePeriodo::getErrores()));
 $ene = CierrePeriodo::periodo($contrib, 2026, 1);
-$prueba('guarda la fotografía con las versiones de reglas y el ISR de enero', $ene['estado'] === 'cerrado'
-    && $ene['snapshot']['fiscal']['isr']['a_pagar'] === 9017 && $ene['snapshot']['fiscal']['versiones']['isr'] > 0);
-$prueba('guarda el cálculo del cierre', (int) $uno("SELECT COUNT(*) FROM calculos_fiscales WHERE tipo = 'cierre' AND mes = 1") === 1);
+$prueba('guarda la fotografía con la estimación simple de impuestos de enero', $ene['estado'] === 'cerrado'
+    && isset($ene['snapshot']['fiscal']['impuestos'], $ene['snapshot']['fiscal']['iva_por_pagar'], $ene['snapshot']['fiscal']['isr_por_pagar']));
 $prueba('enero cerrado: un gasto de enero no se edita', !Gastos::actualizar((int) $uno("SELECT id FROM gastos WHERE concepto = 'Acero'"), ['fecha' => '2026-01-12', 'beneficiario' => 'X', 'concepto' => 'Acero', 'subtotal' => '1', 'iva_tasa' => '16'], $usuario)
     && str_contains(implode(' ', Gastos::getErrores()), 'cerrado'));
 $prueba('enero cerrado: no se cancela un cobro de enero', !Contabilidad::cancelarCobro((int) $uno("SELECT id FROM cobros ORDER BY id LIMIT 1"), 'Intento de cambio', $usuario)); Contabilidad::getErrores();
@@ -231,7 +230,6 @@ $prueba('febrero vuelve a aceptar cambios', Gastos::actualizar((int) $uno("SELEC
     'estado_pago' => 'pagado', 'fecha_pago' => '2026-02-09', 'comprobante_fiscal' => 1, 'revision_fiscal' => 'validado', 'empresa_id' => 1], $usuario));
 $hist = CierrePeriodo::historial($contrib, 2026, 2);
 $prueba('el historial conserva cierre y reapertura con su motivo', count($hist) === 2 && $hist[0]['accion'] === 'reapertura' && str_contains($hist[0]['motivo'], 'Corrección'));
-$prueba('el cierre anterior sigue guardado (no se borra)', (int) $uno("SELECT COUNT(*) FROM calculos_fiscales WHERE tipo = 'cierre' AND mes = 2") === 1);
 $prueba('ahora sí se puede reabrir enero', CierrePeriodo::reabrir($contrib, 2026, 1, $usuario, $claveBuena, 'Corrección de una factura de enero'));
 
 echo $fallos === 0 ? "\nTODO OK\n" : "\n$fallos prueba(s) fallaron\n";

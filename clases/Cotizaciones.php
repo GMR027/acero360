@@ -1096,6 +1096,16 @@ class Cotizaciones
                 }
             }
 
+            // Antes de borrar, copia completa a la papelera (se puede restaurar 90 días).
+            $cliente = Clientes::buscarID($cotizacion->cliente_id);
+            $copiada = Papelera::copiarCotizacion($id);
+            $etiqueta = $cotizacion->folio . ' · ' . ($cliente ? $cliente->nombre : 'cliente') . ' · ' . $cotizacion->fecha;
+            if ($copiada === null || !Papelera::guardar('cotizacion', $id, $etiqueta, (float) $cotizacion->total, $copiada, (int) ($_SESSION['id'] ?? 0))) {
+                self::$db->rollBack();
+                self::$errores = array_merge(self::$errores, Papelera::getErrores());
+                return false;
+            }
+
             $consulta = self::$db->prepare('DELETE FROM cotizaciones WHERE id = ?');
             $consulta->bind_param('i', $id);
             $correcto = $consulta->execute();
@@ -1272,7 +1282,7 @@ class Cotizaciones
         }
 
         if (empty($lineas)) {
-            $errores[] = 'Agregá al menos un producto a la cotización.';
+            $errores[] = 'Agrega al menos un producto a la cotización.';
             return $errores;
         }
 

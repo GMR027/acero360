@@ -23,11 +23,11 @@ sql(`INSERT INTO usuarios (nombre,email,contrasena,rol) VALUES ('Auditoría móv
 
 const paginas = [
   '/admin', '/admin/clientes', '/admin/productos', '/admin/empresas', '/admin/usuarios', '/admin/cotizaciones', '/admin/cotizaciones/crear',
-  '/admin/ventas', '/admin/ventas/crear', '/admin/inventario', '/admin/proveedores', '/admin/proveedores/entradas',
+  '/admin/ventas', '/admin/ventas/crear', '/admin/inventario', '/admin/inventario/completo', '/admin/proveedores', '/admin/proveedores/entradas',
   '/admin/compras', '/admin/compras/crear', '/admin/entregas', '/admin/entregas/clientes',
   '/admin/contabilidad', '/admin/contabilidad/ingresos', '/admin/contabilidad/gastos', '/admin/contabilidad/gastos/crear',
   '/admin/contabilidad/documentos', '/admin/contabilidad/sin-facturar', '/admin/contabilidad/cierre',
-  '/admin/fiscal', '/admin/fiscal/registros', '/admin/fiscal/catalogo', '/admin/fiscal/configuracion', '/admin/estadisticas', '/admin/escritorio',
+  '/admin/fiscal', '/admin/fiscal/configuracion', '/admin/estadisticas', '/admin/escritorio',
 ];
 const MIN = 44;
 

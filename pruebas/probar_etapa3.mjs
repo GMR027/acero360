@@ -28,7 +28,7 @@ function limpiar() {
   for (const t of ['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones']) { sql(`DELETE FROM ${t}`); }
   sql('DELETE FROM documentos'); sql('DELETE FROM cobros'); sql('DELETE FROM ingresos');
   sql('DELETE FROM entregas'); sql('DELETE FROM preparaciones');
-  sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
+  sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }
 limpiar();
 sql('UPDATE productos SET stock = 100 WHERE id = 37');
@@ -74,11 +74,9 @@ try {
     && (await pagina.locator('a[href*="/admin/ventas/editar"]').count()) === 0);
   await pagina.click('a:has-text("Devolución")');
   await pagina.fill(`input[name="cantidad[37]"]`, '9');
-  await pagina.fill('#motivo', 'Pieza defectuosa');
-  await pagina.click('button[type=submit]');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('button[type=submit]')]);
   verifica('rechaza devolver más de lo vendido', (await pagina.content()).includes('No se pueden devolver más piezas'));
   await pagina.fill(`input[name="cantidad[37]"]`, '1');
-  await pagina.fill('#motivo', 'Pieza defectuosa');
   await Promise.all([pagina.waitForURL('**/admin/ventas/detalle?id=*'), pagina.click('button[type=submit]')]);
   verifica('devolución suma 1 al stock', sql('SELECT stock FROM productos WHERE id=37') === '97');
   verifica('movimiento «devolucion» ligado a la venta', sql(`SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id=${ventaId} AND motivo='devolucion'`) === '1');

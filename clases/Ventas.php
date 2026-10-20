@@ -727,7 +727,7 @@ class Ventas
         }
 
         if (empty($lineas)) {
-            $errores[] = 'Agregá al menos un producto a la venta.';
+            $errores[] = 'Agrega al menos un producto a la venta.';
             return $errores;
         }
 
@@ -1000,6 +1000,22 @@ class Ventas
             if (!$venta) {
                 self::$db->rollBack();
                 self::$errores[] = 'La venta ya no existe.';
+                return false;
+            }
+
+            if (Inventario::historialDevoluciones($id)) {
+                self::$db->rollBack();
+                self::$errores[] = 'Esta venta tiene devoluciones o cambios registrados y ya no se puede eliminar; cancélala si hace falta.';
+                return false;
+            }
+
+            // Antes de tocar nada, copia completa a la papelera con su estado original (se puede restaurar 90 días).
+            $cliente = Clientes::buscarID($venta->cliente_id);
+            $copiada = Papelera::copiarVenta($id);
+            $etiqueta = $venta->folio . ' · ' . ($cliente ? $cliente->nombre : 'cliente') . ' · ' . $venta->fecha;
+            if ($copiada === null || !Papelera::guardar('venta', $id, $etiqueta, (float) $venta->total, $copiada, $usuarioId)) {
+                self::$db->rollBack();
+                self::$errores = array_merge(self::$errores, Papelera::getErrores());
                 return false;
             }
 

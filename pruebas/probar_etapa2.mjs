@@ -78,7 +78,7 @@ try {
   await pagina.fill('#sku', 'E2-1');
   await pagina.fill('#precio', '1');
   await pagina.check('#negocio_1');
-  await pagina.click('button[type=submit]');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('button[type=submit]')]);
   verifica('SKU duplicado se rechaza con mensaje', (await pagina.content()).includes('ya pertenece a otro producto'));
 
   console.log('Orden de compra con partidas dinámicas');

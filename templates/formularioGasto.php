@@ -24,13 +24,27 @@ $numEmpresas = max(1, count($empresas));
         <input class="control" type="text" id="concepto" name="concepto" maxlength="255" required value="<?= $v('concepto') ?>"
                placeholder="Ej. Lámina calibre 18, gasolina, renta de bodega"></div>
 
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="El nombre de quien te cobró. Si ya está en tus proveedores, elígelo de la lista." for="beneficiario">¿A quién le pagaste?</label>
-        <input class="control" type="text" id="beneficiario" name="beneficiario" maxlength="150" required value="<?= $v('beneficiario') ?>"
-               list="lista-proveedores" placeholder="Nombre del proveedor o negocio" autocomplete="off">
-        <datalist id="lista-proveedores">
-            <?php foreach ($proveedores as $p) : ?><option value="<?= escaparValores($p['nombre'] ?? $p['etiqueta']) ?>" data-id="<?= (int) $p['id'] ?>"><?php endforeach; ?>
-        </datalist>
-        <input type="hidden" id="proveedor_id" name="proveedor_id" value="<?= (int) ($gasto['proveedor_id'] ?? 0) ?: '' ?>"></div>
+    <?php $tipoBen = (string) ($gasto['beneficiario_tipo'] ?? (!empty($gasto['proveedor_id']) ? 'proveedor' : '')); ?>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="¿A quién le pagaste? Solo elige «Proveedor» si ya lo tienes en tu directorio; si no, usa «Estación de servicio» u «Otro»." for="beneficiario_tipo">Pagado a</label>
+        <select class="control" id="beneficiario_tipo" name="beneficiario_tipo" data-beneficiario-tipo required>
+            <option value="">— Elige —</option>
+            <?php foreach (\App\Gastos::BENEFICIARIOS as $clave => $texto) : ?>
+                <option value="<?= $clave ?>"<?= $tipoBen === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+            <?php endforeach; ?>
+        </select></div>
+
+    <div class="campo" data-ben-proveedor<?= $tipoBen === 'proveedor' ? '' : ' hidden' ?>><label class="campo__etiqueta campo__etiqueta--obligatorio" for="proveedor_id">Proveedor</label>
+        <select class="control" id="proveedor_id" name="proveedor_id">
+            <option value="">— Elige un proveedor —</option>
+            <?php foreach ($proveedores as $p) : ?>
+                <option value="<?= (int) $p['id'] ?>"<?= (int) ($gasto['proveedor_id'] ?? 0) === (int) $p['id'] ? ' selected' : '' ?>><?= escaparValores($p['nombre'] ?? $p['etiqueta']) ?></option>
+            <?php endforeach; ?>
+        </select></div>
+
+    <div class="campo" data-ben-texto<?= in_array($tipoBen, ['estacion', 'otro'], true) ? '' : ' hidden' ?>><label class="campo__etiqueta" for="beneficiario" data-ben-etiqueta>Descripción</label>
+        <input class="control" type="text" id="beneficiario" name="beneficiario" maxlength="150" value="<?= $tipoBen === 'proveedor' ? '' : $v('beneficiario') ?>"
+               placeholder="Ej. Gasolinera del centro, el señor de las piedras" autocomplete="off">
+        <span class="campo__ayuda" data-ben-ayuda>Escribe a quién le pagaste (por ejemplo: la ferretería de la esquina).</span></div>
 
     <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="El día en que se hizo el gasto (el del ticket o la factura)." for="fecha">¿Cuándo fue?</label>
         <input class="control" type="date" id="fecha" name="fecha" required value="<?= $v('fecha', date('Y-m-d')) ?>"></div>
@@ -63,12 +77,14 @@ $numEmpresas = max(1, count($empresas));
             <option value="pendiente"<?= ($gasto['estado_pago'] ?? 'pendiente') === 'pendiente' ? ' selected' : '' ?>>No, lo debo todavía</option>
         </select></div>
 
-    <div class="campo"><label class="campo__etiqueta" data-ayuda="Solo los gastos con factura se pueden restar de tus impuestos. Un ticket no cuenta." for="comprobante_fiscal">¿Te dieron factura?</label>
-        <select class="control" id="comprobante_fiscal" name="comprobante_fiscal">
-            <option value="1"<?= !empty($gasto['comprobante_fiscal']) ? ' selected' : '' ?>>Sí, con factura</option>
-            <option value="0"<?= empty($gasto['comprobante_fiscal']) ? ' selected' : '' ?>>No, solo ticket o nota</option>
+    <?php $factura = array_key_exists('comprobante_fiscal', $gasto) && $gasto['comprobante_fiscal'] !== '' && $gasto['comprobante_fiscal'] !== null ? (string) (int) $gasto['comprobante_fiscal'] : ''; ?>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Responde según lo que te dieron. Solo un gasto con factura (CFDI) puede restarse de tus impuestos." for="comprobante_fiscal">¿Tiene factura (CFDI)?</label>
+        <select class="control" id="comprobante_fiscal" name="comprobante_fiscal" data-factura required>
+            <option value="">— Elige —</option>
+            <option value="1"<?= $factura === '1' ? ' selected' : '' ?>>Con factura o CFDI</option>
+            <option value="0"<?= $factura === '0' ? ' selected' : '' ?>>Sin factura o CFDI</option>
         </select>
-        <span class="campo__ayuda">Solo los gastos con factura pueden restarse de tus impuestos. Después podrás adjuntarla.</span></div>
+        <span class="campo__ayuda">Una foto del ticket no es una factura: aunque la adjuntes, el gasto no será deducible.</span></div>
 
     <?php if (count($empresas) > 1) : ?>
         <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige el negocio al que corresponde. «Para todos» si sirve a ambos." for="empresa_id">¿Para cuál negocio fue?</label>
@@ -83,9 +99,9 @@ $numEmpresas = max(1, count($empresas));
 
 <?php if (!empty($permiteArchivos)) : ?>
     <div class="campo campo--completo mt-lg">
-        <label class="campo__etiqueta" data-ayuda="Sube aquí la factura (PDF y XML) o la foto del ticket. Puedes elegir varios archivos a la vez." for="doc-nuevo">Factura o comprobante (opcional)</label>
+        <label class="campo__etiqueta" data-ayuda="Sube aquí la factura (PDF y XML) o la foto del ticket. Puedes elegir varios archivos a la vez." for="doc-nuevo">Archivo de la factura o comprobante (opcional)</label>
         <input class="control" type="file" id="doc-nuevo" name="archivo[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
-        <span class="campo__ayuda">Sube la factura en PDF y su XML, o la foto del ticket. Puedes elegir varios. También podrás agregarlos después.</span>
+        <span class="campo__ayuda" data-ayuda-archivo>Sube el XML (de él se leen el folio fiscal y el total si los dejas vacíos), el PDF o la imagen. También podrás agregarlos después.</span>
     </div>
 <?php endif; ?>
 
@@ -194,15 +210,22 @@ $numEmpresas = max(1, count($empresas));
     concepto.addEventListener('input', sugerir);
     nombre.addEventListener('input', sugerir);
   }
-  const oculto = document.getElementById('proveedor_id');
-  const lista = document.getElementById('lista-proveedores');
-  if (nombre && oculto && lista) {
-    nombre.addEventListener('input', function () {
-      oculto.value = '';
-      lista.querySelectorAll('option').forEach(function (o) {
-        if (o.value === nombre.value) { oculto.value = o.dataset.id; }
-      });
-    });
+  /* «Pagado a»: el proveedor se elige de la lista; estación u otro llevan una descripción libre. */
+  const tipoBen = document.querySelector('[data-beneficiario-tipo]');
+  const bloqueProv = document.querySelector('[data-ben-proveedor]');
+  const bloqueTexto = document.querySelector('[data-ben-texto]');
+  const etiquetaBen = document.querySelector('[data-ben-etiqueta]');
+  const ayudaBen = document.querySelector('[data-ben-ayuda]');
+  if (tipoBen && bloqueProv && bloqueTexto) {
+    const alternar = function () {
+      const t = tipoBen.value;
+      bloqueProv.hidden = t !== 'proveedor';
+      bloqueTexto.hidden = t !== 'estacion' && t !== 'otro';
+      if (etiquetaBen) { etiquetaBen.textContent = t === 'estacion' ? 'Nombre de la estación (opcional)' : 'Descripción'; }
+      if (ayudaBen) { ayudaBen.textContent = t === 'estacion' ? 'Si lo dejas vacío se guarda como «Estación de servicio».' : 'Escribe a quién le pagaste (por ejemplo: la ferretería de la esquina).'; }
+    };
+    tipoBen.addEventListener('change', alternar);
+    alternar();
   }
 })();
 </script>

@@ -56,10 +56,11 @@ template('header', [
     'acciones'  => '<a class="btn btn--primario" href="/admin/inventario/pdf">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>'
         . '<span>Exportar Inventario</span></a>'
-        . '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=inventario&formato=xlsx&' . escaparValores(http_build_query(['q' => $termino, 'empresa' => $empresaId, 'estado' => $estado])) . '"><span>Excel (con filtros)</span></a>'
-        . '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=inventario&formato=csv&' . escaparValores(http_build_query(['q' => $termino, 'empresa' => $empresaId, 'estado' => $estado])) . '"><span>CSV</span></a>'
-        . '<a class="btn btn--secundario" href="/admin/inventario/movimientos"><span>Historial de movimientos</span></a>'
-        . '<a class="btn btn--secundario" href="/admin/inventario/fotos"><span>Fotografías mensuales</span></a>',
+        . '<a class="btn btn--secundario movil-oculto" href="/admin/inventario/exportar?tipo=inventario&formato=xlsx&' . escaparValores(http_build_query(['q' => $termino, 'empresa' => $empresaId, 'estado' => $estado])) . '"><span>Excel (con filtros)</span></a>'
+        . '<a class="btn btn--secundario movil-oculto" href="/admin/inventario/exportar?tipo=inventario&formato=csv&' . escaparValores(http_build_query(['q' => $termino, 'empresa' => $empresaId, 'estado' => $estado])) . '"><span>CSV</span></a>'
+        . '<a class="btn btn--primario solo-movil boton-inventario-completo" href="/admin/inventario/completo"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">view_list</span><span>Ver inventario completo</span></a>'
+        . '<a class="btn btn--secundario movil-oculto" href="/admin/inventario/movimientos"><span>Historial de movimientos</span></a>'
+        . '<a class="btn btn--secundario movil-oculto" href="/admin/inventario/fotos"><span>Fotografías mensuales</span></a>',
 ]);
 ?>
 
@@ -121,7 +122,7 @@ template('header', [
             <p class="vacio__titulo"><?= $hayFiltros ? 'Sin coincidencias' : 'Aún no hay productos' ?></p>
             <p><?= $hayFiltros
                     ? 'Ningún producto coincide con los filtros aplicados.'
-                    : 'Cargá el catálogo desde "Productos" para llevar el control de almacén.' ?></p>
+                    : 'Carga el catálogo desde "Productos" para llevar el control de almacén.' ?></p>
             <?php if ($hayFiltros) : ?>
                 <a class="btn btn--secundario" href="/admin/inventario">Restablecer filtros</a>
             <?php endif; ?>
@@ -129,15 +130,16 @@ template('header', [
     <?php else : ?>
         <!-- Listado con carga manual de existencias -->
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla tabla--inventario">
                 <caption class="solo-lectores">Existencias de los productos por negocio</caption>
                 <thead>
                     <tr>
-                        <th scope="col">Código</th>
+                        <th scope="col" class="tabla__col-imagen">Imagen</th>
+                        <th scope="col" class="movil-oculto">Código</th>
                         <th scope="col">Producto</th>
-                        <th scope="col" class="tabla__col-secundaria">Precio de lista</th>
+                        <th scope="col" class="movil-oculto">Precio de lista</th>
                         <th scope="col">Cantidad en inventario</th>
-                        <th scope="col" class="tabla__col-secundaria">Monto en inventario</th>
+                        <th scope="col">Monto en inventario</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -148,8 +150,25 @@ template('header', [
                         $idCampo  = 'stock-' . (int) $producto->id;
                         ?>
                         <tr>
-                            <td class="cifra"><?= escaparValores($producto->sku ?: '—') ?></td>
-                            <td>
+                            <td class="tabla__col-imagen inv-img">
+                                <?php if ($producto->imagen) : ?>
+                                    <!-- Miniatura 300×300 con carga diferida; al pulsarla se
+                                         amplía la imagen completa (data-ampliar-imagen). -->
+                                    <button type="button" class="miniatura-producto"
+                                            data-ampliar-imagen="<?= escaparValores(\App\Imagenes::url($producto->imagen)) ?>"
+                                            data-ampliar-titulo="<?= escaparValores($producto->nombre) ?>"
+                                            aria-label="Ampliar la imagen de <?= escaparValores($producto->nombre) ?>">
+                                        <img src="<?= escaparValores(\App\Imagenes::urlMiniatura($producto->imagen)) ?>"
+                                             alt="" width="56" height="56" loading="lazy" decoding="async">
+                                    </button>
+                                <?php else : ?>
+                                    <span class="miniatura-producto miniatura-producto--vacia" role="img" aria-label="Sin imagen">
+                                        <span class="material-symbols-outlined" aria-hidden="true">image_not_supported</span>
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="cifra movil-oculto"><?= escaparValores($producto->sku ?: '—') ?></td>
+                            <td class="inv-prod">
                                 <div class="tabla__producto-textos">
                                     <strong><?= escaparValores($producto->nombre) ?></strong>
                                     <?php if ($producto->stock_minimo !== null && $stock <= (int) $producto->stock_minimo) : ?>
@@ -162,10 +181,10 @@ template('header', [
                                     </span>
                                 </div>
                             </td>
-                            <td class="tabla__col-secundaria tabla--numerica cifra">
+                            <td class="movil-oculto tabla--numerica cifra">
                                 <?= formatoMoneda($precio) ?>
                             </td>
-                            <td>
+                            <td class="inv-cant">
                                 <!-- Carga manual: se guarda el valor absoluto y
                                      el delta queda registrado en la bitácora. -->
                                 <form class="inventario-cantidad" action="/admin/inventario/ajustar"
@@ -189,7 +208,7 @@ template('header', [
                                     </button>
                                 </form>
                             </td>
-                            <td class="tabla__col-secundaria tabla--numerica cifra">
+                            <td class="tabla--numerica cifra inv-monto">
                                 <?= $stock < 0 ? '<span class="texto-error">' . formatoMoneda($monto) . '</span>' : formatoMoneda($monto) ?>
                             </td>
                         </tr>

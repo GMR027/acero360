@@ -17,7 +17,7 @@ class InventarioReportes
     protected static $errores = [];
 
     public const MOTIVOS = [
-        'venta' => 'Venta', 'recepcion' => 'Recepción de proveedor', 'ajuste' => 'Ajuste manual', 'devolucion' => 'Devolución de cliente',
+        'venta' => 'Venta', 'recepcion' => 'Recepción de proveedor', 'ajuste' => 'Ajuste manual', 'devolucion' => 'Devolución de cliente', 'cambio' => 'Cambio entregado a cliente',
         'correccion' => 'Corrección', 'cancelacion' => 'Cancelación de venta',
     ];
 

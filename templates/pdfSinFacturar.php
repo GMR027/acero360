@@ -11,7 +11,7 @@ $rotulo = ($periodo['mes'] ? nombreMes($periodo['mes']) . ' ' : 'Año ') . $peri
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Ventas sin facturar <?= escaparValores($rotulo) ?></title>
+    <title>Pendientes de facturar <?= escaparValores($rotulo) ?></title>
     <style>
         body { margin: 0; padding: 1.5rem; font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #4d4c53; }
         h1 { margin: 0 0 .2rem; font-size: 17px; color: #4679a6; }
@@ -25,7 +25,7 @@ $rotulo = ($periodo['mes'] ? nombreMes($periodo['mes']) . ' ' : 'Año ') . $peri
     </style>
 </head>
 <body>
-    <h1>Ventas sin facturar · <?= escaparValores($rotulo) ?></h1>
+    <h1>Pendientes de facturar · <?= escaparValores($rotulo) ?></h1>
     <p>Emitido <?= date('d/m/Y H:i') ?> · <?= (int) $t['operaciones'] ?> operaciones
         (<?= (int) $t['no_facturada'] ?> no facturadas, <?= (int) $t['sin_clasificar'] ?> pendientes de facturar)</p>
 

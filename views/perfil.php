@@ -104,6 +104,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             // Se refleja el nuevo nombre en la sesión para el resto de la navegación.
             $_SESSION['nombre'] = $nombre;
             $_SESSION['email']  = $email;
+            if ($contrasena !== '') {
+                // Cambiar tu propia contraseña no te saca a ti; sí cierra tus otras sesiones.
+                $_SESSION['huella'] = hash('sha256', $hash);
+                session_regenerate_id(true);
+            }
             $consulta->close();
             redirigir('/admin/perfil', 'exito', 'Tus datos se actualizaron correctamente.');
         }

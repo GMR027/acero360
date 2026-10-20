@@ -26,7 +26,7 @@ foreach (['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_f
     $db->query("DELETE FROM $t");
 }
 $db->query('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
-$db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
+$db->query('DELETE FROM venta_cambios_entregados'); $db->query('DELETE FROM venta_devoluciones'); $db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
 $db->query('UPDATE productos SET stock = 100 WHERE id IN (36, 37)');
 
 $cotizacion = function (string $folio, int $iva) use ($db, $cliente, $usuario, $hoy) {

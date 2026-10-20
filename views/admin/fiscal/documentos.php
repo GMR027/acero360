@@ -18,7 +18,7 @@ template('selectorPeriodo', ['accion' => '/admin/fiscal/documentos', 'periodo' =
     'extra' => ['grupo' => $grupo], 'clientes' => \App\Clientes::paraSelector(), 'cliente' => $cliente]);
 ?>
 
-<nav class="chip-grupo entregas-tabs mb-md" aria-label="Situación fiscal">
+<nav class="chip-grupo entregas-tabs ajustes-tabs mb-md" aria-label="Situación fiscal">
     <?php foreach (\App\Contabilidad::GRUPOS_FISCALES as $clave => $g) : $activo = $grupo === $clave; ?>
         <a class="chip<?= $activo ? ' chip--activo' : '' ?>" href="/admin/fiscal/documentos?<?= $consulta ?>&grupo=<?= $clave ?>"<?= $activo ? ' aria-current="page"' : '' ?>>
             <span><?= escaparValores($g['etiqueta']) ?> (<?= $datos['totales'][$clave]['operaciones'] ?>)</span></a>

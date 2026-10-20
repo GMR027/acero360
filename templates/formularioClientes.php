@@ -59,7 +59,7 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
         <input class="control" type="text" id="nombre_empresa" name="nombre_empresa" maxlength="150"
                placeholder="Razón social o negocio"
                value="<?= escaparValores($cliente->nombre_empresa) ?>">
-        <span class="campo__ayuda">Aparece en la cotización como "Cliente destino".</span>
+        <span class="campo__ayuda">Aparece en la cotización como "Cliente destino". Llena este campo o el alias: al menos uno es obligatorio.</span>
     </div>
 
     <div class="campo<?= $claseError('alias') ?>">
@@ -67,7 +67,7 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
         <input class="control" type="text" id="alias" name="alias" maxlength="80"
                placeholder="Nombre corto para buscar rápido"
                value="<?= escaparValores($cliente->alias) ?>">
-        <span class="campo__ayuda">Se usa para localizar al cliente en el buscador.</span>
+        <span class="campo__ayuda">Se usa para localizar al cliente en el buscador. Obligatorio si no escribes el nombre de la empresa.</span>
     </div>
 
     <div class="campo">

@@ -33,12 +33,16 @@ FROM php:8.3-apache
 #   gd     → Intervention Image (recorte cuadrado de fotos de productos)
 #   zip    → dompdf genera PDFs comprimidos
 #   exif   → lectura de metadatos de imágenes subidas
+# Herramientas del sistema para la lectura de facturas: poppler-utils (pdftotext/pdftoppm) y tesseract-ocr (OCR).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libpng-dev \
       libjpeg62-turbo-dev \
       libfreetype6-dev \
       libzip-dev \
+      poppler-utils \
+      tesseract-ocr \
+      tesseract-ocr-spa \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
  && docker-php-ext-install -j"$(nproc)" mysqli gd zip exif \
  && apt-get clean \
@@ -63,6 +67,15 @@ COPY --chown=www-data:www-data . /var/www/html
 
 # Dependencias generadas en la etapa 1 (machaca el vendor/ copiado, si hubiera).
 COPY --from=composer --chown=www-data:www-data /app/vendor /var/www/html/vendor
+
+# Datos de esta compilación (los pasa deploy.sh con --build-arg). La pantalla Ajustes → Versión los lee de aquí.
+ARG ACERO_VERSION=desconocida
+ARG ACERO_IMAGEN=gmr27/cotizaciones
+ARG ACERO_TAG=
+ARG ACERO_COMMIT=
+ARG ACERO_FECHA=
+RUN printf '{"version":"%s","imagen":"%s","tag":"%s","commit":"%s","compilado":"%s"}\n' \
+      "$ACERO_VERSION" "$ACERO_IMAGEN" "$ACERO_TAG" "$ACERO_COMMIT" "$ACERO_FECHA" > /var/www/html/build-info.json
 
 # Carpetas escribibles por Apache: imágenes subidas y log de correos.
 # NOTA: public/image se monta como volumen persistente en Kubernetes;

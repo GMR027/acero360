@@ -93,12 +93,8 @@ $leyenda = 'Los precios no incluyen iva (16%), las ventas son con pago de contad
         .barrasup td { vertical-align: top; padding: 0; }
         .barrasup .derecha { text-align: right; }
 
-        .logo {
-            max-height: 54px;
-            max-width: 190px;
-            display: block;
-            margin-bottom: 0.4rem;
-        }
+        /* Tamaño calculado en PHP (Imagenes::logoPdf). */
+        .logo { display: block; margin-bottom: 0.4rem; }
         .marca { font-size: 17px; font-weight: 700; color: #4679a6; }
         .datos { font-size: 10px; color: #6b6b70; line-height: 1.5; }
 
@@ -218,7 +214,7 @@ $leyenda = 'Los precios no incluyen iva (16%), las ventas son con pago de contad
 </table>
 
 <?php foreach ($secciones as $indice => $seccion) :
-    $logo      = $imagenBase64($seccion['logo']);
+    $logo      = \App\Imagenes::logoPdfHtml($seccion['logo'], (string) $seccion['nombre'], 0.7);
     $productos = $seccion['productos'];
     ?>
 
@@ -233,7 +229,7 @@ $leyenda = 'Los precios no incluyen iva (16%), las ventas son con pago de contad
             <tr>
                 <td>
                     <?php if ($logo !== '') : ?>
-                        <img class="logo" src="<?= $logo ?>" alt="<?= escaparValores($seccion['nombre']) ?>">
+                        <?= $logo ?>
                     <?php endif; ?>
                     <div class="marca"><?= escaparValores($seccion['nombre']) ?></div>
                 </td>

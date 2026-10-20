@@ -318,7 +318,7 @@ class Archivos
      *
      * @return array<string, mixed>|null null si no es aceptable (errores en getErrores())
      */
-    private static function validar(array $archivo, bool $esSubida): ?array
+    public static function validar(array $archivo, bool $esSubida): ?array
     {
         $codigo = (int) ($archivo['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($codigo !== UPLOAD_ERR_OK) {

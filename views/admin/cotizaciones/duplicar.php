@@ -77,7 +77,7 @@ if (empty($errores) && \App\Cotizaciones::crear($datos, $lineas, (int) ($_SESSIO
         '/admin/cotizaciones/editar?id=' . $nuevoId,
         'exito',
         'Cotización ' . ($nuevo ? $nuevo->folio : '') . ' duplicada de ' . $origen->folio
-        . '. Modificá renglones y cantidades y guardá cuando esté lista.'
+        . '. Modifica renglones y cantidades y guarda cuando esté lista.'
     );
 }
 

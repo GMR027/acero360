@@ -164,7 +164,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background-color: rgba(15, 23, 42, 0.4);
+  background-color: $color-velo;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 
@@ -191,11 +191,76 @@
   }
 }
 
+.campana-caja { position: relative; }
+
+.campana-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 70;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border: 1px solid $color-borde-fuerte;
+  border-radius: $radio-md;
+  background-color: $color-superficie;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+
+  &[hidden] { display: none; }
+
+  &__cabecera { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  &__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  &__pie { display: block; margin-top: 0.75rem; text-align: center; }
+
+  /* Móvil: hoja que ocupa el ancho de la pantalla, entre la barra superior y
+     la navegación inferior (la campana no está en el borde, así que un panel
+     anclado a ella se salía de la pantalla). */
+  @include hasta-movil {
+    position: fixed;
+    left: 0.5rem;
+    right: 0.5rem;
+    top: calc(#{$alto-topbar} + 0.25rem);
+    bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+    width: auto;
+    max-height: none;
+    padding: $espacio-md;
+    overscroll-behavior: contain;
+
+    &__cabecera {
+      flex-wrap: wrap;
+      position: sticky;
+      top: calc(-1 * #{$espacio-md});
+      margin: (-$espacio-md) (-$espacio-md) $espacio-sm;
+      padding: $espacio-md;
+      background-color: $color-superficie;
+      border-bottom: 1px solid $color-borde;
+    }
+
+    &__pie { padding: $espacio-sm 0; }
+  }
+}
+
+.campana-aviso {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  border-left: 4px solid $color-borde-fuerte;
+
+  &[data-prioridad='urgente'] { border-left: 6px solid $color-error; }
+  &[data-prioridad='alta'] { border-left-color: $color-advertencia; border-left-style: dashed; }
+  &[data-prioridad='informativa'] { border-left-style: dotted; }
+  &--leida { opacity: 0.7; }
+  &__acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  overflow-wrap: anywhere;
+}
+
 /* --- Centro de seguimiento ------------------------------------------------ */
 .seguimiento-aviso {
   border-left: 4px solid $color-borde-fuerte;
 
-  &[data-prioridad='alta'] { border-left-color: $color-error; }
-  &[data-prioridad='media'] { border-left-color: $color-advertencia; }
+  &[data-prioridad='urgente'] { border-left: 6px solid $color-error; }
+  &[data-prioridad='alta'] { border-left-color: $color-advertencia; border-left-style: dashed; }
+  &[data-prioridad='informativa'] { border-left-style: dotted; }
   &--leida { opacity: 0.7; }
 }

@@ -32,11 +32,7 @@ foreach ($todos as $a) {
 }
 $avisos = array_values(array_filter($todos, static fn ($a) => ($categoria === '' || $a['categoria'] === $categoria) && (!$soloNuevos || !$a['leida'])));
 
-$prioridades = [
-    'alta'  => ['Prioridad alta', 'badge--error'],
-    'media' => ['Prioridad media', 'badge--pendiente'],
-    'baja'  => ['Prioridad baja', 'badge--neutro'],
-];
+$prioridades = \App\Seguimiento::NIVELES;
 $volverA = '/admin/seguimiento' . (($categoria !== '' || $soloNuevos) ? '?' . http_build_query(array_filter(['categoria' => $categoria, 'ver' => $soloNuevos ? 'nuevos' : ''])) : '');
 [$tipoAviso, $idAviso] = [null, null];
 $enlaceFiltro = static function (string $cat, bool $nuevosSolo) {
@@ -53,7 +49,7 @@ template('header', [
 ]);
 ?>
 
-<nav class="chip-grupo mb-md" aria-label="Categorías de avisos">
+<nav class="chip-grupo ajustes-tabs mb-md" aria-label="Categorías de avisos">
     <a class="chip<?= $categoria === '' ? ' chip--activo' : '' ?>" href="<?= escaparValores($enlaceFiltro('', $soloNuevos)) ?>"><span>Todos<?= $nuevos ? ' (' . $nuevos . ')' : '' ?></span></a>
     <?php foreach (\App\Seguimiento::CATEGORIAS as $clave => [$texto, $icono]) : ?>
         <a class="chip<?= $categoria === $clave ? ' chip--activo' : '' ?>" href="<?= escaparValores($enlaceFiltro($clave, $soloNuevos)) ?>">
@@ -71,7 +67,7 @@ template('header', [
         <span>No hay avisos <?= $soloNuevos ? 'sin leer ' : '' ?>en esta categoría. Todo al día.</span></p>
 <?php endif; ?>
 
-<?php foreach ($avisos as $a) : [$textoCat, $iconoCat] = \App\Seguimiento::CATEGORIAS[$a['categoria']]; [$etiqueta, $claseBadge] = $prioridades[$a['prioridad']]; ?>
+<?php foreach ($avisos as $a) : [$textoCat, $iconoCat] = \App\Seguimiento::CATEGORIAS[$a['categoria']]; [$etiqueta, $iconoNivel, $claseBadge] = $prioridades[$a['prioridad']]; ?>
     <article class="tarjeta mb-md seguimiento-aviso<?= $a['leida'] ? ' seguimiento-aviso--leida' : '' ?>" data-clave="<?= escaparValores($a['clave']) ?>" data-prioridad="<?= escaparValores($a['prioridad']) ?>">
         <div class="flex-entre fila--envuelto">
             <h2 class="titulo-5">
@@ -79,13 +75,13 @@ template('header', [
                 <?= escaparValores($a['titulo']) ?>
             </h2>
             <span>
-                <span class="badge <?= $claseBadge ?>"><?= $etiqueta ?></span>
+                <span class="badge <?= $claseBadge ?>"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem;vertical-align:middle"><?= $iconoNivel ?></span> Prioridad: <?= $etiqueta ?></span>
                 <?php if (!$a['leida']) : ?><span class="badge badge--info">Nuevo</span><?php endif; ?>
             </span>
         </div>
         <p class="texto-secundario mt-sm"><?= escaparValores($a['detalle']) ?></p>
         <div class="formulario__acciones" style="gap:.5rem">
-            <a class="btn btn--primario btn--sm" href="<?= escaparValores($a['enlace']) ?>">Abrir registro</a>
+            <a class="btn btn--primario btn--sm" href="<?= escaparValores($a['enlace']) ?>"><?= escaparValores(\App\Seguimiento::etiquetaAbrir($a['clave'])) ?></a>
             <?php [$tipoAviso, $idAviso] = explode(':', $a['clave']) + [1 => '0']; $idAviso = (int) $idAviso; ?>
             <?php if ($tipoAviso === 'cotizacion') : ?>
                 <form action="/admin/cotizaciones/estado" method="post">

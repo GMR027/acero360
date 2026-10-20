@@ -2,7 +2,7 @@
  * gulpfile.js — Compilación de assets del proyecto de cotizaciones.
  *
  * Tareas:
- *   gulp build   -> compila SCSS a build/css/app.css y concatena JS en build/js/app.js
+ *   gulp build   -> compila SCSS a build/css/app.css, concatena JS en build/js/app.js y copia ECharts
  *   gulp watch   -> observa cambios en src/scss y src/js y recompila
  *
  * Nota: a diferencia de canastillasWep, la tarea "build" COMPILA de verdad
@@ -40,6 +40,13 @@ export function js(done) {
   done();
 }
 
+/** Copia Apache ECharts a build/js (solo lo carga la página de estadísticas). */
+export function graficas(done) {
+  src('node_modules/echarts/dist/echarts.min.js', { encoding: false })
+    .pipe(dest(rutas.jsOut));
+  done();
+}
+
 /** Observa los archivos fuente y recompila ante cambios. */
 export function watchArchivos() {
   watch(rutas.scssWatch, css);
@@ -47,7 +54,7 @@ export function watchArchivos() {
 }
 
 /** Compilación completa (lo que ejecuta `npm run build`). */
-export const build = series(parallel(css, js));
+export const build = series(parallel(css, js, graficas));
 
 /** Tarea por defecto: compila y queda observando. */
 export default series(build, watchArchivos);

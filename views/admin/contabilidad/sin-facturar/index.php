@@ -15,9 +15,9 @@ $t        = $sf['totales'];
 $consulta = http_build_query(array_filter($periodo + ['cliente' => $cliente], static fn ($v) => $v !== 0));
 $consultaVista = $consulta . ($vista !== '' ? '&vista=' . $vista : '');
 
-template('header', ['titulo' => 'Ventas sin facturar', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad/sin-facturar']);
+template('header', ['titulo' => 'Pendientes de facturar', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad/sin-facturar']);
 template('tabsContabilidad', ['tab' => 'sin', 'periodo' => $periodo]);
-template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true, 'extra' => ['vista' => $vista], 'clientes' => \App\Clientes::paraSelector(), 'cliente' => $cliente]);
+template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true, 'extra' => ['vista' => $vista], 'clientes' => \App\Clientes::paraSelector(), 'cliente' => $cliente, 'ocultoMovil' => true]);
 ?>
 
 <section class="rejilla-stats mb-lg" aria-label="Resumen de ventas sin facturar">
@@ -28,14 +28,14 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'pe
     <div class="stat"><span class="stat__etiqueta">Total</span><span class="stat__valor"><?= formatoMoneda($t['total']) ?></span><span class="stat__pie">IVA incluido</span></div>
 </section>
 
-<div class="encabezado-pagina__acciones mb-lg">
+<div class="encabezado-pagina__acciones mb-lg movil-oculto">
     <?php foreach (['pdf' => ['PDF', 'picture_as_pdf'], 'xlsx' => ['Excel', 'table_view'], 'csv' => ['CSV', 'csv']] as $formato => [$texto, $icono]) : ?>
         <a class="btn btn--secundario" href="/admin/contabilidad/sin-facturar/exportar?<?= $consultaVista ?>&formato=<?= $formato ?>"<?= $formato === 'pdf' ? ' target="_blank" rel="noopener"' : '' ?>>
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem"><?= $icono ?></span><span>Exportar <?= $texto ?></span></a>
     <?php endforeach; ?>
 </div>
 
-<nav class="mb-md" aria-label="Apartados">
+<nav class="mb-md movil-oculto" aria-label="Apartados">
     <?php foreach (['' => 'Todas', 'sin_clasificar' => 'Pendientes de facturar (con IVA)', 'no_facturada' => 'No facturadas (sin IVA)'] as $clave => $texto) : ?>
         <a class="btn btn--sm <?= $vista === $clave ? 'btn--primario' : 'btn--secundario' ?>" href="/admin/contabilidad/sin-facturar?<?= $consulta . ($clave !== '' ? '&vista=' . $clave : '') ?>"<?= $vista === $clave ? ' aria-current="page"' : '' ?>><?= $texto ?></a>
     <?php endforeach; ?>
@@ -49,7 +49,7 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'pe
     <?php else : ?>
         <div class="tabla-contenedor">
             <table class="tabla">
-                <caption class="solo-lectores">Ventas sin facturar</caption>
+                <caption class="solo-lectores">Pendientes de facturar</caption>
                 <thead><tr><th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Negocio</th>
                     <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th>
                     <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Estado</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>

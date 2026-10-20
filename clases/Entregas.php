@@ -116,7 +116,24 @@ class Entregas
         }
         $consulta->close();
 
-        // Una venta con la entrega cerrada (p. ej. por una devolución) ya no debe nada.
+        // Lo devuelto que nunca se entregó ya no se entrega (lo devuelto después de entregar no cambia lo pendiente).
+        $consulta = self::$db->prepare(
+            "SELECT venta_id, producto_id, SUM(cantidad_devuelta) AS devuelto
+               FROM venta_devoluciones WHERE venta_id IN ($marcadores) GROUP BY venta_id, producto_id"
+        );
+        $consulta->bind_param($tipos, ...$ventaIds);
+        $consulta->execute();
+        foreach ($consulta->get_result() as $fila) {
+            $v = (int) $fila['venta_id'];
+            $p = (int) $fila['producto_id'];
+            if (isset($resultado[$v][$p])) {
+                $sinEntregar = max(0, (int) $fila['devuelto'] - $resultado[$v][$p]['entregado']);
+                $resultado[$v][$p]['pendiente'] = max(0, $resultado[$v][$p]['pendiente'] - $sinEntregar);
+            }
+        }
+        $consulta->close();
+
+        // Una venta con la entrega cerrada (devoluciones anteriores a este criterio) ya no debe nada.
         $consulta = self::$db->prepare(
             "SELECT id FROM ventas WHERE id IN ($marcadores) AND entrega_cerrada_en IS NOT NULL"
         );
@@ -172,7 +189,15 @@ class Entregas
                        e.nombre AS empresa_nombre,
                        cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                        cl.ubicacion AS cliente_ubicacion,
-                       (SELECT COALESCE(SUM(cantidad), 0) FROM venta_detalles WHERE venta_id = v.id) AS piezas,
+                       (SELECT COALESCE(SUM(cantidad), 0) FROM venta_detalles WHERE venta_id = v.id)
+                       - (SELECT COALESCE(ROUND(SUM(GREATEST(0,
+                              (SELECT COALESCE(SUM(dv.cantidad_devuelta), 0) FROM venta_devoluciones dv
+                                WHERE dv.venta_id = vd.venta_id AND dv.producto_id = vd.producto_id)
+                            - (SELECT COALESCE(SUM(er2.cantidad), 0) FROM entrega_renglones er2
+                                 JOIN entregas en2 ON en2.id = er2.entrega_id
+                                WHERE en2.venta_id = vd.venta_id AND er2.producto_id = vd.producto_id))
+                            / (SELECT COUNT(*) FROM venta_detalles x WHERE x.venta_id = vd.venta_id AND x.producto_id = vd.producto_id))), 0)
+                            FROM venta_detalles vd WHERE vd.venta_id = v.id) AS piezas,
                        (SELECT COALESCE(SUM(er.cantidad), 0) FROM entrega_renglones er
                           JOIN entregas en ON en.id = er.entrega_id WHERE en.venta_id = v.id) AS entregadas,
                        (SELECT GROUP_CONCAT(p.folio ORDER BY p.id SEPARATOR ', ') FROM preparacion_ventas pv
@@ -411,7 +436,8 @@ class Entregas
         }
         $marcadores = implode(',', array_fill(0, count($ventaIds), '?'));
         $consulta = self::$db->prepare(
-            "SELECT v.id, v.folio, v.fecha, v.total, v.estado, v.cotizacion_id,
+            "SELECT v.id, v.folio, v.fecha, v.total, v.estado, v.cotizacion_id, v.empresa_id,
+                    v.condiciones_envio, v.comentarios, e.logo AS empresa_logo,
                     cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     cl.ubicacion AS cliente_ubicacion, cl.telefono AS cliente_telefono,
                     e.nombre AS empresa_nombre

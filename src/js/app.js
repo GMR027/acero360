@@ -61,6 +61,28 @@ function cerrarSidebar() {
   document.body.style.overflow = '';
 }
 
+/** Abre o cierra la hoja "Nueva venta / Nueva cotización" de la barra inferior. */
+function alternarHojaNuevo(forzarAbierta) {
+  const hoja = document.getElementById('hoja-nuevo');
+  const fondo = document.getElementById('fondo-nuevo');
+  const disparador = document.getElementById('boton-nuevo');
+
+  if (!hoja) {
+    return;
+  }
+
+  const abrir = typeof forzarAbierta === 'boolean' ? forzarAbierta : hoja.hidden;
+  hoja.hidden = !abrir;
+
+  if (fondo) {
+    fondo.hidden = !abrir;
+  }
+
+  if (disparador) {
+    disparador.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  }
+}
+
 /**
  * Intercepta el envío de los formularios marcados con data-validar:
  * valida en cliente y, sólo si todo está correcto, permite el envío.
@@ -93,6 +115,17 @@ function manejarEnvioFormulario(evento) {
         formulario.submit(); // submit() nativo: no vuelve a disparar el evento.
       },
     });
+    return;
+  }
+
+  // Sin confirmación: se deja que el navegador envíe y, después, se bloquea el
+  // botón (si se hiciera antes se perdería su name/value) para evitar el doble envío.
+  if (formulario.method.toLowerCase() === 'post') {
+    setTimeout(function () {
+      if (!evento.defaultPrevented) {
+        bloquearEnvio(formulario);
+      }
+    }, 0);
   }
 }
 
@@ -111,6 +144,27 @@ function inicializarAplicacion() {
       alternarSidebar();
     });
   }
+
+  const botonNuevo = document.getElementById('boton-nuevo');
+  if (botonNuevo) {
+    botonNuevo.addEventListener('click', function (evento) {
+      evento.preventDefault();
+      alternarHojaNuevo();
+    });
+  }
+
+  const fondoNuevo = document.getElementById('fondo-nuevo');
+  if (fondoNuevo) {
+    fondoNuevo.addEventListener('click', function () {
+      alternarHojaNuevo(false);
+    });
+  }
+
+  document.addEventListener('keydown', function (evento) {
+    if (evento.key === 'Escape') {
+      alternarHojaNuevo(false);
+    }
+  });
 
   const fondoSidebar = document.getElementById('fondo-sidebar');
   if (fondoSidebar) {
@@ -140,6 +194,18 @@ function inicializarAplicacion() {
 
   // 4. Envío de formularios: validación y prevención del comportamiento por defecto.
   document.addEventListener('submit', manejarEnvioFormulario);
+
+  // Al volver con «Atrás» (caché del navegador) los botones no deben quedar bloqueados.
+  window.addEventListener('pageshow', function (evento) {
+    if (!evento.persisted) {
+      return;
+    }
+    document.querySelectorAll('button[data-texto-original]').forEach(function (boton) {
+      boton.textContent = boton.getAttribute('data-texto-original');
+      boton.removeAttribute('data-texto-original');
+      boton.disabled = false;
+    });
+  });
 
   // 5. Carga de imágenes con vista previa.
   const camposImagen = document.querySelectorAll('input[type="file"][data-preview]');
@@ -172,6 +238,9 @@ function inicializarAplicacion() {
     filtroAnio.addEventListener('change', sincronizarPeriodo);
     sincronizarPeriodo();
   }
+
+  // 8. Miniaturas de producto: alternativa si falla la carga y ampliación.
+  inicializarMiniaturasProducto();
 
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {

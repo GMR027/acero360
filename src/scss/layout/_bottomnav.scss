@@ -100,3 +100,56 @@
     padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* Hoja del botón central: elegir entre nueva cotización o nueva venta. */
+.hoja-nuevo,
+.hoja-nuevo-fondo {
+  display: none;
+}
+
+@include hasta-movil {
+  .hoja-nuevo-fondo:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 66;
+    background-color: rgba(15, 23, 42, 0.35);
+  }
+
+  .hoja-nuevo:not([hidden]) {
+    display: grid;
+    gap: $espacio-xs;
+    position: fixed;
+    left: $espacio-md;
+    right: $espacio-md;
+    bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px) + #{$espacio-sm});
+    z-index: 67;
+    padding: $espacio-sm;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-lg;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  }
+
+  .hoja-nuevo__opcion {
+    display: flex;
+    align-items: center;
+    gap: $espacio-md;
+    min-height: 3.25rem;
+    padding: 0 $espacio-md;
+    border-radius: $radio-lg;
+    color: $color-texto;
+    font-weight: 600;
+    text-decoration: none;
+
+    .material-symbols-outlined {
+      color: $color-primario-texto;
+    }
+
+    &:hover,
+    &:active {
+      background-color: $color-primario-claro;
+      text-decoration: none;
+    }
+  }
+}

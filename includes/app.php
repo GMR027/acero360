@@ -14,8 +14,8 @@
  * que tiene canastillasWep en su includes/app.php).
  */
 
-/** Versión de la plataforma Acero 360 (se muestra en Ajustes → Acerca de). */
-define('ACERO360_VERSION', '1.1.0');
+/** Versión de la plataforma Acero 360: única fuente = archivo VERSION de la raíz (la leen también deploy.sh y la app de escritorio). */
+define('ACERO360_VERSION', is_readable(__DIR__ . '/../VERSION') ? trim((string) file_get_contents(__DIR__ . '/../VERSION')) : '0.0.0');
 
 require __DIR__ . '/funciones.php';
 require __DIR__ . '/../config/database.php';
@@ -54,11 +54,15 @@ $clasesConectadas = [
     App\MotorFiscal::class,
     App\CierrePeriodo::class,
     App\Estadisticas::class,
+    App\Analisis::class,
     App\PaquetesEscritorio::class,
     App\InventarioReportes::class,
     App\ResumenFiscal::class,
     App\Seguimiento::class,
     App\Panel::class,
+    App\Lecturas::class,
+    App\InfoVersion::class,
+    App\Papelera::class,
 ];
 
 foreach ($clasesConectadas as $clase) {

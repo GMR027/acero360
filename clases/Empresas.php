@@ -18,7 +18,7 @@ class Empresas
     /** Columnas que se persisten (sin el id ni la fecha de alta). */
     protected static $columnasDB = [
         'id', 'nombre', 'rfc', 'regimen', 'direccion', 'ciudad', 'estado', 'cp',
-        'telefono', 'email', 'logo', 'condiciones_envio', 'condiciones_compra', 'activa',
+        'telefono', 'email', 'logo', 'condiciones_envio', 'condiciones_compra', 'activa', 'logo_alto_pdf',
     ];
 
     /** @var string[] Mensajes de validación de la última operación. */
@@ -38,6 +38,7 @@ class Empresas
     public $condiciones_envio;
     public $condiciones_compra;
     public $activa;
+    public $logo_alto_pdf;
     public $creado_en;
 
     public function __construct(array $args = [])
@@ -56,6 +57,7 @@ class Empresas
         $this->condiciones_envio  = $args['condiciones_envio'] ?? '';
         $this->condiciones_compra = $args['condiciones_compra'] ?? '';
         $this->activa             = isset($args['activa']) ? (int) $args['activa'] : 1;
+        $this->logo_alto_pdf      = isset($args['logo_alto_pdf']) ? (int) $args['logo_alto_pdf'] : Imagenes::LOGO_PDF_ALTO;
         $this->creado_en          = $args['creado_en'] ?? '';
     }
 

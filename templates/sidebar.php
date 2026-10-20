@@ -70,15 +70,15 @@ $enlaces = [
         'texto'         => 'Nueva venta',
         'subrutas'      => false,
         'excluir'       => [],
-        'soloEscritorio' => false,
+        'soloEscritorio' => true,
     ],
     [
         'ruta'          => '/admin/cotizaciones',
-        'icono'         => 'receipt_long',
-        'texto'         => 'Histórico de pedidos',
+        'icono'         => 'history',
+        'texto'         => 'Histórico de cotizaciones',
         'subrutas'      => true,
         'excluir'       => ['/admin/cotizaciones/crear'],
-        'soloEscritorio' => true,
+        'soloEscritorio' => false,
     ],
     [
         'ruta'          => '/admin/clientes',
@@ -86,7 +86,7 @@ $enlaces = [
         'texto'         => 'Directorio de clientes',
         'subrutas'      => true,
         'excluir'       => [],
-        'soloEscritorio' => true,
+        'soloEscritorio' => false,
     ],
     [
         'ruta'          => '/admin/entregas',
@@ -94,12 +94,12 @@ $enlaces = [
         'texto'         => 'Pantalla de entrega',
         'subrutas'      => true,
         'excluir'       => [],
-        'soloEscritorio' => false,
+        'soloEscritorio' => true,
     ],
     [
         'ruta'          => '/admin/ventas',
         'icono'         => 'assignment_return',
-        'texto'         => 'Devoluciones y cambios',
+        'texto'         => 'Ventas y devoluciones',
         'subrutas'      => true,
         'excluir'       => ['/admin/ventas/crear'],
         // Las devoluciones se registran desde el detalle de cada venta.
@@ -121,7 +121,7 @@ $enlaces = [
         'texto'         => 'Inventario',
         'subrutas'      => true,
         'excluir'       => [],
-        'soloEscritorio' => false,
+        'soloEscritorio' => true,
     ],
     [
         'ruta'          => '/admin/compras',
@@ -151,8 +151,8 @@ $enlaces = [
     ],
     [
         'ruta'          => '/admin/contabilidad/sin-facturar',
-        'icono'         => 'receipt_long',
-        'texto'         => 'Ventas sin facturar',
+        'icono'         => 'pending_actions',
+        'texto'         => 'Pendientes de facturar',
         'subrutas'      => true,
         'excluir'       => [],
         'soloEscritorio' => false,
@@ -163,7 +163,7 @@ $enlaces = [
         'texto'         => 'Impuestos',
         'subrutas'      => true,
         'excluir'       => ['/admin/fiscal/configuracion'],
-        'soloEscritorio' => false,
+        'soloEscritorio' => true,
     ],
     [
         'ruta'          => '/admin/estadisticas',
@@ -180,7 +180,7 @@ $enlaces = [
         'subrutas'      => true,
         'excluir'       => [],
         'grupo'         => 'Herramientas personales',
-        'soloEscritorio' => true,
+        'soloEscritorio' => false,
     ],
     [
         'ruta'          => '/admin/ajustes',

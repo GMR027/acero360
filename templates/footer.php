@@ -34,6 +34,9 @@ template('alertas');
 template('modal');
 ?>
 
+<?php foreach (($GLOBALS['scriptsPagina'] ?? []) as $scriptPagina) : ?>
+<script src="<?= escaparValores($scriptPagina) ?>"></script>
+<?php endforeach; ?>
 <script src="/build/js/app.js"></script>
 </body>
 </html>

@@ -18,7 +18,7 @@ if ($formato === 'pdf') {
 [$encabezados, $filas] = \App\Estadisticas::filasExportacion($r);
 
 if ($formato === 'xlsx') {
-    $bytes = \App\Exportador::xlsx('Estadísticas', $encabezados, $filas);
+    $bytes = \App\Estadisticas::libroExcel($r);
     if ($bytes === null) {
         redirigir('/admin/estadisticas', 'error', 'No fue posible generar el archivo de Excel.');
     }

@@ -88,7 +88,7 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
     </form>
 </section>
 
-<section class="tarjeta tarjeta--sin-relleno mb-lg">
+<section id="cobros" class="tarjeta tarjeta--sin-relleno mb-lg">
     <h2 class="titulo-5" style="padding:1rem 1rem 0">Pagos recibidos del cliente</h2>
     <?php if ($cobros) : ?>
         <div class="tabla-contenedor">

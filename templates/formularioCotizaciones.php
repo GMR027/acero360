@@ -93,7 +93,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
         <div class="campo<?= $errorDeCampo('negocio') !== '' ? ' campo--completo' : '' ?>">
             <label class="campo__etiqueta campo__etiqueta--obligatorio" for="empresa_id">Negocio que emite</label>
             <select class="control" id="empresa_id" name="empresa_id" required>
-                <option value="">Seleccioná un negocio…</option>
+                <option value="">Selecciona un negocio…</option>
                 <?php foreach ($empresas as $empresa) : ?>
                     <option value="<?= (int) $empresa->id ?>"
                         <?= (int) $cotizacion->empresa_id === (int) $empresa->id ? 'selected' : '' ?>
@@ -112,7 +112,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
             <label class="campo__etiqueta campo__etiqueta--obligatorio" for="cliente_id">Cliente</label>
             <select class="control" id="cliente_id" name="cliente_id" required
                     data-descuento-cliente>
-                <option value="">Seleccioná un cliente…</option>
+                <option value="">Selecciona un cliente…</option>
                 <?php foreach ($clientes as $cliente) :
                     $etiqueta = trim((string) $cliente->nombre);
                     if (trim((string) $cliente->nombre_empresa) !== '') {
@@ -203,9 +203,9 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
                 <?php endforeach; ?>
             </select>
 
-            <button type="button" class="btn btn--primario btn--sm" data-cotizador-agregar>
+            <button type="button" class="btn btn--primario btn--sm" data-cotizador-agregar title="Agrega el primer producto de la lista (o haz clic en la tarjeta del producto que quieras)">
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_circle</span>
-                <span>Agregar partida</span>
+                <span>Agregar el primer resultado</span>
             </button>
         </div>
 
@@ -220,7 +220,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
             <div class="vacio">
                 <span class="material-symbols-outlined vacio__icono" aria-hidden="true">inventory_2</span>
                 <p class="vacio__titulo">Sin productos activos</p>
-                <p>Cargá productos en el catálogo para poder <?= $esVenta ? 'venderlos' : 'cotizarlos' ?>.</p>
+                <p>Carga productos en el catálogo para poder <?= $esVenta ? 'venderlos' : 'cotizarlos' ?>.</p>
                 <a class="btn btn--primario" href="/admin/productos/crear">Nuevo producto</a>
             </div>
         <?php else : foreach ($catalogo as $producto) :

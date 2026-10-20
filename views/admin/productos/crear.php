@@ -40,7 +40,15 @@ if ($esEnvio) {
         }
     }
 
+    $existenciaInicial = (int) ($_POST['existencia_inicial'] ?? 0);
+    if ($existenciaInicial < 0) {
+        $errores[] = 'La existencia inicial no puede ser negativa.';
+    }
+
     if (empty($errores) && $producto->crear()) {
+        if ($existenciaInicial > 0) {
+            \App\Inventario::ajustar((int) $producto->id, $existenciaInicial, (int) ($_SESSION['id'] ?? 0), 'Existencia inicial al crear el producto');
+        }
         redirigir('/admin/productos', 'exito', 'Producto creado correctamente.');
     }
 
@@ -79,6 +87,7 @@ template('header', [
             'producto' => $producto,
             'errores'  => $errores,
             'empresas' => $empresas,
+            'pedirExistencia' => true,
         ]); ?>
     </form>
 </section>

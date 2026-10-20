@@ -6,6 +6,10 @@
 @use '../base/variables' as *;
 @use '../base/mixins' as *;
 
+.campo[hidden] {
+  display: none;
+}
+
 .campo {
   display: flex;
   flex-direction: column;
@@ -42,7 +46,7 @@
 
       &:focus {
         outline-color: $color-error;
-        box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.18);
+        box-shadow: 0 0 0 2px $color-foco;
       }
     }
   }
@@ -74,7 +78,7 @@
   &:focus {
     border-color: $color-primario;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(90, 146, 195, 0.2);
+    box-shadow: 0 0 0 2px $color-foco;
   }
 
   &:disabled,
@@ -99,7 +103,7 @@ textarea.control {
 select.control {
   appearance: none;
   padding-right: 2rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364646a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a919c' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.5rem center;
 }
@@ -260,8 +264,8 @@ select.control {
   display: inline-block;
   width: 1rem;
   height: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: $color-texto-invertido;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
   border-radius: $radio-full;
   animation: girar 700ms linear infinite;
 }

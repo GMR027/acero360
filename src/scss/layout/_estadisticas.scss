@@ -7,101 +7,106 @@
 .grafica {
   position: relative;
   margin: 0;
-  padding: $espacio-md;
-  background-color: $color-superficie;
-  border: 1px solid $color-borde-fuerte;
-  border-radius: $radio-lg;
+  min-height: 12rem;
 
-  &__svg {
-    display: block;
+  &__lienzo {
     width: 100%;
-    height: auto;
+    height: 24rem;
+
+    @media (max-width: 640px) { height: 19rem; }
+
+    &--h { height: auto; }
   }
 
-  &__rejilla {
-    stroke: $color-borde;
-    stroke-width: 1;
-    stroke-dasharray: 3 4;
+  &__aviso {
+    margin: 0;
+    padding: $espacio-lg;
+    color: $color-texto-secundario;
+    font-size: $fuente-sm;
+    text-align: center;
+  }
+}
+
+.grafica-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-sm;
+  min-width: 0;
+  padding: $espacio-md $espacio-md $espacio-sm;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  box-shadow: 0 1px 2px rgba(31, 42, 55, 0.04), 0 6px 18px rgba(31, 42, 55, 0.05);
+
+  &__titulo {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: $color-texto;
   }
 
-  &__base {
-    stroke: $color-borde-fuerte;
-    stroke-width: 1.5;
+  &__subtitulo {
+    margin: 0.15rem 0 0;
+    font-size: $fuente-sm;
+    color: $color-texto-secundario;
   }
+}
 
-  &__texto--valor {
-    fill: $color-texto;
-    font-size: 12px;
+/* Globo de las gráficas (se crea dentro del lienzo de ECharts) */
+.globo {
+  min-width: 13rem;
+  max-width: 20rem;
+  padding: 0.7rem 0.85rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: $color-texto;
+
+  &__titulo {
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid $color-borde;
     font-weight: 700;
   }
 
-  &__texto--etiqueta {
-    fill: $color-texto;
-    font-size: 12px;
-  }
+  &__fila {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
 
-  &__barra {
-    animation: grafica-crece 0.5s ease-out both;
-    transition: filter 0.15s;
+    &--total {
+      margin-top: 0.45rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid $color-borde;
+    }
   }
 
   &__marca {
-    cursor: pointer;
-    transition: r 0.15s;
+    flex: none;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 3px;
   }
 
-  &__marca--activa {
-    filter: brightness(1.12) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
-  }
+  &__nombre { flex: 1; color: $color-texto-secundario; }
 
-  &__globo {
-    position: absolute;
-    z-index: 5;
-    padding: 0.35rem 0.6rem;
-    border-radius: 0.4rem;
-    background: #1f2a37;
-    color: #fff;
-    font-size: $fuente-sm;
-    white-space: nowrap;
-    pointer-events: none;
+  &__cifra { font-variant-numeric: tabular-nums; }
 
-    &[hidden] { display: none; }
-  }
+  &__variacion {
+    margin: 0.05rem 0 0 1.1rem;
+    font-size: 0.75rem;
+    color: $color-texto-secundario;
 
-  &__texto {
-    fill: $color-texto-secundario;
-    font-size: 12px;
-  }
-
-  &__leyenda {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $espacio-md;
-    margin: $espacio-sm 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: $fuente-sm;
-  }
-
-  &__leyenda li {
-    display: inline-flex;
-    align-items: center;
-    gap: $espacio-xs;
-  }
-
-  &__muestra {
-    display: inline-block;
-    width: 0.75rem;
-    height: 0.75rem;
-    border-radius: 2px;
+    &--sube { color: $color-sube; font-weight: 600; }
+    &--baja { color: $color-baja; font-weight: 600; }
   }
 }
 
 .variacion {
   font-weight: 700;
 
-  &--sube { color: #2e7d32; }
-  &--baja { color: #b3261e; }
+  &--sube { color: $color-sube; }
+  &--baja { color: $color-baja; }
 }
 
 .estadisticas-rejilla {
@@ -113,13 +118,61 @@
   &__ancho { grid-column: 1 / -1; }
 }
 
-@keyframes grafica-crece {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
+/* Indicadores del periodo */
+.indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: $espacio-md;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-left: 4px solid var(--indicador, #{$color-primario});
+  border-radius: $radio-lg;
+  box-shadow: 0 1px 2px rgba(31, 42, 55, 0.04);
+
+  &__etiqueta { font-size: $fuente-sm; font-weight: 600; color: $color-texto-secundario; }
+
+  &__valor {
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__pie { font-size: $fuente-sm; color: $color-texto-secundario; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .grafica__barra { animation: none; }
+.cambio {
+  align-self: flex-start;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: $color-superficie-baja;
+  font-size: 0.8125rem;
+  font-weight: 700;
+
+  &--bien { background: $color-exito-claro; color: $color-exito-texto; }
+  &--mal { background: $color-error-claro; color: $color-error-texto; }
+}
+
+/* Navegación entre secciones de estadísticas */
+.estadisticas-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: $espacio-sm;
+  margin: 0 0 $espacio-lg;
+  padding: $espacio-sm 0;
+  overflow-x: auto;
+  background: $color-fondo;
+  scrollbar-width: thin;
+
+  .chip { flex: none; }
+}
+
+.estadisticas-seccion {
+  margin-bottom: $espacio-xl;
+  scroll-margin-top: 4rem;
 }
 
 /* Resumen de la página de estadísticas */

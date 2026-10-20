@@ -17,11 +17,16 @@ if (!$ventas) {
 $grupos     = \App\Entregas::productosAgrupados($ventas);
 $pendientes = array_sum(array_column($ventas, 'pendientes'));
 
+$consulta = http_build_query(['ventas' => array_map('intval', array_column($ventas, 'id'))]);
+$exportar = '<a class="btn btn--secundario" href="/admin/entregas/imprimir?tipo=preparacion&' . $consulta . '" target="_blank" rel="noopener">Imprimir</a>'
+    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?tipo=preparacion&' . $consulta . '" target="_blank" rel="noopener">Preparación (PDF)</a>'
+    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?tipo=entrega&' . $consulta . '" target="_blank" rel="noopener">Entrega (PDF)</a>';
+
 template('header', [
     'titulo'     => 'Pedidos seleccionados',
     'subtitulo'  => count($ventas) . ' pedido(s) · ' . $pendientes . ' pieza(s) por entregar',
     'rutaActiva' => '/admin/entregas',
-    'acciones'   => '<a class="btn btn--secundario" href="/admin/entregas">Volver a elegir</a>',
+    'acciones'   => '<a class="btn btn--secundario" href="/admin/entregas">Volver a elegir</a>' . $exportar,
 ]);
 template('vistaPreparacion', ['grupos' => $grupos, 'ventas' => $ventas, 'prepId' => 0]);
 ?>

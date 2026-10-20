@@ -30,6 +30,10 @@ class Gastos
         'servicio' => 'Servicio', 'activo' => 'Activo / equipo', 'impuesto' => 'Impuestos y derechos', 'otro' => 'Otro',
     ];
 
+    public const BENEFICIARIOS = [
+        'proveedor' => 'Proveedor', 'estacion' => 'Estación de servicio', 'otro' => 'Otro',
+    ];
+
     public const REVISION = [
         'por_validar'  => ['etiqueta' => 'Por validar', 'clase' => 'badge--pendiente'],
         'validado'     => ['etiqueta' => 'Validado',    'clase' => 'badge--aprobado'],
@@ -59,6 +63,37 @@ class Gastos
             'iva'      => number_format($iva / 100, 2, '.', ''),
             'total'    => number_format(($base + $iva) / 100, 2, '.', ''),
         ];
+    }
+
+    /**
+     * Situación documental de la factura de un gasto. Distingue lo que la persona INDICÓ de lo que hay ADJUNTO:
+     * solo un XML con estructura de CFDI y UUID cuenta como «CFDI leído»; una foto o PDF suelto es solo un adjunto.
+     *
+     * @return array{clave: string, etiqueta: string, clase: string, detalle: string}
+     */
+    public static function estadoFactura(array $gasto): array
+    {
+        $docs = Archivos::deOperacion('gasto', (int) $gasto['id'], false);
+        $cfdi = array_filter($docs, static fn ($d) => $d['estado_validacion'] === 'cfdi_con_timbre');
+        $xmlDudoso = array_filter($docs, static fn ($d) => in_array($d['estado_validacion'], ['cfdi_sin_timbre', 'xml_no_cfdi'], true));
+        $hayAdjuntos = count($docs) > 0;
+        $conFactura = (int) $gasto['comprobante_fiscal'] === 1;
+
+        if (!$conFactura) {
+            return ['clave' => 'sin_factura', 'etiqueta' => 'Sin factura', 'clase' => 'badge--neutro',
+                'detalle' => $hayAdjuntos ? 'Hay un comprobante adjunto, pero no es una factura: no vuelve deducible el gasto.' : 'No se recibió factura; no se resta de impuestos.'];
+        }
+        if ($cfdi) {
+            return ['clave' => 'cfdi_leido', 'etiqueta' => 'CFDI adjunto (sin verificar ante el SAT)', 'clase' => 'badge--aprobado',
+                'detalle' => 'El XML tiene estructura de CFDI y UUID. Aún no se verifica ante el SAT.'];
+        }
+        if ($xmlDudoso) {
+            return ['clave' => 'cfdi_dudoso', 'etiqueta' => 'XML adjunto incompleto', 'clase' => 'badge--pendiente',
+                'detalle' => 'El XML adjunto no es un CFDI completo; sube el XML correcto.'];
+        }
+
+        return ['clave' => 'factura_pendiente', 'etiqueta' => $hayAdjuntos ? 'Con factura: solo PDF o imagen adjunta' : 'Con factura: falta adjuntarla',
+            'clase' => 'badge--pendiente', 'detalle' => 'Marcado «con factura», pero no hay un XML de CFDI que lo respalde. Un PDF o una foto no basta para validarla.'];
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -340,17 +375,36 @@ class Gastos
             $errores[] = 'La fecha del gasto no es válida.';
         }
 
-        $proveedorId = (int) ($d['proveedor_id'] ?? 0) ?: null;
-        $beneficiario = trim((string) ($d['beneficiario'] ?? ''));
-        if ($proveedorId && $beneficiario === '') {
-            $consulta = self::$db->prepare('SELECT nombre FROM proveedores WHERE id = ?');
-            $consulta->bind_param('i', $proveedorId);
-            $consulta->execute();
-            $beneficiario = (string) ($consulta->get_result()->fetch_assoc()['nombre'] ?? '');
-            $consulta->close();
+        // «Pagado a»: solo un Proveedor exige elegir del directorio; estación u otro llevan una descripción libre.
+        $tipoBen = (string) ($d['beneficiario_tipo'] ?? '');
+        if ($tipoBen === '') {
+            $tipoBen = !empty($d['proveedor_id']) ? 'proveedor' : (string) ($previo['beneficiario_tipo'] ?? 'otro');
         }
-        if ($beneficiario === '') {
-            $errores[] = 'Escribe a quién le compraste o pagaste.';
+        if (!isset(self::BENEFICIARIOS[$tipoBen])) {
+            $errores[] = 'Elige a quién se le pagó: proveedor, estación de servicio u otro.';
+            $tipoBen = 'otro';
+        }
+        $proveedorId = $tipoBen === 'proveedor' ? ((int) ($d['proveedor_id'] ?? 0) ?: null) : null;
+        $beneficiario = trim((string) ($d['beneficiario'] ?? ''));
+        if ($tipoBen === 'proveedor') {
+            if (!$proveedorId) {
+                $errores[] = 'Elige el proveedor de la lista (o cambia «Pagado a» a Otro).';
+            } else {
+                $consulta = self::$db->prepare('SELECT nombre FROM proveedores WHERE id = ?');
+                $consulta->bind_param('i', $proveedorId);
+                $consulta->execute();
+                $nombreProveedor = $consulta->get_result()->fetch_assoc()['nombre'] ?? null;
+                $consulta->close();
+                if ($nombreProveedor === null) {
+                    $errores[] = 'El proveedor elegido ya no existe.';
+                } elseif ($beneficiario === '' || (int) ($previo['proveedor_id'] ?? 0) !== $proveedorId) {
+                    $beneficiario = (string) $nombreProveedor;
+                }
+            }
+        } elseif ($beneficiario === '' && $tipoBen === 'estacion') {
+            $beneficiario = self::BENEFICIARIOS['estacion'];
+        } elseif ($beneficiario === '') {
+            $errores[] = 'Describe a quién se le pagó.';
         }
         if (trim((string) ($d['concepto'] ?? '')) === '') {
             $errores[] = 'Escribe en qué fue el gasto.';
@@ -419,11 +473,22 @@ class Gastos
             $consulta->close();
         }
 
+        // «¿Hay factura?»: respuesta explícita. Vacío = sin responder (error); ausente en un llamado programático = se conserva.
+        if (array_key_exists('comprobante_fiscal', $d)) {
+            $factura = (string) $d['comprobante_fiscal'];
+            if (!in_array($factura, ['0', '1'], true)) {
+                $errores[] = 'Indica si el gasto tiene factura (CFDI) o no.';
+                $factura = '0';
+            }
+        } else {
+            $factura = (string) ($previo['comprobante_fiscal'] ?? '0');
+        }
+
         $revision = (string) ($d['revision_fiscal'] ?? ($previo['revision_fiscal'] ?? 'por_validar'));
         $revision = isset(self::REVISION[$revision]) ? $revision : 'por_validar';
 
         return [$errores, [
-            'fecha' => $fecha, 'proveedor_id' => $proveedorId, 'beneficiario' => $beneficiario,
+            'fecha' => $fecha, 'proveedor_id' => $proveedorId, 'beneficiario_tipo' => $tipoBen, 'beneficiario' => $beneficiario,
             'concepto' => trim((string) ($d['concepto'] ?? '')),
             'categoria_id' => (int) ($d['categoria_id'] ?? 0) ?: null, 'naturaleza' => $naturaleza,
             'empresa_id' => $empresaId, 'compartido' => $compartido, 'reparto' => $reparto,
@@ -431,9 +496,17 @@ class Gastos
             'iva' => $importes['iva'], 'total' => $importes['total'],
             'estado_pago' => $pago, 'fecha_pago' => $fechaPago ?: null,
             'metodo_pago' => trim((string) ($d['metodo_pago'] ?? '')) ?: null,
-            'comprobante_fiscal' => !empty($d['comprobante_fiscal']) ? 1 : 0,
+            'comprobante_fiscal' => (int) $factura,
             'uuid_fiscal' => $uuid ?: null, 'revision_fiscal' => $revision,
             'observaciones' => trim((string) ($d['observaciones'] ?? '')) ?: null,
+            // Datos de la factura (lectura documental). El folio comercial NO es el UUID.
+            'folio_comercial' => mb_substr(trim((string) ($d['folio_comercial'] ?? '')), 0, 40) ?: null,
+            'moneda' => preg_match('/^[A-Z]{3}$/', strtoupper(trim((string) ($d['moneda'] ?? '')))) ? strtoupper(trim((string) $d['moneda'])) : 'MXN',
+            'forma_pago_sat' => mb_substr(trim((string) ($d['forma_pago_sat'] ?? '')), 0, 3) ?: null,
+            'metodo_pago_sat' => in_array(strtoupper(trim((string) ($d['metodo_pago_sat'] ?? ''))), ['PUE', 'PPD'], true) ? strtoupper(trim((string) $d['metodo_pago_sat'])) : null,
+            'rfc_emisor' => strtoupper(mb_substr(trim((string) ($d['rfc_emisor'] ?? '')), 0, 13)) ?: null,
+            'rfc_receptor' => strtoupper(mb_substr(trim((string) ($d['rfc_receptor'] ?? '')), 0, 13)) ?: null,
+            'lectura_id' => (int) ($d['lectura_id'] ?? 0) ?: null,
         ]];
     }
 
@@ -455,17 +528,19 @@ class Gastos
             self::$db->begin_transaction();
 
             $consulta = self::$db->prepare(
-                'INSERT INTO gastos (contribuyente_id, fecha, proveedor_id, beneficiario, concepto, categoria_id, naturaleza,
+                'INSERT INTO gastos (contribuyente_id, fecha, proveedor_id, beneficiario_tipo, beneficiario, concepto, categoria_id, naturaleza,
                         empresa_id, compartido, subtotal, iva_tasa, iva, total, estado_pago, fecha_pago, metodo_pago,
-                        comprobante_fiscal, uuid_fiscal, revision_fiscal, observaciones, usuario_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                        comprobante_fiscal, uuid_fiscal, revision_fiscal, observaciones, usuario_id,
+                        folio_comercial, moneda, forma_pago_sat, metodo_pago_sat, rfc_emisor, rfc_receptor, lectura_id)
+                 VALUES (' . implode(', ', array_fill(0, 29, '?')) . ')'
             );
             $consulta->bind_param(
-                'isissisiisssssssisssi',
-                $contribuyente, $g['fecha'], $g['proveedor_id'], $g['beneficiario'], $g['concepto'], $g['categoria_id'],
+                'isisssisiisssssssisssi' . 'ssssssi',
+                $contribuyente, $g['fecha'], $g['proveedor_id'], $g['beneficiario_tipo'], $g['beneficiario'], $g['concepto'], $g['categoria_id'],
                 $g['naturaleza'], $g['empresa_id'], $g['compartido'], $g['subtotal'], $g['iva_tasa'], $g['iva'], $g['total'],
                 $g['estado_pago'], $g['fecha_pago'], $g['metodo_pago'], $g['comprobante_fiscal'], $g['uuid_fiscal'],
-                $g['revision_fiscal'], $g['observaciones'], $usuarioId
+                $g['revision_fiscal'], $g['observaciones'], $usuarioId,
+                $g['folio_comercial'], $g['moneda'], $g['forma_pago_sat'], $g['metodo_pago_sat'], $g['rfc_emisor'], $g['rfc_receptor'], $g['lectura_id']
             );
             $consulta->execute();
             $id = (int) self::$db->insert_id;
@@ -515,14 +590,14 @@ class Gastos
             self::$db->begin_transaction();
 
             $consulta = self::$db->prepare(
-                'UPDATE gastos SET fecha = ?, proveedor_id = ?, beneficiario = ?, concepto = ?, categoria_id = ?, naturaleza = ?,
+                'UPDATE gastos SET fecha = ?, proveedor_id = ?, beneficiario_tipo = ?, beneficiario = ?, concepto = ?, categoria_id = ?, naturaleza = ?,
                         empresa_id = ?, compartido = ?, subtotal = ?, iva_tasa = ?, iva = ?, total = ?, estado_pago = ?,
                         fecha_pago = ?, metodo_pago = ?, comprobante_fiscal = ?, uuid_fiscal = ?, revision_fiscal = ?,
                         observaciones = ? WHERE id = ?'
             );
             $consulta->bind_param(
-                'sissisiisssssssisssi',
-                $g['fecha'], $g['proveedor_id'], $g['beneficiario'], $g['concepto'], $g['categoria_id'], $g['naturaleza'],
+                'sisssisiisssssssisssi',
+                $g['fecha'], $g['proveedor_id'], $g['beneficiario_tipo'], $g['beneficiario'], $g['concepto'], $g['categoria_id'], $g['naturaleza'],
                 $g['empresa_id'], $g['compartido'], $g['subtotal'], $g['iva_tasa'], $g['iva'], $g['total'],
                 $g['estado_pago'], $g['fecha_pago'], $g['metodo_pago'], $g['comprobante_fiscal'], $g['uuid_fiscal'],
                 $g['revision_fiscal'], $g['observaciones'], $id

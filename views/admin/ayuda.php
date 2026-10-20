@@ -11,10 +11,10 @@ template('header', ['titulo' => 'Ayuda', 'subtitulo' => 'Manual de usuario: cóm
 template('tabsAjustes', ['tab' => 'ayuda']);
 ?>
 
-<nav class="chip-grupo mb-lg" aria-label="Temas del manual">
+<nav class="chip-grupo chip-grupo--envuelto mb-lg" aria-label="Temas del manual">
     <?php foreach ($secciones as $s) : ?>
         <a class="chip" href="#<?= escaparValores($s['id']) ?>">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem"><?= escaparValores($s['icono']) ?></span>
+            <span class="material-symbols-outlined" aria-hidden="true"><?= escaparValores($s['icono']) ?></span>
             <span><?= escaparValores($s['titulo']) ?></span></a>
     <?php endforeach; ?>
 </nav>

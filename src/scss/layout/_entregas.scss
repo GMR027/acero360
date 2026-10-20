@@ -34,6 +34,10 @@
     background-color: $color-superficie-baja;
   }
 
+  &__texto {
+    display: contents;
+  }
+
   &__sku {
     font-size: $fuente-sm;
     font-weight: 700;
@@ -71,13 +75,54 @@
 }
 
 .entregas-seleccion {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: $color-primario;
+  cursor: pointer;
 }
 
 .entrega-cliente {
   margin-bottom: $espacio-lg;
+}
+
+/* Celular: cada producto es una fila horizontal (imagen a la izquierda, datos a la derecha). */
+@include hasta-movil {
+  .entregas-rejilla {
+    grid-template-columns: 1fr;
+    gap: $espacio-sm;
+  }
+
+  .producto-grupo {
+    display: grid;
+    grid-template-columns: 5rem 1fr auto;
+    grid-template-areas:
+      'img info cant'
+      'orig orig orig';
+    align-items: center;
+    column-gap: $espacio-md;
+    padding: $espacio-sm;
+
+    &__imagen {
+      grid-area: img;
+      width: 5rem;
+    }
+
+    &__texto {
+      grid-area: info;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    &__cantidad {
+      grid-area: cant;
+      font-size: 1.5rem;
+      text-align: right;
+    }
+
+    &__origenes {
+      grid-area: orig;
+      padding-top: $espacio-xs;
+    }
+  }
 }

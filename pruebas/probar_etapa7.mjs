@@ -46,10 +46,13 @@ try {
   let t = await texto();
   verifica('importes de ambos años: $2,436.00 y $1,508.00', t.includes('$2,436.00') && t.includes('$1,508.00'));
   verifica('variación absoluta +$928.00 y +61.54 %', t.includes('+$928.00') && t.includes('+61.54 %'));
-  verifica('separa ventas realizadas, facturadas y cobros', /vendiste/i.test(t) && /cobraste/i.test(t) && /facturaste/i.test(t));
+  verifica('separa ventas realizadas, facturadas y cobros', /ventas realizadas/i.test(t) && /cobros recibidos/i.test(t) && /ventas facturadas/i.test(t));
   verifica('explica por qué no son lo mismo', t.includes('se vende el día que la haces'));
-  verifica('hay cuatro gráficas SVG con datos y valores accesibles', (await pagina.locator('svg.grafica__svg').count()) === 4 && (await pagina.locator('svg.grafica__svg title').count()) > 0);
-  verifica('la comparación entre años tiene leyenda con ventas y cobros', (await pagina.locator('.grafica__leyenda li').count()) === 2);
+  await pagina.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 500) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 120)); } });
+  await pagina.waitForTimeout(800);
+  verifica('hay al menos 9 gráficas ECharts dibujadas (canvas) con tablas de respaldo', (await pagina.locator('[data-grafica]').count()) >= 9 && (await pagina.locator('[data-grafica] canvas').count()) >= 9);
+  const vc = JSON.parse(await pagina.locator('#g-ventas-vs-cobros [data-grafica]').getAttribute('data-grafica'));
+  verifica('ventas y cobros van en series distintas', vc.series.length === 2 && /ventas/i.test(vc.series[0].nombre) && /cobros/i.test(vc.series[1].nombre));
   verifica('productos más vendidos: RA-3 con 3 piezas', (await pagina.locator('table:has(caption:text("Productos más vendidos")) tbody tr').first().innerText()).includes('RA-3'));
   verifica('clientes con mayor volumen listados', (await pagina.locator('table:has(caption:text("Clientes con mayor volumen")) tbody tr').count()) >= 1);
   verifica('matriz de productos por varios años', (await pagina.locator('table:has(caption:text("varios años")) tbody tr').count()) >= 1);
@@ -59,7 +62,7 @@ try {
   await pagina.selectOption('#empresa', '2');
   await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
-  verifica('solo el negocio 2: aparece $348.00 y desaparece $2,436.00', t.includes('$348.00') && !t.includes('$2,436.00'));
+  verifica('solo el negocio 2: el indicador de ventas de 2026 queda en $0.00 y el año anterior muestra $348.00', (await pagina.locator('.indicador__valor').first().innerText()) === '$0.00' && t.includes('$348.00'));
   await abrirTodo();
   await pagina.selectOption('#empresa', '0');
   await pagina.selectOption('#base', 'subtotal');
@@ -82,10 +85,10 @@ try {
   verifica('un mes futuro se indica como futuro', (await texto()).includes('Periodo futuro'));
 
   console.log('Agrupaciones y comparaciones');
-  for (const [agr, esperado] of [['dia', '2026-01-05'], ['mes', '2026-01'], ['trimestre', '2026-T1'], ['semestre', '2026-S1'], ['anio', '2026']]) {
+  for (const [agr, esperado] of [['dia', '2026-01-05'], ['mes', 'Ene'], ['trimestre', 'T1'], ['semestre', 'S1'], ['anio', '2026']]) {
     await pagina.goto(`${BASE}/admin/estadisticas?tipo=mes&indice=1&anio=2026&atras=1&agrupacion=${agr}`);
     const datos = await pagina.locator('figure[data-grafica]').nth(0).getAttribute('data-grafica');
-    verifica(`serie por ${agr}`, JSON.parse(datos).etiquetas.includes(esperado), datos.slice(0, 120));
+    verifica(`serie por ${agr}`, JSON.parse(datos).categorias.includes(esperado), datos.slice(0, 120));
   }
   for (const [tipo, indice] of [['trimestre', 1], ['semestre', 1], ['anio', 1]]) {
     await pagina.goto(`${BASE}/admin/estadisticas?tipo=${tipo}&indice=${indice}&anio=2026&atras=1`);
@@ -123,7 +126,7 @@ try {
   await navegador.close();
   sql(`DELETE FROM usuarios WHERE email='${EMAIL}'`);
   for (const t of ['cobros', 'ingresos']) { sql(`DELETE FROM ${t}`); }
-  sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
+  sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL'); sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }
 console.log(`\nResultado: ${ok} correctas · ${mal} fallos`);
 process.exit(mal ? 1 : 0);

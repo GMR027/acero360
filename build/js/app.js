@@ -61,6 +61,28 @@ function cerrarSidebar() {
   document.body.style.overflow = '';
 }
 
+/** Abre o cierra la hoja "Nueva venta / Nueva cotización" de la barra inferior. */
+function alternarHojaNuevo(forzarAbierta) {
+  const hoja = document.getElementById('hoja-nuevo');
+  const fondo = document.getElementById('fondo-nuevo');
+  const disparador = document.getElementById('boton-nuevo');
+
+  if (!hoja) {
+    return;
+  }
+
+  const abrir = typeof forzarAbierta === 'boolean' ? forzarAbierta : hoja.hidden;
+  hoja.hidden = !abrir;
+
+  if (fondo) {
+    fondo.hidden = !abrir;
+  }
+
+  if (disparador) {
+    disparador.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  }
+}
+
 /**
  * Intercepta el envío de los formularios marcados con data-validar:
  * valida en cliente y, sólo si todo está correcto, permite el envío.
@@ -93,6 +115,17 @@ function manejarEnvioFormulario(evento) {
         formulario.submit(); // submit() nativo: no vuelve a disparar el evento.
       },
     });
+    return;
+  }
+
+  // Sin confirmación: se deja que el navegador envíe y, después, se bloquea el
+  // botón (si se hiciera antes se perdería su name/value) para evitar el doble envío.
+  if (formulario.method.toLowerCase() === 'post') {
+    setTimeout(function () {
+      if (!evento.defaultPrevented) {
+        bloquearEnvio(formulario);
+      }
+    }, 0);
   }
 }
 
@@ -111,6 +144,27 @@ function inicializarAplicacion() {
       alternarSidebar();
     });
   }
+
+  const botonNuevo = document.getElementById('boton-nuevo');
+  if (botonNuevo) {
+    botonNuevo.addEventListener('click', function (evento) {
+      evento.preventDefault();
+      alternarHojaNuevo();
+    });
+  }
+
+  const fondoNuevo = document.getElementById('fondo-nuevo');
+  if (fondoNuevo) {
+    fondoNuevo.addEventListener('click', function () {
+      alternarHojaNuevo(false);
+    });
+  }
+
+  document.addEventListener('keydown', function (evento) {
+    if (evento.key === 'Escape') {
+      alternarHojaNuevo(false);
+    }
+  });
 
   const fondoSidebar = document.getElementById('fondo-sidebar');
   if (fondoSidebar) {
@@ -140,6 +194,18 @@ function inicializarAplicacion() {
 
   // 4. Envío de formularios: validación y prevención del comportamiento por defecto.
   document.addEventListener('submit', manejarEnvioFormulario);
+
+  // Al volver con «Atrás» (caché del navegador) los botones no deben quedar bloqueados.
+  window.addEventListener('pageshow', function (evento) {
+    if (!evento.persisted) {
+      return;
+    }
+    document.querySelectorAll('button[data-texto-original]').forEach(function (boton) {
+      boton.textContent = boton.getAttribute('data-texto-original');
+      boton.removeAttribute('data-texto-original');
+      boton.disabled = false;
+    });
+  });
 
   // 5. Carga de imágenes con vista previa.
   const camposImagen = document.querySelectorAll('input[type="file"][data-preview]');
@@ -172,6 +238,9 @@ function inicializarAplicacion() {
     filtroAnio.addEventListener('change', sincronizarPeriodo);
     sincronizarPeriodo();
   }
+
+  // 8. Miniaturas de producto: alternativa si falla la carga y ampliación.
+  inicializarMiniaturasProducto();
 
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
@@ -378,8 +447,6 @@ const AYUDAS_POR_RUTA = {
   '/admin/contabilidad/cierre': 'Revisa el mes y ciérralo para que nadie lo cambie sin querer.',
   '/admin/contabilidad/periodos': 'Meses ya cerrados y su resumen.',
   '/admin/fiscal': 'Cuánto separar para impuestos este mes (cálculo aproximado, informativo).',
-  '/admin/fiscal/registros': 'Anota lo que ya pagaste al SAT y retenciones para que el cálculo sea más cercano.',
-  '/admin/fiscal/catalogo': 'Las tarifas y reglas del SAT que usa el cálculo.',
   '/admin/fiscal/configuracion': 'Tus datos fiscales: tipo de persona y régimen.',
   '/admin/estadisticas': 'Gráficas de ventas, ganancias y productos más vendidos.',
   '/admin/inventario': 'Existencias de cada producto y sus movimientos.',
@@ -842,12 +909,13 @@ function filaCotizador(linea, indice) {
 
   // 1. Número de renglón.
   const celdaIndice = document.createElement('td');
-  celdaIndice.className = 'tabla--numerica cifra';
+  celdaIndice.className = 'tabla--numerica cifra cotizador-celda-indice';
   celdaIndice.textContent = String(indice + 1);
   fila.appendChild(celdaIndice);
 
   // 2. Producto con su imagen.
   const celdaProducto = document.createElement('td');
+  celdaProducto.className = 'cotizador-celda-producto';
   const envoltorio = nodoCotizador('div', 'tabla__producto');
 
   const rutaMiniatura = miniaturaCotizador(linea.imagen);
@@ -872,15 +940,13 @@ function filaCotizador(linea, indice) {
   textos.appendChild(nodoCotizador('span', '', linea.nombre));
 
   const detalle = nodoCotizador('span', 'texto-secundario');
-  const partes = [];
   if (linea.sku) {
-    partes.push(linea.sku);
+    detalle.appendChild(nodoCotizador('span', 'tabla__codigo', linea.sku));
   }
   if (linea.categoria) {
-    partes.push(linea.categoria);
+    detalle.appendChild(document.createTextNode((linea.sku ? ' · ' : '') + linea.categoria));
   }
-  if (partes.length > 0) {
-    detalle.textContent = partes.join(' · ');
+  if (linea.sku || linea.categoria) {
     textos.appendChild(detalle);
   }
 
@@ -896,7 +962,7 @@ function filaCotizador(linea, indice) {
 
   // 3. Precio de lista (sólo lectura: es el precio fijo del catálogo).
   const celdaLista = document.createElement('td');
-  celdaLista.className = 'tabla--numerica cifra';
+  celdaLista.className = 'tabla--numerica cifra cotizador-celda-lista';
   celdaLista.textContent = monedaCotizador(linea.precio_lista);
   fila.appendChild(celdaLista);
 
@@ -968,14 +1034,14 @@ function filaCotizador(linea, indice) {
 
   // 7. Importe del renglón.
   const celdaTotal = document.createElement('td');
-  celdaTotal.className = 'tabla--numerica cifra';
+  celdaTotal.className = 'tabla--numerica cifra cotizador-celda-total';
   celdaTotal.setAttribute('data-fila-total', String(linea.id));
   celdaTotal.textContent = monedaCotizador(totalLineaCotizador(linea));
   fila.appendChild(celdaTotal);
 
   // 8. Eliminar renglón.
   const celdaAccion = document.createElement('td');
-  celdaAccion.className = 'tabla--centro';
+  celdaAccion.className = 'tabla--centro cotizador-celda-accion';
 
   const botonQuitar = document.createElement('button');
   botonQuitar.type = 'button';
@@ -1627,245 +1693,416 @@ function prepararCargaImagen(input, contenedor) {
 }
 
 /**
- * graficas.js — gráficas SVG sin librerías ni innerHTML.
+ * graficas.js — gráficas de Estadísticas con Apache ECharts.
  *
- * Cada <figure data-grafica> trae sus datos en JSON:
- *   { "tipo": "barras" | "linea" | "barras-h",
- *     "etiquetas": [...], "series": [{ "nombre": "...", "valores": [...] }],
- *     "formato": "moneda" | "entero", "destacar": "ultimo" }
- *   - barras:   columnas con el valor encima; con "destacar":"ultimo" el último periodo resalta y los demás se atenúan.
- *   - linea:    línea con área suave; los puntos muestran su valor al pasar el cursor.
- *   - barras-h: barras horizontales para rankings (productos, clientes).
- * La misma información está SIEMPRE en una tabla en la página (accesibilidad) y cada marca trae <title>.
+ * Cada <figure data-grafica> trae su especificación en JSON (la misma que usan el PDF y el Excel):
+ *   { "tipo": "barras" | "apilado" | "linea" | "barras-h", "formato": "moneda" | "entero",
+ *     "categorias": [...], "series": [{ "nombre", "datos": [...], "color" }],
+ *     "resaltar": [mesInicio, mesFin], "comparaSeries": true, "acumulado": true }
+ *   - comparaSeries: las series son periodos consecutivos (años); el globo muestra la variación
+ *     porcentual de cada serie contra la anterior.
+ *   - resaltar: franja con el periodo elegido en los filtros.
+ * La biblioteca (build/js/echarts.min.js) solo se carga en la página de estadísticas; si no está,
+ * las tablas de la página traen los mismos datos.
+ * Los colores de texto y rejilla salen de las variables CSS del tema y se repintan con «tema:cambio».
+ * El globo se arma con nodos del DOM (nunca con texto del servidor como HTML).
  */
-const PALETA_GRAFICAS = ['#2f6f9f', '#e08a2e', '#4f9a5b', '#8a6bbd', '#9aa5ad'];
-const SVG_NS = 'http://www.w3.org/2000/svg';
+const GRAFICAS_FUENTE = 'Inter, "Segoe UI", Roboto, Arial, sans-serif';
+const graficasVivas = [];
 
-function nodoSvg(nombre, atributos, texto) {
-  const nodo = document.createElementNS(SVG_NS, nombre);
-  Object.keys(atributos || {}).forEach(function (clave) {
-    nodo.setAttribute(clave, String(atributos[clave]));
-  });
-  if (texto !== undefined) {
-    nodo.textContent = texto;
-  }
-  return nodo;
+function graficasColorCss(nombre, respaldo) {
+  const valor = getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+  return valor || respaldo;
 }
 
-function formatoValor(valor, formato) {
-  if (formato === 'entero') {
-    return new Intl.NumberFormat('es-MX').format(valor);
-  }
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(valor);
+function graficasTema() {
+  return {
+    texto: graficasColorCss('--color-texto', '#4d4c53'),
+    suave: graficasColorCss('--color-texto-secundario', '#64646a'),
+    borde: graficasColorCss('--color-borde', '#e4e6ea'),
+    bordeFuerte: graficasColorCss('--color-borde-fuerte', '#c9cdd4'),
+    superficie: graficasColorCss('--color-superficie', '#ffffff'),
+    oscuro: typeof temaEfectivo === 'function' && temaEfectivo() === 'oscuro',
+  };
 }
 
-function formatoCorto(valor, formato) {
+/** En tema oscuro aclara un color #rrggbb para que no se pierda sobre el fondo. */
+function graficasColor(color, tema) {
+  if (!tema.oscuro || !/^#[0-9a-f]{6}$/i.test(color)) {
+    return color;
+  }
+  const mezcla = function (i) {
+    const canal = parseInt(color.slice(i, i + 2), 16);
+    return Math.round(canal + (255 - canal) * 0.28).toString(16).padStart(2, '0');
+  };
+  return '#' + mezcla(1) + mezcla(3) + mezcla(5);
+}
+
+function graficasMoneda(valor, decimales) {
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: decimales, maximumFractionDigits: decimales }).format(valor);
+}
+
+function graficasValor(valor, formato) {
+  if (valor === null || valor === undefined || Number.isNaN(Number(valor))) {
+    return '—';
+  }
+  return formato === 'entero' ? new Intl.NumberFormat('es-MX').format(valor) : graficasMoneda(valor, 2);
+}
+
+function graficasCorto(valor, formato) {
   const absoluto = Math.abs(valor);
   const prefijo = formato === 'moneda' ? '$' : '';
+  const compacto = function (n, sufijo) {
+    return prefijo + n.toFixed(1).replace(/\.0$/, '') + sufijo;
+  };
   if (absoluto >= 1000000) {
-    return prefijo + (valor / 1000000).toFixed(1).replace(/\.0$/, '') + ' M';
+    return compacto(valor / 1000000, ' M');
   }
   if (absoluto >= 1000) {
-    return prefijo + (valor / 1000).toFixed(1).replace(/\.0$/, '') + ' mil';
+    return compacto(valor / 1000, ' mil');
   }
   return prefijo + String(Math.round(valor));
 }
 
-/** Máximo "redondo" para el eje (1, 2, 5 × 10^n). */
-function maximoEje(valor) {
-  if (valor <= 0) {
-    return 1;
+function graficasVariacion(actual, previo) {
+  if (actual === null || actual === undefined || !previo || previo <= 0) {
+    return null;
   }
-  const exponente = Math.pow(10, Math.floor(Math.log10(valor)));
-  const fraccion = valor / exponente;
-  const paso = fraccion <= 1 ? 1 : fraccion <= 2 ? 2 : fraccion <= 5 ? 5 : 10;
-  return paso * exponente;
+  return ((actual - previo) * 100) / previo;
 }
 
-function recortar(texto, maximo) {
-  return texto.length > maximo ? texto.slice(0, maximo - 1) + '…' : texto;
-}
+/** Globo con jerarquía: periodo, una fila por serie (con variación) y total si es apilado. */
+function graficasGlobo(espec) {
+  const formato = espec.formato || 'moneda';
+  return function (parametros) {
+    const lista = Array.isArray(parametros) ? parametros : [parametros];
+    if (!lista.length) {
+      return '';
+    }
+    const caja = document.createElement('div');
+    caja.className = 'globo';
+    const titulo = document.createElement('div');
+    titulo.className = 'globo__titulo';
+    titulo.textContent = String(lista[0].name !== undefined && lista[0].name !== '' ? lista[0].name : lista[0].axisValueLabel);
+    caja.appendChild(titulo);
 
-/** Globo con el valor al pasar el cursor o enfocar una marca. */
-function globoDeFigura(figura) {
-  let globo = figura.querySelector('.grafica__globo');
-  if (!globo) {
-    globo = document.createElement('div');
-    globo.className = 'grafica__globo';
-    globo.hidden = true;
-    figura.appendChild(globo);
-  }
-  return globo;
-}
+    let total = 0;
+    lista.forEach(function (item) {
+      const valor = Array.isArray(item.value) ? item.value[1] : item.value;
+      if (valor !== null && valor !== undefined) {
+        total += Number(valor);
+      }
+      const fila = document.createElement('div');
+      fila.className = 'globo__fila';
+      const marca = document.createElement('span');
+      marca.className = 'globo__marca';
+      marca.style.backgroundColor = typeof item.color === 'string' ? item.color : espec.series[item.seriesIndex].color;
+      const nombre = document.createElement('span');
+      nombre.className = 'globo__nombre';
+      nombre.textContent = item.seriesName;
+      const cifra = document.createElement('strong');
+      cifra.className = 'globo__cifra';
+      cifra.textContent = graficasValor(valor, formato);
+      fila.append(marca, nombre, cifra);
+      caja.appendChild(fila);
 
-function conGlobo(figura, marca, texto) {
-  const globo = globoDeFigura(figura);
-  const mostrar = function () {
-    globo.textContent = texto;
-    globo.hidden = false;
-    const f = figura.getBoundingClientRect();
-    const m = marca.getBoundingClientRect();
-    const izquierda = Math.max(4, Math.min(m.left - f.left + m.width / 2 - globo.offsetWidth / 2, f.width - globo.offsetWidth - 4));
-    globo.style.left = izquierda + 'px';
-    globo.style.top = Math.max(0, m.top - f.top - globo.offsetHeight - 8) + 'px';
-    marca.classList.add('grafica__marca--activa');
+      if (espec.comparaSeries && item.seriesIndex > 0) {
+        const previa = espec.series[item.seriesIndex - 1];
+        const variacion = graficasVariacion(valor, previa ? previa.datos[item.dataIndex] : null);
+        const nota = document.createElement('div');
+        nota.className = 'globo__variacion';
+        if (variacion === null) {
+          nota.textContent = 'vs ' + previa.nombre + ': sin base de comparación';
+        } else {
+          const sube = variacion >= 0;
+          nota.classList.add(sube ? 'globo__variacion--sube' : 'globo__variacion--baja');
+          nota.textContent = (sube ? '▲ +' : '▼ ') + variacion.toFixed(1) + ' % vs ' + previa.nombre;
+        }
+        caja.appendChild(nota);
+      }
+    });
+
+    if (espec.tipo === 'apilado' && lista.length > 1) {
+      const fila = document.createElement('div');
+      fila.className = 'globo__fila globo__fila--total';
+      const nombre = document.createElement('span');
+      nombre.className = 'globo__nombre';
+      nombre.textContent = 'Total';
+      const cifra = document.createElement('strong');
+      cifra.className = 'globo__cifra';
+      cifra.textContent = graficasValor(total, formato);
+      fila.append(nombre, cifra);
+      caja.appendChild(fila);
+      lista.forEach(function (item) {
+        const valor = Array.isArray(item.value) ? item.value[1] : item.value;
+        if (total > 0 && valor > 0) {
+          const parte = document.createElement('div');
+          parte.className = 'globo__variacion';
+          parte.textContent = item.seriesName + ': ' + ((valor * 100) / total).toFixed(1) + ' % del total';
+          caja.appendChild(parte);
+        }
+      });
+    }
+
+    return caja;
   };
-  const ocultar = function () {
-    globo.hidden = true;
-    marca.classList.remove('grafica__marca--activa');
-  };
-  marca.addEventListener('mouseenter', mostrar);
-  marca.addEventListener('mouseleave', ocultar);
-  marca.addEventListener('focus', mostrar);
-  marca.addEventListener('blur', ocultar);
-  marca.setAttribute('tabindex', '0');
 }
 
-function dibujarHorizontal(figura, datos) {
-  const etiquetas = datos.etiquetas;
-  const valores = datos.series[0].valores;
-  const formato = datos.formato || 'moneda';
-  const filaAlto = 34;
-  const ancho = 560;
-  const margenIzq = 150;
-  const margenDer = 70;
-  const alto = etiquetas.length * filaAlto + 12;
-  const maximo = Math.max.apply(null, valores.concat([1]));
-  const svg = nodoSvg('svg', { viewBox: '0 0 ' + ancho + ' ' + alto, role: 'img', 'aria-label': figura.getAttribute('aria-label') || 'Ranking', class: 'grafica__svg grafica__svg--h' });
+function graficasDegradado(color, arriba, abajo) {
+  return {
+    type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+    colorStops: [{ offset: 0, color: color + arriba }, { offset: 1, color: color + abajo }],
+  };
+}
 
-  etiquetas.forEach(function (etiqueta, i) {
-    const y = 6 + i * filaAlto;
-    const largo = Math.max(3, (valores[i] / maximo) * (ancho - margenIzq - margenDer));
-    svg.appendChild(nodoSvg('text', { x: margenIzq - 10, y: y + filaAlto / 2 + 4, 'text-anchor': 'end', class: 'grafica__texto grafica__texto--etiqueta' }, recortar(etiqueta, 21)));
-    const barra = nodoSvg('rect', { x: margenIzq, y: y + 5, width: largo, height: filaAlto - 12, rx: 5, fill: PALETA_GRAFICAS[0], class: 'grafica__barra', style: 'opacity:' + (1 - i * 0.06) });
-    barra.appendChild(nodoSvg('title', {}, etiqueta + ': ' + formatoValor(valores[i], formato)));
-    svg.appendChild(barra);
-    svg.appendChild(nodoSvg('text', { x: margenIzq + largo + 8, y: y + filaAlto / 2 + 4, class: 'grafica__texto grafica__texto--valor' }, formatoCorto(valores[i], formato)));
-    conGlobo(figura, barra, etiqueta + ': ' + formatoValor(valores[i], formato));
+function graficasOpciones(espec, compacto, sinAnimacion) {
+  const tema = graficasTema();
+  const formato = espec.formato || 'moneda';
+  const categorias = espec.categorias;
+  const series = espec.series;
+  const horizontal = espec.tipo === 'barras-h';
+  const linea = espec.tipo === 'linea';
+  const apilado = espec.tipo === 'apilado';
+  const muchos = categorias.length > 60;
+  const color = function (serie) { return graficasColor(serie.color, tema); };
+
+  const ejeValores = {
+    type: 'value',
+    axisLabel: { color: tema.suave, fontFamily: GRAFICAS_FUENTE, fontSize: 11, formatter: function (v) { return graficasCorto(v, formato); } },
+    splitLine: { lineStyle: { color: tema.borde, type: [4, 4] } },
+    axisLine: { show: false },
+    axisTick: { show: false },
+  };
+  const ejeCategorias = {
+    type: 'category',
+    data: categorias,
+    inverse: horizontal,
+    axisLabel: {
+      color: horizontal ? tema.texto : tema.suave, fontFamily: GRAFICAS_FUENTE, fontSize: 11, hideOverlap: true,
+      width: horizontal ? (compacto ? 110 : 190) : undefined, overflow: 'truncate',
+    },
+    axisLine: { lineStyle: { color: tema.bordeFuerte } },
+    axisTick: { show: false },
+    boundaryGap: !linea,
+  };
+
+  const marcaPeriodo = !horizontal && espec.resaltar && espec.resaltar.length === 2 && !(espec.resaltar[0] === 1 && espec.resaltar[1] === 12)
+    ? { silent: true, itemStyle: { color: tema.oscuro ? 'rgba(120,170,220,0.12)' : 'rgba(70,121,166,0.08)' }, data: [[{ xAxis: espec.resaltar[0] - 1 }, { xAxis: espec.resaltar[1] - 1 }]] }
+    : null;
+
+  const grupos = series.map(function (serie, i) {
+    const tono = color(serie);
+    const base = { name: serie.nombre, data: serie.datos, emphasis: { focus: 'series' } };
+    if (linea) {
+      return Object.assign(base, {
+        type: 'line',
+        smooth: 0.2,
+        showSymbol: categorias.length <= 24,
+        symbolSize: 7,
+        sampling: categorias.length > 300 ? 'lttb' : undefined,
+        itemStyle: { color: tono },
+        lineStyle: { width: 3, color: tono },
+        areaStyle: { color: graficasDegradado(tono, i === series.length - 1 ? '40' : '14', '03') },
+        connectNulls: false,
+        markArea: i === 0 && marcaPeriodo ? marcaPeriodo : undefined,
+      });
+    }
+    return Object.assign(base, {
+      type: 'bar',
+      stack: apilado ? 'total' : undefined,
+      barMaxWidth: horizontal ? 22 : 38,
+      large: muchos,
+      largeThreshold: 600,
+      itemStyle: {
+        color: horizontal && series.length === 1
+          ? function (p) { return tono + (p.dataIndex < 3 ? '' : 'cc'); }
+          : tono,
+        borderRadius: horizontal ? [0, 4, 4, 0] : (apilado ? 0 : [4, 4, 0, 0]),
+      },
+      label: horizontal ? { show: true, position: 'right', color: tema.texto, fontFamily: GRAFICAS_FUENTE, fontSize: 11, fontWeight: 600, formatter: function (p) { return graficasCorto(p.value, formato); } } : undefined,
+      markArea: i === 0 && marcaPeriodo ? marcaPeriodo : undefined,
+    });
   });
-  figura.replaceChildren(svg);
+
+  return {
+    aria: { enabled: true },
+    color: series.map(color),
+    backgroundColor: 'transparent',
+    textStyle: { fontFamily: GRAFICAS_FUENTE },
+    animation: !sinAnimacion,
+    animationDuration: 750,
+    animationEasing: 'cubicOut',
+    animationDelay: function (indice) { return Math.min(indice * 25, 400); },
+    animationDurationUpdate: 300,
+    grid: { left: compacto ? 8 : 12, right: horizontal ? 56 : (compacto ? 10 : 24), top: 28, bottom: (series.length > 1 ? 44 : 12) + (muchos ? 36 : 0), containLabel: true },
+    legend: series.length > 1
+      ? { type: 'scroll', bottom: muchos ? 34 : 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: tema.texto, fontFamily: GRAFICAS_FUENTE, fontSize: 12 }, pageIconSize: 10, pageTextStyle: { color: tema.suave } }
+      : { show: false },
+    tooltip: {
+      trigger: horizontal ? 'item' : 'axis',
+      axisPointer: { type: horizontal ? 'none' : 'shadow', shadowStyle: { color: tema.oscuro ? 'rgba(120,170,220,0.10)' : 'rgba(70,121,166,0.07)' }, lineStyle: { color: tema.bordeFuerte } },
+      backgroundColor: tema.superficie,
+      borderColor: tema.borde,
+      borderWidth: 1,
+      padding: 0,
+      confine: true,
+      extraCssText: 'border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);',
+      formatter: graficasGlobo(espec),
+    },
+    toolbox: compacto ? { show: false } : {
+      right: 4, top: 0, itemSize: 14,
+      feature: { saveAsImage: { title: 'Guardar imagen', name: espec.titulo, pixelRatio: 2, backgroundColor: tema.superficie } },
+      iconStyle: { borderColor: tema.suave },
+    },
+    dataZoom: muchos ? [{ type: 'inside' }, { type: 'slider', height: 18, bottom: 6, borderColor: tema.borde, textStyle: { color: tema.suave }, brushSelect: false }] : undefined,
+    xAxis: horizontal ? ejeValores : ejeCategorias,
+    yAxis: horizontal ? ejeCategorias : ejeValores,
+    series: grupos,
+  };
+}
+
+function graficasMensajeSinBiblioteca(figura) {
+  const nota = document.createElement('p');
+  nota.className = 'grafica__aviso';
+  nota.textContent = 'No se pudo cargar la biblioteca de gráficas. Los mismos datos están en las tablas de esta página.';
+  figura.replaceChildren(nota);
 }
 
 function dibujarGrafica(figura) {
-  let datos;
+  let espec;
   try {
-    datos = JSON.parse(figura.getAttribute('data-grafica'));
+    espec = JSON.parse(figura.getAttribute('data-grafica'));
   } catch (error) {
     return;
   }
-
-  const etiquetas = datos.etiquetas || [];
-  const series = datos.series || [];
-  const formato = datos.formato || 'moneda';
-  if (!etiquetas.length || !series.length) {
+  if (!espec || !espec.categorias || !espec.categorias.length || !espec.series || !espec.series.length) {
     return;
   }
-  if (datos.tipo === 'barras-h') {
-    dibujarHorizontal(figura, datos);
+  if (typeof echarts === 'undefined') {
+    graficasMensajeSinBiblioteca(figura);
     return;
   }
 
-  const ancho = 1000;
-  const alto = 460;
-  const margen = { arriba: 32, derecha: 20, abajo: 44, izquierda: 64 };
-  const paleta = datos.colores && datos.colores.length ? datos.colores : PALETA_GRAFICAS;
-  const areaAncho = ancho - margen.izquierda - margen.derecha;
-  const areaAlto = alto - margen.arriba - margen.abajo;
-  const maximo = maximoEje(Math.max.apply(null, series.map(function (s) { return Math.max.apply(null, s.valores); }).concat([0])));
-  const yDe = function (valor) { return margen.arriba + areaAlto - (valor / maximo) * areaAlto; };
-
-  const svg = nodoSvg('svg', { viewBox: '0 0 ' + ancho + ' ' + alto, role: 'img', 'aria-label': figura.getAttribute('aria-label') || 'Gráfica', class: 'grafica__svg' });
-
-  // Rejilla horizontal y eje Y
-  for (let i = 0; i <= 4; i += 1) {
-    const valor = (maximo / 4) * i;
-    const y = yDe(valor);
-    svg.appendChild(nodoSvg('line', { x1: margen.izquierda, x2: ancho - margen.derecha, y1: y, y2: y, class: i === 0 ? 'grafica__base' : 'grafica__rejilla' }));
-    svg.appendChild(nodoSvg('text', { x: margen.izquierda - 8, y: y + 4, 'text-anchor': 'end', class: 'grafica__texto' }, formatoCorto(valor, formato)));
+  const sinAnimacion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const lienzo = document.createElement('div');
+  lienzo.className = 'grafica__lienzo' + (espec.tipo === 'barras-h' ? ' grafica__lienzo--h' : '');
+  if (espec.tipo === 'barras-h') {
+    lienzo.style.height = Math.max(220, espec.categorias.length * 34 + 40) + 'px';
   }
+  figura.replaceChildren(lienzo);
 
-  const cada = Math.max(1, Math.ceil(etiquetas.length / 12));
-  const paso = areaAncho / etiquetas.length;
-  etiquetas.forEach(function (etiqueta, i) {
-    if (i % cada === 0) {
-      svg.appendChild(nodoSvg('text', { x: margen.izquierda + paso * i + paso / 2, y: alto - margen.abajo + 20, 'text-anchor': 'middle', class: 'grafica__texto' }, etiqueta));
-    }
-  });
+  const grafica = echarts.init(lienzo, null, { renderer: 'canvas' });
+  const estado = { compacto: lienzo.clientWidth < 520 };
+  grafica.setOption(graficasOpciones(espec, estado.compacto, sinAnimacion));
+  graficasVivas.push({ grafica: grafica, espec: espec, estado: estado });
 
-  if (datos.tipo === 'linea') {
-    const defs = nodoSvg('defs');
-    const degradado = nodoSvg('linearGradient', { id: 'area-' + Math.random().toString(36).slice(2, 8), x1: 0, y1: 0, x2: 0, y2: 1 });
-    degradado.appendChild(nodoSvg('stop', { offset: '0%', 'stop-color': PALETA_GRAFICAS[0], 'stop-opacity': 0.28 }));
-    degradado.appendChild(nodoSvg('stop', { offset: '100%', 'stop-color': PALETA_GRAFICAS[0], 'stop-opacity': 0.02 }));
-    defs.appendChild(degradado);
-    svg.appendChild(defs);
-
-    series.forEach(function (serie, s) {
-      const color = paleta[s % paleta.length];
-      const puntos = serie.valores.map(function (valor, i) {
-        return [margen.izquierda + paso * i + paso / 2, yDe(valor)];
-      });
-      if (s === 0 && puntos.length > 1) {
-        const base = yDe(0);
-        const camino = 'M' + puntos[0][0] + ',' + base + ' L' + puntos.map(function (p) { return p.join(','); }).join(' L') + ' L' + puntos[puntos.length - 1][0] + ',' + base + ' Z';
-        svg.appendChild(nodoSvg('path', { d: camino, fill: 'url(#' + degradado.getAttribute('id') + ')' }));
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(function () {
+      const ahoraCompacto = lienzo.clientWidth < 520;
+      if (ahoraCompacto !== estado.compacto) {
+        estado.compacto = ahoraCompacto;
+        grafica.setOption(graficasOpciones(espec, ahoraCompacto, true), true);
       }
-      svg.appendChild(nodoSvg('polyline', { points: puntos.map(function (p) { return p.join(','); }).join(' '), fill: 'none', stroke: color, 'stroke-width': 2.75, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-      puntos.forEach(function (p, i) {
-        const texto = serie.nombre + ' · ' + etiquetas[i] + ': ' + formatoValor(serie.valores[i], formato);
-        const circulo = nodoSvg('circle', { cx: p[0], cy: p[1], r: puntos.length > 40 ? 2.5 : 4, fill: '#fff', stroke: color, 'stroke-width': 2.25, class: 'grafica__marca' });
-        circulo.appendChild(nodoSvg('title', {}, texto));
-        conGlobo(figura, circulo, texto);
-        svg.appendChild(circulo);
-      });
-    });
+      grafica.resize();
+    }).observe(lienzo);
   } else {
-    const anchoGrupo = Math.min(paso * 0.72, 90 * series.length);
-    const anchoBarra = anchoGrupo / series.length;
-    const resaltarUltimo = datos.destacar === 'ultimo';
-    series.forEach(function (serie, s) {
-      const color = paleta[s % paleta.length];
-      serie.valores.forEach(function (valor, i) {
-        const altoBarra = Math.max(valor > 0 ? 2 : 0, (valor / maximo) * areaAlto);
-        const x = margen.izquierda + paso * i + (paso - anchoGrupo) / 2 + anchoBarra * s;
-        const esUltimo = i === etiquetas.length - 1;
-        const texto = serie.nombre + ' · ' + etiquetas[i] + ': ' + formatoValor(valor, formato);
-        const barra = nodoSvg('rect', {
-          x: x, y: margen.arriba + areaAlto - altoBarra, width: Math.max(2, anchoBarra - 3), height: altoBarra, fill: color, rx: 4,
-          class: 'grafica__barra', style: 'opacity:' + (resaltarUltimo && !esUltimo ? 0.45 : 1) + ';transform-origin:' + (x + anchoBarra / 2) + 'px ' + (margen.arriba + areaAlto) + 'px',
-        });
-        barra.appendChild(nodoSvg('title', {}, texto));
-        conGlobo(figura, barra, texto);
-        svg.appendChild(barra);
-        if (valor > 0 && etiquetas.length * series.length <= 14) {
-          svg.appendChild(nodoSvg('text', { x: x + (anchoBarra - 3) / 2, y: margen.arriba + areaAlto - altoBarra - 6, 'text-anchor': 'middle', class: 'grafica__texto grafica__texto--valor' }, formatoCorto(valor, formato)));
-        }
-      });
-    });
-  }
-
-  figura.replaceChildren(svg);
-
-  // Leyenda (solo si hay más de una serie)
-  if (series.length > 1) {
-    const leyenda = document.createElement('ul');
-    leyenda.className = 'grafica__leyenda';
-    series.forEach(function (serie, s) {
-      const item = document.createElement('li');
-      const muestra = document.createElement('span');
-      muestra.className = 'grafica__muestra';
-      muestra.style.backgroundColor = paleta[s % paleta.length];
-      item.appendChild(muestra);
-      item.appendChild(document.createTextNode(serie.nombre));
-      leyenda.appendChild(item);
-    });
-    figura.appendChild(leyenda);
+    window.addEventListener('resize', function () { grafica.resize(); });
   }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('[data-grafica]').forEach(dibujarGrafica);
+document.addEventListener('tema:cambio', function () {
+  graficasVivas.forEach(function (viva) {
+    viva.grafica.setOption(graficasOpciones(viva.espec, viva.estado.compacto, true), true);
+  });
 });
+
+document.addEventListener('DOMContentLoaded', function () {
+  const figuras = document.querySelectorAll('[data-grafica]');
+  if (!('IntersectionObserver' in window)) {
+    figuras.forEach(dibujarGrafica);
+    return;
+  }
+  // Cada gráfica se crea al acercarse a la pantalla: la página abre rápido aunque tenga muchas.
+  const observador = new IntersectionObserver(function (entradas) {
+    entradas.forEach(function (entrada) {
+      if (entrada.isIntersecting) {
+        observador.unobserve(entrada.target);
+        dibujarGrafica(entrada.target);
+      }
+    });
+  }, { rootMargin: '200px' });
+  figuras.forEach(function (figura) { observador.observe(figura); });
+});
+
+/**
+ * modulos/miniaturas.js
+ * ---------------------------------------------------------------------------
+ * Miniaturas de producto en tablas (Inventario):
+ *   - si la imagen no carga, se sustituye por un icono (sin innerHTML);
+ *   - al pulsarla se muestra la imagen completa en el modal único.
+ */
+
+/** Cambia la miniatura rota por el marcador de "sin imagen". */
+function marcarMiniaturaRota(imagen) {
+  const contenedor = imagen.closest('.miniatura-producto');
+  if (!contenedor || contenedor.classList.contains('miniatura-producto--vacia')) {
+    return;
+  }
+
+  const icono = document.createElement('span');
+  icono.className = 'material-symbols-outlined';
+  icono.setAttribute('aria-hidden', 'true');
+  icono.textContent = 'broken_image';
+
+  contenedor.classList.add('miniatura-producto--vacia');
+  contenedor.removeAttribute('data-ampliar-imagen');
+  contenedor.disabled = true;
+  imagen.replaceWith(icono);
+}
+
+/** Abre el modal con la imagen completa. */
+function ampliarImagenProducto(boton) {
+  const imagen = document.createElement('img');
+  imagen.className = 'imagen-ampliada';
+  imagen.src = boton.getAttribute('data-ampliar-imagen');
+  imagen.alt = boton.getAttribute('data-ampliar-titulo') || '';
+  imagen.addEventListener('error', function () {
+    const aviso = document.createElement('p');
+    aviso.className = 'texto-secundario';
+    aviso.textContent = 'No se pudo cargar la imagen.';
+    imagen.replaceWith(aviso);
+  });
+
+  abrirModal({
+    sobreTitulo: 'Imagen del producto',
+    titulo: boton.getAttribute('data-ampliar-titulo') || 'Producto',
+    cuerpo: imagen,
+  });
+}
+
+function inicializarMiniaturasProducto() {
+  document.querySelectorAll('.miniatura-producto img').forEach(function (imagen) {
+    // El error pudo ocurrir antes de registrar el listener.
+    if (imagen.complete && imagen.naturalWidth === 0) {
+      marcarMiniaturaRota(imagen);
+      return;
+    }
+    imagen.addEventListener('error', function () {
+      marcarMiniaturaRota(imagen);
+    });
+  });
+
+  document.addEventListener('click', function (evento) {
+    const boton = evento.target instanceof Element
+      ? evento.target.closest('[data-ampliar-imagen]')
+      : null;
+
+    if (boton) {
+      evento.preventDefault();
+      ampliarImagenProducto(boton);
+    }
+  });
+}
 
 /**
  * modulos/modal.js
@@ -2212,6 +2449,88 @@ function etiquetarTablas() {
 }
 
 document.addEventListener('DOMContentLoaded', etiquetarTablas);
+
+/**
+ * tema.js — Tema visual: claro, oscuro o automático (sigue al sistema operativo).
+ *
+ * El servidor pinta <html data-tema="..."> con la preferencia guardada (cookie a360_tema o la del usuario).
+ * Aquí se aplica al elegirla en Ajustes → Apariencia, se recuerda en cookie + localStorage y se avisa a
+ * quien dibuja gráficas con el evento «tema:cambio» para que adapten su paleta.
+ */
+const TEMAS_VALIDOS = ['claro', 'oscuro', 'auto'];
+const CONSULTA_OSCURO = '(prefers-color-scheme: dark)';
+
+/** Tema realmente visible ahora: «claro» u «oscuro» (resuelve «auto» con el sistema). */
+function temaEfectivo() {
+  const elegido = document.documentElement.getAttribute('data-tema');
+  if (elegido === 'claro' || elegido === 'oscuro') {
+    return elegido;
+  }
+  return window.matchMedia(CONSULTA_OSCURO).matches ? 'oscuro' : 'claro';
+}
+
+function avisarCambioDeTema() {
+  document.dispatchEvent(new CustomEvent('tema:cambio', { detail: { tema: document.documentElement.getAttribute('data-tema'), efectivo: temaEfectivo() } }));
+}
+
+function aplicarTema(valor) {
+  const tema = TEMAS_VALIDOS.indexOf(valor) >= 0 ? valor : 'auto';
+  document.documentElement.setAttribute('data-tema', tema);
+  try {
+    document.cookie = 'a360_tema=' + tema + ';path=/;max-age=31536000;SameSite=Lax';
+    window.localStorage.setItem('a360_tema', tema);
+  } catch (error) {
+    // Sin almacenamiento disponible: el cambio sigue valiendo en esta página.
+  }
+  avisarCambioDeTema();
+}
+
+function iniciarSelectorDeTema() {
+  const selector = document.querySelector('[data-selector-tema]');
+  const estado = document.querySelector('[data-estado-tema]');
+  const token = selector ? selector.querySelector('input[name="token"]') : null;
+
+  if (selector) {
+    selector.querySelectorAll('input[name="tema"]').forEach(function (opcion) {
+      opcion.addEventListener('change', function () {
+        aplicarTema(opcion.value);
+        if (!token) {
+          return;
+        }
+        const datos = new FormData();
+        datos.append('tema', opcion.value);
+        datos.append('token', token.value);
+        const meta = document.querySelector('meta[name="csrf"]');
+        fetch('/admin/ajustes/tema', { method: 'POST', body: datos, credentials: 'same-origin', headers: { 'X-CSRF-Token': meta ? meta.content : '' } })
+          .then(function (respuesta) { return respuesta.json(); })
+          .then(function (cuerpo) {
+            token.value = cuerpo.token || token.value;
+            if (estado) {
+              estado.textContent = cuerpo.ok ? 'Tema guardado.' : (cuerpo.mensaje || 'No se pudo guardar.');
+            }
+          })
+          .catch(function () {
+            if (estado) {
+              estado.textContent = 'Se aplicó en este navegador, pero no se pudo guardar en tu usuario.';
+            }
+          });
+      });
+    });
+  }
+
+  // En «auto», si el sistema cambia de claro a oscuro, la página y las gráficas lo siguen.
+  const sistema = window.matchMedia(CONSULTA_OSCURO);
+  const alCambiarSistema = function () {
+    if (document.documentElement.getAttribute('data-tema') === 'auto') {
+      avisarCambioDeTema();
+    }
+  };
+  if (sistema.addEventListener) {
+    sistema.addEventListener('change', alCambiarSistema);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', iniciarSelectorDeTema);
 
 /**
  * modulos/validacion.js

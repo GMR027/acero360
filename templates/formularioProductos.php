@@ -125,6 +125,15 @@ $imagenActual = \App\Imagenes::url($producto->imagen ?: null);
         <?php endif; ?>
     </div>
 
+    <?php if (!empty($pedirExistencia)) : ?>
+    <div class="campo">
+        <label class="campo__etiqueta" for="existencia_inicial">Existencia inicial</label>
+        <input class="control" type="number" id="existencia_inicial" name="existencia_inicial" min="0" step="1"
+               inputmode="numeric" value="<?= (int) ($_POST['existencia_inicial'] ?? 0) ?: '' ?>" placeholder="0">
+        <span class="campo__ayuda">Opcional. Cuántas piezas tienes ahora en almacén. Después el inventario se mueve con ventas, compras y ajustes.</span>
+    </div>
+    <?php endif; ?>
+
     <div class="campo<?= $claseError('mínima') ?>">
         <label class="campo__etiqueta" for="stock_minimo">Cantidad mínima (alerta)</label>
         <input class="control" type="number" id="stock_minimo" name="stock_minimo" min="0" step="1"

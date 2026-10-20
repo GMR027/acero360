@@ -25,17 +25,21 @@ $coincide = static function (string $ruta, string $exacta, string $prefijo = '')
     return $prefijo !== '' && strpos($ruta, $prefijo) === 0;
 };
 
-$activoInicio    = $coincide($rutaNav, '/admin');
-$activoNueva     = $rutaNav === '/admin/cotizaciones/crear';
-// Histórico cubre el listado y la edición/detalle de una cotización ya creada.
-$activoHistorico = !$activoNueva
-    && ($rutaNav === '/admin/cotizaciones' || strpos($rutaNav, '/admin/cotizaciones/') === 0);
-$activoClientes  = $coincide($rutaNav, '/admin/clientes', '/admin/clientes/');
-$activoNotas     = $coincide($rutaNav, '/admin/notas', '/admin/notas/');
+$activoInicio    = $rutaNav === '/admin';
+$activoNueva     = $rutaNav === '/admin/cotizaciones/crear' || $rutaNav === '/admin/ventas/crear';
+$activoEntregas  = $coincide($rutaNav, '/admin/entregas', '/admin/entregas/');
+$activoInventario = $coincide($rutaNav, '/admin/inventario', '/admin/inventario/');
+// Configuración fiscal es una pestaña de Ajustes, no de Impuestos.
+$activoImpuestos = $rutaNav !== '/admin/fiscal/configuracion'
+    && $coincide($rutaNav, '/admin/fiscal', '/admin/fiscal/');
 
 // El botón "Más" queda activo cuando la pantalla pertenece al cajón lateral
 // (incluye el perfil del usuario, que se abre desde "Usuarios y perfil").
-$activoMas = $coincide($rutaNav, '/admin/productos', '/admin/productos/')
+$activoMas = (!$activoNueva && $coincide($rutaNav, '/admin/cotizaciones', '/admin/cotizaciones/'))
+    || $coincide($rutaNav, '/admin/ventas', '/admin/ventas/')
+    || $coincide($rutaNav, '/admin/clientes', '/admin/clientes/')
+    || $coincide($rutaNav, '/admin/notas', '/admin/notas/')
+    || $coincide($rutaNav, '/admin/productos', '/admin/productos/')
     || $coincide($rutaNav, '/admin/empresas', '/admin/empresas/')
     || $coincide($rutaNav, '/admin/escritorio', '/admin/escritorio/')
     || $coincide($rutaNav, '/admin/usuarios', '/admin/usuarios/')
@@ -62,24 +66,26 @@ $ariaActivo = static function (bool $activo): string {
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">home</span>
     </a>
 
-    <a class="bottomnav__item<?= $claseActivo($activoHistorico) ?>"<?= $ariaActivo($activoHistorico) ?>
-       href="/admin/cotizaciones" aria-label="Histórico de cotizaciones" title="Histórico de cotizaciones">
-        <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">receipt_long</span>
+    <a class="bottomnav__item<?= $claseActivo($activoEntregas) ?>"<?= $ariaActivo($activoEntregas) ?>
+       href="/admin/entregas" aria-label="Pantalla de entrega" title="Pantalla de entrega">
+        <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">package_2</span>
     </a>
 
-    <a class="bottomnav__item bottomnav__item--destacado<?= $claseActivo($activoNueva) ?>"<?= $ariaActivo($activoNueva) ?>
-       href="/admin/cotizaciones/crear" aria-label="Nueva cotización" title="Nueva cotización">
+    <!-- Botón central: pregunta si lo nuevo es una venta o una cotización. -->
+    <button type="button" class="bottomnav__item bottomnav__item--destacado<?= $claseActivo($activoNueva) ?>"
+            id="boton-nuevo" aria-label="Crear nuevo" title="Crear nuevo"
+            aria-haspopup="true" aria-expanded="false" aria-controls="hoja-nuevo">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">add_circle</span>
+    </button>
+
+    <a class="bottomnav__item<?= $claseActivo($activoInventario) ?>"<?= $ariaActivo($activoInventario) ?>
+       href="/admin/inventario" aria-label="Inventario" title="Inventario">
+        <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">warehouse</span>
     </a>
 
-    <a class="bottomnav__item<?= $claseActivo($activoClientes) ?>"<?= $ariaActivo($activoClientes) ?>
-       href="/admin/clientes" aria-label="Clientes" title="Clientes">
-        <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">group</span>
-    </a>
-
-    <a class="bottomnav__item<?= $claseActivo($activoNotas) ?>"<?= $ariaActivo($activoNotas) ?>
-       href="/admin/notas" aria-label="Notas personales" title="Notas personales">
-        <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">sticky_note_2</span>
+    <a class="bottomnav__item<?= $claseActivo($activoImpuestos) ?>"<?= $ariaActivo($activoImpuestos) ?>
+       href="/admin/fiscal" aria-label="Impuestos" title="Impuestos">
+        <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">request_quote</span>
     </a>
 
     <button type="button" class="bottomnav__item<?= $claseActivo($activoMas) ?>"<?= $ariaActivo($activoMas) ?>
@@ -88,3 +94,15 @@ $ariaActivo = static function (bool $activo): string {
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">menu</span>
     </button>
 </nav>
+
+<div class="hoja-nuevo-fondo" id="fondo-nuevo" hidden></div>
+<div class="hoja-nuevo" id="hoja-nuevo" role="menu" aria-label="Crear nuevo" hidden>
+    <a class="hoja-nuevo__opcion" role="menuitem" href="/admin/cotizaciones/crear">
+        <span class="material-symbols-outlined" aria-hidden="true">note_add</span>
+        <span>Nueva cotización</span>
+    </a>
+    <a class="hoja-nuevo__opcion" role="menuitem" href="/admin/ventas/crear">
+        <span class="material-symbols-outlined" aria-hidden="true">point_of_sale</span>
+        <span>Nueva venta</span>
+    </a>
+</div>

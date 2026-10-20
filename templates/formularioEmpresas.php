@@ -101,6 +101,20 @@ $logoActual = \App\Imagenes::url($empresa->logo ?: null);
     </div>
 </div>
 
+<!-- Tamaño del logo en los PDF -->
+<div class="formulario__rejilla">
+    <div class="campo">
+        <label class="campo__etiqueta" for="logo_alto_pdf">Alto del logo en PDF (px)</label>
+        <input class="control control--moneda" type="number" id="logo_alto_pdf" name="logo_alto_pdf"
+               min="<?= \App\Imagenes::LOGO_PDF_ALTO_MIN ?>" max="<?= \App\Imagenes::LOGO_PDF_ALTO_MAX ?>" step="1"
+               value="<?= (int) $empresa->logo_alto_pdf ?>">
+        <span class="campo__ayuda">
+            Alto máximo en cotizaciones y ventas (<?= \App\Imagenes::LOGO_PDF_ALTO_MIN ?> a <?= \App\Imagenes::LOGO_PDF_ALTO_MAX ?>; por defecto <?= \App\Imagenes::LOGO_PDF_ALTO ?>).
+            El ancho se ajusta solo, sin deformar; en catálogo e inventario se usa el 70 %.
+        </span>
+    </div>
+</div>
+
 <!-- Domicilio fiscal -->
 <div class="formulario__rejilla">
     <div class="campo campo--completo">

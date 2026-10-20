@@ -252,6 +252,83 @@ class Imagenes
         return $guardado ? $nombre : $archivo;
     }
 
+    /** Límites del alto del logo en PDF (px) y proporción máxima ancho/alto de su caja. */
+    public const LOGO_PDF_ALTO_MIN = 24;
+    public const LOGO_PDF_ALTO_MAX = 120;
+    public const LOGO_PDF_ALTO     = 64;
+    private const LOGO_PDF_RAZON   = 3.5;
+
+    /**
+     * Logo listo para un PDF: ajustado DENTRO de una caja (equivalente a «contain»), sin deformar.
+     * El alto máximo sale de empresas.logo_alto_pdf (buscada por el nombre del archivo) × $escala; el ancho
+     * máximo es 3.5 veces ese alto, así que un logo apaisado y uno cuadrado quedan equilibrados.
+     * dompdf recibe ancho y alto explícitos (no max-*) para que el resultado no dependa del motor.
+     *
+     * @return array{src: string, ancho: int, alto: int}|null  null si no hay archivo legible
+     */
+    public static function logoPdf(?string $archivo, float $escala = 1.0): ?array
+    {
+        $original = trim((string) $archivo);
+        $recortado = self::logoRecortado($original);
+        $ruta = dirname(__DIR__) . '/public/image/' . $recortado;
+        if ($recortado === '' || strpos($recortado, '..') !== false || !is_file($ruta)) {
+            return null;
+        }
+        $medidas = @getimagesize($ruta);
+        $datos   = @file_get_contents($ruta);
+        if (!$medidas || $datos === false || $medidas[0] < 1 || $medidas[1] < 1) {
+            return null;
+        }
+
+        $altoMax = self::altoLogoPdf($original) * $escala;
+        $anchoMax = $altoMax * self::LOGO_PDF_RAZON;
+        $factor = min($anchoMax / $medidas[0], $altoMax / $medidas[1]);
+
+        $tipo = (string) ($medidas['mime'] ?? 'image/png');
+        return [
+            'src'   => 'data:' . $tipo . ';base64,' . base64_encode($datos),
+            'ancho' => max(1, (int) round($medidas[0] * $factor)),
+            'alto'  => max(1, (int) round($medidas[1] * $factor)),
+        ];
+    }
+
+    /** Etiqueta <img> del logo para PDF, o '' si no hay logo. */
+    public static function logoPdfHtml(?string $archivo, string $alt, float $escala = 1.0): string
+    {
+        $logo = self::logoPdf($archivo, $escala);
+        if ($logo === null) {
+            return '';
+        }
+        return '<img class="logo" src="' . $logo['src'] . '" width="' . $logo['ancho'] . '" height="' . $logo['alto']
+            . '" alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '">';
+    }
+
+    /** Alto máximo configurado para el logo de la empresa que usa ese archivo (por defecto 64 px). */
+    private static function altoLogoPdf(string $archivo): int
+    {
+        static $cache = [];
+        if (!isset($cache[$archivo])) {
+            $alto = self::LOGO_PDF_ALTO;
+            $db = $GLOBALS['db'] ?? null;
+            if ($db instanceof \mysqli && $archivo !== '') {
+                try {
+                    $consulta = $db->prepare('SELECT logo_alto_pdf FROM empresas WHERE logo = ? LIMIT 1');
+                    $consulta->bind_param('s', $archivo);
+                    $consulta->execute();
+                    $fila = $consulta->get_result()->fetch_row();
+                    $consulta->close();
+                    if ($fila) {
+                        $alto = (int) $fila[0];
+                    }
+                } catch (\Throwable $e) {
+                    // Sin la columna (migración pendiente) se usa el valor por defecto.
+                }
+            }
+            $cache[$archivo] = max(self::LOGO_PDF_ALTO_MIN, min(self::LOGO_PDF_ALTO_MAX, $alto));
+        }
+        return $cache[$archivo];
+    }
+
     /** Ruta pública de la miniatura asociada a una imagen de producto. */
     public static function urlMiniatura(?string $archivo): string
     {

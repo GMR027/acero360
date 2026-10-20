@@ -37,7 +37,7 @@ foreach (['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_f
 $db->query('DELETE FROM documentos'); $db->query('DELETE FROM cobros'); $db->query('DELETE FROM ingresos');
 $db->query('DELETE FROM entregas');
 $db->query('DELETE FROM preparaciones');
-$db->query('DELETE FROM ventas');
+$db->query('DELETE FROM venta_cambios_entregados'); $db->query('DELETE FROM venta_devoluciones'); $db->query('DELETE FROM ventas');
 $db->query('DELETE FROM cotizaciones');
 $db->query('UPDATE productos SET stock = 100 WHERE id IN (36, 37)');
 
@@ -93,9 +93,8 @@ $prueba('misma venta, nuevo total 580', (int) $uno("SELECT COUNT(*) FROM ventas 
 echo "Devolución de cliente\n";
 $prueba('devolver más de lo vendido se rechaza', !Inventario::devolverDeVenta($ventaId, [37 => 6], 'prueba e3', $usuario));
 Inventario::getErrores();
-$prueba('devolución sin motivo se rechaza', !Inventario::devolverDeVenta($ventaId, [37 => 1], '', $usuario));
-Inventario::getErrores();
-$prueba('devolver 2', Inventario::devolverDeVenta($ventaId, [37 => 2], 'Pieza defectuosa', $usuario), implode('|', Inventario::getErrores()));
+$prueba('devolución sin motivo se acepta (el motivo es opcional)', Inventario::devolverDeVenta($ventaId, [37 => 1], '', $usuario), implode('|', Inventario::getErrores()));
+$prueba('devolver 1 más (2 en total)', Inventario::devolverDeVenta($ventaId, [37 => 1], 'Pieza defectuosa', $usuario), implode('|', Inventario::getErrores()));
 $prueba('stock +2', $stock(37) === $base - 3, (string) $stock(37));
 $prueba('no se puede devolver más del saldo (quedan 3)', !Inventario::devolverDeVenta($ventaId, [37 => 4], 'otra vez', $usuario));
 Inventario::getErrores();

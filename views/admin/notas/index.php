@@ -171,7 +171,7 @@ template('header', [
     </div>
 
     <div class="notas-filtros">
-        <nav class="chip-grupo" aria-label="Filtros de notas">
+        <nav class="chip-grupo ajustes-tabs" aria-label="Filtros de notas">
             <?php foreach ($etiquetasFiltro as $clave => [$texto, $icono]) :
                 $activo = $filtro === $clave;
                 ?>

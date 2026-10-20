@@ -8,9 +8,9 @@ $secciones = [
     'proveedores' => ['/admin/proveedores', 'Proveedores', 'local_shipping'],
 ];
 ?>
-<nav class="chip-grupo entregas-tabs" aria-label="Compras y proveedores">
+<nav class="chip-grupo entregas-tabs ajustes-tabs" aria-label="Compras y proveedores">
     <?php foreach ($secciones as $clave => [$ruta, $texto, $icono]) : $activo = $tab === $clave; ?>
         <a class="chip<?= $activo ? ' chip--activo' : '' ?>" href="<?= $ruta ?>" <?= $activo ? 'aria-current="page"' : '' ?>>
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem"><?= $icono ?></span><span><?= $texto ?></span></a>
+            <span class="material-symbols-outlined" aria-hidden="true"><?= $icono ?></span><span><?= $texto ?></span></a>
     <?php endforeach; ?>
 </nav>

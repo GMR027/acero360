@@ -32,8 +32,6 @@ const AYUDAS_POR_RUTA = {
   '/admin/contabilidad/cierre': 'Revisa el mes y ciérralo para que nadie lo cambie sin querer.',
   '/admin/contabilidad/periodos': 'Meses ya cerrados y su resumen.',
   '/admin/fiscal': 'Cuánto separar para impuestos este mes (cálculo aproximado, informativo).',
-  '/admin/fiscal/registros': 'Anota lo que ya pagaste al SAT y retenciones para que el cálculo sea más cercano.',
-  '/admin/fiscal/catalogo': 'Las tarifas y reglas del SAT que usa el cálculo.',
   '/admin/fiscal/configuracion': 'Tus datos fiscales: tipo de persona y régimen.',
   '/admin/estadisticas': 'Gráficas de ventas, ganancias y productos más vendidos.',
   '/admin/inventario': 'Existencias de cada producto y sus movimientos.',

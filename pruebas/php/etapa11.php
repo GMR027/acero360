@@ -49,11 +49,11 @@ $prueba('venta marcada «no facturada» tampoco se pide', $aviso("factura:$noFac
 
 echo "Prioridad según fechas\n";
 $viejo = $ingreso('SEG-D', 40, 'facturada'); $medio = $ingreso('SEG-E', 20, 'facturada'); $nuevo = $ingreso('SEG-F', 2, 'facturada');
-$prueba('cobro de 40 días → alta', $aviso("cobro:$viejo")['prioridad'] === 'alta');
-$prueba('cobro de 20 días → media', $aviso("cobro:$medio")['prioridad'] === 'media');
-$prueba('cobro de 2 días → baja', $aviso("cobro:$nuevo")['prioridad'] === 'baja');
+$prueba('cobro de 40 días sin fecha de vencimiento → normal (no se inventa)', $aviso("cobro:$viejo")['prioridad'] === 'normal');
+$prueba('cobro de 20 días → normal', $aviso("cobro:$medio")['prioridad'] === 'normal');
+$prueba('cobro de 2 días → normal', $aviso("cobro:$nuevo")['prioridad'] === 'normal');
 $orden = array_column(array_filter(Seguimiento::avisos(), fn ($a) => in_array($a['clave'], ["cobro:$viejo", "cobro:$medio", "cobro:$nuevo"], true)), 'clave');
-$prueba('orden: alta, media, baja', $orden === ["cobro:$viejo", "cobro:$medio", "cobro:$nuevo"], json_encode($orden));
+$prueba('mismo nivel: del más antiguo al más reciente', $orden === ["cobro:$viejo", "cobro:$medio", "cobro:$nuevo"], json_encode($orden));
 
 echo "Abrir el registro de origen\n";
 $prueba('el cobro apunta al detalle del ingreso', $cobro['enlace'] === "/admin/contabilidad/ingresos/detalle?id=$sinFact");

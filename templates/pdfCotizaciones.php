@@ -76,7 +76,7 @@ $tipoDoc = $esVenta ? 'Venta' : 'Cotización';
 $estado  = $esVenta
     ? \App\Ventas::datosEstado($cotizacion->estado)
     : \App\Cotizaciones::datosEstado($cotizacion->estado);
-$logo   = $imagenBase64(\App\Imagenes::logoRecortado($cotizacion->empresa_logo));
+$logo   = \App\Imagenes::logoPdfHtml($cotizacion->empresa_logo, (string) $cotizacion->empresa_nombre);
 
 $vence = '';
 if (!$esVenta && $cotizacion->fecha) {
@@ -122,17 +122,9 @@ if (trim((string) $cotizacion->empresa_cp) !== '') {
         .barrasup td { vertical-align: top; padding: 0; }
 
         .marca { font-size: 17px; font-weight: 700; color: #4679a6; }
-        /* Altura máxima 160 px (= los 10rem de pantalla en
-           src/scss/layout/_cotizador.scss) con medidas AUTOMÁTICAS: el dibujo
-           conserva la proporción del archivo y el tope sólo manda si el logo
-           supera esa altura. max-width evita que una marca muy apaisada
-           desborde el ancho utilizable de la hoja.
-
-           Se escribe en px y no en 10rem: dompdf resuelve el rem contra el
-           tamaño de fuente raíz del motor y el resultado no es el mismo que
-           el del navegador, lo que dejaría la marca distinta entre la pantalla
-           y el documento. 1rem = 16px es el equivalente exacto. */
-        .logo  { max-height: 128px; max-width: 480px; display: block; margin-bottom: 0.4rem; }
+        /* Logo: tamaño calculado en PHP (Imagenes::logoPdf, «contain» dentro de una caja configurable por empresa);
+           aquí solo el margen. */
+        .logo  { display: block; margin-bottom: 0.4rem; }
         .datos { font-size: 10px; color: #6b6b70; line-height: 1.5; }
 
         .documento { text-align: right; }
@@ -290,7 +282,7 @@ if (trim((string) $cotizacion->empresa_cp) !== '') {
     <tr>
         <td>
             <?php if ($logo !== '') : ?>
-                <img class="logo" src="<?= $logo ?>" alt="<?= escaparValores($cotizacion->empresa_nombre) ?>">
+                <?= $logo ?>
             <?php endif; ?>
             <div class="marca"><?= escaparValores($cotizacion->empresa_nombre) ?></div>
             <div class="datos">

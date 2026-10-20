@@ -382,7 +382,7 @@ template('header', [
     <form action="/admin/cotizaciones/eliminar" method="post" data-validar
           data-confirmacion-sobre="<?= escaparValores($cotizacion->folio) ?>"
           data-confirmacion="¿Eliminar esta cotización?"
-          data-confirmacion-mensaje="Se borrará la cotización <?= escaparValores($cotizacion->folio) ?> y todos sus renglones.<?php if ($cotizacion->estado === 'vendido') : ?> Al estar marcada como Vendida, el inventario devolverá las piezas descontadas.<?php endif; ?> Esta acción no se puede deshacer."
+          data-confirmacion-mensaje="Se borrará la cotización <?= escaparValores($cotizacion->folio) ?> y todos sus renglones.<?php if ($cotizacion->estado === 'vendido') : ?> Al estar marcada como Vendida, el inventario devolverá las piezas descontadas.<?php endif; ?> Irá a Ajustes → Papelera y ahí podrás restaurarla durante 90 días."
           data-confirmacion-boton="Sí, eliminar">
         <input type="hidden" name="id" value="<?= $id ?>">
         <button type="submit" class="btn btn--peligro">

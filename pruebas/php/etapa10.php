@@ -21,7 +21,7 @@ $uno = fn (string $q) => $db->query($q)->fetch_row()[0];
 
 foreach (['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones', 'documentos', 'cobros', 'gasto_reparto', 'gastos', 'ingresos', 'periodos_contables', 'entregas', 'preparaciones', 'inventario_corte_detalles', 'inventario_cortes'] as $t) { $db->query("DELETE FROM $t"); }
 $db->query('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL OR recepcion_id IS NOT NULL');
-$db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones'); $db->query('DELETE FROM precios_cliente');
+$db->query('DELETE FROM venta_cambios_entregados'); $db->query('DELETE FROM venta_devoluciones'); $db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones'); $db->query('DELETE FROM precios_cliente');
 $usuario = (int) $uno('SELECT id FROM usuarios LIMIT 1');
 $cliente = (int) $uno('SELECT id FROM clientes LIMIT 1');
 $_SESSION['id'] = $usuario;

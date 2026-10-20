@@ -261,7 +261,7 @@
 
   &--advertencia {
     background-color: $color-advertencia-claro;
-    border-color: #fde68a;
+    border-color: $color-advertencia-borde;
     color: $color-advertencia-texto;
 
     .nota__icono {
@@ -281,7 +281,7 @@
 
   &--exito {
     background-color: $color-exito-claro;
-    border-color: #a7f3d0;
+    border-color: $color-exito-borde;
     color: $color-exito-texto;
 
     .nota__icono {

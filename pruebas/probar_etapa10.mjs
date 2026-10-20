@@ -78,10 +78,10 @@ try {
   const mes = new Date().getMonth() + 1, anio = new Date().getFullYear();
   await pagina.selectOption('#mes', String(mes)); await pagina.selectOption('#anio', String(anio));
   const antes = sql('SELECT SUM(stock) FROM productos');
-  await pagina.click('button:has-text("Generar fotografía")');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Generar fotografía")')]);
   verifica('genera la fotografía y confirma que el inventario no se modificó', (await pagina.content()).includes('El inventario no se modificó') && sql('SELECT SUM(stock) FROM productos') === antes && sql('SELECT COUNT(*) FROM inventario_cortes') === '1');
   await pagina.selectOption('#mes', String(mes)); await pagina.selectOption('#anio', String(anio));
-  await pagina.click('button:has-text("Generar fotografía")');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Generar fotografía")')]);
   verifica('una fotografía no se reemplaza', (await pagina.content()).includes('Ya existe la fotografía de ese mes') && sql('SELECT COUNT(*) FROM inventario_cortes') === '1');
   sql('UPDATE productos SET stock = stock + 5 WHERE id = 37');
   await pagina.goto(BASE + '/admin/inventario/fotos');
@@ -104,7 +104,7 @@ try {
   sql('DELETE FROM inventario_corte_detalles'); sql('DELETE FROM inventario_cortes');
   sql(`DELETE FROM usuarios WHERE email='${EMAIL}'`);
   for (const t of ['cobros', 'ingresos']) { sql(`DELETE FROM ${t}`); }
-  sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
+  sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL'); sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }
 console.log(`\nResultado: ${ok} correctas · ${mal} fallos`);
 process.exit(mal ? 1 : 0);

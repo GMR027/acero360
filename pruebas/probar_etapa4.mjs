@@ -26,7 +26,7 @@ function limpiar() {
   sql('DELETE FROM documentos'); sql('DELETE FROM cobros'); sql('DELETE FROM ingresos');
   sql('DELETE FROM entregas'); sql('DELETE FROM preparaciones');
   sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
-  sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
+  sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }
 limpiar();
 sql('UPDATE productos SET stock = 100 WHERE id = 37');

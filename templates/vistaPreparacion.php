@@ -17,8 +17,10 @@ $prepId = (int) ($prepId ?? 0);
                         <img class="producto-grupo__imagen" src="<?= escaparValores(\App\Imagenes::urlMiniatura($g['imagen'])) ?>"
                              alt="<?= escaparValores($g['nombre']) ?>" loading="lazy">
                     <?php endif; ?>
-                    <span class="producto-grupo__sku"><?= escaparValores($g['sku'] ?: 'Sin código') ?></span>
-                    <strong><?= escaparValores($g['nombre']) ?></strong>
+                    <div class="producto-grupo__texto">
+                        <span class="producto-grupo__sku"><?= escaparValores($g['sku'] ?: 'Sin código') ?></span>
+                        <strong><?= escaparValores($g['nombre']) ?></strong>
+                    </div>
                     <span class="producto-grupo__cantidad"><?= (int) $g['total'] ?> <span class="texto-sm texto-secundario"><?= escaparValores($g['unidad']) ?></span></span>
                     <ul class="producto-grupo__origenes">
                         <?php foreach ($g['origenes'] as $o) : ?>

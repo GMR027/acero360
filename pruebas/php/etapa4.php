@@ -31,7 +31,7 @@ foreach (['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_f
 $db->query('DELETE FROM documentos'); $db->query('DELETE FROM cobros'); $db->query('DELETE FROM ingresos');
 $db->query('DELETE FROM entregas'); $db->query('DELETE FROM preparaciones');
 $db->query('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
-$db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
+$db->query('DELETE FROM venta_cambios_entregados'); $db->query('DELETE FROM venta_devoluciones'); $db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
 $db->query('UPDATE productos SET stock = 100 WHERE id IN (36, 37)');
 
 $venta = function (int $cliente, array $lineas) use ($usuario, $hoy) {
@@ -117,7 +117,7 @@ $prueba('solo queda el cliente de la venta de cotización', count($porCliente) =
 $prueba('cancelar una preparación sin entregas', Entregas::cambiarEstado($prep2, 'cancelada', $usuario));
 
 
-echo "Devolución cierra la entrega\n";
+echo "Devolución: solo deja de estar pendiente lo que no se había entregado\n";
 $vE = $venta((int) $clientes[0], [37 => $L(4)]);
 $prueba('venta nueva aparece por entregar', in_array($vE, array_map(fn ($v) => (int) $v['id'], Entregas::ventasPendientes([], 50, 0))));
 Entregas::crearPreparacion([$vE], '', $usuario);
@@ -125,7 +125,10 @@ $prepE = Entregas::$ultimoId;
 Entregas::registrarEntrega($vE, $prepE, [37 => 1], $hoy, bin2hex(random_bytes(16)), '', $usuario);
 $prueba('con 1 de 4 entregada sigue pendiente (3)', Entregas::pendientesDeVentas([$vE])[$vE][37]['pendiente'] === 3);
 $prueba('devolver 1 pieza registra la devolución', App\Inventario::devolverDeVenta($vE, [37 => 1], 'Cliente rechazó', $usuario), implode('|', App\Inventario::getErrores()));
-$prueba('la devolución cierra la entrega (pendiente 0)', Entregas::pendientesDeVentas([$vE])[$vE][37]['pendiente'] === 0);
+$prueba('devolver una pieza ya entregada no cambia lo pendiente (sigue en 3)', Entregas::pendientesDeVentas([$vE])[$vE][37]['pendiente'] === 3);
+$prueba('la venta sigue por entregar tras la devolución parcial', in_array($vE, array_map(fn ($v) => (int) $v['id'], Entregas::ventasPendientes([], 50, 0))));
+$prueba('devolver las 3 piezas que faltaban', App\Inventario::devolverDeVenta($vE, [37 => 3], 'Cliente canceló el resto', $usuario), implode('|', App\Inventario::getErrores()));
+$prueba('al devolver todo lo no entregado el pendiente es 0', Entregas::pendientesDeVentas([$vE])[$vE][37]['pendiente'] === 0);
 $prueba('ya no aparece por entregar', !in_array($vE, array_map(fn ($v) => (int) $v['id'], Entregas::ventasPendientes([], 50, 0))));
 $prueba('la venta sigue registrada (sigue siendo ingreso)', $uno("SELECT estado FROM ventas WHERE id = $vE") === 'registrada');
 $prueba('su preparación pasa a entregada', Entregas::buscarPreparacion($prepE)['estado'] === 'entregada');

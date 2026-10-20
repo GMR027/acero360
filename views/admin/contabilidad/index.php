@@ -21,12 +21,15 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad', 'periodo' => $pe
 
 <?php
 $pend = \App\Contabilidad::pendientes($periodo['anio'], $periodo['mes'], (int) $periodo['empresa']);
-$entra = $r['ventas']['total'];
+// Las ventas sin factura no cuentan en «Vendiste» ni en «Te queda»: se muestran aparte en su propio cuadro.
+$sinFactura = $r['facturacion']['no_facturada'];
+$entra = $r['ventas']['total'] - $sinFactura['total'];
+$operacionesFacturables = $r['ventas']['operaciones'] - $sinFactura['operaciones'];
 $sale  = $gasto($g['total']);
 $queda = $entra - $sale;
 [$anioAnt, $mesAnt] = \App\Contabilidad::mesAnterior($periodo['anio'], $periodo['mes']);
 $ra = \App\Contabilidad::resumenPeriodo($anioAnt, $mesAnt, $periodo['empresa']);
-$entraAnt = $ra['ventas']['total'];
+$entraAnt = $ra['ventas']['total'] - $ra['facturacion']['no_facturada']['total'];
 $saleAnt  = $gasto($ra['gastos']['total']);
 ?>
 <?php if ($cerrado) : ?>
@@ -37,7 +40,7 @@ $saleAnt  = $gasto($ra['gastos']['total']);
 <?php
 template('resumenReporte', [
     'tarjetas' => [
-        ['etiqueta' => 'Vendiste', 'valor' => formatoMoneda($entra), 'pie' => number_format($r['ventas']['operaciones']) . ' ventas · ya cobraste ' . formatoMoneda($r['cobrado_en_periodo']),
+        ['etiqueta' => 'Vendiste', 'valor' => formatoMoneda($entra), 'pie' => number_format($operacionesFacturables) . ' ventas · ya cobraste ' . formatoMoneda($r['cobrado_en_periodo']),
             'variacion' => \App\Contabilidad::variacion($entra, $entraAnt)],
         ['etiqueta' => 'Gastaste', 'valor' => formatoMoneda($sale), 'pie' => number_format($g['operaciones']) . ' gastos · ya pagaste ' . formatoMoneda($gasto($g['pagado'])),
             'variacion' => \App\Contabilidad::variacion($sale, $saleAnt), 'subeEsBueno' => false],
@@ -48,6 +51,25 @@ template('resumenReporte', [
     'exportar' => '/admin/fiscal/exportar?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'tipo' => 'movimientos']),
 ]);
 ?>
+
+<?php
+$enlaceSinFactura = '/admin/contabilidad/ingresos?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'empresa' => $periodo['empresa'], 'facturacion' => 'no_facturada']);
+?>
+<section class="tarjeta mb-lg" aria-label="Ventas sin factura">
+    <div style="display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap">
+        <div>
+            <h2 class="titulo-5">Ventas sin factura</h2>
+            <p class="campo__ayuda">Solo para tu información: no cuentan en «Vendiste», ni en «Te queda», ni en tus impuestos.</p>
+        </div>
+        <div style="text-align:right">
+            <strong style="font-size:1.5rem"><?= formatoMoneda($sinFactura['total']) ?></strong><br>
+            <span class="texto-secundario texto-xs"><?= number_format($sinFactura['operaciones']) ?> venta(s) en <?= nombreMes($periodo['mes']) ?> <?= $periodo['anio'] ?></span>
+        </div>
+    </div>
+    <?php if ($sinFactura['operaciones'] > 0) : ?>
+        <div class="mt-md"><a class="btn btn--secundario btn--sm" href="<?= escaparValores($enlaceSinFactura) ?>">Ver estas ventas</a></div>
+    <?php endif; ?>
+</section>
 
 <?php
 $avisos = [];

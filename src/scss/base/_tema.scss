@@ -1,0 +1,101 @@
+/* ==========================================================================
+   _tema.scss — Paletas de color: claro, oscuro y automático.
+
+   El tema se decide con el atributo data-tema de <html> (lo pone el servidor desde la
+   preferencia guardada y lo ajusta app.js al cambiarla en Ajustes):
+     · "claro"  -> siempre claro      · "oscuro" -> siempre oscuro
+     · "auto" (o sin atributo) -> sigue la preferencia del sistema operativo.
+   Los componentes solo usan las variables $color-* (que apuntan a estas --color-*).
+   ========================================================================== */
+
+@mixin paleta-oscura {
+  --color-primario: #4679a6;
+  --color-primario-oscuro: #3a6a96;
+  --color-primario-texto: #8fbbe6;
+  --color-primario-claro: #1d2d3e;
+  --color-primario-borde: #2f4a66;
+  --color-fondo: #12151a;
+  --color-superficie: #1b1f26;
+  --color-superficie-baja: #222730;
+  --color-texto: #e4e7ec;
+  --color-texto-secundario: #a7aeb9;
+  --color-texto-invertido: #ffffff;
+  --color-borde: #2b313b;
+  --color-borde-fuerte: #6f7b8c;
+  --color-exito: #34d399;
+  --color-exito-claro: #10281f;
+  --color-exito-texto: #86efac;
+  --color-exito-borde: #1f5a40;
+  --color-advertencia: #f59e0b;
+  --color-advertencia-claro: #33270c;
+  --color-advertencia-texto: #fcd34d;
+  --color-advertencia-borde: #6b4f12;
+  --color-error: #fb7185;
+  --color-error-claro: #34161e;
+  --color-error-texto: #fda4af;
+  --color-error-borde: #6b2433;
+  --color-codigo: #ff6b5e;  // código de producto (6.9:1 sobre superficie oscura)
+  --color-rust: #d98a4a;
+  --color-rust-texto: #f0b27d;
+  --color-rust-claro: #2f2018;
+  --color-rust-borde: #5a3a24;
+  --color-foco: rgba(143, 187, 230, 0.35);
+  --color-velo: rgba(0, 0, 0, 0.62);
+  --color-sube: #4ade80;
+  --color-baja: #fb7185;
+  --color-texto-suave: #a7aeb9;
+  --color-sombra: 0, 0, 0;
+  --color-tabla-hover: #222a35;
+  color-scheme: dark;
+}
+
+:root {
+  --color-primario: #4679a6;
+  --color-primario-oscuro: #38648c;
+  --color-primario-texto: #3d6d99;
+  --color-primario-claro: #eaf1f8;
+  --color-primario-borde: #c7dcef;
+  --color-fondo: #ededed;
+  --color-superficie: #ffffff;
+  --color-superficie-baja: #f7f7f8;
+  --color-texto: #4d4c53;
+  --color-texto-secundario: #64646a;
+  --color-texto-invertido: #ffffff;
+  --color-borde: #e4e6ea;
+  --color-borde-fuerte: #8a909b;
+  --color-exito: #16a34a;
+  --color-exito-claro: #dcfce7;
+  --color-exito-texto: #166534;
+  --color-advertencia: #d97706;
+  --color-advertencia-claro: #fef3c7;
+  --color-advertencia-texto: #92400e;
+  --color-error: #e11d48;
+  --color-error-claro: #fff1f2;
+  --color-error-texto: #9f1239;
+  --color-error-borde: #fecdd3;
+  --color-codigo: #c0261b;  // código de producto (5.9:1 sobre blanco)
+  --color-rust: #b46424;
+  --color-rust-texto: #9a5220;
+  --color-rust-claro: #faede3;
+  --color-rust-borde: #f2cfb3;
+  --color-exito-borde: #a7f3d0;
+  --color-advertencia-borde: #fde68a;
+  --color-foco: rgba(90, 146, 195, 0.25);
+  --color-velo: rgba(15, 23, 42, 0.4);
+  --color-sube: #2e7d32;
+  --color-baja: #b3261e;
+  --color-texto-suave: #5b6770;
+  --color-sombra: 15, 23, 42;
+  --color-tabla-hover: #f2f6fa;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    @include paleta-oscura;
+  }
+}
+
+:root[data-tema="oscuro"] {
+  @include paleta-oscura;
+}

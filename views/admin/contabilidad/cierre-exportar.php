@@ -26,13 +26,10 @@ $filas = [
     ['Periodo', $s['periodo']], ['Cerrado en', $s['cerrado_en']],
     ['Ventas del periodo (total)', $s['contabilidad']['ventas']['total']], ['Subtotal de operaciones', $s['contabilidad']['ventas']['subtotal']],
     ['IVA trasladado registrado', $s['contabilidad']['ventas']['iva']], ['Gastos y compras (total)', $mx($s['contabilidad']['gastos']['total'])],
-    ['IVA trasladado cobrado (estimado)', $mx($f['iva']['trasladado_cobrado'] ?? null)], ['IVA acreditable considerado (estimado)', $mx($f['iva']['acreditable_considerado'] ?? null)],
-    ['IVA estimado a cargo', $mx($f['iva']['a_cargo'] ?? null)], ['Saldo a favor de IVA estimado', $mx($f['iva']['saldo_a_favor'] ?? null)],
-    ['Ingresos acumulados del ejercicio', $mx($f['isr']['ingresos_acumulados'] ?? null)], ['Deducciones registradas', $mx($f['isr']['deducciones_acumuladas'] ?? null)],
-    ['Base gravable', $mx($f['isr']['utilidad_fiscal'] ?? null)], ['ISR determinado', $mx($f['isr']['impuesto_determinado'] ?? null)],
-    ['Pagos provisionales anteriores', $mx($f['isr']['pagos_provisionales_anteriores'] ?? null)], ['ISR provisional estimado', $mx($f['isr']['a_pagar'] ?? null)],
-    ['Reglas ISR (versión)', $f['versiones']['isr'] ?? ''], ['Reglas IVA (versión)', $f['versiones']['iva'] ?? ''], ['Criterios (versión)', $f['versiones']['reglas'] ?? ''],
-    ['Aviso', 'Estimación administrativa: validar con el contador antes de presentar declaraciones.'],
+    ['Facturado en el mes', $f['facturado'] ?? 0], ['Pagos y gastos del mes', $f['pagos'] ?? 0],
+    ['IVA por pagar (estimado)', $f['iva_por_pagar'] ?? 0], ['ISR por pagar (estimado)', $f['isr_por_pagar'] ?? 0],
+    ['Impuestos por pagar (estimado)', $f['impuestos'] ?? 0],
+    ['Aviso', 'Estimación simple: validar con el contador antes de presentar declaraciones.'],
 ];
 foreach ($s['verificaciones'] as $v) {
     $filas[] = ['Verificación (' . $v['nivel'] . ')', $v['titulo'] . ' · ' . $v['cantidad']];

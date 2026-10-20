@@ -5,6 +5,9 @@
    Todas las medidas se expresan en rem (1rem = 16px).
    ========================================================================== */
 
+/* NOTA DE TEMAS: los colores son variables CSS (--color-*) definidas en _tema.scss, con paleta clara
+   y oscura. Aquí solo se referencian; no se escriben valores de color en los componentes. */
+
 /* --------------------------------------------------------------------------
    COLOR — PALETA PRIMARIA (azul acero)
 
@@ -19,43 +22,52 @@
    daba sólo 3.32:1 con texto blanco: los botones "Guardar" y el ítem activo
    del menú no cumplían.
    -------------------------------------------------------------------------- */
-$color-primario:         #4679a6;  // relleno: botones, menú activo, chips (blanco encima: 4.6:1)
-$color-primario-oscuro:  #38648c;  // hover/active sobre el relleno (blanco encima: 6.2:1)
-$color-primario-texto:   #3d6d99;  // el azul como TEXTO sobre fondo claro (5.5:1)
-$color-primario-claro:   #eaf1f8;  // fondos suaves, fila activa
-$color-primario-borde:   #c7dcef;
+$color-primario: var(--color-primario);  // relleno: botones, menú activo, chips (blanco encima: 4.6:1)
+$color-primario-oscuro: var(--color-primario-oscuro);  // hover/active sobre el relleno (blanco encima: 6.2:1)
+$color-primario-texto: var(--color-primario-texto);  // el azul como TEXTO sobre fondo claro (5.5:1)
+$color-primario-claro: var(--color-primario-claro);  // fondos suaves, fila activa
+$color-primario-borde: var(--color-primario-borde);
 
 /* COLOR — SUPERFICIES Y TEXTO */
-$color-fondo:            #ededed;  // fondo general de la aplicación
-$color-superficie:       #ffffff;  // tarjetas, paneles, modales
-$color-superficie-baja:  #f7f7f8;  // cabeceras de tabla, cajas internas
-$color-texto:            #4d4c53;  // texto principal (8.5:1 sobre blanco)
-$color-texto-secundario: #64646a;  // etiquetas, ayudas, cabeceras (5.9:1; antes #8c8c90 = 3.4:1)
-$color-texto-invertido:  #ffffff;
+$color-fondo: var(--color-fondo);  // fondo general de la aplicación
+$color-superficie: var(--color-superficie);  // tarjetas, paneles, modales
+$color-superficie-baja: var(--color-superficie-baja);  // cabeceras de tabla, cajas internas
+$color-texto: var(--color-texto);  // texto principal (8.5:1 sobre blanco)
+$color-texto-secundario: var(--color-texto-secundario);  // etiquetas, ayudas, cabeceras (5.9:1; antes #8c8c90 = 3.4:1)
+$color-texto-invertido: var(--color-texto-invertido);
 
 /* COLOR — BORDES */
-$color-borde:            #e4e6ea;
-$color-borde-fuerte:     #c9cdd4;
+$color-borde: var(--color-borde);
+$color-borde-fuerte: var(--color-borde-fuerte);
 
 /* COLOR — SEMÁNTICOS */
-$color-exito:            #16a34a;
-$color-exito-claro:      #dcfce7;
-$color-exito-texto:      #166534;
+$color-exito: var(--color-exito);
+$color-exito-claro: var(--color-exito-claro);
+$color-exito-texto: var(--color-exito-texto);
 
-$color-advertencia:      #d97706;
-$color-advertencia-claro:#fef3c7;
-$color-advertencia-texto:#92400e;
+$color-advertencia: var(--color-advertencia);
+$color-advertencia-claro: var(--color-advertencia-claro);
+$color-advertencia-texto: var(--color-advertencia-texto);
 
-$color-error:            #e11d48;
-$color-error-claro:      #fff1f2;
-$color-error-texto:      #9f1239;
-$color-error-borde:      #fecdd3;
+$color-error: var(--color-error);
+$color-error-claro: var(--color-error-claro);
+$color-error-texto: var(--color-error-texto);
+$color-error-borde: var(--color-error-borde);
+
+/* COLOR — AUXILIARES DE TEMA (definidos en _tema.scss) */
+$color-exito-borde:        var(--color-exito-borde);
+$color-advertencia-borde:  var(--color-advertencia-borde);
+$color-foco:               var(--color-foco);        // halo de foco de los controles
+$color-velo:               var(--color-velo);        // fondo de modales y cajón
+$color-sube:               var(--color-sube);        // variación positiva
+$color-baja:               var(--color-baja);        // variación negativa
+$color-tabla-hover:        var(--color-tabla-hover);
 
 /* COLOR — ACENTO VIP / ESPECIAL (rust del diseño) */
-$color-rust:             #b46424;  // acento y bordes
-$color-rust-texto:       #9a5220;  // el rust como texto sobre fondo claro (5.1:1)
-$color-rust-claro:       #faede3;
-$color-rust-borde:       #f2cfb3;
+$color-rust: var(--color-rust);  // acento y bordes
+$color-rust-texto: var(--color-rust-texto);  // el rust como texto sobre fondo claro (5.1:1)
+$color-rust-claro: var(--color-rust-claro);
+$color-rust-borde: var(--color-rust-borde);
 
 /* --------------------------------------------------------------------------
    TIPOGRAFÍA

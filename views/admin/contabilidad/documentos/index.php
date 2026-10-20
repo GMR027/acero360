@@ -16,7 +16,7 @@ template('tabsContabilidad', ['tab' => 'documentos', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/contabilidad/documentos', 'periodo' => $periodo, 'empresas' => $empresas, 'extra' => ['operacion' => $tipoOp]]);
 ?>
 
-<nav class="chip-grupo mb-lg" aria-label="Tipo de operación">
+<nav class="chip-grupo ajustes-tabs mb-lg" aria-label="Tipo de operación">
     <?php foreach (['ventas' => 'Documentos de ventas', 'gastos' => 'Documentos de gastos'] as $clave => $texto) : ?>
         <a class="chip<?= $tipoOp === $clave ? ' chip--activo' : '' ?>" href="/admin/contabilidad/documentos?<?= http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'operacion' => $clave]) ?>"
            <?= $tipoOp === $clave ? 'aria-current="page"' : '' ?>><span><?= $texto ?></span></a>

@@ -179,6 +179,13 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 
 - Si lo dejaste como «lo debo todavía», ábrelo cuando lo pagues y cámbialo a pagado con su fecha.
 
+### Que la plataforma lea la factura
+
+1. Gastos → «Leer factura» (o desde una venta, «Leer factura»). Sube el XML (lo mejor: datos exactos), el PDF o una foto.
+2. Aparece una pantalla de revisión con lo que se leyó, qué tan seguro es cada dato y el aviso de discrepancias o duplicados. Corrige lo necesario y marca «Revisé este dato» en lo dudoso.
+3. Nada se guarda hasta que pulsas «Confirmar datos». Puedes asociar el documento a un gasto o venta que ya existe (sin duplicarlo) y queda registrado quién confirmó y cuándo.
+4. El folio de la factura (p. ej. A-123) y el UUID son datos distintos. Si no se puede leer el archivo, captura los datos a mano en la misma pantalla.
+
 > **Consejos**
 > - Solo los gastos pagados y con factura se restan de tus impuestos.
 > - Un ticket sin factura se puede guardar, pero no baja tus impuestos.
@@ -251,40 +258,37 @@ Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT 
 
 ### Hacerla más exacta
 
-1. Si ya pagaste ISR o IVA al SAT, anótalo en «Pagos al SAT y ajustes».
-2. Marca como «No deducible» los gastos que sabes que no se restan.
-3. Anota retenciones o saldo a favor si los tienes.
+- Marca como «No deducible» los gastos que sabes que no se restan.
 
 ### Para tu contador
 
-- «Ver cómo se calculó» muestra paso a paso la cuenta.
+- «¿Cómo se calcula?» muestra paso a paso la cuenta, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.
 
 > **Consejos**
 > - Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.
 > - Los pagos provisionales se presentan a más tardar el día 17 del mes siguiente.
-> - Para que funcione, el administrador debe tener activas las reglas del SAT (Impuestos → Reglas del SAT).
 
 ---
 
 ## 11. Estadísticas
 
-Cómo van tus ventas, con tres números grandes y cuatro gráficas fáciles de leer.
+Cómo van tus ventas, cobros, facturas y gastos, con indicadores y gráficas interactivas.
 
 ### Ver tus números
 
 1. Arriba elige «Este mes», «Este año» o «Año pasado», o usa los filtros de periodo y negocio y pulsa «Ver estadísticas».
-2. «Vendiste», «Cobraste» y «Facturaste» son tres cosas distintas: vender es cuando haces la venta, cobrar cuando te pagan y facturar cuando das factura.
-3. Debajo de «Vendiste» dice cuánto subió o bajó contra el año anterior.
+2. Ventas realizadas, cobros recibidos, ventas facturadas y gastos son cosas distintas: vender es cuando haces la venta, cobrar cuando te pagan y facturar cuando das factura.
+3. Cada indicador dice cuánto subió o bajó (en pesos y en %) contra el mismo periodo del año anterior; en gastos, bajar es lo bueno.
 
 ### Las gráficas
 
-1. Ventas por mes (o por día, trimestre…), año contra año, productos que más vendes y clientes que más compran.
-2. Pasa el cursor sobre una barra o punto para ver su cifra exacta.
+1. Ventas por mes, año contra año y por semestre; ingresos acumulados; ventas contra cobros; cobrado y saldo pendiente; facturadas y pendientes de facturar; gastos por año y categoría; comparación entre negocios; productos de mayor y menor movimiento y clientes.
+2. Pasa el cursor para ver la cifra exacta y la variación contra el año anterior; toca un nombre de la leyenda para ocultar o mostrar esa serie; el icono de la esquina guarda la gráfica como imagen.
 
 ### Filtros y descargas
 
 1. «Más filtros» permite elegir un cliente o un producto y cuántos años comparar.
-2. «Ver las tablas con todos los números» muestra el detalle, y arriba puedes descargar PDF, Excel o CSV.
+2. «Ver las tablas con todos los números» muestra el detalle de cada gráfica. Arriba descargas PDF (con gráficas), Excel (una hoja por gráfica, con la gráfica dentro) o CSV; siempre salen con el periodo y los filtros que elegiste.
 
 > **Consejos**
 > - Si el periodo no ha terminado, la comparación usa el mismo avance del año anterior para ser justa.

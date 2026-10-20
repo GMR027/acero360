@@ -35,7 +35,9 @@ $rutaBase = '/admin/contabilidad/gastos' . ($parametros ? '?' . http_build_query
 
 template('header', [
     'titulo' => 'Egresos y gastos', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad',
-    'acciones' => '<a class="btn btn--primario" href="/admin/contabilidad/gastos/crear">'
+    'acciones' => '<a class="btn btn--secundario" href="/admin/contabilidad/lectura?destino=gasto">'
+        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">document_scanner</span><span>Leer factura</span></a> '
+        . '<a class="btn btn--primario" href="/admin/contabilidad/gastos/crear">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span><span>Nuevo gasto</span></a>',
 ]);
 template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);

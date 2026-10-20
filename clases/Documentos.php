@@ -334,30 +334,63 @@ class Documentos
      * PDF de una preparación: 'preparacion' (productos agrupados para alistar)
      * o 'entrega' (por cliente, con firma). Solo lectura.
      */
-    public static function descargarEntrega(int $preparacionId, string $tipo): void
+    public static function descargarEntrega(int $preparacionId, string $tipo, array $ventaIds = []): void
     {
-        $prep = Entregas::buscarPreparacion($preparacionId);
-        if (!$prep) {
-            \paginaNoEncontrada();
-        }
-
-        $ventas = Entregas::ventasDePreparacion($preparacionId);
+        $contexto = self::contextoEntrega($preparacionId, $tipo, $ventaIds);
 
         ob_start();
-        \template('pdfEntregas', [
-            'prep'   => $prep,
-            'ventas' => $ventas,
-            'grupos' => Entregas::productosAgrupados($ventas),
-            'tipo'   => $tipo === 'entrega' ? 'entrega' : 'preparacion',
-        ]);
+        \template('pdfEntregas', $contexto + ['imprimir' => false]);
         $html = (string) ob_get_clean();
 
         $bytes = self::componer($html, 'la preparación');
         if ($bytes === null) {
-            \redirigir('/admin/entregas/detalle?id=' . $preparacionId, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+            \redirigir($preparacionId ? '/admin/entregas/detalle?id=' . $preparacionId : '/admin/entregas',
+                'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
         }
 
-        self::enviar($bytes, ($tipo === 'entrega' ? 'entrega-' : 'preparacion-') . $prep['folio']);
+        $referencia = $contexto['prep']['folio'] ?? 'seleccion-' . date('Ymd-Hi');
+        self::enviar($bytes, ($contexto['tipo'] === 'entrega' ? 'entrega-' : 'preparacion-') . $referencia);
+    }
+
+    /**
+     * Versión para imprimir: la misma hoja del PDF como página con botón de impresión.
+     * Solo lee; nunca registra entregas ni toca existencias.
+     */
+    public static function imprimirEntrega(int $preparacionId, string $tipo, array $ventaIds = []): void
+    {
+        $contexto = self::contextoEntrega($preparacionId, $tipo, $ventaIds);
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: private, no-store');
+        \template('pdfEntregas', $contexto + ['imprimir' => true]);
+        exit;
+    }
+
+    /** @return array{prep: ?array, ventas: array, grupos: array, tipo: string} */
+    private static function contextoEntrega(int $preparacionId, string $tipo, array $ventaIds): array
+    {
+        $prep = null;
+        if ($preparacionId > 0) {
+            $prep = Entregas::buscarPreparacion($preparacionId);
+            if (!$prep) {
+                \paginaNoEncontrada();
+            }
+            $ventas = Entregas::ventasDePreparacion($preparacionId);
+        } else {
+            $ventas = Entregas::ventasPorIds($ventaIds);
+            if (!$ventas) {
+                \redirigir('/admin/entregas', 'error', 'Elige al menos un pedido para exportarlo.');
+            }
+        }
+
+        return [
+            'prep'   => $prep,
+            'ventas' => $ventas,
+            'grupos' => Entregas::productosAgrupados($ventas),
+            'tipo'   => $tipo === 'entrega' ? 'entrega' : 'preparacion',
+        ];
     }
 
     /* --------------------------------------------------------------------

@@ -18,7 +18,7 @@ Ejecución completa: `pruebas/ejecutar_todo.sh` (28 suites, base de prueba, nunc
 | 12 | Gasto compartido sin duplicarlo | `php/etapa5.php` (60/40, total contado una vez), `probar_etapa5.mjs` | ✔ automática |
 | 13 | Adjuntar y recuperar PDF, imágenes y XML | `php/etapa5.php` (incluye 11 ataques), `probar_etapa5.mjs` | ✔ automática |
 | 14 | Consultar la contabilidad de meses anteriores | `probar_etapa5.mjs` (selector año/mes), `php/etapa6.php` (enero y febrero), `probar_etapa7.mjs` | ✔ automática |
-| 15 | Reporte fiscal consolidado | `php/etapa6.php` (montos calculados a mano), `probar_etapa6.mjs` | ✔ automática |
+| 15 | Reporte fiscal consolidado | `php/etapa6.php` (montos calculados a mano) | ✔ automática |
 | 16 | Comparar ventas entre años | `php/etapa7.php`, `probar_etapa7.mjs` | ✔ automática |
 | 17 | Exportar inventario, estadísticas y ventas sin facturar (PDF/Excel/CSV) | `probar_etapa10.mjs`, `probar_etapa7.mjs`, `probar_etapa5.mjs` | ✔ automática |
 | 18 | Permisos y operaciones administrativas | `probar_permisos.mjs` (149 rutas × sin sesión / rol 2); `php/etapa6.php` (contraseña y motivo en activación, reapertura, configuración fiscal) | ✔ automática |

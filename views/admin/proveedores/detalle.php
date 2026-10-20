@@ -281,35 +281,16 @@ template('tabsCompras', ['tab' => 'proveedores']);
                                     <?php endif; ?>
                                 </td>
                                 <td class="tabla--centro">
-                                    <div class="tabla__pago">
-                                        <!-- Estado SIEMPRE visible: "Pendiente" hasta
-                                             que se pague, "Pagado" en cuanto se marca. -->
-                                        <?php if ($estaPagado) : ?>
-                                            <span class="badge badge--aprobado badge--sin-punto">Pagado</span>
-                                        <?php else : ?>
-                                            <span class="badge badge--pendiente badge--sin-punto">Pendiente</span>
-                                        <?php endif; ?>
-
-                                        <form action="/admin/proveedores/entradas/pago" method="post" data-validar>
-                                            <input type="hidden" name="id" value="<?= (int) $pedido->id ?>">
-                                            <input type="hidden" name="retorno" value="<?= escaparValores($retorno) ?>">
-                                            <?php if ($estaPagado) : ?>
-                                                <input type="hidden" name="pagado" value="">
-                                                <button type="submit" class="btn btn--secundario btn--sm"
-                                                        aria-label="Deshacer el pago del pedido <?= escaparValores($pedido->numero_pedido ?: (string) $pedido->id) ?>">
-                                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">replay</span>
-                                                    <span>Deshacer</span>
-                                                </button>
-                                            <?php else : ?>
-                                                <input type="hidden" name="pagado" value="1">
-                                                <button type="submit" class="btn btn--exito btn--sm"
-                                                        aria-label="Marcar como pagado el pedido <?= escaparValores($pedido->numero_pedido ?: (string) $pedido->id) ?>">
-                                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">check_circle</span>
-                                                    <span>Pagado</span>
-                                                </button>
-                                            <?php endif; ?>
-                                        </form>
-                                    </div>
+                                    <form class="tabla__pago" action="/admin/proveedores/entradas/pago" method="post" data-validar>
+                                        <input type="hidden" name="id" value="<?= (int) $pedido->id ?>">
+                                        <input type="hidden" name="retorno" value="<?= escaparValores($retorno) ?>">
+                                        <label class="solo-lectores" for="pago-<?= (int) $pedido->id ?>">Estado de pago del pedido <?= escaparValores($pedido->numero_pedido ?: (string) $pedido->id) ?></label>
+                                        <select class="control control--compacto" id="pago-<?= (int) $pedido->id ?>" name="pagado">
+                                            <option value=""<?= $estaPagado ? '' : ' selected' ?>>Pendiente de pago</option>
+                                            <option value="1"<?= $estaPagado ? ' selected' : '' ?>>Pagado</option>
+                                        </select>
+                                        <button type="submit" class="btn btn--secundario btn--sm">Guardar</button>
+                                    </form>
                                 </td>
                                 <td class="tabla--numerica">
                                     <div class="tabla__acciones">

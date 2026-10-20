@@ -27,7 +27,7 @@ $etiquetaVip = static function ($cliente): string {
 template('header', [
     'titulo'    => 'Directorio de clientes',
     'subtitulo' => 'Gestión de clientes',
-    'acciones'  => '<a class="btn btn--primario" href="/admin/clientes/crear">'
+    'acciones'  => '<a class="btn btn--primario movil-visible" href="/admin/clientes/crear">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">person_add</span>'
         . '<span>Nuevo cliente</span></a>',
 ]);
@@ -72,19 +72,18 @@ template('header', [
             <p><?= $termino !== ''
                     ? 'Ningún cliente coincide con "' . escaparValores($termino) . '".'
                     : 'Registra tu primer cliente para poder cotizarle.' ?></p>
-            <a class="btn btn--primario" href="/admin/clientes/crear">Nuevo cliente</a>
+            <a class="btn btn--primario movil-visible" href="/admin/clientes/crear">Nuevo cliente</a>
         </div>
     <?php else : ?>
         <!-- Listado -->
         <div class="tabla-contenedor">
-            <table class="tabla">
+            <table class="tabla tabla--clientes">
                 <caption class="solo-lectores">Listado de clientes registrados</caption>
                 <thead>
                     <tr>
                         <th scope="col">Cliente</th>
-                        <th scope="col">RFC</th>
-                        <!-- En móvil sólo se conservan Cliente, RFC y Acciones:
-                             el resto se oculta con .tabla__col-secundaria. -->
+                        <th scope="col" class="tabla__col-secundaria">RFC</th>
+                        <!-- En móvil cada cliente muestra solo foto, nombre y contacto (ver tabla--clientes en _movil.scss). -->
                         <th scope="col" class="tabla__col-secundaria">Contacto</th>
                         <th scope="col" class="tabla__col-secundaria">Ubicación</th>
                         <th scope="col" class="tabla__col-secundaria tabla--numerica">Descuento</th>
@@ -108,7 +107,7 @@ template('header', [
                                     </div>
                                 </div>
                             </td>
-                            <td class="cifra"><?= escaparValores($cliente->rfc ?: '—') ?></td>
+                            <td class="tabla__col-secundaria cifra"><?= escaparValores($cliente->rfc ?: '—') ?></td>
                             <td class="tabla__col-secundaria">
                                 <div class="tabla__producto-textos">
                                     <span class="texto-sm"><?= escaparValores($cliente->telefono ?: '—') ?></span>

@@ -9,7 +9,7 @@ namespace App;
  *   IVA por pagar = IVA facturado − IVA de los pagos
  *   ISR por pagar = (facturado sin IVA − pagos sin IVA) × tasa (32 % por defecto, editable)
  *
- * Es una estimación para planear: NO sustituye al cálculo detallado del motor fiscal ni a la declaración.
+ * Es una estimación para planear: NO sustituye a la declaración.
  */
 class ResumenFiscal
 {

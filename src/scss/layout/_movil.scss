@@ -51,8 +51,8 @@
   }
 
   .entregas-seleccion {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
   /* --- Tablas como tarjetas ---------------------------------------------- */
@@ -177,5 +177,480 @@
     .cotizador-tabla__pie {
       font-style: normal;
     }
+  }
+}
+
+/* Utilidades de visibilidad por tamaño de pantalla. */
+.solo-movil {
+  display: none !important;
+}
+
+@include hasta-movil {
+  .solo-movil {
+    display: block !important;
+  }
+
+  .btn.solo-movil {
+    display: inline-flex !important;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Botón que debe distinguirse del resto en el celular. */
+  .boton-inventario-completo {
+    background-color: #e65100;
+    border-color: #e65100;
+    color: #fff;
+  }
+
+  .movil-oculto {
+    display: none !important;
+  }
+
+  /* Resumen del mes de Impuestos: tres cifras, la de impuestos en verde. */
+  .impuestos-movil {
+    display: grid;
+    gap: $espacio-sm;
+    margin-bottom: $espacio-lg;
+
+    &__fila {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: $espacio-md;
+      background-color: $color-superficie;
+      border: 1px solid $color-borde-fuerte;
+      border-radius: $radio-lg;
+    }
+
+    &__fila--destacada {
+      background-color: $color-exito-claro;
+      border-color: $color-exito;
+      color: $color-exito-texto;
+      font-weight: 700;
+    }
+
+    &__valor {
+      font-size: 1.25rem;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+/* Inventario en celular: tarjeta con imagen a la izquierda, producto, cantidad con guardar y monto. */
+@include hasta-movil {
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla.tabla--inventario {
+    tbody tr {
+      display: grid;
+      grid-template-columns: 4.5rem 1fr;
+      grid-template-areas:
+        'img prod'
+        'img cant'
+        'img monto';
+      column-gap: $espacio-md;
+      align-items: center;
+      padding: $espacio-sm $espacio-md;
+    }
+
+    td {
+      min-height: 0;
+      padding: 0;
+      text-align: left;
+      justify-content: flex-start;
+    }
+
+    td::before {
+      content: none;
+    }
+
+    .inv-img {
+      grid-area: img;
+      align-self: start;
+      width: auto;
+
+      .miniatura-producto {
+        width: 4.5rem;
+        height: 4.5rem;
+      }
+    }
+
+    .inv-prod {
+      grid-area: prod;
+      padding-bottom: $espacio-xs;
+    }
+
+    .inv-cant {
+      grid-area: cant;
+      padding-bottom: $espacio-xs;
+
+      .inventario-cantidad {
+        width: 100%;
+        min-width: 0;
+        justify-content: flex-start;
+      }
+
+      .inventario-cantidad__campo {
+        width: 6rem;
+        text-align: center;
+        font-weight: 700;
+      }
+    }
+
+    .inv-monto {
+      grid-area: monto;
+      color: $color-texto-secundario;
+      font-size: 0.875rem;
+
+      &::before {
+        content: 'Monto: ';
+        flex: none;
+        max-width: none;
+        margin-right: $espacio-xs;
+        font-size: 0.875rem;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+    }
+  }
+}
+
+/* Ventas y cotizaciones en celular: tarjeta compacta con folio y total
+   arriba, cliente, estado/fecha/negocio y una fila de acciones. */
+@include hasta-movil {
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla.tabla--documentos {
+    tbody tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'folio total'
+        'cliente cliente'
+        'estado fecha'
+        'negocio negocio'
+        'acciones acciones';
+      column-gap: $espacio-md;
+      row-gap: $espacio-xs;
+      align-items: center;
+      padding: $espacio-md;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+
+    td {
+      min-height: 0;
+      padding: 0;
+      width: auto;
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    td::before {
+      content: none;
+    }
+
+    .doc-folio {
+      grid-area: folio;
+      font-size: 1.0625rem;
+
+      a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.75rem;
+      }
+    }
+
+    .doc-total {
+      grid-area: total;
+      justify-content: flex-end;
+      font-size: 1.25rem;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .doc-cliente {
+      grid-area: cliente;
+      padding-bottom: $espacio-xs;
+
+      .tabla__producto-textos {
+        gap: 0.125rem;
+      }
+    }
+
+    .doc-estado {
+      grid-area: estado;
+    }
+
+    .doc-fecha {
+      grid-area: fecha;
+      justify-content: flex-end;
+      color: $color-texto-secundario;
+      font-size: 0.875rem;
+    }
+
+    .doc-negocio {
+      grid-area: negocio;
+      color: $color-texto-secundario;
+      font-size: 0.875rem;
+
+      &:empty {
+        display: none;
+      }
+    }
+
+    .doc-acciones {
+      grid-area: acciones;
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      justify-content: stretch;
+      gap: $espacio-sm;
+      margin-top: $espacio-sm;
+      padding-top: $espacio-sm;
+      border-top: 1px solid $color-borde;
+
+      > .btn,
+      > form {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+
+      > form {
+        display: flex;
+        flex: 0 0 auto;
+      }
+
+      /* Duplicar crece como las demás; eliminar queda como icono. */
+      > form:not(:last-child) {
+        flex: 1 1 0;
+      }
+
+      > .btn,
+      > form > .btn {
+        justify-content: center;
+      }
+
+      > form > .btn:not(.btn--icono) {
+        width: 100%;
+      }
+    }
+  }
+
+  /* Filtros: búsqueda y botones a todo el ancho; selects y fechas a dos columnas. */
+  .buscador--filtros {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $espacio-sm;
+
+    .buscador__campo,
+    .btn {
+      grid-column: 1 / -1;
+    }
+
+    .control,
+    select.control {
+      width: 100%;
+    }
+
+    .btn {
+      flex: none;
+    }
+  }
+
+  /* Cifras de resumen más compactas. */
+  .rejilla-stats {
+    gap: $espacio-sm;
+
+    .stat {
+      padding: $espacio-md;
+    }
+
+    .stat__valor {
+      font-size: 1.25rem;
+    }
+
+    .stat__pie {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+/* Renglones del cotizador (cotizaciones y ventas) en celular: en vez de una
+   columna de filas con etiqueta, cada producto es una tarjeta compacta con
+   producto + quitar arriba, precio/cantidad/descuento en una fila y
+   precio de lista + total abajo. */
+@include hasta-movil {
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla.cotizador-tabla {
+    tbody tr {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-areas:
+        'prod prod prod accion'
+        'precio precio cant desc'
+        'lista lista total total';
+      gap: $espacio-sm;
+      align-items: end;
+      padding: $espacio-md;
+    }
+
+    tbody td {
+      min-height: 0;
+      padding: 0;
+      width: auto;
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    tbody td::before {
+      content: none;
+    }
+
+    .cotizador-celda-indice {
+      display: none;
+    }
+
+    .cotizador-celda-producto {
+      grid-area: prod;
+      align-self: start;
+    }
+
+    .cotizador-celda-accion {
+      grid-area: accion;
+      align-self: start;
+      justify-content: flex-end;
+    }
+
+    /* Campos con su etiqueta encima. */
+    .cotizador-celda-precio,
+    .cotizador-celda-cantidad,
+    .cotizador-celda-descuento {
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-end;
+      gap: $espacio-xs;
+
+      &::before {
+        content: attr(data-label);
+        flex: none;
+        max-width: none;
+        font-size: 0.6875rem;
+      }
+
+      .control {
+        text-align: center;
+        padding-inline: $espacio-xs;
+      }
+    }
+
+    .cotizador-celda-precio {
+      grid-area: precio;
+    }
+
+    .cotizador-celda-cantidad {
+      grid-area: cant;
+    }
+
+    .cotizador-celda-descuento {
+      grid-area: desc;
+    }
+
+    .cotizador-recordar {
+      min-height: 0;
+      font-size: 0.75rem;
+      line-height: 1.2;
+      color: $color-texto-secundario;
+    }
+
+    .cotizador-celda-lista {
+      grid-area: lista;
+      align-self: center;
+      color: $color-texto-secundario;
+      font-size: 0.875rem;
+
+      &::before {
+        content: 'Lista: ';
+        flex: none;
+        max-width: none;
+        margin-right: $espacio-xs;
+        font-size: 0.875rem;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+    }
+
+    .cotizador-celda-total {
+      grid-area: total;
+      align-self: center;
+      justify-content: flex-end;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    tbody .tabla__producto {
+      align-items: flex-start;
+      gap: $espacio-sm;
+    }
+
+    tbody .tabla__miniatura,
+    tbody .tabla__producto-img {
+      width: 3rem;
+      height: 3rem;
+    }
+  }
+}
+
+/* ==========================================================================
+   Modo informativo en celular (body[data-movil="info"], lo fija modoMovil()).
+   Inventario, Cotizaciones, Ventas, Entrega y Ajustes se ven completos; el resto solo informa:
+   se ocultan filtros, altas, ediciones y bajas. Solo CSS: en pantalla grande todo sigue igual.
+   Un botón con la clase .movil-visible se conserva (p. ej. «Nuevo cliente»).
+   ========================================================================== */
+@include hasta-movil {
+  body[data-movil='info'] #contenido-principal {
+    /* Filtros y búsquedas */
+    form[method='get' i],
+    .buscador,
+    .chip-grupo:not(.entregas-tabs),
+    .estadisticas-periodos,
+    /* Altas, ediciones y bajas */
+    form[method='post' i],
+    .btn--peligro,
+    a[href*='/crear']:not(.movil-visible),
+    a[href*='/editar'],
+    a[href*='/nueva'],
+    a[href*='/nuevo'],
+    .encabezado-pagina__acciones .btn--primario:not(.movil-visible),
+    .tabla__acciones .btn--icono:not([href*='/detalle']) {
+      display: none !important;
+    }
+
+    /* En la cabecera solo quedan las descargas (PDF, Excel, CSV): lo demás son altas y atajos de captura. */
+    .encabezado-pagina__acciones a:not([href*='pdf']):not([href*='export']):not([href*='zip']):not(.movil-visible) {
+      display: none !important;
+    }
+  }
+}
+
+/* Cliente en celular: foto y nombre arriba, sin la etiqueta «Cliente» repetida; abajo las acciones. */
+@include hasta-movil {
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:first-child::before {
+    content: none;
+  }
+
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:first-child {
+    justify-content: flex-start;
+    text-align: left;
+
+    .tabla__producto-textos {
+      align-items: flex-start;
+      text-align: left;
+    }
+  }
+
+  /* Las tarjetas fuerzan display:flex en cada celda; aquí se vuelven a ocultar las que no van en celular:
+     solo quedan imagen y nombre (1.ª celda) y contacto (3.ª). */
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:not(:first-child):not(:nth-child(3)) {
+    display: none;
   }
 }

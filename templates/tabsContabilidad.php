@@ -18,10 +18,10 @@ $secciones = [
     'mas'      => ['/admin/contabilidad/mas', 'Más opciones', 'more_horiz'],
 ];
 ?>
-<nav class="chip-grupo entregas-tabs" aria-label="Secciones de contabilidad">
+<nav class="chip-grupo entregas-tabs ajustes-tabs" aria-label="Secciones de contabilidad">
     <?php foreach ($secciones as $clave => [$ruta, $texto, $icono]) : $activo = $tab === $clave; ?>
         <a class="chip<?= $activo ? ' chip--activo' : '' ?>" href="<?= $ruta . ($clave === 'mas' ? '' : $sufijo) ?>" <?= $activo ? 'aria-current="page"' : '' ?>>
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem"><?= $icono ?></span>
+            <span class="material-symbols-outlined" aria-hidden="true"><?= $icono ?></span>
             <span><?= $texto ?></span>
         </a>
     <?php endforeach; ?>

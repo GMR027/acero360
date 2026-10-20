@@ -25,6 +25,7 @@ if ($esEnvio) {
         'condiciones_envio'  => trim($_POST['condiciones_envio'] ?? ''),
         'condiciones_compra' => trim($_POST['condiciones_compra'] ?? ''),
         'activa'             => isset($_POST['activa']) ? 1 : 0,
+        'logo_alto_pdf'      => max(\App\Imagenes::LOGO_PDF_ALTO_MIN, min(\App\Imagenes::LOGO_PDF_ALTO_MAX, (int) ($_POST['logo_alto_pdf'] ?? \App\Imagenes::LOGO_PDF_ALTO))),
     ]);
 
     $errores = $empresa->validar();

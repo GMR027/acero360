@@ -20,7 +20,7 @@ $uno = fn (string $q) => $db->query($q)->fetch_row()[0];
 
 foreach (['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones', 'documentos', 'cobros', 'gasto_reparto', 'gastos', 'ingresos', 'periodos_contables', 'entregas', 'preparaciones'] as $t) { $db->query("DELETE FROM $t"); }
 $db->query('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
-$db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
+$db->query('DELETE FROM venta_cambios_entregados'); $db->query('DELETE FROM venta_devoluciones'); $db->query('DELETE FROM ventas'); $db->query('DELETE FROM cotizaciones');
 $usuario = (int) $uno('SELECT id FROM usuarios LIMIT 1');
 $clientes = array_column($db->query('SELECT id FROM clientes LIMIT 2')->fetch_all(MYSQLI_ASSOC), 'id');
 [$c1, $c2] = [(int) $clientes[0], (int) $clientes[1]];

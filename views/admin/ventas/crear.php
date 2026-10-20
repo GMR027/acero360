@@ -108,7 +108,7 @@ template('header', [
     <div>
         <!-- <h1 class="titulo-2">Nueva cotización</h1> -->
         <p class="texto-secundario">
-            Registrá una venta que no pasó por cotización: negocio, cliente, fecha, productos y
+            Registra una venta que no pasó por cotización: negocio, cliente, fecha, productos y
             términos. Al guardar se descuenta el inventario (si falta material queda en negativo).
         </p>
     </div>

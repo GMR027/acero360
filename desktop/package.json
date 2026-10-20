@@ -15,7 +15,7 @@
     "start": "electron .",
     "test": "node --test test/*.test.js",
     "test:integracion": "node test/integracion.mjs",
-    "empaquetar": "electron-builder --linux deb --x64"
+    "empaquetar": "node ../scripts/sincronizar_version.mjs && electron-builder --linux deb --x64"
   },
   "devDependencies": {
     "electron": "^44.9.0",

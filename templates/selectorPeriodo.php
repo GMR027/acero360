@@ -6,8 +6,9 @@
  */
 $conTodoElAnio = $conTodoElAnio ?? false;
 $extra = $extra ?? [];
+$ocultoMovil = $ocultoMovil ?? false;
 ?>
-<form class="buscador mb-lg" action="<?= escaparValores($accion) ?>" method="get" aria-label="Elegir periodo">
+<form class="buscador mb-lg<?= $ocultoMovil ? ' movil-oculto' : '' ?>" action="<?= escaparValores($accion) ?>" method="get" aria-label="Elegir periodo">
     <?php foreach ($extra as $nombre => $valor) : ?>
         <input type="hidden" name="<?= escaparValores($nombre) ?>" value="<?= escaparValores((string) $valor) ?>">
     <?php endforeach; ?>

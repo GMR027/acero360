@@ -11,6 +11,13 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+/** Las pruebas que mandan POST «a mano» deben llevar la llave anti-falsificación (CSRF) de la sesión, como lo hace el navegador. */
+async function postCsrf(pagina, url, opciones = {}) {
+  const token = await pagina.evaluate(() => (document.querySelector('meta[name="csrf"]') || {}).content || '');
+  return pagina.request.post(url, { ...opciones, headers: { ...(opciones.headers || {}), 'X-CSRF-Token': token } });
+}
+
+
 const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:8017';
 const DB = process.env.DB_NAME || 'cotizaciones';
@@ -30,7 +37,7 @@ const docsPrevios = existsSync(carpetaDocs) ? readdirSync(carpetaDocs).length : 
 function limpiar() {
   for (const t of ['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones', 'documentos', 'cobros', 'gasto_reparto', 'gastos', 'ingresos', 'periodos_contables', 'entregas', 'preparaciones']) { sql(`DELETE FROM ${t}`); }
   sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
-  sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
+  sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }
 limpiar();
 sql('UPDATE productos SET stock = 100 WHERE id = 37');
@@ -75,7 +82,7 @@ try {
   verifica('aviso: importes registrados, no estimación fiscal', texto.includes('No son cálculos de impuestos'));
   verifica('hay selector de año, mes y negocio', (await pagina.locator('#sel-anio, #sel-mes, #sel-empresa').count()) === 3);
   await pagina.selectOption('#sel-empresa', '2');
-  await pagina.click('button:has-text("Ver periodo")');
+  await Promise.all([pagina.waitForURL(/empresa=2/), pagina.click('button:has-text("Ver periodo")')]);
   await abrirTodo(pagina);
   verifica('filtrar un negocio muestra solo sus ventas ($100)', (await pagina.locator('main').innerText()).includes('$100.00'));
 
@@ -107,8 +114,9 @@ try {
   await pagina.goto(BASE + '/admin/contabilidad/gastos/crear');
   verifica('el gasto pide lo básico: qué, a quién, cuándo, cuánto, pagado, factura', (await pagina.locator('#concepto, #beneficiario, #fecha, #total, #estado_pago, #comprobante_fiscal').count()) === 6);
   verifica('lo avanzado queda plegado en «Más detalles»', (await pagina.locator('details:not([open]) #uuid_fiscal').count()) === 1);
-  await pagina.fill('#concepto', 'Gasolina'); await pagina.fill('#beneficiario', 'Gasolinera'); await pagina.fill('#total', '580');
+  await pagina.fill('#concepto', 'Gasolina'); await pagina.selectOption('#beneficiario_tipo', 'otro'); await pagina.fill('#beneficiario', 'Gasolinera'); await pagina.fill('#total', '580');
   await pagina.selectOption('#estado_pago', 'pagado');
+  await pagina.selectOption('#comprobante_fiscal', '1');
   await pagina.setInputFiles('#doc-nuevo', [pdf]);
   await Promise.all([pagina.waitForURL('**/gastos/detalle?id=*'), pagina.click('button:has-text("Guardar gasto")')]);
   verifica('la factura subida al crear queda adjunta con tipo detectado', sql(`SELECT CONCAT(COUNT(*),'/',MIN(tipo)) FROM documentos WHERE entidad='gasto' AND entidad_id=(SELECT MAX(id) FROM gastos)`) === '1/factura_pdf');
@@ -124,13 +132,13 @@ try {
   await pagina.fill('#factura_folio', 'A-77');
   await pagina.fill('#uuid_fiscal', uuid);
   await pagina.check('#confirma_manual');
-  await pagina.click('form:has(#estado_facturacion) button[type=submit]');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('form:has(#estado_facturacion) button[type=submit]')]);
   verifica('queda facturada con su UUID', sql(`SELECT CONCAT(estado_facturacion,'/',uuid_fiscal) FROM ingresos WHERE id=${ingresoId}`) === `facturada/${uuid}`);
   await pagina.fill('#cobro-importe', '50');
   const tokenCobro = await pagina.locator('form:has(#cobro-importe) input[name=token]').inputValue();
-  await pagina.click('button:has-text("Anotar pago recibido")');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Anotar pago recibido")')]);
   verifica('cobro parcial: queda «Pago parcial»', (await pagina.content()).includes('Pago parcial') && sql(`SELECT SUM(importe) FROM cobros WHERE ingreso_id=${ingresoId}`) === '50.00');
-  const reenvio = await pagina.request.post(`${BASE}/admin/contabilidad/ingresos/accion`, { form: { id: ingresoId, accion: 'cobro', token: tokenCobro, fecha: `${anio}-01-01`, importe: '10', metodo: 'Efectivo' }, maxRedirects: 0 });
+  const reenvio = await postCsrf(pagina, `${BASE}/admin/contabilidad/ingresos/accion`, { form: { id: ingresoId, accion: 'cobro', token: tokenCobro, fecha: `${anio}-01-01`, importe: '10', metodo: 'Efectivo' }, maxRedirects: 0 });
   verifica('reenviar el mismo formulario no duplica el cobro', sql(`SELECT COUNT(*) FROM cobros WHERE ingreso_id=${ingresoId}`) === '1' && reenvio.status() === 302);
 
   console.log('Documentos');
@@ -145,7 +153,7 @@ try {
   verifica('se muestra la validación documental «sin verificar SAT»', (await pagina.content()).includes('sin verificar SAT'));
   await pagina.setInputFiles('#doc-archivo', malo);
   await pagina.selectOption('#doc-tipo', 'factura_pdf');
-  await pagina.click('button:has-text("Subir archivos")');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Subir archivos")')]);
   verifica('un archivo falso se rechaza con mensaje claro', (await pagina.content()).includes('no es un PDF válido') && sql(`SELECT COUNT(*) FROM documentos`) === '2');
 
   const doc = sql(`SELECT id FROM documentos WHERE tipo='xml'`);
@@ -161,9 +169,10 @@ try {
 
   console.log('Gasto compartido');
   await pagina.goto(BASE + '/admin/contabilidad/gastos/crear');
-  await pagina.fill('#beneficiario', 'Agustín Olvera');
+  await pagina.selectOption('#beneficiario_tipo', 'otro'); await pagina.fill('#beneficiario', 'Agustín Olvera');
   await pagina.fill('#concepto', 'Renta de bodega');
   await pagina.fill('#total', '1160');
+  await pagina.selectOption('#comprobante_fiscal', '0');
   await abrirTodo(pagina);
   await pagina.check('#compartido');
   await pagina.fill('#reparto_1', '60');
@@ -172,10 +181,11 @@ try {
   verifica('total 1,160.00 y revisión «por validar»', (await pagina.content()).includes('$1,160.00') && (await pagina.content()).includes('Por validar'));
   const gastoId = sql('SELECT MAX(id) FROM gastos');
   await pagina.goto(BASE + '/admin/contabilidad/gastos/crear');
-  await pagina.fill('#beneficiario', 'X'); await pagina.fill('#concepto', 'Y'); await pagina.fill('#total', '116');
+  await pagina.selectOption('#beneficiario_tipo', 'otro'); await pagina.fill('#beneficiario', 'X'); await pagina.fill('#concepto', 'Y'); await pagina.fill('#total', '116');
   await abrirTodo(pagina);
+  await pagina.selectOption('#comprobante_fiscal', '0');
   await pagina.check('#compartido'); await pagina.fill('#reparto_1', '60'); await pagina.fill('#reparto_2', '30');
-  await pagina.click('button:has-text("Guardar gasto")');
+  await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Guardar gasto")')]);
   verifica('un reparto que no suma 100 % se rechaza', (await pagina.content()).includes('debe sumar exactamente 100'));
   await pagina.goto(`${BASE}/admin/contabilidad?anio=${anio}&mes=${mes}`);
   verifica('el resumen cuenta el gasto compartido una sola vez ($1,160)', (await pagina.locator('main').innerText()).includes('$1,160.00'));

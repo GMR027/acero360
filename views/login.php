@@ -44,6 +44,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $_SESSION['email']    = $usuario['email'];
             $_SESSION['rol']      = (int) $usuario['rol'];
             $_SESSION['login']    = true;
+            $_SESSION['huella']   = hash('sha256', (string) $usuario['contrasena']);
 
             redirigir('/admin', 'exito', 'Bienvenido, ' . $usuario['nombre'] . '.');
         }

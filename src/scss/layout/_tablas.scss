@@ -330,3 +330,74 @@
   align-items: center;
   gap: $espacio-xs;
 }
+
+/* Miniatura de producto en una columna propia (Inventario). */
+.tabla__col-imagen {
+  width: 4.5rem;
+  padding-block: $espacio-xs;
+}
+
+.miniatura-producto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+  overflow: hidden;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio;
+  color: $color-texto-secundario;
+  cursor: zoom-in;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &--vacia {
+    cursor: default;
+  }
+}
+
+.imagen-ampliada {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin-inline: auto;
+  object-fit: contain;
+  border-radius: $radio;
+}
+
+// Código del producto en cotizaciones y ventas: rojo propio (no el de error) en negrita.
+.tabla__codigo {
+  color: var(--color-codigo);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Vista compacta del inventario (celular): imagen, producto y cantidad. */
+.inventario-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $espacio-md;
+    padding: $espacio-sm $espacio-md;
+    border-top: 1px solid $color-borde;
+  }
+
+  &__nombre {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__stock {
+    font-size: 1.25rem;
+  }
+}

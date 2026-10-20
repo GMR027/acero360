@@ -15,6 +15,7 @@ if (!$gasto) {
 $cerrado  = \App\Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $gasto['fecha']);
 $vigente  = $gasto['estado'] === 'vigente';
 $revision = \App\Gastos::REVISION[$gasto['revision_fiscal']];
+$factura  = \App\Gastos::estadoFactura($gasto);
 $periodo  = ['anio' => (int) substr($gasto['fecha'], 0, 4), 'mes' => (int) substr($gasto['fecha'], 5, 2), 'empresa' => 0];
 
 template('header', ['titulo' => 'Gasto: ' . $gasto['beneficiario'], 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
@@ -37,7 +38,8 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
         <div><dt>Total</dt><dd><strong><?= formatoMoneda($gasto['total']) ?></strong></dd></div>
         <div><dt>Negocio</dt><dd><?= (int) $gasto['compartido'] === 1 ? 'Compartido' : escaparValores((string) ($gasto['empresa_nombre'] ?? 'General')) ?></dd></div>
         <div><dt>UUID</dt><dd><?= escaparValores((string) $gasto['uuid_fiscal']) ?: '—' ?></dd></div>
-        <div><dt>Comprobante fiscal</dt><dd><?= (int) $gasto['comprobante_fiscal'] === 1 ? 'Sí (indicador)' : 'No' ?></dd></div>
+        <div><dt>Pagado a</dt><dd><?= escaparValores(\App\Gastos::BENEFICIARIOS[$gasto['beneficiario_tipo']] ?? '') ?>: <?= escaparValores($gasto['beneficiario']) ?></dd></div>
+        <div><dt>Factura (CFDI)</dt><dd><span class="badge <?= $factura['clase'] ?>"><?= escaparValores($factura['etiqueta']) ?></span><br><small class="texto-secundario"><?= escaparValores($factura['detalle']) ?></small></dd></div>
     </dl>
     <?php if ($gasto['reparto']) : ?>
         <p class="mt-md texto-secundario">Reparto interno (el total contable no cambia):

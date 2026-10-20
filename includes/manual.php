@@ -65,6 +65,7 @@ return [
         ['Subir la factura', ['En el mismo formulario, «Factura o comprobante»: elige uno o varios archivos (PDF, XML, JPG, PNG o WebP). Se detecta solo qué es cada uno.', 'También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes».', 'Si subes el XML de la factura, se leen sus datos (folio fiscal, importes) y avisa si algo no cuadra.']],
         ['Más detalles', ['«Más detalles (opcional)» tiene categoría, cómo pagaste, folio fiscal, repartir entre negocios y notas. No hace falta llenarlo.']],
         ['Pagarlo después', ['Si lo dejaste como «lo debo todavía», ábrelo cuando lo pagues y cámbialo a pagado con su fecha.']],
+        ['Que la plataforma lea la factura', ['Gastos → «Leer factura» (o desde una venta, «Leer factura»). Sube el XML (lo mejor: datos exactos), el PDF o una foto.', 'Aparece una pantalla de revisión con lo que se leyó, qué tan seguro es cada dato y el aviso de discrepancias o duplicados. Corrige lo necesario y marca «Revisé este dato» en lo dudoso.', 'Nada se guarda hasta que pulsas «Confirmar datos». Puedes asociar el documento a un gasto o venta que ya existe (sin duplicarlo) y queda registrado quién confirmó y cuándo.', 'El folio de la factura (p. ej. A-123) y el UUID son datos distintos. Si no se puede leer el archivo, captura los datos a mano en la misma pantalla.']],
      ],
      'consejos' => ['Solo los gastos pagados y con factura se restan de tus impuestos.', 'Un ticket sin factura se puede guardar, pero no baja tus impuestos.', 'Máximo por archivo: el tamaño que indica la pantalla.']],
 
@@ -92,17 +93,17 @@ return [
      'intro' => 'Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT según lo que vendiste y gastaste.',
      'pasos' => [
         ['Leer la cifra', ['Impuestos → arriba: «deberías separar aproximadamente $X», con el IVA y el ISR por separado.', 'Solo cuenta lo que ya te pagaron y los gastos ya pagados con factura.']],
-        ['Hacerla más exacta', ['Si ya pagaste ISR o IVA al SAT, anótalo en «Pagos al SAT y ajustes».', 'Marca como «No deducible» los gastos que sabes que no se restan.', 'Anota retenciones o saldo a favor si los tienes.']],
-        ['Para tu contador', ['«Ver cómo se calculó» muestra paso a paso la cuenta.']],
+        ['Hacerla más exacta', ['Marca como «No deducible» los gastos que sabes que no se restan.']],
+        ['Para tu contador', ['«¿Cómo se calcula?» muestra paso a paso la cuenta, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.']],
      ],
-     'consejos' => ['Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.', 'Los pagos provisionales se presentan a más tardar el día 17 del mes siguiente.', 'Para que funcione, el administrador debe tener activas las reglas del SAT (Impuestos → Reglas del SAT).']],
+     'consejos' => ['Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.', 'Los pagos provisionales se presentan a más tardar el día 17 del mes siguiente.']],
 
     ['id' => 'estadisticas', 'titulo' => 'Estadísticas', 'icono' => 'monitoring',
-     'intro' => 'Cómo van tus ventas, con tres números grandes y cuatro gráficas fáciles de leer.',
+     'intro' => 'Cómo van tus ventas, cobros, facturas y gastos, con indicadores y gráficas interactivas.',
      'pasos' => [
-        ['Ver tus números', ['Arriba elige «Este mes», «Este año» o «Año pasado», o usa los filtros de periodo y negocio y pulsa «Ver estadísticas».', '«Vendiste», «Cobraste» y «Facturaste» son tres cosas distintas: vender es cuando haces la venta, cobrar cuando te pagan y facturar cuando das factura.', 'Debajo de «Vendiste» dice cuánto subió o bajó contra el año anterior.']],
-        ['Las gráficas', ['Ventas por mes (o por día, trimestre…), año contra año, productos que más vendes y clientes que más compran.', 'Pasa el cursor sobre una barra o punto para ver su cifra exacta.']],
-        ['Filtros y descargas', ['«Más filtros» permite elegir un cliente o un producto y cuántos años comparar.', '«Ver las tablas con todos los números» muestra el detalle, y arriba puedes descargar PDF, Excel o CSV.']],
+        ['Ver tus números', ['Arriba elige «Este mes», «Este año» o «Año pasado», o usa los filtros de periodo y negocio y pulsa «Ver estadísticas».', 'Ventas realizadas, cobros recibidos, ventas facturadas y gastos son cosas distintas: vender es cuando haces la venta, cobrar cuando te pagan y facturar cuando das factura.', 'Cada indicador dice cuánto subió o bajó (en pesos y en %) contra el mismo periodo del año anterior; en gastos, bajar es lo bueno.']],
+        ['Las gráficas', ['Ventas por mes, año contra año y por semestre; ingresos acumulados; ventas contra cobros; cobrado y saldo pendiente; facturadas y pendientes de facturar; gastos por año y categoría; comparación entre negocios; productos de mayor y menor movimiento y clientes.', 'Pasa el cursor para ver la cifra exacta y la variación contra el año anterior; toca un nombre de la leyenda para ocultar o mostrar esa serie; el icono de la esquina guarda la gráfica como imagen.']],
+        ['Filtros y descargas', ['«Más filtros» permite elegir un cliente o un producto y cuántos años comparar.', '«Ver las tablas con todos los números» muestra el detalle de cada gráfica. Arriba descargas PDF (con gráficas), Excel (una hoja por gráfica, con la gráfica dentro) o CSV; siempre salen con el periodo y los filtros que elegiste.']],
      ],
      'consejos' => ['Si el periodo no ha terminado, la comparación usa el mismo avance del año anterior para ser justa.']],
 

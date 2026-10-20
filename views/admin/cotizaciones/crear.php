@@ -98,7 +98,7 @@ template('header', [
     <div>
         <!-- <h1 class="titulo-2">Nueva cotización</h1> -->
         <p class="texto-secundario">
-            Elija el negocio, el cliente, cargá los productos y ajustá precios, cantidades,
+            Elige el negocio y el cliente, carga los productos y ajusta precios, cantidades,
             descuentos e IVA. El folio se asigna solo al guardar.
         </p>
     </div>

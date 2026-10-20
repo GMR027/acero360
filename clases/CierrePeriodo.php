@@ -154,55 +154,6 @@ class CierrePeriodo
                 'La deducción y el IVA acreditable se toman cuando el gasto se paga.', "/admin/contabilidad/gastos?$periodo&pago=pendiente");
         }
 
-        // Diferencias de IVA: el IVA registrado contra base × tasa.
-        $tasa = CatalogoFiscal::activa('iva_tasas', $anio)['doc']['tasa_general'] ?? null;
-        if ($tasa !== null) {
-            $tolerancia = Contabilidad::centavos(CatalogoFiscal::activa('reglas_plataforma', $anio)['doc']['tolerancia_iva_pesos'] ?? '0.05');
-            $diferencias = 0;
-
-            $consulta = self::$db->prepare(
-                "SELECT subtotal, descuento, iva FROM ingresos WHERE contribuyente_id = ? AND YEAR(fecha) = ? AND MONTH(fecha) = ? AND estado = 'vigente' AND iva > 0"
-            );
-            $consulta->bind_param('iii', ...$p);
-            $consulta->execute();
-            foreach ($consulta->get_result() as $f) {
-                $base = Contabilidad::centavos($f['subtotal']) - Contabilidad::centavos($f['descuento']);
-                $diferencias += abs(MotorFiscal::ivaDe($base, (string) $tasa) - Contabilidad::centavos($f['iva'])) > $tolerancia ? 1 : 0;
-            }
-            $consulta->close();
-
-            $consulta = self::$db->prepare(
-                "SELECT subtotal, iva_tasa, iva FROM gastos WHERE contribuyente_id = ? AND YEAR(fecha) = ? AND MONTH(fecha) = ? AND estado = 'vigente'"
-            );
-            $consulta->bind_param('iii', ...$p);
-            $consulta->execute();
-            foreach ($consulta->get_result() as $f) {
-                $diferencias += abs(MotorFiscal::ivaDe(Contabilidad::centavos($f['subtotal']), (string) $f['iva_tasa']) - Contabilidad::centavos($f['iva'])) > $tolerancia ? 1 : 0;
-            }
-            $consulta->close();
-
-            if ($diferencias > 0) {
-                $h[] = self::hallazgo('diferencias_iva', 'aviso', 'Diferencias de IVA', $diferencias,
-                    'Operaciones cuyo IVA registrado no coincide con base × tasa (por encima de la tolerancia configurada).', "/admin/contabilidad?$periodo");
-            }
-        }
-
-        // Estimación contra lo declarado y pagado.
-        $calculo = MotorFiscal::calcular($contribuyente, $anio, $mes);
-        if (!($calculo['iva']['habilitado'] ?? false) || !($calculo['isr']['habilitado'] ?? false)) {
-            $h[] = self::hallazgo('calculo_no_disponible', 'aviso', 'Cálculo fiscal no disponible', 1,
-                'Falta una regla activa o la configuración fiscal; el cierre quedaría sin estimación de impuestos.', '/admin/fiscal/catalogo');
-        }
-        $dif = 0;
-        foreach (['isr', 'iva'] as $impuesto) {
-            $d = $calculo['comparacion'][$impuesto] ?? null;
-            $dif += ($d !== null && abs($d) > 100) ? 1 : 0;
-        }
-        if ($dif > 0) {
-            $h[] = self::hallazgo('diferencia_estimado_pagado', 'aviso', 'Diferencia entre lo estimado y lo declarado', $dif,
-                'La estimación de la plataforma difiere en más de $1.00 de lo declarado. Revisa con tu contador.', "/admin/fiscal/detalle?$periodo");
-        }
-
         // Conciliación.
         $sinIngreso = self::cuenta(
             "SELECT COUNT(*) FROM ventas v JOIN empresas e ON e.id = v.empresa_id
@@ -359,14 +310,14 @@ class CierrePeriodo
                 return false;
             }
 
-            $calculo = MotorFiscal::calcular($contribuyente, $anio, $mes);
+            $estimacion = ResumenFiscal::anual($contribuyente, $anio)['meses'][$mes];
             $snapshot = [
                 'periodo' => sprintf('%04d-%02d', $anio, $mes),
                 'cerrado_por' => $usuarioId,
                 'cerrado_en' => date('Y-m-d H:i:s'),
                 'nota' => trim($nota) ?: null,
                 'contabilidad' => Contabilidad::resumenPeriodo($anio, $mes),
-                'fiscal' => $calculo,
+                'fiscal' => array_intersect_key($estimacion, array_flip(['facturado', 'pagos', 'iva_por_pagar', 'isr_por_pagar', 'impuestos'])),
                 'verificaciones' => $verificaciones,
                 'avisos_reconocidos' => array_values(array_intersect($reconocidos, array_column($avisos, 'codigo'))),
             ];
@@ -378,8 +329,6 @@ class CierrePeriodo
             $cerrar->bind_param('isi', $usuarioId, $json, $periodoId);
             $cerrar->execute();
             $cerrar->close();
-
-            MotorFiscal::guardarCalculo($calculo, 'cierre', $usuarioId);
 
             $historial = self::$db->prepare("INSERT INTO periodos_historial (periodo_id, accion, motivo, usuario_id, resumen_sha256) VALUES (?, 'cierre', ?, ?, ?)");
             $motivo = trim($nota) ?: null;

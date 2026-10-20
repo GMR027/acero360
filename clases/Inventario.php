@@ -427,8 +427,8 @@ class Inventario
         $consulta->close();
 
         $consulta = self::$db->prepare(
-            "SELECT producto_id, SUM(cantidad) AS devuelto FROM movimientos_inventario
-              WHERE venta_id = ? AND motivo = 'devolucion' GROUP BY producto_id"
+            "SELECT producto_id, SUM(cantidad_devuelta) AS devuelto FROM venta_devoluciones
+              WHERE venta_id = ? GROUP BY producto_id"
         );
         $consulta->bind_param('i', $ventaId);
         $consulta->execute();
@@ -445,24 +445,56 @@ class Inventario
     }
 
     /**
-     * Devolución de un cliente: regresa piezas de UNA venta registrada.
-     * Nunca devuelve más de lo vendido (descontando devoluciones previas).
+     * Devolución simple (sin cambio, sin nota): atajo de registrarDevolucion() con la fecha de hoy.
      *
      * @param array<int, int> $piezas producto_id => cantidad a devolver.
      */
-    public static function devolverDeVenta(int $ventaId, array $piezas, string $razon, int $usuarioId): bool
+    public static function devolverDeVenta(int $ventaId, array $piezas, string $nota, int $usuarioId): bool
+    {
+        $items = [];
+        foreach ($piezas as $productoId => $cantidad) {
+            $items[(int) $productoId] = ['devuelta' => (int) $cantidad, 'cambio' => 0];
+        }
+
+        return self::registrarDevolucion($ventaId, $items, date('Y-m-d'), $nota, $usuarioId);
+    }
+
+    /**
+     * Registra una devolución (y, si se pide, cuántas de esas piezas requieren cambio) de UNA venta registrada.
+     *   • Las piezas devueltas suman al inventario en ese momento.
+     *   • Las piezas «a cambiar» quedan como deuda de la venta; se descuentan del inventario cuando se entrega el cambio.
+     *   • Nunca se devuelve más de lo vendido menos lo ya devuelto; el cambio nunca supera lo devuelto en ese registro.
+     *   • El motivo no es obligatorio (nota opcional).
+     *
+     * @param array<int, array{devuelta: int, cambio: int}> $items producto_id => cantidades.
+     */
+    public static function registrarDevolucion(int $ventaId, array $items, string $fecha, string $nota, int $usuarioId): bool
     {
         self::$errores = [];
-        $piezas = array_filter(array_map('intval', $piezas), static fn ($c) => $c > 0);
+        $filtrados = [];
+        foreach ($items as $productoId => $c) {
+            $devuelta = max(0, (int) ($c['devuelta'] ?? 0));
+            $cambio   = max(0, (int) ($c['cambio'] ?? 0));
+            if ($devuelta > 0 || $cambio > 0) {
+                $filtrados[(int) $productoId] = ['devuelta' => $devuelta, 'cambio' => $cambio];
+            }
+        }
 
-        if (!$piezas) {
-            self::$errores[] = 'Indica al menos una pieza a devolver.';
+        if (!$filtrados) {
+            self::$errores[] = 'Indica al menos una pieza devuelta.';
             return false;
         }
-        if (mb_strlen(trim($razon)) < 5) {
-            self::$errores[] = 'Escribe el motivo de la devolución (mínimo 5 caracteres).';
+        foreach ($filtrados as $c) {
+            if ($c['cambio'] > $c['devuelta']) {
+                self::$errores[] = 'Las piezas a cambiar no pueden ser más que las devueltas.';
+                return false;
+            }
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !strtotime($fecha) || $fecha > date('Y-m-d')) {
+            self::$errores[] = 'La fecha de la devolución no es válida (no puede ser futura).';
             return false;
         }
+        $nota = mb_substr(trim($nota), 0, 200);
 
         try {
             self::$db->begin_transaction();
@@ -480,38 +512,187 @@ class Inventario
             }
 
             $disponibles = self::devolvibles($ventaId);
-            foreach ($piezas as $productoId => $cantidad) {
-                if (!isset($disponibles[$productoId]) || $cantidad > $disponibles[$productoId]['disponible']) {
+            $piezas = [];
+            foreach ($filtrados as $productoId => $c) {
+                if (!isset($disponibles[$productoId]) || $c['devuelta'] > $disponibles[$productoId]['disponible']) {
                     self::$db->rollBack();
                     self::$errores[] = 'No se pueden devolver más piezas de las vendidas (producto #' . $productoId . ').';
                     return false;
                 }
+                $piezas[$productoId] = $c['devuelta'];
             }
 
-            if (!self::mover($piezas, 'entrada', 0, $usuarioId, 'Devolución de ' . $venta['folio'] . ': ' . trim($razon), $ventaId, 0, 'devolucion')) {
+            $texto = 'Devolución de ' . $venta['folio'] . ($nota !== '' ? ': ' . $nota : '');
+            if (!self::mover($piezas, 'entrada', 0, $usuarioId, $texto, $ventaId, 0, 'devolucion')) {
                 self::$db->rollBack();
                 return false;
             }
 
-            // La devolución cierra la entrega: lo que faltaba por entregar ya no se entrega.
-            $cerrar = self::$db->prepare(
-                "UPDATE ventas SET entrega_cerrada_en = NOW(), entrega_cerrada_motivo = 'Devolución de cliente'
-                  WHERE id = ? AND entrega_cerrada_en IS NULL"
+            $guardar = self::$db->prepare(
+                'INSERT INTO venta_devoluciones (venta_id, producto_id, fecha, cantidad_devuelta, cantidad_cambio, nota, usuario_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
-            $cerrar->bind_param('i', $ventaId);
-            $cerrar->execute();
-            $cerrar->close();
+            $notaSql = $nota !== '' ? $nota : null;
+            $usuarioSql = $usuarioId > 0 ? $usuarioId : null;
+            foreach ($filtrados as $productoId => $c) {
+                $guardar->bind_param('iisiisi', $ventaId, $productoId, $fecha, $c['devuelta'], $c['cambio'], $notaSql, $usuarioSql);
+                $guardar->execute();
+            }
+            $guardar->close();
+
+            // Lo devuelto que no se había entregado deja de estar pendiente (ver Entregas::pendientesDeVentas).
             Entregas::avanzarPreparaciones($ventaId);
 
-            Auditoria::registrar('venta', $ventaId, 'devolucion', $usuarioId, trim($razon), ['piezas' => $piezas]);
+            Auditoria::registrar('venta', $ventaId, 'devolucion', $usuarioId, $nota !== '' ? $nota : null, ['piezas' => $filtrados, 'fecha' => $fecha]);
             self::$db->commit();
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
             self::$db->rollBack();
-            error_log('[Inventario::devolverDeVenta] ' . $excepcion->getMessage());
+            error_log('[Inventario::registrarDevolucion] ' . $excepcion->getMessage());
             self::$errores[] = 'No fue posible registrar la devolución.';
             return false;
         }
+    }
+
+    /**
+     * Cambios que se le deben al cliente en una venta: piezas a cambiar menos las ya entregadas.
+     *
+     * @return array<int, array{producto_id: int, nombre: string, a_cambiar: int, entregadas: int, pendiente: int}>
+     */
+    public static function cambiosPendientes(int $ventaId): array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT d.producto_id, p.nombre, SUM(d.cantidad_cambio) AS a_cambiar,
+                    COALESCE(SUM((SELECT SUM(e.cantidad) FROM venta_cambios_entregados e WHERE e.devolucion_id = d.id)), 0) AS entregadas
+               FROM venta_devoluciones d JOIN productos p ON p.id = d.producto_id
+              WHERE d.venta_id = ? GROUP BY d.producto_id, p.nombre HAVING a_cambiar > 0 ORDER BY p.nombre'
+        );
+        $consulta->bind_param('i', $ventaId);
+        $consulta->execute();
+        $filas = [];
+        foreach ($consulta->get_result() as $f) {
+            $pendiente = (int) $f['a_cambiar'] - (int) $f['entregadas'];
+            $filas[(int) $f['producto_id']] = [
+                'producto_id' => (int) $f['producto_id'], 'nombre' => $f['nombre'],
+                'a_cambiar' => (int) $f['a_cambiar'], 'entregadas' => (int) $f['entregadas'], 'pendiente' => $pendiente,
+            ];
+        }
+        $consulta->close();
+
+        return $filas;
+    }
+
+    /**
+     * Entrega (parcial o total) de la pieza de reemplazo: se descuenta del inventario ahora.
+     * No se entrega más de lo que se debe; respeta la preferencia de stock negativo.
+     */
+    public static function entregarCambio(int $ventaId, int $productoId, int $cantidad, string $fecha, int $usuarioId): bool
+    {
+        self::$errores = [];
+
+        if ($cantidad <= 0) {
+            self::$errores[] = 'Indica cuántas piezas se entregan.';
+            return false;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !strtotime($fecha) || $fecha > date('Y-m-d')) {
+            self::$errores[] = 'La fecha de entrega no es válida (no puede ser futura).';
+            return false;
+        }
+
+        try {
+            self::$db->begin_transaction();
+
+            $bloqueo = self::$db->prepare('SELECT folio, estado FROM ventas WHERE id = ? FOR UPDATE');
+            $bloqueo->bind_param('i', $ventaId);
+            $bloqueo->execute();
+            $venta = $bloqueo->get_result()->fetch_assoc();
+            $bloqueo->close();
+
+            if (!$venta || $venta['estado'] !== 'registrada') {
+                self::$db->rollBack();
+                self::$errores[] = 'Solo se entregan cambios de una venta registrada.';
+                return false;
+            }
+
+            $pendiente = self::cambiosPendientes($ventaId)[$productoId]['pendiente'] ?? 0;
+            if ($cantidad > $pendiente) {
+                self::$db->rollBack();
+                self::$errores[] = $pendiente > 0
+                    ? 'No se pueden entregar más piezas de las que se deben (faltan ' . $pendiente . ').'
+                    : 'Este producto no tiene cambios pendientes.';
+                return false;
+            }
+
+            if (!self::mover([$productoId => $cantidad], 'salida', 0, $usuarioId, 'Cambio entregado de ' . $venta['folio'], $ventaId, 0, 'cambio')) {
+                self::$db->rollBack();
+                return false;
+            }
+
+            // Reparte la entrega entre los registros de devolución, del más antiguo al más reciente.
+            $registros = self::$db->prepare(
+                'SELECT d.id, d.cantidad_cambio - COALESCE((SELECT SUM(e.cantidad) FROM venta_cambios_entregados e WHERE e.devolucion_id = d.id), 0) AS falta
+                   FROM venta_devoluciones d WHERE d.venta_id = ? AND d.producto_id = ? ORDER BY d.id FOR UPDATE'
+            );
+            $registros->bind_param('ii', $ventaId, $productoId);
+            $registros->execute();
+            $filas = $registros->get_result()->fetch_all(MYSQLI_ASSOC);
+            $registros->close();
+
+            $entrega = self::$db->prepare('INSERT INTO venta_cambios_entregados (devolucion_id, cantidad, fecha, usuario_id) VALUES (?, ?, ?, ?)');
+            $usuarioSql = $usuarioId > 0 ? $usuarioId : null;
+            $resto = $cantidad;
+            foreach ($filas as $f) {
+                $parte = min($resto, (int) $f['falta']);
+                if ($parte <= 0) {
+                    continue;
+                }
+                $devolucionId = (int) $f['id'];
+                $entrega->bind_param('iisi', $devolucionId, $parte, $fecha, $usuarioSql);
+                $entrega->execute();
+                $resto -= $parte;
+            }
+            $entrega->close();
+
+            Auditoria::registrar('venta', $ventaId, 'cambio_entregado', $usuarioId, null, ['producto_id' => $productoId, 'cantidad' => $cantidad, 'fecha' => $fecha]);
+            self::$db->commit();
+            return true;
+        } catch (\mysqli_sql_exception $excepcion) {
+            self::$db->rollBack();
+            error_log('[Inventario::entregarCambio] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible registrar la entrega del cambio.';
+            return false;
+        }
+    }
+
+    /** Historial de devoluciones de una venta, con lo entregado de cada cambio. @return array<int, array<string, mixed>> */
+    public static function historialDevoluciones(int $ventaId): array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT d.*, p.nombre AS producto_nombre, u.nombre AS usuario_nombre,
+                    COALESCE((SELECT SUM(e.cantidad) FROM venta_cambios_entregados e WHERE e.devolucion_id = d.id), 0) AS entregadas
+               FROM venta_devoluciones d JOIN productos p ON p.id = d.producto_id LEFT JOIN usuarios u ON u.id = d.usuario_id
+              WHERE d.venta_id = ? ORDER BY d.fecha DESC, d.id DESC'
+        );
+        $consulta->bind_param('i', $ventaId);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        return $filas;
+    }
+
+    /** Ventas con cambios por entregar (para avisos y pendientes). @return array<int, array<string, mixed>> */
+    public static function ventasConCambiosPendientes(int $limite = 200): array
+    {
+        $resultado = self::$db->query(
+            "SELECT v.id, v.folio, v.fecha, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                    SUM(d.cantidad_cambio) - COALESCE(SUM((SELECT SUM(e.cantidad) FROM venta_cambios_entregados e WHERE e.devolucion_id = d.id)), 0) AS pendiente
+               FROM venta_devoluciones d JOIN ventas v ON v.id = d.venta_id JOIN clientes cl ON cl.id = v.cliente_id
+              WHERE v.estado = 'registrada' GROUP BY v.id, v.folio, v.fecha, cl.nombre, cl.nombre_empresa
+             HAVING pendiente > 0 ORDER BY v.fecha, v.id LIMIT " . (int) $limite
+        );
+
+        return $resultado->fetch_all(MYSQLI_ASSOC);
     }
 
     /* --------------------------------------------------------------------

@@ -82,7 +82,121 @@ function validarID($id, string $ruta = '/admin')
 function sesionActiva(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
+        // La cookie de sesión no la lee JavaScript y no viaja desde otros sitios.
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path'     => '/',
+            'secure'   => conexionSegura(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
         session_start();
+    }
+}
+
+/** True cuando la petición llegó por HTTPS (directo o detrás del ingress del clúster). */
+function conexionSegura(): bool
+{
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+}
+
+/* ---------------------------------------------------------------------------
+ * 3.1 PROTECCIÓN CONTRA PETICIONES FALSIFICADAS (CSRF) Y CABECERAS
+ * ------------------------------------------------------------------------- */
+
+/** Llave de la sesión: viaja en cada formulario POST y en las llamadas fetch. */
+function tokenCsrf(): string
+{
+    sesionActiva();
+    if (empty($_SESSION['csrf']) || !is_string($_SESSION['csrf'])) {
+        $_SESSION['csrf'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf'];
+}
+
+/**
+ * Rechaza todo POST que no traiga la llave de la sesión (campo _csrf o cabecera
+ * X-CSRF-Token). Así, una página ajena no puede mandar órdenes con tu sesión.
+ */
+function verificarCsrf(): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        return;
+    }
+
+    sesionActiva();
+    $enviado = (string) ($_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+    $esperado = (string) ($_SESSION['csrf'] ?? '');
+
+    if ($esperado !== '' && $enviado !== '' && hash_equals($esperado, $enviado)) {
+        // Cada formulario se puede enviar una sola vez: evita ventas, gastos o pagos duplicados
+        // por doble clic, por recargar la página o por volver atrás y reenviar.
+        $forma = (string) ($_POST['_forma'] ?? '');
+        if ($forma === '' || isset($_SESSION['formas'][$forma])) {
+            unset($_SESSION['formas'][$forma]);
+            return;
+        }
+
+        $destino = !empty($_SESSION['login']) ? '/admin' : '/login';
+        redirigir($destino, 'advertencia', 'Esa operación ya se había enviado. Revisa el listado antes de repetirla, por si ya quedó registrada.');
+    }
+
+    error_log('[CSRF] POST rechazado en ' . ($_SERVER['REQUEST_URI'] ?? ''));
+    if (!empty($_SESSION['login'])) {
+        redirigir('/admin', 'error', 'La página caducó o la petición no es válida. Vuelve a abrir el formulario e inténtalo de nuevo.');
+    }
+    redirigir('/login', 'advertencia', 'La página caducó. Vuelve a intentarlo.');
+}
+
+/** Agrega el campo _csrf a cada formulario POST de la página que se va a enviar. */
+function inyectarCsrf(string $html): string
+{
+    if (stripos($html, '<form') === false) {
+        return $html;
+    }
+
+    foreach (headers_list() as $cabecera) {
+        if (stripos($cabecera, 'content-type:') === 0 && stripos($cabecera, 'text/html') === false) {
+            return $html;
+        }
+    }
+
+    $csrf = tokenCsrf();
+
+    return preg_replace_callback(
+        '/<form\b[^>]*\bmethod\s*=\s*["\']?post["\']?[^>]*>/i',
+        static function (array $m) use ($csrf): string {
+            $forma = bin2hex(random_bytes(8));
+            $_SESSION['formas'][$forma] = time();
+            if (count($_SESSION['formas']) > 400) {
+                $_SESSION['formas'] = array_slice($_SESSION['formas'], -400, null, true);
+            }
+            return $m[0] . '<input type="hidden" name="_csrf" value="' . $csrf . '">'
+                . '<input type="hidden" name="_forma" value="' . $forma . '">';
+        },
+        $html
+    ) ?? $html;
+}
+
+/** Cabeceras de seguridad de toda respuesta de la aplicación. */
+function cabecerasSeguridad(): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: same-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; "
+        . "img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; frame-src 'self'; "
+        . "base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+
+    if (conexionSegura()) {
+        header('Strict-Transport-Security: max-age=31536000');
     }
 }
 
@@ -114,10 +228,55 @@ function soloAdmin(): void
 {
     iniciarSesion();
 
-    if ((int) ($_SESSION['rol'] ?? 0) !== 1) {
+    if ((int) ($_SESSION['rol'] ?? 0) !== 1 || !sesionSigueVigente()) {
         header('Location: /login');
         exit;
     }
+}
+
+/**
+ * Comprueba en la base que quien tiene la sesión abierta siga existiendo, siga
+ * siendo administrador y no haya cambiado su contraseña desde otro lugar. Si algo
+ * de eso cambió, la sesión se cierra en la siguiente petición.
+ */
+function sesionSigueVigente(): bool
+{
+    global $db;
+    static $revisada = null;
+
+    if ($revisada !== null) {
+        return $revisada;
+    }
+    if (!isset($db) || !($db instanceof mysqli)) {
+        return $revisada = true;
+    }
+
+    $id = (int) ($_SESSION['id'] ?? 0);
+    $consulta = $db->prepare('SELECT rol, contrasena FROM usuarios WHERE id = ? LIMIT 1');
+    $consulta->bind_param('i', $id);
+    $consulta->execute();
+    $usuario = $consulta->get_result()->fetch_assoc();
+    $consulta->close();
+
+    $huella = $usuario ? hash('sha256', (string) $usuario['contrasena']) : '';
+
+    if (!$usuario || (int) $usuario['rol'] !== 1) {
+        $vigente = false;
+    } elseif (!isset($_SESSION['huella'])) {
+        $_SESSION['huella'] = $huella; // sesiones abiertas antes de esta mejora
+        $vigente = true;
+    } else {
+        $vigente = hash_equals((string) $_SESSION['huella'], $huella);
+    }
+
+    if (!$vigente) {
+        $_SESSION = [];
+        session_destroy();
+        sesionActiva();
+        agregarAlerta('advertencia', 'Tu sesión se cerró porque tu acceso cambió. Inicia sesión de nuevo.');
+    }
+
+    return $revisada = $vigente;
 }
 
 /**
@@ -276,7 +435,8 @@ function contarRegistros(mysqli $db, string $tabla): int
 /** Formatea un monto como moneda mexicana: $1,234.50 */
 function formatoMoneda($monto): string
 {
-    return '$' . number_format((float) $monto, 2);
+    $monto = (float) $monto;
+    return ($monto < 0 ? '-' : '') . '$' . number_format(abs($monto), 2);
 }
 
 /** Etiqueta de estado de cotización con su clase CSS asociada. */
@@ -427,6 +587,53 @@ function consumirToken(?string $token): bool
 
     unset($_SESSION['tokens_formulario'][$token]);
     return true;
+}
+
+/**
+ * Modo de la pantalla en el celular. «completo»: Inventario, Cotizaciones, Ventas, Entrega, Compras y proveedores, y Ajustes se usan
+ * tal cual. «info»: el resto solo informa (el CSS oculta filtros, altas, ediciones y bajas; nada se quita de la vista).
+ * Las pantallas de captura (crear, editar, recibir, devolución, PDF…) nunca se ocultan: dejarían la página vacía.
+ */
+function modoMovil(): string
+{
+    $ruta = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+
+    if (strpos($ruta, '/admin') !== 0 || $ruta === '/admin/fiscal/configuracion') {
+        return 'completo';
+    }
+    if (preg_match('#^/admin/(inventario|cotizaciones|ventas|entregas|compras|proveedores|ajustes|usuarios|perfil|empresas|escritorio|ayuda)(/|$)#', $ruta)) {
+        return 'completo';
+    }
+    if (preg_match('#/(crear|editar|recibir|devolucion|cambio|pdf|exportar|subir|baja)$#', $ruta)) {
+        return 'completo';
+    }
+
+    return 'info';
+}
+
+/** Temas visuales válidos (Ajustes → Apariencia). «auto» sigue al sistema operativo. */
+const TEMAS_VALIDOS = ['claro', 'oscuro', 'auto'];
+
+/**
+ * Tema elegido por quien usa la sesión: cookie del navegador (se aplica sin parpadeo) y, si no hay,
+ * la preferencia guardada en su usuario (así lo recuerda en otro equipo). Por defecto «auto».
+ */
+function temaPreferido(): string
+{
+    $cookie = (string) ($_COOKIE['a360_tema'] ?? '');
+    if (in_array($cookie, TEMAS_VALIDOS, true)) {
+        return $cookie;
+    }
+    sesionActiva();
+    $id = (int) ($_SESSION['id'] ?? 0);
+    if ($id > 0) {
+        $guardado = \App\Configuracion::obtener('tema_usuario_' . $id, 'auto');
+        if (in_array($guardado, TEMAS_VALIDOS, true)) {
+            return $guardado;
+        }
+    }
+
+    return 'auto';
 }
 
 /**

@@ -18,7 +18,7 @@ const anio = new Date().getFullYear();
 
 for (const t of ['documentos', 'cobros', 'ingresos', 'entregas', 'preparaciones']) { sql(`DELETE FROM ${t}`); }
 sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
-sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
+sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 sql('UPDATE productos SET stock = 100 WHERE id = 37');
 const hash = execFileSync('php', ['-r', `echo password_hash('${CLAVE}', PASSWORD_BCRYPT);`], { encoding: 'utf8' });
 sql(`DELETE FROM usuarios WHERE email='${EMAIL}'`);

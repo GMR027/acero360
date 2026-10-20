@@ -2,6 +2,7 @@
    _index.scss — Punto de entrada de la capa base.
    ========================================================================== */
 
+@use 'tema';
 @use 'variables';
 @use 'mixins';
 @use 'normalize';

@@ -68,8 +68,8 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                             <label class="solo-lectores" for="marcar-todas">Seleccionar todas</label>
                             <input type="checkbox" id="marcar-todas" data-marcar-todas>
                         </th>
-                        <th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Negocio</th>
-                        <th scope="col" class="tabla--numerica">Por entregar</th>
+                        <th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col" class="movil-oculto">Negocio</th>
+                        <th scope="col" class="tabla--numerica movil-oculto">Por entregar</th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($ventas as $v) :
@@ -89,12 +89,12 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                                 </td>
                                 <td>
                                     <a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a>
-                                    <span class="texto-xs texto-secundario"><br><?= $v['cotizacion_id'] ? 'Desde cotización' : 'Venta directa' ?> · <?= date('d/m/Y', strtotime($v['fecha'])) ?></span>
+                                    <span class="texto-xs texto-secundario movil-oculto"><br><?= $v['cotizacion_id'] ? 'Desde cotización' : 'Venta directa' ?> · <?= date('d/m/Y', strtotime($v['fecha'])) ?></span>
                                 </td>
                                 <td><?= escaparValores($v['cliente_empresa'] ?: $v['cliente_nombre']) ?>
-                                    <span class="texto-xs texto-secundario"><br><?= escaparValores((string) $v['cliente_ubicacion']) ?></span></td>
-                                <td><?= escaparValores($v['empresa_nombre']) ?></td>
-                                <td class="tabla--numerica cifra"><?= $pendiente ?> <?= (int) $v['entregadas'] > 0 ? '<span class="texto-xs texto-secundario">de ' . (int) $v['piezas'] . '</span>' : '' ?></td>
+                                    <span class="texto-xs texto-secundario movil-oculto"><br><?= escaparValores((string) $v['cliente_ubicacion']) ?></span></td>
+                                <td class="movil-oculto"><?= escaparValores($v['empresa_nombre']) ?></td>
+                                <td class="tabla--numerica cifra movil-oculto"><?= $pendiente ?> <?= (int) $v['entregadas'] > 0 ? '<span class="texto-xs texto-secundario">de ' . (int) $v['piezas'] . '</span>' : '' ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
