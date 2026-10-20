@@ -2,7 +2,7 @@
   "name": "cotizaciones-escritorio",
   "productName": "Cotizaciones",
   "version": "1.0.0",
-  "description": "Aplicación de escritorio de Cotizaciones: ventana segura hacia la plataforma web (los datos viven en el servidor).",
+  "description": "Aplicación de escritorio de Acero 360: ventana segura hacia la plataforma web (los datos viven en el servidor).",
   "main": "src/main.js",
   "author": {
     "name": "Usuario Demo",
@@ -46,17 +46,17 @@
       ],
       "category": "Office",
       "icon": "build/icons",
-      "synopsis": "Cotizaciones, ventas, inventario y contabilidad",
-      "description": "Ventana de escritorio para la plataforma Cotizaciones. Se conecta por HTTPS al servidor: no guarda una base de datos propia.",
+      "synopsis": "Acero 360: cotizaciones, ventas, inventario y contabilidad",
+      "description": "Ventana de escritorio para la plataforma Acero 360. Se conecta por HTTPS al servidor: no guarda una base de datos propia.",
       "maintainer": "Usuario Demo <admin@ejemplo.com>",
       "executableName": "cotizaciones-escritorio",
       "desktop": {
         "entry": {
-          "Name": "Cotizaciones",
-          "Comment": "Cotizaciones, ventas, inventario y contabilidad",
+          "Name": "Acero 360",
+          "Comment": "Acero 360: cotizaciones, ventas, inventario y contabilidad",
           "Categories": "Office;Finance;",
           "StartupWMClass": "cotizaciones-escritorio",
-          "Keywords": "cotizaciones;ventas;inventario;contabilidad;"
+          "Keywords": "acero;acero360;cotizaciones;ventas;inventario;contabilidad;"
         }
       },
       "syncDesktopName": true

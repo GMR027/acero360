@@ -23,7 +23,7 @@ template('header', ['titulo' => 'Aplicación de escritorio', 'subtitulo' => 'Lin
 <section class="tarjeta mb-lg">
     <h2 class="titulo-5 mb-md">Versión disponible</h2>
     <?php if ($vigente) : ?>
-        <p><strong>Cotizaciones <?= escaparValores($vigente['version']) ?></strong> · <?= escaparValores($vigente['arquitectura']) ?> · <?= $tam((int) $vigente['tamano']) ?>
+        <p><strong>Acero 360 <?= escaparValores($vigente['version']) ?></strong> · <?= escaparValores($vigente['arquitectura']) ?> · <?= $tam((int) $vigente['tamano']) ?>
             · publicada el <?= date('d/m/Y H:i', strtotime($vigente['publicada_en'])) ?></p>
         <?php if ($vigente['notas']) : ?><p class="texto-secundario"><?= escaparValores($vigente['notas']) ?></p><?php endif; ?>
         <p class="texto-xs texto-secundario mt-md">SHA-256: <code><?= escaparValores($vigente['sha256']) ?></code></p>
@@ -43,7 +43,7 @@ template('header', ['titulo' => 'Aplicación de escritorio', 'subtitulo' => 'Lin
     <ol>
         <li><strong>Instalar:</strong> <code>sudo apt install ./cotizaciones-escritorio_<?= escaparValores($vigente['version'] ?? 'X.Y.Z') ?>_amd64.deb</code> (apt instala también lo que necesite).</li>
         <li><strong>Verificar la descarga (opcional):</strong> <code>sha256sum cotizaciones-escritorio_*.deb</code> debe coincidir con la suma de arriba.</li>
-        <li><strong>Abrir:</strong> «Cotizaciones» en el menú de aplicaciones, o <code>/opt/Cotizaciones/cotizaciones-escritorio</code>. Inicia sesión como en la web.</li>
+        <li><strong>Abrir:</strong> «Acero 360» en el menú de aplicaciones, o <code>/opt/Cotizaciones/cotizaciones-escritorio</code>. Inicia sesión como en la web.</li>
         <li><strong>Actualizar:</strong> descarga la versión nueva y vuelve a ejecutar <code>sudo apt install ./cotizaciones-escritorio_…deb</code>; reemplaza a la anterior y conserva tu configuración.</li>
         <li><strong>Desinstalar:</strong> <code>sudo apt remove cotizaciones-escritorio</code>. Para borrar también los datos locales (cookies de sesión): <code>rm -r ~/.config/Cotizaciones</code>.</li>
         <li><strong>Servidor distinto:</strong> por defecto se conecta a <code>https://<?= escaparValores($host) ?></code>. Se cambia con <code>~/.config/Cotizaciones/config.json</code> → <code>{"url": "https://tu-servidor"}</code> (solo HTTPS).</li>

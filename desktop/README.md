@@ -1,4 +1,6 @@
-# Cotizaciones · aplicación de escritorio (Linux)
+# Acero 360 · aplicación de escritorio (Linux)
+
+> Los identificadores técnicos (paquete `cotizaciones-escritorio`, carpeta `~/.config/Cotizaciones`, `COTIZACIONES_URL`) se conservan para que las instalaciones existentes se actualicen sin perder sesión.
 
 Ventana de escritorio segura hacia la plataforma web. **No tiene base de datos ni servicios propios**: usa los
 mismos datos y la misma sesión que la web, así que web y escritorio nunca divergen.

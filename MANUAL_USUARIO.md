@@ -1,4 +1,4 @@
-# Manual de usuario — Cotizaciones
+# Manual de usuario — Acero 360
 
 > También está dentro de la plataforma: menú **Ayuda**. Generado desde `includes/manual.php`.
 
@@ -17,13 +17,14 @@
 11. Estadísticas
 12. Aplicación de escritorio
 13. Respaldos y cuidados
-14. Palabras que verás
+14. Acerca de Acero 360
+15. Palabras que verás
 
 ---
 
 ## 1. Empezar
 
-La plataforma sirve para cotizar, vender, entregar, llevar tus gastos y saber más o menos cuánto vas a pagar de impuestos. Todo se hace desde el menú de la izquierda (en el celular, desde el botón de abajo a la derecha).
+Acero 360 sirve para cotizar, vender, entregar, llevar tus gastos y saber más o menos cuánto vas a pagar de impuestos. Todo se hace desde el menú de la izquierda (en el celular, desde el botón de abajo a la derecha).
 
 ### Entrar
 
@@ -297,7 +298,7 @@ La misma plataforma en una ventana propia, sin abrir el navegador.
 
 1. Menú → «App de escritorio» → descarga el paquete .deb.
 2. En una terminal: sudo apt install ./cotizaciones-escritorio_1.0.0_amd64.deb
-3. Ábrela desde el menú de aplicaciones como «Cotizaciones».
+3. Ábrela desde el menú de aplicaciones como «Acero 360».
 
 > **Consejos**
 > - Usa los mismos datos y la misma sesión que la web.
@@ -320,7 +321,25 @@ Tu información importa.
 
 ---
 
-## 14. Palabras que verás
+## 14. Acerca de Acero 360
+
+Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.
+
+### Qué cambió
+
+1. Nuevo nombre y logotipo (una viga en I dentro de un anillo de 360°) en el menú, el inicio de sesión, los PDF y la aplicación de escritorio.
+2. La dirección web, tus datos y tu contraseña no cambian.
+
+### Aplicación de escritorio
+
+- Se instala igual y conserva tu sesión; el nuevo nombre y el icono aparecen al instalar la versión más reciente del paquete .deb.
+
+> **Consejos**
+> - Si ves el logotipo anterior en la pestaña del navegador, recarga con Ctrl + Shift + R.
+
+---
+
+## 15. Palabras que verás
 
 Qué significan, en pocas palabras.
 

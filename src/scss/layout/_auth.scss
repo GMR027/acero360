@@ -40,17 +40,14 @@
   }
 
   &__logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 3rem;
-    height: 3rem;
-    background-color: $color-primario;
+    width: 3.5rem;
+    height: 3.5rem;
     border-radius: $radio-lg;
-    color: $color-texto-invertido;
-    font-family: $fuente-titulos;
-    font-size: $fuente-xl;
-    font-weight: 700;
+  }
+
+  &__titulo em {
+    font-style: normal;
+    color: $color-rust-texto;
   }
 
   &__titulo {

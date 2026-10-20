@@ -60,8 +60,8 @@ template('header', [
 
 <section class="auth__tarjeta">
     <div class="auth__marca">
-        <span class="auth__logo" aria-hidden="true">C</span>
-        <h1 class="auth__titulo">Cotizaciones</h1>
+        <img class="auth__logo" src="/public/brand/acero360-marca.svg" alt="" width="56" height="56">
+        <h1 class="auth__titulo">Acero <em>360</em></h1>
         <p class="auth__subtitulo">Acceso al panel de administración</p>
     </div>
 

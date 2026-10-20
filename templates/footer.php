@@ -16,7 +16,7 @@ $pieTexto       = $GLOBALS['pieTexto'] ?? '';
             <footer class="pie">
                 <p><?= $pieTexto !== ''
                         ? escaparValores($pieTexto)
-                        : 'Todos los derechos reservados · Cotizaciones ' . date('Y'); ?>
+                        : 'Todos los derechos reservados · Acero 360 ' . date('Y'); ?>
                 </p>
             </footer>
         </div><!-- /.app__panel -->

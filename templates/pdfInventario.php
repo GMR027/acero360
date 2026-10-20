@@ -253,7 +253,7 @@ $etiquetaProductos = static function (int $cantidad): string {
 <?php endforeach; ?>
 
 <p class="pie">
-    Inventario generado el <?= escaparValores($fecha) ?> · Cotizaciones Multi-Negocio
+    Inventario generado el <?= escaparValores($fecha) ?> · Acero 360
 </p>
 
 </body>

@@ -1,7 +1,7 @@
 <?php
 /** Regenera MANUAL_USUARIO.md a partir de includes/manual.php. Uso: php scripts/generar_manual.php */
 $secciones = require __DIR__ . '/../includes/manual.php';
-$md = "# Manual de usuario — Cotizaciones\n\n> También está dentro de la plataforma: menú **Ayuda**. Generado desde `includes/manual.php`.\n\n## Contenido\n\n";
+$md = "# Manual de usuario — Acero 360\n\n> También está dentro de la plataforma: menú **Ayuda**. Generado desde `includes/manual.php`.\n\n## Contenido\n\n";
 foreach ($secciones as $i => $s) {
     $md .= ($i + 1) . '. ' . $s['titulo'] . "\n";
 }

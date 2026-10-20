@@ -492,24 +492,20 @@ body {
   text-decoration: none;
 }
 .sidebar__logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 2rem;
   height: 2rem;
   flex-shrink: 0;
-  background-color: #4679a6;
   border-radius: 0.25rem;
-  color: #ffffff;
-  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
-  font-weight: 700;
-  font-size: 0.875rem;
 }
 .sidebar__nombre {
   display: flex;
   flex-direction: column;
   min-width: 0;
   line-height: 1.15;
+}
+.sidebar__nombre strong em {
+  font-style: normal;
+  color: #9a5220;
 }
 .sidebar__nombre strong {
   font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
@@ -2231,17 +2227,13 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   text-align: center;
 }
 .auth__logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3rem;
-  height: 3rem;
-  background-color: #4679a6;
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 0.5rem;
-  color: #ffffff;
-  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
-  font-size: 1.25rem;
-  font-weight: 700;
+}
+.auth__titulo em {
+  font-style: normal;
+  color: #9a5220;
 }
 .auth__titulo {
   font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;

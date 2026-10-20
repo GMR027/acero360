@@ -206,10 +206,10 @@ $estaActivo = function (array $enlace, string $ruta): bool {
 ?>
 <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
     <a class="sidebar__marca" href="/admin">
-        <span class="sidebar__logo" aria-hidden="true">C</span>
+        <img class="sidebar__logo" src="/public/brand/acero360-marca.svg" alt="" width="32" height="32">
         <span class="sidebar__nombre">
-            <strong>Cotizaciones</strong>
-            <span>Multi-Negocio</span>
+            <strong>Acero <em>360</em></strong>
+            <span>Plataforma comercial</span>
         </span>
     </a>
 

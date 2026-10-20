@@ -39,18 +39,10 @@
   }
 
   &__logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 2rem;
     height: 2rem;
     flex-shrink: 0;
-    background-color: $color-primario;
     border-radius: $radio;
-    color: $color-texto-invertido;
-    font-family: $fuente-titulos;
-    font-weight: 700;
-    font-size: $fuente-sm;
   }
 
   &__nombre {
@@ -58,6 +50,11 @@
     flex-direction: column;
     min-width: 0;
     line-height: 1.15;
+  }
+
+  &__nombre strong em {
+    font-style: normal;
+    color: $color-rust-texto;
   }
 
   &__nombre strong {

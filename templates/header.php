@@ -21,7 +21,7 @@
  * no necesitan indicarla.
  */
 
-$titulo            = $titulo            ?? 'Cotizaciones';
+$titulo            = $titulo            ?? 'Acero 360';
 $subtitulo         = $subtitulo         ?? '';
 $mostrarSidebar    = $mostrarSidebar    ?? true;
 $acciones          = $acciones          ?? '';
@@ -35,8 +35,12 @@ $GLOBALS['mostrarSidebar'] = $mostrarSidebar;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Aplicación web para la generación de cotizaciones de productos.">
-    <title><?= escaparValores($titulo) ?> · Cotizaciones</title>
+    <meta name="description" content="Acero 360: plataforma comercial, contable y administrativa para cotizar, vender, entregar y controlar inventario e impuestos.">
+    <title><?= escaparValores($titulo) ?> · Acero 360</title>
+    <meta name="theme-color" content="#38648c">
+    <link rel="icon" type="image/svg+xml" href="/public/brand/favicon.svg">
+    <link rel="apple-touch-icon" href="/public/brand/apple-touch-icon.png">
+    <link rel="manifest" href="/public/brand/acero360.webmanifest">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -78,7 +78,7 @@ function crearVentana() {
     height: 820,
     minWidth: 360,
     minHeight: 480,
-    title: 'Cotizaciones',
+    title: 'Acero 360',
     backgroundColor: '#ededed',
     show: false,
     autoHideMenuBar: false,
@@ -88,7 +88,7 @@ function crearVentana() {
   ventana.once('ready-to-show', () => ventana.show());
 
   const contenido = ventana.webContents;
-  contenido.setUserAgent(`${contenido.getUserAgent()} CotizacionesEscritorio/${app.getVersion()}`);
+  contenido.setUserAgent(`${contenido.getUserAgent()} Acero360Escritorio/${app.getVersion()}`);
 
   // Fallo de carga del documento principal (sin red, DNS, certificado inválido, servidor caído…).
   contenido.on('did-fail-load', (_evento, codigo, descripcion, _url, esPrincipal) => {
@@ -154,8 +154,8 @@ function crearMenu() {
       { type: 'separator' }, { label: 'Pantalla completa', role: 'togglefullscreen' },
     ] },
     { label: 'Ayuda', submenu: [
-      { label: 'Acerca de Cotizaciones', click: () => dialog.showMessageBox(ventana, {
-        type: 'info', title: 'Cotizaciones', message: `Cotizaciones ${app.getVersion()}`,
+      { label: 'Acerca de Acero 360', click: () => dialog.showMessageBox(ventana, {
+        type: 'info', title: 'Acero 360', message: `Acero 360 ${app.getVersion()}`,
         detail: `Conectada a ${plataforma.origen}\nElectron ${process.versions.electron}\nLos datos viven en el servidor; esta aplicación no guarda una base de datos propia.`,
       }) },
     ] },
