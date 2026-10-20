@@ -37,6 +37,7 @@ $activoNotas     = $coincide($rutaNav, '/admin/notas', '/admin/notas/');
 // (incluye el perfil del usuario, que se abre desde "Usuarios & Perfil").
 $activoMas = $coincide($rutaNav, '/admin/productos', '/admin/productos/')
     || $coincide($rutaNav, '/admin/empresas', '/admin/empresas/')
+    || $coincide($rutaNav, '/admin/escritorio', '/admin/escritorio/')
     || $coincide($rutaNav, '/admin/usuarios', '/admin/usuarios/')
     || $rutaNav === '/admin/perfil';
 

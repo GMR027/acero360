@@ -52,7 +52,7 @@ if ($esEnvio) {
 template('header', [
     'titulo'     => 'Nuevo negocio',
     'subtitulo'  => 'Módulo de empresas',
-    'rutaActiva' => '/admin/empresas',
+    'rutaActiva' => '/admin/ajustes',
 ]);
 ?>
 

@@ -296,7 +296,7 @@ La misma plataforma en una ventana propia, sin abrir el navegador.
 
 ### Instalarla
 
-1. Menú → «App de escritorio» → descarga el paquete .deb.
+1. Menú → «Ajustes» → «Aplicación de escritorio» → descarga el paquete .deb.
 2. En una terminal: sudo apt install ./cotizaciones-escritorio_1.0.0_amd64.deb
 3. Ábrela desde el menú de aplicaciones como «Acero 360».
 
@@ -332,7 +332,7 @@ Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de
 
 ### Dónde está
 
-- Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, ir a Negocios, Usuarios, Datos fiscales y App de escritorio, y ver la versión de Acero 360.
+- Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, entrar a Empresas y razón social, Usuarios, Datos fiscales y Aplicación de escritorio, y ver la versión de Acero 360.
 
 ### Aplicación de escritorio
 

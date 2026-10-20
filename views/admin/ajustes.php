@@ -22,7 +22,7 @@ $tasaIsr       = \App\Configuracion::obtener('isr_tasa_simple', '');
 $negocios      = array_filter(\App\Empresas::mostrarTodos(100, 0), static fn ($e) => (int) $e->activa === 1);
 
 $atajos = [
-    ['/admin/empresas', 'storefront', 'Negocios', 'Datos, logotipo y condiciones de cada negocio que emite cotizaciones (' . count($negocios) . ' activos).'],
+    ['/admin/empresas', 'corporate_fare', 'Empresas y razón social', 'Datos, logotipo y condiciones de cada empresa que emite cotizaciones (' . count($negocios) . ' activos).'],
     ['/admin/usuarios', 'manage_accounts', 'Usuarios y perfil', 'Quién entra a la plataforma y su contraseña.'],
     ['/admin/fiscal/configuracion', 'tune', 'Datos fiscales', 'RFC, régimen y porcentaje de ISR' . ($tasaIsr !== '' ? ' (hoy ' . rtrim(rtrim($tasaIsr, '0'), '.') . ' %)' : '') . ' para el resumen de impuestos.'],
     ['/admin/escritorio', 'desktop_windows', 'Aplicación de escritorio', 'Descarga e instrucciones de instalación.'],

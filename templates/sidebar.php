@@ -81,22 +81,6 @@ $enlaces = [
         'soloEscritorio' => true,
     ],
     [
-        'ruta'          => '/admin/empresas',
-        'icono'         => 'corporate_fare',
-        'texto'         => 'Empresas & Razón',
-        'subrutas'      => true,
-        'excluir'       => [],
-        'soloEscritorio' => false,
-    ],
-    [
-        'ruta'          => '/admin/escritorio',
-        'icono'         => 'desktop_windows',
-        'texto'         => 'App de escritorio',
-        'subrutas'      => true,
-        'excluir'       => [],
-        'soloEscritorio' => true,
-    ],
-    [
         'ruta'          => '/admin/usuarios',
         'icono'         => 'manage_accounts',
         'texto'         => 'Usuarios & Perfil',
@@ -174,6 +158,8 @@ $enlaces = [
         'texto'         => 'Ajustes',
         'subrutas'      => false,
         'excluir'       => [],
+        // Empresas y razón social y la app de escritorio se abren desde Ajustes.
+        'prefijos'      => ['/admin/empresas', '/admin/escritorio'],
         'divisor'       => true,
         'soloEscritorio' => false,
     ],
