@@ -352,6 +352,8 @@ function prepararAlertasDelServidor() {
  */
 
 const RETARDO_AYUDA_MS = 200;
+const RETARDO_CAMPO_MS = 400; // los campos de captura esperan más para no estorbar al escribir
+const CAMPOS = 'input, select, textarea';
 
 const AYUDAS_POR_RUTA = {
   '/admin': 'Inicio: accesos rápidos y las ganancias de cada negocio.',
@@ -409,6 +411,11 @@ function textoAyuda(elemento) {
   const explicita = elemento.getAttribute('data-ayuda');
   if (explicita) {
     return explicita;
+  }
+  // Un campo hereda la ayuda de su etiqueta (<label for="...">) o de la etiqueta que lo envuelve.
+  if (elemento.matches(CAMPOS)) {
+    const etiqueta = (elemento.id && document.querySelector(`label[for="${CSS.escape(elemento.id)}"]`)) || elemento.closest('label');
+    return etiqueta ? etiqueta.getAttribute('data-ayuda') || '' : '';
   }
   if (elemento.tagName === 'A') {
     const ruta = (elemento.getAttribute('href') || '').split(/[?#]/)[0].replace(/\/$/, '') || '/admin';
@@ -478,7 +485,7 @@ function mostrarAyuda(elemento, texto) {
 }
 
 function programarAyuda(evento) {
-  const objetivo = evento.target instanceof Element ? evento.target.closest('a, button, [data-ayuda], label, summary') : null;
+  const objetivo = evento.target instanceof Element ? evento.target.closest('a, button, [data-ayuda], label, summary, input, select, textarea') : null;
   if (!objetivo || objetivo === origen) {
     return;
   }
@@ -494,7 +501,7 @@ function programarAyuda(evento) {
   if (!texto) {
     return;
   }
-  temporizador = setTimeout(() => mostrarAyuda(objetivo, texto), RETARDO_AYUDA_MS);
+  temporizador = setTimeout(() => mostrarAyuda(objetivo, texto), objetivo.matches(CAMPOS) ? RETARDO_CAMPO_MS : RETARDO_AYUDA_MS);
 }
 
 function iniciarAyudas() {

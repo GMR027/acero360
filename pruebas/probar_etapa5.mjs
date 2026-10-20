@@ -90,9 +90,11 @@ try {
   await pagina.waitForTimeout(100);
   verifica('al quitar el cursor la burbuja se oculta', await pagina.locator('#burbuja-ayuda').isHidden());
   await pagina.goto(BASE + '/admin/contabilidad/gastos/crear');
-  await pagina.hover('label[for="total"]');
-  await pagina.waitForTimeout(400);
-  verifica('los campos del gasto también explican qué pedir', (await pagina.locator('#burbuja-ayuda').innerText()).includes('IVA incluido'));
+  await pagina.hover('#total');
+  await pagina.waitForTimeout(300);
+  verifica('en un campo la burbuja aún no sale a los 300 ms', await pagina.locator('#burbuja-ayuda').isHidden());
+  await pagina.waitForTimeout(250);
+  verifica('en un campo la burbuja sale a los 400 ms y explica qué pedir', (await pagina.locator('#burbuja-ayuda').innerText()).includes('IVA incluido'));
   await pagina.goto(BASE + '/admin/ayuda');
   verifica('el manual está dentro de la plataforma', (await pagina.locator('main section').count()) >= 10 && (await pagina.content()).includes('Anotar un gasto y subir su factura'));
 
