@@ -126,6 +126,11 @@ class PaquetesEscritorio
             return false;
         }
         @chmod($destino, 0640);
+        // Si se publica como root (kubectl exec), Apache (www-data) debe poder leer el paquete y su carpeta.
+        foreach ([$destino, dirname($destino)] as $ruta) {
+            @chown($ruta, 'www-data');
+            @chgrp($ruta, 'www-data');
+        }
 
         $tamano = (int) filesize($destino);
         $notas = trim($notas) ?: null;

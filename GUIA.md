@@ -70,6 +70,9 @@ pruebas/probar_respaldo.sh                     # ensayo completo respaldo → re
 ```
 - Programa el respaldo con cron (diario 02:30) y **guarda una copia fuera del equipo**. El respaldo incluye `storage/documentos` (información fiscal).
 - La restauración deja los archivos en una carpeta aparte: tú decides qué copiar y cuándo. Probada: mismas tablas, mismos registros y archivos idénticos.
+- **Producción (clúster):** `scripts/respaldar_cluster.sh` respalda desde una computadora con `kubectl` (base + fotos + documentos fiscales; excluye los `.deb`).
+  Está programado en el `crontab` de esta computadora (diario 02:30, carpeta `~/Documentos/respaldos-cotizaciones`, 14 copias, bitácora `respaldo.log`).
+  Probado: la copia se verifica y se restaura (6 ventas, 3 reglas fiscales, 43 imágenes). **Copia también esa carpeta fuera del equipo.**
 - En el clúster: `helm` trae plantillas **desactivadas** (`respaldo.enabled`, `fotoInventario.enabled`). El respaldo de archivos se hace con `respaldar.sh` desde un equipo con acceso.
 
 ## 6. Actualización y despliegue
@@ -81,7 +84,8 @@ Antes de desplegar: `pruebas/ejecutar_todo.sh` (regresión completa) y un respal
 **Marcha atrás:** restaurar el respaldo en una base nueva y apuntar la aplicación a ella; cada migración trae su `NNN_reversion.sql` (úsala solo si sabes que no hay datos nuevos que perder).
 
 Ensayo realizado: una base con el esquema original (16 productos) migró a la versión actual con los 8 scripts en orden, conservando sus datos; la segunda ejecución no cambió nada.
-**Nada de esto se ha desplegado en el clúster:** requiere tu orden explícita. Pendiente antes de producción: volumen persistente para `storage/documentos` (ya está en el chart: `pvc-documentos.yaml`) y subir `proxyBodySize` solo si quisieras subir paquetes `.deb` por web (hoy se publican por script).
+**Desplegado el 19-oct-2026** (revisión 7 de Helm): la base de producción tenía un esquema más antiguo que el local; por eso existe la migración `001`
+(conserva la tabla antigua de ventas como `ventas_entregas_legado`). Resultado verificado en producción: 6 ventas por $304,232.86 = 6 ingresos = cotizaciones vendidas; inventario intacto. Pendiente antes de producción: volumen persistente para `storage/documentos` (ya está en el chart: `pvc-documentos.yaml`) y subir `proxyBodySize` solo si quisieras subir paquetes `.deb` por web (hoy se publican por script).
 
 ## 7. Seguridad (resumen)
 
