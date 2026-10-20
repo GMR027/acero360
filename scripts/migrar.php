@@ -48,8 +48,23 @@ foreach ($archivos as $archivo) {
         continue;
     }
 
+    $sqlArchivo = file_get_contents($archivo);
+
+    // «-- aplica-si: <consulta>» en la primera línea: la migración solo corre si la consulta devuelve algo distinto de 0.
+    // Así una migración pensada para bases con un esquema antiguo se omite sola en las que ya están al día.
+    if (preg_match('/^-- aplica-si:\s*(.+)$/m', substr($sqlArchivo, 0, 1000), $condicion)) {
+        $aplica = (int) $db->query($condicion[1])->fetch_row()[0];
+        if ($aplica === 0) {
+            $registrar = $db->prepare('INSERT INTO schema_migraciones (nombre) VALUES (?)');
+            $registrar->bind_param('s', $nombre);
+            $registrar->execute();
+            echo "Omitida {$nombre} (no aplica a esta base)\n";
+            continue;
+        }
+    }
+
     echo "Aplicando {$nombre} en {$base}... ";
-    $db->multi_query(file_get_contents($archivo));
+    $db->multi_query($sqlArchivo);
     do {
         if ($resultado = $db->store_result()) {
             $resultado->free();
