@@ -190,7 +190,7 @@
 
 /* --- Tabla de renglones ---------------------------------------------------- */
 .cotizador-tabla {
-  min-width: 56rem;
+  min-width: 56rem; /* en celular el CSS de _movil.scss la convierte en tarjetas */
 
   &__num {
     width: 2.5rem;

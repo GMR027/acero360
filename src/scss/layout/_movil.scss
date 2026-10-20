@@ -1,0 +1,181 @@
+/* ==========================================================================
+   _movil.scss — Experiencia en celular (< 768 px).
+     • Objetivos táctiles de 44 × 44 px como mínimo.
+     • Campos a 16 px: el navegador del teléfono no hace zoom al enfocarlos.
+     • Tablas convertidas en tarjetas: cada fila es una tarjeta y cada celda
+       muestra su encabezado (lo pone js/modulos/tablasResponsivas.js).
+       Se excluye la tabla del cotizador, que arma sus filas dinámicamente
+       y conserva su desplazamiento horizontal.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+@include hasta-movil {
+  /* --- Objetivos táctiles ------------------------------------------------ */
+  .btn,
+  .btn--sm,
+  .btn--icono,
+  .chip,
+  .sidebar__enlace,
+  .bottomnav a {
+    min-height: 2.75rem;
+  }
+
+  .btn,
+  .btn--sm,
+  .btn--icono {
+    min-width: 2.75rem;
+  }
+
+  .control,
+  .control--compacto,
+  select.control,
+  textarea.control,
+  input.control {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  .comprobacion {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+
+    input[type='checkbox'],
+    input[type='radio'] {
+      width: 1.375rem;
+      height: 1.375rem;
+      flex-shrink: 0;
+    }
+  }
+
+  .entregas-seleccion {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  /* --- Tablas como tarjetas ---------------------------------------------- */
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla {
+    display: block;
+    width: 100%;
+    min-width: 0;
+
+    caption {
+      display: block;
+      padding: $espacio-sm $espacio-md;
+      text-align: left;
+    }
+
+    thead {
+      /* Se oculta a la vista pero sigue disponible para lectores de pantalla. */
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    tbody,
+    tfoot,
+    tr {
+      display: block;
+    }
+
+    tbody tr,
+    tfoot tr {
+      margin-bottom: $espacio-md;
+      padding: $espacio-xs 0;
+      background-color: $color-superficie;
+      border: 1px solid $color-borde-fuerte;
+      border-radius: $radio-lg;
+    }
+
+    th[scope='row'],
+    td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: $espacio-md;
+      width: 100%;
+      min-height: 2.75rem;
+      padding: 0.5rem $espacio-md;
+      text-align: right;
+      white-space: normal;
+      border: 0;
+    }
+
+    th[scope='row'] {
+      justify-content: flex-start;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    td::before {
+      content: attr(data-label);
+      flex: 0 0 38%;
+      max-width: 38%;
+      color: $color-texto-secundario;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    td[data-label='']::before,
+    td:not([data-label])::before {
+      content: none;
+    }
+
+    td[data-label=''] {
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    /* Acciones y formularios dentro de la celda: ocupan todo el ancho. */
+    td form,
+    .tabla__acciones {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    td {
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    td .control,
+    td input:not([type='checkbox']):not([type='radio']),
+    td select {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .badge {
+      white-space: normal;
+    }
+
+    /* Anulan los anchos fijos de columna de la tabla del cotizador. */
+    th,
+    td {
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .cotizador-celda-precio,
+    .cotizador-celda-cantidad,
+    .cotizador-celda-descuento {
+      display: flex;
+      white-space: normal;
+
+      .control {
+        width: 100%;
+      }
+    }
+
+    .cotizador-tabla__pie {
+      font-style: normal;
+    }
+  }
+}

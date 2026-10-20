@@ -2785,7 +2785,7 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 
 /* --- Tabla de renglones ---------------------------------------------------- */
 .cotizador-tabla {
-  min-width: 56rem;
+  min-width: 56rem; /* en celular el CSS de _movil.scss la convierte en tarjetas */
 }
 .cotizador-tabla__num {
   width: 2.5rem;
@@ -3204,6 +3204,166 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   margin-bottom: 1.5rem;
 }
 
+/* ==========================================================================
+   _movil.scss — Experiencia en celular (< 768 px).
+     • Objetivos táctiles de 44 × 44 px como mínimo.
+     • Campos a 16 px: el navegador del teléfono no hace zoom al enfocarlos.
+     • Tablas convertidas en tarjetas: cada fila es una tarjeta y cada celda
+       muestra su encabezado (lo pone js/modulos/tablasResponsivas.js).
+       Se excluye la tabla del cotizador, que arma sus filas dinámicamente
+       y conserva su desplazamiento horizontal.
+   ========================================================================== */
+@media (max-width: 767px) {
+  /* --- Objetivos táctiles ------------------------------------------------ */
+  .btn,
+  .btn--sm,
+  .btn--icono,
+  .chip,
+  .sidebar__enlace,
+  .bottomnav a {
+    min-height: 2.75rem;
+  }
+  .btn,
+  .btn--sm,
+  .btn--icono {
+    min-width: 2.75rem;
+  }
+  .control,
+  .control--compacto,
+  select.control,
+  textarea.control,
+  input.control {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+  .comprobacion {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+  .comprobacion input[type=checkbox],
+  .comprobacion input[type=radio] {
+    width: 1.375rem;
+    height: 1.375rem;
+    flex-shrink: 0;
+  }
+  .entregas-seleccion {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  /* --- Tablas como tarjetas ---------------------------------------------- */
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla caption {
+    display: block;
+    padding: 0.5rem 1rem;
+    text-align: left;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla thead {
+    /* Se oculta a la vista pero sigue disponible para lectores de pantalla. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla tbody,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla tfoot,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla tr {
+    display: block;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla tbody tr,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla tfoot tr {
+    margin-bottom: 1rem;
+    padding: 0.25rem 0;
+    background-color: #ffffff;
+    border: 1px solid #c9cdd4;
+    border-radius: 0.5rem;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla th[scope=row],
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    text-align: right;
+    white-space: normal;
+    border: 0;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla th[scope=row] {
+    justify-content: flex-start;
+    font-weight: 700;
+    text-align: left;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    max-width: 38%;
+    color: #64646a;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td[data-label=""]::before,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td:not([data-label])::before {
+    content: none;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td[data-label=""] {
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla {
+    /* Acciones y formularios dentro de la celda: ocupan todo el ancho. */
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td form,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .tabla__acciones {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td .control,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td input:not([type=checkbox]):not([type=radio]),
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td select {
+    width: 100%;
+    max-width: 100%;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .badge {
+    white-space: normal;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla {
+    /* Anulan los anchos fijos de columna de la tabla del cotizador. */
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla th,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla td {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .cotizador-celda-precio,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .cotizador-celda-cantidad,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .cotizador-celda-descuento {
+    display: flex;
+    white-space: normal;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .cotizador-celda-precio .control,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .cotizador-celda-cantidad .control,
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .cotizador-celda-descuento .control {
+    width: 100%;
+  }
+  .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla .cotizador-tabla__pie {
+    font-style: normal;
+  }
+}
 /* ==========================================================================
    _utilidades.scss — Clases auxiliares de uso general.
    ========================================================================== */

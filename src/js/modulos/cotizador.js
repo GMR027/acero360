@@ -466,6 +466,12 @@ function filaCotizador(linea, indice) {
   celdaAccion.appendChild(botonQuitar);
   fila.appendChild(celdaAccion);
 
+  // Etiquetas para la vista de tarjetas en celular (el CSS las muestra delante de cada dato).
+  const etiquetasColumnas = ['#', 'Producto', 'Precio lista', 'Precio cliente', 'Cantidad', 'Descuento (%)', 'Total', ''];
+  Array.from(fila.children).forEach(function (celda, posicion) {
+    celda.setAttribute('data-label', etiquetasColumnas[posicion] || '');
+  });
+
   return fila;
 }
 
