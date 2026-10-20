@@ -150,6 +150,8 @@ $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    
 // Proveedores: directorio de proveedores y entradas (reporte fotográfico).
 // --- Contabilidad, documentos y archivo mensual (Etapa 5) ---
 $router->get('/admin/contabilidad',                         'views/admin/contabilidad/index.php',                'soloAdmin');
+$router->get('/admin/ajustes',  'views/admin/ajustes.php', 'soloAdmin');
+$router->post('/admin/ajustes', 'views/admin/ajustes.php', 'soloAdmin');
 $router->get('/admin/ayuda',                                'views/admin/ayuda.php',                             'soloAdmin');
 $router->get('/admin/contabilidad/mas',                     'views/admin/contabilidad/mas.php',                  'soloAdmin');
 $router->get('/admin/contabilidad/ingresos',                'views/admin/contabilidad/ingresos/index.php',       'soloAdmin');

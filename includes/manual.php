@@ -123,6 +123,7 @@ return [
      'intro' => 'Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.',
      'pasos' => [
         ['Qué cambió', ['Nuevo nombre y logotipo (una viga en I dentro de un anillo de 360°) en el menú, el inicio de sesión, los PDF y la aplicación de escritorio.', 'La dirección web, tus datos y tu contraseña no cambian.']],
+        ['Dónde está', ['Menú → «Ajustes». Ahí puedes permitir o no vender sin existencias, ir a Negocios, Usuarios, Datos fiscales y App de escritorio, y ver la versión de Acero 360.']],
         ['Aplicación de escritorio', ['Se instala igual y conserva tu sesión; el nuevo nombre y el icono aparecen al instalar la versión más reciente del paquete .deb.']],
      ],
      'consejos' => ['Si ves el logotipo anterior en la pestaña del navegador, recarga con Ctrl + Shift + R.']],

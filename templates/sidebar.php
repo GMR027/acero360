@@ -169,12 +169,20 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/ajustes',
+        'icono'         => 'settings',
+        'texto'         => 'Ajustes',
+        'subrutas'      => false,
+        'excluir'       => [],
+        'divisor'       => true,
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/ayuda',
         'icono'         => 'help',
         'texto'         => 'Ayuda y manual',
         'subrutas'      => false,
         'excluir'       => [],
-        'divisor'       => true,
         'soloEscritorio' => false,
     ],
 ];

@@ -14,6 +14,9 @@
  * que tiene canastillasWep en su includes/app.php).
  */
 
+/** Versión de la plataforma Acero 360 (se muestra en Ajustes → Acerca de). */
+define('ACERO360_VERSION', '1.1.0');
+
 require __DIR__ . '/funciones.php';
 require __DIR__ . '/../config/database.php';
 require __DIR__ . '/../vendor/autoload.php';
