@@ -90,9 +90,11 @@ try {
   verifica('lo avanzado queda plegado en «Más detalles»', (await pagina.locator('details:not([open]) #uuid_fiscal').count()) === 1);
   await pagina.fill('#concepto', 'Gasolina'); await pagina.fill('#beneficiario', 'Gasolinera'); await pagina.fill('#total', '580');
   await pagina.selectOption('#estado_pago', 'pagado');
+  await pagina.setInputFiles('#doc-nuevo', [pdf]);
   await Promise.all([pagina.waitForURL('**/gastos/detalle?id=*'), pagina.click('button:has-text("Guardar gasto")')]);
+  verifica('la factura subida al crear queda adjunta con tipo detectado', sql(`SELECT CONCAT(COUNT(*),'/',MIN(tipo)) FROM documentos WHERE entidad='gasto' AND entidad_id=(SELECT MAX(id) FROM gastos)`) === '1/factura_pdf');
   verifica('gasto sencillo: total 580, subtotal 500 y pagado sin pedir fecha', sql('SELECT CONCAT(total,"/",subtotal,"/",estado_pago,"/",fecha_pago IS NOT NULL) FROM gastos ORDER BY id DESC LIMIT 1') === '580.00/500.00/pagado/1');
-  sql('DELETE FROM gastos ORDER BY id DESC LIMIT 1');
+  sql(`DELETE FROM documentos WHERE entidad='gasto' AND entidad_id=(SELECT MAX(id) FROM gastos)`); sql('DELETE FROM gastos ORDER BY id DESC LIMIT 1');
 
   console.log('Ingreso: facturación explícita y cobros');
   await pagina.goto(`${BASE}/admin/contabilidad/ingresos?anio=${anio}&mes=${mes}`);
@@ -115,15 +117,15 @@ try {
   await pagina.goto(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}`);
   await pagina.setInputFiles('#doc-archivo', pdf);
   await pagina.selectOption('#doc-tipo', 'factura_pdf');
-  await pagina.click('button:has-text("Subir documento")');
+  await pagina.click('button:has-text("Subir archivos")');
   verifica('PDF adjuntado', sql(`SELECT COUNT(*) FROM documentos WHERE entidad='ingreso' AND entidad_id=${ingresoId} AND tipo='factura_pdf'`) === '1');
   await pagina.setInputFiles('#doc-archivo', xml);
-  await pagina.click('button:has-text("Subir documento")');
+  await pagina.click('button:has-text("Subir archivos")');
   verifica('XML CFDI adjuntado con su UUID', sql(`SELECT uuid_fiscal FROM documentos WHERE entidad='ingreso' AND tipo='xml'`) === uuid);
   verifica('se muestra la validación documental «sin verificar SAT»', (await pagina.content()).includes('sin verificar SAT'));
   await pagina.setInputFiles('#doc-archivo', malo);
   await pagina.selectOption('#doc-tipo', 'factura_pdf');
-  await pagina.click('button:has-text("Subir documento")');
+  await pagina.click('button:has-text("Subir archivos")');
   verifica('un archivo falso se rechaza con mensaje claro', (await pagina.content()).includes('no es un PDF válido') && sql(`SELECT COUNT(*) FROM documentos`) === '2');
 
   const doc = sql(`SELECT id FROM documentos WHERE tipo='xml'`);
@@ -159,7 +161,7 @@ try {
   verifica('el resumen cuenta el gasto compartido una sola vez ($1,160)', (await pagina.locator('main').innerText()).includes('$1,160.00'));
   await pagina.goto(`${BASE}/admin/contabilidad/gastos/detalle?id=${gastoId}`);
   await pagina.setInputFiles('#doc-archivo', pdf);
-  await pagina.click('button:has-text("Subir documento")');
+  await pagina.click('button:has-text("Subir archivos")');
   verifica('adjuntar comprobante al gasto', sql(`SELECT COUNT(*) FROM documentos WHERE entidad='gasto'`) === '1');
 
   console.log('Archivo mensual, sin facturar y exportaciones');

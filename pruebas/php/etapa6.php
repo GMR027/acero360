@@ -83,7 +83,8 @@ $prueba('versión idéntica v3 validada, sin diferencias contra la activa', Cata
 $prueba('activar v3 reemplaza a v1 SIN tocarla', CatalogoFiscal::activar($v3, $usuario, $claveBuena, 'Reimportación de la misma tarifa')
     && CatalogoFiscal::buscarID($v1)['estado'] === 'reemplazada' && $uno("SELECT sha256_datos FROM catalogo_fiscal WHERE id = $v1") === $huellaV1);
 foreach (['iva_tasas_2026', 'reglas_plataforma_2026'] as $archivo) {
-    CatalogoFiscal::importar(file_get_contents("$raiz/mysql/catalogo_fiscal/$archivo.json"), $usuario);
+    // Estas pruebas verifican el modo ESTRICTO del motor (solo gastos validados); el archivo de reglas lo trae relajado.
+    CatalogoFiscal::importar(str_replace('"gasto_requiere_validacion": false', '"gasto_requiere_validacion": true', file_get_contents("$raiz/mysql/catalogo_fiscal/$archivo.json")), $usuario);
     $id = CatalogoFiscal::$ultimoId;
     CatalogoFiscal::validar($id, $usuario);
     CatalogoFiscal::activar($id, $usuario, $claveBuena, 'Catálogo inicial de prueba');

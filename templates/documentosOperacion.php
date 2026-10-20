@@ -11,10 +11,10 @@ $bloqueado  = $bloqueado ?? false;
 $maxMb      = \App\Archivos::maxBytes() / 1048576;
 ?>
 <section class="tarjeta tarjeta--sin-relleno mt-lg" id="documentos">
-    <h2 class="titulo-5" style="padding:1rem 1rem 0">Documentos adjuntos</h2>
+    <h2 class="titulo-5" style="padding:1rem 1rem 0">Facturas y comprobantes</h2>
 
     <?php if (!$documentos) : ?>
-        <p class="texto-secundario" style="padding:1rem">Aún no hay documentos. Admite PDF, imágenes (JPG, PNG, WebP) y XML de CFDI, hasta <?= $maxMb ?> MB.</p>
+        <p class="texto-secundario" style="padding:1rem">Aún no has subido nada. Puedes subir la factura en PDF y su XML, o una foto del ticket.</p>
     <?php else : ?>
         <div class="tabla-contenedor">
             <table class="tabla">
@@ -83,21 +83,22 @@ $maxMb      = \App\Archivos::maxBytes() / 1048576;
             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
             <div class="formulario__rejilla">
                 <div class="campo">
-                    <label class="campo__etiqueta campo__etiqueta--obligatorio" for="doc-archivo">Adjuntar archivo</label>
-                    <input class="control" type="file" id="doc-archivo" name="archivo" required accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
-                    <span class="campo__ayuda">PDF, JPG, PNG, WebP o XML · máx. <?= $maxMb ?> MB</span>
+                    <label class="campo__etiqueta campo__etiqueta--obligatorio" for="doc-archivo">Elegir archivos</label>
+                    <input class="control" type="file" id="doc-archivo" name="archivo[]" multiple required accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
+                    <span class="campo__ayuda">Puedes elegir varios a la vez: PDF, XML o foto (JPG, PNG, WebP) · máx. <?= $maxMb ?> MB cada uno</span>
                 </div>
                 <div class="campo">
-                    <label class="campo__etiqueta" for="doc-tipo">Tipo de documento</label>
+                    <label class="campo__etiqueta" for="doc-tipo">¿Qué es?</label>
                     <select class="control" id="doc-tipo" name="tipo">
+                        <option value="auto" selected>Detectar automáticamente</option>
                         <?php foreach (\App\Archivos::TIPOS as $clave => $texto) : ?>
-                            <option value="<?= $clave ?>"<?= $clave === 'otro' ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+                            <option value="<?= $clave ?>"><?= escaparValores($texto) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <span class="campo__ayuda">Un .xml se reconoce solo como CFDI.</span>
+                    
                 </div>
             </div>
-            <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Subir documento</button></div>
+            <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Subir archivos</button></div>
         </form>
     <?php else : ?>
         <p class="nota nota--advertencia" style="margin:1rem" role="status">

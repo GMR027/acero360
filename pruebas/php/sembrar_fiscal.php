@@ -30,7 +30,8 @@ $clientes = array_column($db->query('SELECT id FROM clientes LIMIT 2')->fetch_al
 
 $raiz = dirname(__DIR__, 2);
 foreach (['isr_pp_art106_2026', 'iva_tasas_2026', 'reglas_plataforma_2026'] as $archivo) {
-    CatalogoFiscal::importar(file_get_contents("$raiz/mysql/catalogo_fiscal/$archivo.json"), $usuario);
+    // Estas pruebas verifican el modo ESTRICTO del motor (solo gastos validados); el archivo de reglas lo trae relajado.
+    CatalogoFiscal::importar(str_replace('"gasto_requiere_validacion": false', '"gasto_requiere_validacion": true', file_get_contents("$raiz/mysql/catalogo_fiscal/$archivo.json")), $usuario);
     CatalogoFiscal::validar(CatalogoFiscal::$ultimoId, $usuario);
     CatalogoFiscal::activar(CatalogoFiscal::$ultimoId, $usuario, $clave, 'Catálogo inicial de la prueba');
 }

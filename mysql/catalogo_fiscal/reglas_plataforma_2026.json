@@ -13,7 +13,7 @@
   "vigencia_desde": "2026-01-01",
   "vigencia_hasta": "2026-12-31",
   "base_ingresos": "flujo_efectivo",
-  "gasto_requiere_validacion": true,
+  "gasto_requiere_validacion": false,
   "gasto_requiere_comprobante": true,
   "naturalezas_excluidas_deduccion": ["activo", "impuesto"],
   "naturalezas_excluidas_iva_acreditable": ["impuesto"],

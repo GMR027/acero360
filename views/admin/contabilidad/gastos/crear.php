@@ -18,7 +18,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     }
 
     if (\App\Gastos::crear($_POST, (int) ($_SESSION['id'] ?? 0))) {
-        redirigir('/admin/contabilidad/gastos/detalle?id=' . \App\Gastos::$ultimoId, 'exito', 'Gasto registrado. Ahora puedes adjuntar sus comprobantes.');
+        $nuevoId = \App\Gastos::$ultimoId;
+        $subidos = 0;
+        $fallos  = [];
+        foreach (\App\Archivos::listaDeSubidas($_FILES['archivo'] ?? null) as $archivo) {
+            if (\App\Archivos::subir('gasto', $nuevoId, $archivo, 'auto', (int) ($_SESSION['id'] ?? 0))) {
+                $subidos++;
+            } else {
+                $fallos[] = $archivo['name'] . ': ' . (\App\Archivos::getErrores()[0] ?? 'no se pudo adjuntar');
+            }
+        }
+        if ($fallos) {
+            redirigir('/admin/contabilidad/gastos/detalle?id=' . $nuevoId, 'error', 'Gasto registrado, pero no se adjuntó: ' . implode(' · ', $fallos));
+        }
+        redirigir('/admin/contabilidad/gastos/detalle?id=' . $nuevoId, 'exito', $subidos ? "Gasto registrado con $subidos archivo(s) adjunto(s)." : 'Gasto registrado.');
     }
     $errores = \App\Gastos::getErrores();
 }
@@ -27,12 +40,12 @@ template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'r
 ?>
 
 <section class="tarjeta">
-    <form class="formulario" action="/admin/contabilidad/gastos/crear" method="post" novalidate>
+    <form class="formulario" action="/admin/contabilidad/gastos/crear" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
         <?php template('formularioGasto', [
             'gasto' => $gasto, 'errores' => $errores, 'proveedores' => \App\Proveedores::paraSelector(),
             'categorias' => \App\Gastos::categorias(), 'empresas' => \App\Empresas::mostrarTodos(100, 0),
-            'cancelar' => '/admin/contabilidad/gastos',
+            'cancelar' => '/admin/contabilidad/gastos', 'permiteArchivos' => true,
         ]); ?>
     </form>
 </section>

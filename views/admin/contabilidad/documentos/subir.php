@@ -21,12 +21,27 @@ if (!consumirToken($_POST['token'] ?? null)) {
 }
 
 $reemplaza = (int) ($_POST['reemplaza'] ?? 0) ?: null;
+$entidad   = (string) ($_POST['entidad'] ?? '');
+$entidadId = (int) ($_POST['entidad_id'] ?? 0);
+$usuario   = (int) ($_SESSION['id'] ?? 0);
 
-if (\App\Archivos::subir(
-    (string) ($_POST['entidad'] ?? ''), (int) ($_POST['entidad_id'] ?? 0), $_FILES['archivo'] ?? [],
-    (string) ($_POST['tipo'] ?? 'otro'), (int) ($_SESSION['id'] ?? 0), $reemplaza, (string) ($_POST['motivo'] ?? '')
-)) {
-    redirigir($retorno . '#documentos', 'exito', $reemplaza ? 'Documento sustituido; el anterior se conserva como histórico.' : 'Documento adjuntado.');
+// Uno o varios archivos (facturas PDF, XML, fotos) en un solo envío.
+$archivos = \App\Archivos::listaDeSubidas($_FILES['archivo'] ?? null);
+if (!$archivos) {
+    redirigir($retorno . '#documentos', 'error', 'Elige al menos un archivo.');
 }
 
-redirigir($retorno . '#documentos', 'error', \App\Archivos::getErrores()[0] ?? 'No fue posible adjuntar el archivo.');
+$subidos = 0;
+$fallos  = [];
+foreach ($archivos as $archivo) {
+    if (\App\Archivos::subir($entidad, $entidadId, $archivo, (string) ($_POST['tipo'] ?? 'auto'), $usuario, $reemplaza, (string) ($_POST['motivo'] ?? ''))) {
+        $subidos++;
+    } else {
+        $fallos[] = $archivo['name'] . ': ' . (\App\Archivos::getErrores()[0] ?? 'no se pudo adjuntar');
+    }
+}
+
+if ($fallos) {
+    redirigir($retorno . '#documentos', 'error', ($subidos ? "Se adjuntaron $subidos; " : '') . implode(' · ', $fallos));
+}
+redirigir($retorno . '#documentos', 'exito', $reemplaza ? 'Documento sustituido; el anterior se conserva como histórico.' : ($subidos === 1 ? 'Documento adjuntado.' : "$subidos documentos adjuntados."));

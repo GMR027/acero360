@@ -49,6 +49,31 @@ class Archivos
         'xml'  => ['xml',    ['text/xml', 'application/xml', 'text/plain']],
     ];
 
+    /**
+     * Convierte $_FILES['campo'] (uno o varios archivos) en una lista de archivos individuales,
+     * sin los campos que el usuario dejó vacíos.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function listaDeSubidas($subida): array
+    {
+        if (!is_array($subida) || !isset($subida['name'])) {
+            return [];
+        }
+        if (!is_array($subida['name'])) {
+            $subida = array_map(static fn ($v) => [$v], $subida);
+        }
+        $lista = [];
+        foreach (array_keys($subida['name']) as $i) {
+            if ((int) $subida['error'][$i] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            $lista[] = ['name' => $subida['name'][$i], 'type' => $subida['type'][$i], 'tmp_name' => $subida['tmp_name'][$i],
+                        'error' => $subida['error'][$i], 'size' => $subida['size'][$i]];
+        }
+        return $lista;
+    }
+
     public static function setDB($database): void
     {
         self::$db = $database;
@@ -123,7 +148,7 @@ class Archivos
             self::$errores[] = 'Entidad no válida.';
             return false;
         }
-        $tipo = isset(self::TIPOS[$tipo]) ? $tipo : 'otro';
+        $tipo = isset(self::TIPOS[$tipo]) || $tipo === 'auto' ? $tipo : 'otro';
 
         $op = self::entidad($entidad, $entidadId);
         if (!$op) {
@@ -140,6 +165,11 @@ class Archivos
             return false;
         }
         ['ext' => $ext, 'familia' => $familia, 'mime' => $mime, 'contenido' => $contenido, 'sha256' => $sha, 'cfdi' => $cfdi] = $validado;
+
+        // «auto»: el tipo se deduce del archivo (XML → CFDI, PDF → factura, imagen → imagen).
+        if ($tipo === 'auto') {
+            $tipo = ['xml' => 'xml', 'pdf' => 'factura_pdf', 'imagen' => 'imagen'][$familia] ?? 'otro';
+        }
 
         // Coherencia entre el tipo elegido y el archivo.
         if ($familia === 'xml') {

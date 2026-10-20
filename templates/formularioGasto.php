@@ -72,6 +72,14 @@ $numEmpresas = max(1, count($empresas));
     <?php endif; ?>
 </div>
 
+<?php if (!empty($permiteArchivos)) : ?>
+    <div class="campo campo--completo mt-lg">
+        <label class="campo__etiqueta" for="doc-nuevo">Factura o comprobante (opcional)</label>
+        <input class="control" type="file" id="doc-nuevo" name="archivo[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
+        <span class="campo__ayuda">Sube la factura en PDF y su XML, o la foto del ticket. Puedes elegir varios. También podrás agregarlos después.</span>
+    </div>
+<?php endif; ?>
+
 <details class="mt-lg"<?= $errores || !empty($gasto['compartido']) ? ' open' : '' ?>>
     <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — categoría, folio fiscal, notas</summary>
     <div class="formulario__rejilla mt-md">
