@@ -24,6 +24,7 @@ $lineas  = array_map(static fn ($p) => [
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     $orden = [
         'id'              => $id,
+        'folio'           => trim((string) ($_POST['folio'] ?? '')),
         'proveedor_id'    => (int) ($_POST['proveedor_id'] ?? 0),
         'fecha_solicitud' => (string) ($_POST['fecha_solicitud'] ?? ''),
         'observaciones'   => trim($_POST['observaciones'] ?? ''),

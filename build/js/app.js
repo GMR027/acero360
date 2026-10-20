@@ -1765,9 +1765,10 @@ function dibujarGrafica(figura) {
     return;
   }
 
-  const ancho = 560;
-  const alto = 300;
-  const margen = { arriba: 28, derecha: 16, abajo: 40, izquierda: 56 };
+  const ancho = 1000;
+  const alto = 460;
+  const margen = { arriba: 32, derecha: 20, abajo: 44, izquierda: 64 };
+  const paleta = datos.colores && datos.colores.length ? datos.colores : PALETA_GRAFICAS;
   const areaAncho = ancho - margen.izquierda - margen.derecha;
   const areaAlto = alto - margen.arriba - margen.abajo;
   const maximo = maximoEje(Math.max.apply(null, series.map(function (s) { return Math.max.apply(null, s.valores); }).concat([0])));
@@ -1800,7 +1801,7 @@ function dibujarGrafica(figura) {
     svg.appendChild(defs);
 
     series.forEach(function (serie, s) {
-      const color = PALETA_GRAFICAS[s % PALETA_GRAFICAS.length];
+      const color = paleta[s % paleta.length];
       const puntos = serie.valores.map(function (valor, i) {
         return [margen.izquierda + paso * i + paso / 2, yDe(valor)];
       });
@@ -1819,11 +1820,11 @@ function dibujarGrafica(figura) {
       });
     });
   } else {
-    const anchoGrupo = Math.min(paso * 0.72, 64 * series.length);
+    const anchoGrupo = Math.min(paso * 0.72, 90 * series.length);
     const anchoBarra = anchoGrupo / series.length;
     const resaltarUltimo = datos.destacar === 'ultimo';
     series.forEach(function (serie, s) {
-      const color = PALETA_GRAFICAS[s % PALETA_GRAFICAS.length];
+      const color = paleta[s % paleta.length];
       serie.valores.forEach(function (valor, i) {
         const altoBarra = Math.max(valor > 0 ? 2 : 0, (valor / maximo) * areaAlto);
         const x = margen.izquierda + paso * i + (paso - anchoGrupo) / 2 + anchoBarra * s;
@@ -1853,7 +1854,7 @@ function dibujarGrafica(figura) {
       const item = document.createElement('li');
       const muestra = document.createElement('span');
       muestra.className = 'grafica__muestra';
-      muestra.style.backgroundColor = PALETA_GRAFICAS[s % PALETA_GRAFICAS.length];
+      muestra.style.backgroundColor = paleta[s % paleta.length];
       item.appendChild(muestra);
       item.appendChild(document.createTextNode(serie.nombre));
       leyenda.appendChild(item);

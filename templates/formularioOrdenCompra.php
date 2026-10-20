@@ -17,6 +17,12 @@ $lineas = $lineas ?: [['producto_id' => 0, 'cantidad' => 1, 'costo' => '0.00', '
 
 <div class="formulario__rejilla">
     <div class="campo">
+        <label class="campo__etiqueta" data-ayuda="El número de la orden o pedido. Si lo dejas vacío, la plataforma asigna el siguiente (OC-año-0001)." for="folio">Folio de la orden</label>
+        <input class="control" type="text" id="folio" name="folio" maxlength="20" autocomplete="off"
+               value="<?= escaparValores($orden['folio'] ?? '') ?>" placeholder="Automático">
+        <span class="campo__ayuda">Escríbelo si ya tienes uno (por ejemplo el de tu proveedor). Vacío = automático.</span>
+    </div>
+    <div class="campo">
         <label class="campo__etiqueta campo__etiqueta--obligatorio" for="proveedor_id">Proveedor</label>
         <select class="control" id="proveedor_id" name="proveedor_id" required>
             <option value="">— Elige un proveedor —</option>

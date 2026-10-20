@@ -184,8 +184,14 @@ $router->get('/admin/estadisticas/exportar', 'views/admin/estadisticas/exportar.
 $router->get('/admin/contabilidad/cierre',          'views/admin/contabilidad/cierre.php',          'soloAdmin');
 $router->post('/admin/contabilidad/cierre/accion',  'views/admin/contabilidad/cierre-accion.php',   'soloAdmin');
 $router->get('/admin/contabilidad/cierre/exportar', 'views/admin/contabilidad/cierre-exportar.php', 'soloAdmin');
-$router->get('/admin/fiscal',                       'views/admin/fiscal/index.php',                 'soloAdmin');
+$router->get('/admin/fiscal',                       'views/admin/fiscal/resumen.php',               'soloAdmin');
+$router->post('/admin/fiscal',                      'views/admin/fiscal/resumen.php',               'soloAdmin');
+$router->get('/admin/fiscal/detalle',               'views/admin/fiscal/index.php',                 'soloAdmin');
+$router->get('/admin/fiscal/movimientos',           'views/admin/fiscal/movimientos.php',           'soloAdmin');
+$router->get('/admin/fiscal/exportar',              'views/admin/fiscal/exportar.php',              'soloAdmin');
 $router->post('/admin/fiscal/guardar',              'views/admin/fiscal/guardar.php',               'soloAdmin');
+$router->get('/admin/fiscal/resumen',               'views/admin/fiscal/resumen.php',               'soloAdmin');
+$router->post('/admin/fiscal/resumen',              'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->get('/admin/fiscal/registros',             'views/admin/fiscal/registros.php',             'soloAdmin');
 $router->post('/admin/fiscal/registros/accion',     'views/admin/fiscal/registros-accion.php',      'soloAdmin');
 $router->get('/admin/fiscal/catalogo',              'views/admin/fiscal/catalogo/index.php',        'soloAdmin');

@@ -22,7 +22,7 @@ $gastos   = $reg['gastos'];
 
 template('header', ['titulo' => 'Impuestos del mes', 'subtitulo' => nombreMes($periodo['mes']) . ' ' . $periodo['anio'], 'rutaActiva' => '/admin/fiscal']);
 template('tabsFiscal', ['tab' => 'panel', 'periodo' => $periodo]);
-template('selectorPeriodo', ['accion' => '/admin/fiscal', 'periodo' => $periodo, 'empresas' => $empresas]);
+template('selectorPeriodo', ['accion' => '/admin/fiscal/detalle', 'periodo' => $periodo, 'empresas' => $empresas]);
 ?>
 
 <?php

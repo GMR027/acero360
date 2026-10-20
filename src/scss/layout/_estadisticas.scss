@@ -16,7 +16,6 @@
     display: block;
     width: 100%;
     height: auto;
-    max-height: 22rem;
   }
 
   &__rejilla {
@@ -107,9 +106,11 @@
 
 .estadisticas-rejilla {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
   gap: $espacio-lg;
   margin-bottom: $espacio-lg;
+
+  &__ancho { grid-column: 1 / -1; }
 }
 
 @keyframes grafica-crece {

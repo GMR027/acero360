@@ -312,6 +312,23 @@ class OrdenesCompra
             $errores[] = 'La fecha de solicitud no es válida.';
         }
 
+        $folio = trim((string) ($datos['folio'] ?? ''));
+        if ($folio !== '') {
+            if (mb_strlen($folio) > 20 || !preg_match('/^[\p{L}\p{N}._\/-]+$/u', $folio)) {
+                $errores[] = 'El folio puede tener hasta 20 letras, números, guiones o diagonales, sin espacios.';
+            } else {
+                $propia = (int) ($datos['id'] ?? 0);
+                $consulta = self::$db->prepare('SELECT COUNT(*) FROM ordenes_compra WHERE folio = ? AND id <> ?');
+                $consulta->bind_param('si', $folio, $propia);
+                $consulta->execute();
+                $repetido = (int) $consulta->get_result()->fetch_row()[0];
+                $consulta->close();
+                if ($repetido > 0) {
+                    $errores[] = "Ya existe una orden con el folio $folio. Elige otro o déjalo vacío para que se asigne solo.";
+                }
+            }
+        }
+
         if (empty($lineas)) {
             $errores[] = 'Agrega al menos un producto a la orden.';
         }
@@ -342,7 +359,7 @@ class OrdenesCompra
         try {
             self::$db->begin_transaction();
 
-            $folio = self::siguienteFolio();
+            $folio = trim((string) ($datos['folio'] ?? '')) ?: self::siguienteFolio();
             $total = 0;
             foreach ($lineas as $linea) {
                 $total += (int) round(self::importe((int) $linea['cantidad'], $linea['costo']) * 100);
@@ -400,11 +417,13 @@ class OrdenesCompra
             $observaciones = trim((string) ($datos['observaciones'] ?? '')) ?: null;
             $proveedorId = (int) $datos['proveedor_id'];
 
+            $folio = trim((string) ($datos['folio'] ?? '')) ?: $orden['folio']; // vacío = conserva el actual
+
             $consulta = self::$db->prepare(
-                'UPDATE ordenes_compra SET proveedor_id = ?, fecha_solicitud = ?, total_esperado = ?, observaciones = ?
+                'UPDATE ordenes_compra SET folio = ?, proveedor_id = ?, fecha_solicitud = ?, total_esperado = ?, observaciones = ?
                   WHERE id = ?'
             );
-            $consulta->bind_param('isssi', $proveedorId, $datos['fecha_solicitud'], $totalPesos, $observaciones, $id);
+            $consulta->bind_param('sisssi', $folio, $proveedorId, $datos['fecha_solicitud'], $totalPesos, $observaciones, $id);
             $consulta->execute();
             $consulta->close();
 
@@ -414,7 +433,7 @@ class OrdenesCompra
             $borrar->close();
 
             self::guardarPartidas($id, $lineas);
-            Auditoria::registrar('orden_compra', $id, 'editar', $usuarioId, null, ['total' => $totalPesos]);
+            Auditoria::registrar('orden_compra', $id, 'editar', $usuarioId, null, ['total' => $totalPesos, 'folio' => $folio]);
 
             self::$db->commit();
             return true;

@@ -10,6 +10,18 @@ $contrib = \App\Contabilidad::contribuyentePrincipal();
 $c       = \App\Contabilidad::contribuyente($contrib);
 $errores = [];
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'tasa_isr') {
+    $tasa = str_replace([',', '%', ' '], '', (string) ($_POST['tasa_isr'] ?? ''));
+    if (!consumirToken($_POST['token'] ?? null)) {
+        redirigir('/admin/fiscal/configuracion', 'error', 'Este formulario ya se envió; no se guardó dos veces.');
+    }
+    if (!is_numeric($tasa) || (float) $tasa < 0 || (float) $tasa > 100) {
+        redirigir('/admin/fiscal/configuracion', 'error', 'El porcentaje de ISR debe ser un número entre 0 y 100.');
+    }
+    \App\Configuracion::guardar('isr_tasa_simple', (string) round((float) $tasa, 2), (int) ($_SESSION['id'] ?? 0));
+    redirigir('/admin/fiscal/configuracion', 'exito', 'Porcentaje de ISR actualizado para el Resumen del año.');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     if (\App\RegistrosFiscales::cambiarConfiguracion(
         $contrib, (string) ($_POST['vigente_desde'] ?? ''), (string) ($_POST['tipo_persona'] ?? ''), (string) ($_POST['regimen'] ?? ''),
@@ -44,6 +56,21 @@ template('tabsFiscal', ['tab' => 'configuracion', 'periodo' => ['anio' => (int) 
         <p class="nota nota--advertencia mt-md"><span class="material-symbols-outlined nota__icono" aria-hidden="true">warning</span>
             <span>El régimen y el método de flujo de efectivo aún no están confirmados con tu contador. Los cálculos mostrarán un aviso hasta que lo confirmes.</span></p>
     <?php endif; ?>
+</section>
+
+<section class="tarjeta mb-lg">
+    <h2 class="titulo-5 mb-md">Porcentaje de ISR del resumen</h2>
+    <form class="formulario" action="/admin/fiscal/configuracion" method="post" novalidate>
+        <input type="hidden" name="accion" value="tasa_isr">
+        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+        <div class="formulario__rejilla">
+            <div class="campo"><label class="campo__etiqueta" data-ayuda="Se aplica a (facturado sin IVA − pagos sin IVA) en el Resumen del año. Pregunta a tu contador cuál usar." for="tasa_isr">ISR (%)</label>
+                <input class="control" type="number" id="tasa_isr" name="tasa_isr" min="0" max="100" step="0.01" inputmode="decimal"
+                       value="<?= escaparValores(rtrim(rtrim(number_format(\App\ResumenFiscal::tasaIsr(), 2, '.', ''), '0'), '.')) ?>">
+                <span class="campo__ayuda">Solo afecta la estimación rápida del «Resumen del año». Por defecto 32 %.</span></div>
+        </div>
+        <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar porcentaje</button></div>
+    </form>
 </section>
 
 <section class="tarjeta mb-lg">

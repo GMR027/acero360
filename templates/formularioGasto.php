@@ -35,6 +35,15 @@ $numEmpresas = max(1, count($empresas));
     <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="El día en que se hizo el gasto (el del ticket o la factura)." for="fecha">¿Cuándo fue?</label>
         <input class="control" type="date" id="fecha" name="fecha" required value="<?= $v('fecha', date('Y-m-d')) ?>"></div>
 
+    <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige el tipo de gasto. Si escribes «gasolina», «CFE», «Telmex»… la plataforma lo sugiere sola." for="categoria_id">¿Qué tipo de gasto fue?</label>
+        <select class="control" id="categoria_id" name="categoria_id" data-sugerir-categoria>
+            <option value="">— Elige un tipo —</option>
+            <?php foreach ($categorias as $c) : ?>
+                <option value="<?= (int) $c['id'] ?>"<?= (int) ($gasto['categoria_id'] ?? 0) === (int) $c['id'] ? ' selected' : '' ?>><?= escaparValores($c['nombre']) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda">Todos cuentan como deducibles; el tipo solo sirve para ordenarlos.</span></div>
+
     <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Lo que dice el ticket o la factura al final, con IVA incluido. La plataforma separa el IVA sola." for="total">¿Cuánto pagaste en total?</label>
         <input class="control control--moneda" type="number" id="total" name="total" min="0.01" step="0.01" inputmode="decimal"
                value="<?= $gasto && !empty($gasto['total']) ? $v('total') : '' ?>" required placeholder="0.00">
@@ -81,16 +90,8 @@ $numEmpresas = max(1, count($empresas));
 <?php endif; ?>
 
 <details class="mt-lg"<?= $errores || !empty($gasto['compartido']) ? ' open' : '' ?>>
-    <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — categoría, folio fiscal, notas</summary>
+    <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — forma de pago, folio fiscal, notas</summary>
     <div class="formulario__rejilla mt-md">
-        <div class="campo"><label class="campo__etiqueta" data-ayuda="Sirve para ordenar tus gastos en reportes. No cambia los impuestos." for="categoria_id">Categoría</label>
-            <select class="control" id="categoria_id" name="categoria_id">
-                <option value="">— Sin categoría —</option>
-                <?php foreach ($categorias as $c) : ?>
-                    <option value="<?= (int) $c['id'] ?>"<?= (int) ($gasto['categoria_id'] ?? 0) === (int) $c['id'] ? ' selected' : '' ?>><?= escaparValores($c['nombre']) ?></option>
-                <?php endforeach; ?>
-            </select></div>
-
         <div class="campo"><label class="campo__etiqueta" data-ayuda="Efectivo, transferencia, tarjeta… solo para tu control." for="metodo_pago">¿Cómo lo pagaste?</label>
             <select class="control" id="metodo_pago" name="metodo_pago">
                 <option value="">—</option>
@@ -107,7 +108,7 @@ $numEmpresas = max(1, count($empresas));
             <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= $v('uuid_fiscal') ?>">
             <span class="campo__ayuda">Si subes el XML de la factura, se llena solo.</span></div>
 
-        <div class="campo"><label class="campo__etiqueta" data-ayuda="Déjalo en «Gasto» salvo que tu contador te diga otra cosa." for="naturaleza">Tipo de gasto</label>
+        <div class="campo"><label class="campo__etiqueta" data-ayuda="Déjalo en «Gasto» salvo que tu contador te diga otra cosa." for="naturaleza">Clasificación contable</label>
             <select class="control" id="naturaleza" name="naturaleza">
                 <?php foreach (\App\Gastos::NATURALEZAS as $clave => $texto) : ?>
                     <option value="<?= $clave ?>"<?= ($gasto['naturaleza'] ?? 'gasto') === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
@@ -158,6 +159,41 @@ $numEmpresas = max(1, count($empresas));
     });
   }
   const nombre = document.getElementById('beneficiario');
+  /* Sugiere el tipo de gasto según lo que se escribe; si la persona ya eligió uno, no lo cambia. */
+  const tipo = document.querySelector('[data-sugerir-categoria]');
+  const concepto = document.getElementById('concepto');
+  if (tipo && concepto && nombre) {
+    let manual = tipo.value !== '';
+    tipo.addEventListener('change', function () { manual = tipo.value !== ''; });
+    const reglas = [
+      ['Combustible y transporte', /gasolin|diesel|combustible|caseta|pemex|oxxo gas|uber|taxi/],
+      ['Luz, agua y gas', /\bcfe\b|\bluz\b|agua|\bgas\b|conagua|oomsapas/],
+      ['Teléfono e internet', /telcel|telmex|izzi|totalplay|internet|tel[eé]fono|megacable|\bat&t\b/],
+      ['Ferretería y materiales', /ferreter|home depot|comex|pintura|tornill|material|interceramic|ferremax/],
+      ['Papelería y oficina', /papeler|office ?max|oficina|toner|impresi/],
+      ['Renta', /renta|arrendamiento/],
+      ['Seguros', /seguro|p[oó]liza/],
+      ['Donativos', /donativo|teleton|teletón|cruz roja|donaci/],
+      ['Alimentos y despensa', /soriana|walmart|costco|super|despensa|caf[eé]|panader|restaurante|comida/],
+      ['Retiros del propietario', /retiro|disposici[oó]n/],
+      ['Mantenimiento', /mantenimiento|reparaci|servicio t[eé]cnico/],
+      ['Honorarios', /honorarios|contador|notario|abogado/],
+      ['Sueldos', /sueldo|n[oó]mina|salario/],
+    ];
+    const sugerir = function () {
+      if (manual) { return; }
+      const texto = (concepto.value + ' ' + nombre.value).toLowerCase();
+      for (let i = 0; i < reglas.length; i += 1) {
+        if (reglas[i][1].test(texto)) {
+          const opcion = Array.prototype.find.call(tipo.options, function (o) { return o.text === reglas[i][0]; });
+          if (opcion) { tipo.value = opcion.value; }
+          return;
+        }
+      }
+    };
+    concepto.addEventListener('input', sugerir);
+    nombre.addEventListener('input', sugerir);
+  }
   const oculto = document.getElementById('proveedor_id');
   const lista = document.getElementById('lista-proveedores');
   if (nombre && oculto && lista) {

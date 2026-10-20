@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $anio = (int) ($_POST['anio'] ?? 0);
 $mes  = (int) ($_POST['mes'] ?? 0);
-$destino = "/admin/fiscal?anio=$anio&mes=$mes";
+$destino = "/admin/fiscal/detalle?anio=$anio&mes=$mes";
 
 if (!consumirToken($_POST['token'] ?? null)) {
     redirigir($destino, 'error', 'Este formulario ya se envió; no se guardó el cálculo dos veces.');

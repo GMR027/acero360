@@ -3157,7 +3157,6 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   display: block;
   width: 100%;
   height: auto;
-  max-height: 22rem;
 }
 .grafica__rejilla {
   stroke: #e4e6ea;
@@ -3239,9 +3238,12 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 
 .estadisticas-rejilla {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
   gap: 1.5rem;
   margin-bottom: 1.5rem;
+}
+.estadisticas-rejilla__ancho {
+  grid-column: 1/-1;
 }
 
 @keyframes grafica-crece {

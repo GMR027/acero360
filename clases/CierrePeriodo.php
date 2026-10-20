@@ -200,7 +200,7 @@ class CierrePeriodo
         }
         if ($dif > 0) {
             $h[] = self::hallazgo('diferencia_estimado_pagado', 'aviso', 'Diferencia entre lo estimado y lo declarado', $dif,
-                'La estimación de la plataforma difiere en más de $1.00 de lo declarado. Revisa con tu contador.', "/admin/fiscal?$periodo");
+                'La estimación de la plataforma difiere en más de $1.00 de lo declarado. Revisa con tu contador.', "/admin/fiscal/detalle?$periodo");
         }
 
         // Conciliación.

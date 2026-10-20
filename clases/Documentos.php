@@ -223,7 +223,7 @@ class Documentos
      *
      * @return string|null null si dompdf no pudo generarlo.
      */
-    private static function componer(string $html, string $origen): ?string
+    private static function componer(string $html, string $origen, string $orientacion = self::ORIENTACION): ?string
     {
         try {
             $opciones = new \Dompdf\Options();
@@ -234,7 +234,7 @@ class Documentos
 
             $dompdf = new \Dompdf\Dompdf($opciones);
             $dompdf->loadHtml($html, 'UTF-8');
-            $dompdf->setPaper(self::ANCHO_PAGINA, self::ORIENTACION);
+            $dompdf->setPaper(self::ANCHO_PAGINA, $orientacion);
             $dompdf->render();
 
             $bytes = $dompdf->output();
@@ -281,13 +281,13 @@ class Documentos
      * @param string[] $encabezados
      * @param array<int, array<int, scalar|null>> $filas
      */
-    public static function descargarTabla(string $titulo, string $subtitulo, array $encabezados, array $filas, string $nombre, string $pie = '', string $volver = '/admin/inventario'): void
+    public static function descargarTabla(string $titulo, string $subtitulo, array $encabezados, array $filas, string $nombre, string $pie = '', string $volver = '/admin/inventario', bool $horizontal = false): void
     {
         ob_start();
         \template('pdfTablaSimple', ['titulo' => $titulo, 'subtitulo' => $subtitulo, 'encabezados' => $encabezados, 'filas' => $filas, 'pie' => $pie]);
         $html = (string) ob_get_clean();
 
-        $bytes = self::componer($html, 'el reporte');
+        $bytes = self::componer($html, 'el reporte', $horizontal ? 'landscape' : self::ORIENTACION);
         if ($bytes === null) {
             \redirigir($volver, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
         }

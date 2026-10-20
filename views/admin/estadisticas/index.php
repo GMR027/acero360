@@ -50,6 +50,36 @@ if ($conProducto) {
 $graficaSerie = ['tipo' => count($r['serie']) > 18 ? 'linea' : 'barras', 'formato' => 'moneda', 'etiquetas' => array_map('strval', array_keys($r['serie'])),
     'series' => [['nombre' => 'Ventas realizadas', 'valores' => array_map(static fn ($x) => $x['importe'] / 100, array_values($r['serie']))]]];
 
+// Mes, trimestre o semestre con varios años: una serie por año sobre los mismos periodos,
+// para que cada año tenga su color y se vean lado a lado.
+if (in_array($p['agrupacion'], ['mes', 'trimestre', 'semestre'], true) && $r['serie']) {
+    $posiciones = ['mes' => 12, 'trimestre' => 4, 'semestre' => 2][$p['agrupacion']];
+    $porAnio = [];
+    foreach ($r['serie'] as $clave => $x) {
+        $anioClave = (int) substr((string) $clave, 0, 4);
+        $pos = $p['agrupacion'] === 'mes' ? (int) substr((string) $clave, 5, 2) : (int) substr((string) $clave, -1);
+        $porAnio[$anioClave] ??= array_fill(1, $posiciones, 0.0);
+        $porAnio[$anioClave][$pos] = $x['importe'] / 100;
+    }
+    ksort($porAnio);
+    if (count($porAnio) > 1) {
+        $colores = ['#2f6f9f', '#e08a2e', '#9aa5ad', '#8a6bbd']; // el año más reciente va en azul
+        $anios = array_keys($porAnio);
+        $graficaSerie['tipo'] = 'barras';
+        $graficaSerie['etiquetas'] = array_map(static fn ($i) => match ($p['agrupacion']) {
+            'mes' => mb_substr(nombreMes($i), 0, 3), 'trimestre' => 'T' . $i, default => 'S' . $i,
+        }, range(1, $posiciones));
+        $graficaSerie['series'] = [];
+        $graficaSerie['colores'] = [];
+        foreach (array_reverse($anios) as $k => $a) {
+            $graficaSerie['series'][] = ['nombre' => (string) $a, 'valores' => array_values($porAnio[$a])];
+            $graficaSerie['colores'][] = $colores[$k] ?? '#9aa5ad';
+        }
+        $graficaSerie['series'] = array_reverse($graficaSerie['series']);
+        $graficaSerie['colores'] = array_reverse($graficaSerie['colores']);
+    }
+}
+
 
 // Gráficas de rankings (barras horizontales)
 $graficaProductos = ['tipo' => 'barras-h', 'formato' => 'moneda', 'etiquetas' => array_map(static fn ($x) => (string) $x['nombre'], $r['productos']),
@@ -150,7 +180,7 @@ template('header', [
     <?= $r['tendencia']['direccion'] === 'sin_datos' ? '' : escaparValores($r['tendencia']['etiqueta']) . '.' ?></p>
 
 <div class="estadisticas-rejilla">
-    <section>
+    <section class="estadisticas-rejilla__ancho">
         <h2 class="titulo-5 mb-md">Ventas por <?= escaparValores(mb_strtolower(\App\Estadisticas::AGRUPACIONES[$p['agrupacion']])) ?></h2>
         <?php if ($r['serie']) : ?>
             <figure class="grafica" data-grafica="<?= escaparValores(json_encode($graficaSerie, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Serie de ventas realizadas"></figure>
@@ -158,7 +188,7 @@ template('header', [
             <div class="vacio"><p class="vacio__titulo">Sin ventas en este rango</p></div>
         <?php endif; ?>
     </section>
-    <section>
+    <section class="estadisticas-rejilla__ancho">
         <h2 class="titulo-5 mb-md">Año contra año · <?= escaparValores(\App\Estadisticas::TIPOS_PERIODO[$p['tipo']]) ?></h2>
         <figure class="grafica" data-grafica="<?= escaparValores(json_encode($graficaComp, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Comparación de <?= escaparValores($etiquetaPeriodo) ?> entre años"></figure>
     </section>
