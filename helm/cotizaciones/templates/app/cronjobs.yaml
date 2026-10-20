@@ -1,0 +1,89 @@
+# ===========================================================================
+# Tareas programadas (DESACTIVADAS por defecto: se activan en values.local.yaml).
+#   fotoInventario.enabled  → fotografía del inventario el día 1 de cada mes (mes anterior). No modifica existencias.
+#   respaldo.enabled        → volcado diario de la base en un PVC propio, con retención.
+# El respaldo de los ARCHIVOS (imágenes y documentos fiscales) se hace con scripts/respaldar.sh desde un
+# equipo con acceso al clúster; ver DESPLIEGUE.md. Nada de esto se ha desplegado: son plantillas.
+# ===========================================================================
+{{- if .Values.fotoInventario.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cotizaciones-foto-inventario
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.fotoInventario.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: foto
+              image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["php", "scripts/foto_inventario.php"]
+              env:
+                - { name: DB_HOST, value: mysql }
+                - { name: DB_NAME, value: {{ .Values.mysql.database | quote }} }
+                - { name: DB_USER, value: {{ .Values.mysql.user | quote }} }
+                - name: DB_PASSWORD
+                  valueFrom: { secretKeyRef: { name: cotizaciones, key: DB_PASSWORD } }
+{{- end }}
+{{- if .Values.respaldo.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cotizaciones-respaldos
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: microk8s-hostpath
+  resources:
+    requests:
+      storage: {{ .Values.respaldo.size }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cotizaciones-respaldo-base
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.respaldo.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: respaldo
+              image: {{ .Values.mysql.image }}
+              env:
+                - name: MYSQL_PWD
+                  valueFrom: { secretKeyRef: { name: cotizaciones, key: MYSQL_ROOT_PASSWORD } }
+                - { name: RETENER, value: {{ .Values.respaldo.retener | quote }} }
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  d=/respaldos/$(date +%Y%m%d-%H%M%S); mkdir -p "$d"
+                  mysqldump -h mysql -uroot --single-transaction --routines --triggers --default-character-set=utf8mb4 {{ .Values.mysql.database }} | gzip -9 > "$d/base.sql.gz"
+                  gzip -t "$d/base.sql.gz" && (cd "$d" && sha256sum base.sql.gz > SHA256SUMS)
+                  ls -1d /respaldos/20??????-?????? | sort | head -n -"$RETENER" | xargs -r rm -rf
+                  echo "Respaldo listo: $d"
+              volumeMounts:
+                - { name: respaldos, mountPath: /respaldos }
+          volumes:
+            - name: respaldos
+              persistentVolumeClaim: { claimName: cotizaciones-respaldos }
+{{- end }}

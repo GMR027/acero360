@@ -22,7 +22,10 @@ cambios/
 
 # Infraestructura (el chart no va dentro de la imagen)
 helm/
-scripts/
+scripts/*
+!scripts/migrar.php
+!scripts/foto_inventario.php
+!scripts/publicar_escritorio.php
 
 # Dump de datos: se importa vía ConfigMap, no desde la imagen
 mysql/dump-inicial.sql

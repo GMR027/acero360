@@ -67,3 +67,14 @@ ingress:
   className: public
   clusterIssuer: letsencrypt-prod
   proxyBodySize: 20m
+
+# Tareas programadas (plantillas desactivadas por defecto; ver templates/app/cronjobs.yaml)
+fotoInventario:
+  enabled: false
+  schedule: "10 0 1 * *"     # día 1 de cada mes, 00:10: fotografía del inventario del mes anterior
+
+respaldo:
+  enabled: false
+  schedule: "30 2 * * *"     # diario 02:30
+  retener: 14                # copias a conservar
+  size: 2Gi

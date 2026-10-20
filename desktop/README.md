@@ -49,7 +49,7 @@ autenticados y verifica el SHA-256 antes de entregar. Una versión defectuosa se
 **Esto no despliega nada en el clúster**: el paquete (~100 MB) se copia al almacén de documentos del servidor.
 
 ## Verificación hecha (paquete 1.0.0, SHA-256 `6d885ddce8a3d4c2fa309eaa2658adfd359fb408bfbfd678076d8ab6ef66ce7c`)
-- 8 pruebas unitarias (`npm test`) y 26 pruebas de integración con Electron real (`node test/integracion.mjs`, con el servidor de pruebas).
+- 8 pruebas unitarias (`npm test`) y 28 pruebas de integración con Electron real (`node test/integracion.mjs`, con el servidor de pruebas).
 - Instalación limpia, arranque y desinstalación en contenedores **Debian 12** y **Ubuntu 24.04** (con Xvfb y `--no-sandbox`, por correr como root).
 - Los contenedores destaparon dos errores reales de dependencias (`libasound2`), ya corregidos.
 

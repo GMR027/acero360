@@ -275,6 +275,26 @@ class Documentos
         self::enviar($bytes, 'ventas-sin-facturar-' . $periodo['anio'] . ($periodo['mes'] ? sprintf('-%02d', $periodo['mes']) : ''));
     }
 
+    /**
+     * PDF genérico de una tabla (reportes de inventario). Solo lectura.
+     *
+     * @param string[] $encabezados
+     * @param array<int, array<int, scalar|null>> $filas
+     */
+    public static function descargarTabla(string $titulo, string $subtitulo, array $encabezados, array $filas, string $nombre, string $pie = '', string $volver = '/admin/inventario'): void
+    {
+        ob_start();
+        \template('pdfTablaSimple', ['titulo' => $titulo, 'subtitulo' => $subtitulo, 'encabezados' => $encabezados, 'filas' => $filas, 'pie' => $pie]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'el reporte');
+        if ($bytes === null) {
+            \redirigir($volver, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, $nombre);
+    }
+
     /** PDF de estadísticas. Solo lectura. */
     public static function descargarEstadisticas(array $reporte): void
     {

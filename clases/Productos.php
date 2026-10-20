@@ -369,6 +369,14 @@ class Productos
                 p.nombre ASC";
     }
 
+    /** Orden por SKU natural sin requerir el alias de empresa (para reportes planos). */
+    public static function ordenPorCodigoSimple(): string
+    {
+        return "REGEXP_REPLACE(IFNULL(p.sku, ''), '[0-9].*$', '') ASC,
+                CAST(REGEXP_REPLACE(IFNULL(p.sku, ''), '^[^0-9]*', '') AS UNSIGNED) ASC,
+                IFNULL(p.sku, '') ASC, p.nombre ASC";
+    }
+
     /**
      * Productos activos para poblar el cotizador (con su precio de lista).
      *

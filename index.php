@@ -20,7 +20,7 @@ if (PHP_SAPI === 'cli-server') {
     $archivoEstatico = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     // Nunca se sirven directamente carpetas internas (documentos fiscales, código, configuración).
     $interno = is_string($archivoEstatico)
-        && preg_match('#^/(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules)(/|$)|^/\.#', $archivoEstatico);
+        && preg_match('#^/(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop)(/|$)|^/\.|\.(env|md|sql|lock|log|sh|json|ya?ml|ini|example)$|^/(Dockerfile|Router\.php|gulpfile\.js|deploy\.sh)$#', $archivoEstatico);
 
     if (is_string($archivoEstatico) && !$interno && $archivoEstatico !== '/' && file_exists(__DIR__ . $archivoEstatico)) {
         return false;
@@ -141,6 +141,10 @@ $router->post('/admin/ventas/eliminar', 'views/admin/ventas/eliminar.php',   'so
 $router->get('/admin/inventario',          'views/admin/inventario/index.php',  'soloAdmin');
 $router->post('/admin/inventario',         'views/admin/inventario/index.php',  'soloAdmin');
 $router->post('/admin/inventario/ajustar', 'views/admin/inventario/ajustar.php', 'soloAdmin');
+$router->get('/admin/inventario/movimientos', 'views/admin/inventario/movimientos.php', 'soloAdmin');
+$router->get('/admin/inventario/fotos',       'views/admin/inventario/fotos.php',       'soloAdmin');
+$router->post('/admin/inventario/fotos',      'views/admin/inventario/fotos.php',       'soloAdmin');
+$router->get('/admin/inventario/exportar',    'views/admin/inventario/exportar.php',    'soloAdmin');
 $router->get('/admin/inventario/pdf',      'views/admin/inventario/pdf.php',    'soloAdmin');
 
 // Proveedores: directorio de proveedores y entradas (reporte fotográfico).

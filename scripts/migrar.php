@@ -11,7 +11,26 @@ require __DIR__ . '/../config/entorno.php';
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $base = $argv[1] ?? (getenv('DB_NAME') ?: 'cotizaciones');
-$db = new mysqli(getenv('DB_HOST') ?: 'localhost', getenv('DB_USER') ?: 'root', getenv('DB_PASSWORD') ?: '', $base, 3306);
+
+// En el clúster la base puede tardar en estar lista: MIGRAR_REINTENTOS intentos, cada 5 s (por defecto 1).
+$intentos = max(1, (int) (getenv('MIGRAR_REINTENTOS') ?: 1));
+$db = null;
+for ($i = 1; $i <= $intentos; $i++) {
+    try {
+        $db = new mysqli(getenv('DB_HOST') ?: 'localhost', getenv('DB_USER') ?: 'root', getenv('DB_PASSWORD') ?: '', $base, 3306);
+        $esquema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'usuarios'")->fetch_row()[0];
+        if ((int) $esquema === 0) {
+            throw new RuntimeException('La base está vacía (falta el esquema inicial): no se aplica ninguna migración.');
+        }
+        break;
+    } catch (Throwable $error) {
+        fwrite(STDERR, "Intento $i/$intentos: " . $error->getMessage() . "\n");
+        if ($i === $intentos) {
+            exit(3);
+        }
+        sleep(5);
+    }
+}
 $db->set_charset('utf8mb4');
 
 $db->query('CREATE TABLE IF NOT EXISTS schema_migraciones (

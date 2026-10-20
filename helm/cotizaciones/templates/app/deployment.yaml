@@ -42,6 +42,26 @@ spec:
           volumeMounts:
             - name: images
               mountPath: /destino
+        - name: migrar-base
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Aplica las migraciones pendientes (mysql/migraciones). Espera a MySQL y se niega a tocar una base
+          # vacía: el esquema inicial lo importa el Job cotizaciones-db-init. Cada migración corre UNA vez.
+          command: ["php", "scripts/migrar.php"]
+          env:
+            - name: MIGRAR_REINTENTOS
+              value: "60"
+            - name: DB_HOST
+              value: mysql
+            - name: DB_NAME
+              value: {{ .Values.mysql.database | quote }}
+            - name: DB_USER
+              value: {{ .Values.mysql.user | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: DB_PASSWORD
       containers:
         - name: cotizaciones
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}

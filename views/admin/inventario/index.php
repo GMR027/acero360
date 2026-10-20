@@ -55,7 +55,11 @@ template('header', [
     'subtitulo' => 'Existencias por negocio',
     'acciones'  => '<a class="btn btn--primario" href="/admin/inventario/pdf">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>'
-        . '<span>Exportar Inventario</span></a>',
+        . '<span>Exportar Inventario</span></a>'
+        . '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=inventario&formato=xlsx&' . escaparValores(http_build_query(['q' => $termino, 'empresa' => $empresaId, 'estado' => $estado])) . '"><span>Excel (con filtros)</span></a>'
+        . '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=inventario&formato=csv&' . escaparValores(http_build_query(['q' => $termino, 'empresa' => $empresaId, 'estado' => $estado])) . '"><span>CSV</span></a>'
+        . '<a class="btn btn--secundario" href="/admin/inventario/movimientos"><span>Historial de movimientos</span></a>'
+        . '<a class="btn btn--secundario" href="/admin/inventario/fotos"><span>Fotografías mensuales</span></a>',
 ]);
 ?>
 

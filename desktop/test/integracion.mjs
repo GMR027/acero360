@@ -8,7 +8,7 @@
  * Abre ventanas reales de Electron durante unos segundos. Se sustituye shell.openExternal por un
  * registro para que las pruebas NUNCA abran tu navegador.
  */
-import { _electron as electron } from 'playwright';
+import { _electron as electron, chromium } from 'playwright';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -73,6 +73,32 @@ try {
   verifica('navega dentro de la plataforma (catálogo de productos)', (await ventana.locator('table.tabla').count()) >= 1);
   const cookies = await app.evaluate(async ({ session }) => (await session.fromPartition('persist:cotizaciones').cookies.get({})).length);
   verifica('la sesión queda en una partición persistente (cookies del servidor)', cookies >= 1);
+
+  console.log('Mismos datos que la versión web');
+  const enEscritorio = await ventana.evaluate(() => ({
+    filas: document.querySelectorAll('tbody tr').length,
+    primeros: [...document.querySelectorAll('tbody tr')].slice(0, 3).map((f) => f.innerText.replace(/\s+/g, ' ').trim()),
+    total: document.querySelector('.badge')?.innerText.trim(),
+  }));
+  const navegadorWeb = await chromium.launch();
+  const web = await navegadorWeb.newPage();
+  await web.goto(BASE + '/login');
+  await web.fill('#email', EMAIL); await web.fill('#contrasena', CLAVE);
+  await Promise.all([web.waitForURL('**/admin'), web.click('button[type=submit]')]);
+  await web.goto(BASE + '/admin/productos');
+  const enWeb = await web.evaluate(() => ({
+    filas: document.querySelectorAll('tbody tr').length,
+    primeros: [...document.querySelectorAll('tbody tr')].slice(0, 3).map((f) => f.innerText.replace(/\s+/g, ' ').trim()),
+    total: document.querySelector('.badge')?.innerText.trim(),
+  }));
+  await navegadorWeb.close();
+  verifica('el catálogo de productos es idéntico en escritorio y en la web (mismas filas y datos)', enEscritorio.filas > 0 && JSON.stringify(enEscritorio) === JSON.stringify(enWeb), JSON.stringify([enEscritorio.filas, enWeb.filas]));
+  const idProducto = sql("SELECT id FROM productos WHERE sku='RA-3'");
+  sql(`UPDATE productos SET precio = precio + 1 WHERE id = ${idProducto}`);
+  await ventana.reload();
+  const precioNuevo = sql(`SELECT precio FROM productos WHERE id = ${idProducto}`);
+  verifica('un cambio en el servidor se ve de inmediato en la aplicación de escritorio (no hay copia local)', (await ventana.locator('main').innerText()).includes(Number(precioNuevo).toLocaleString('en-US', { minimumFractionDigits: 2 })));
+  sql(`UPDATE productos SET precio = precio - 1 WHERE id = ${idProducto}`);
 
   console.log('Navegación contenida');
   await ventana.evaluate(() => { window.location.href = 'http://example.com/robo'; });
