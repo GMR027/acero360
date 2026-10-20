@@ -146,7 +146,7 @@ $enlaces = [
     [
         'ruta'          => '/admin/fiscal',
         'icono'         => 'request_quote',
-        'texto'         => 'Fiscal',
+        'texto'         => 'Impuestos',
         'subrutas'      => true,
         'excluir'       => [],
         'soloEscritorio' => false,
@@ -162,17 +162,10 @@ $enlaces = [
     [
         'ruta'          => '/admin/compras',
         'icono'         => 'shopping_cart',
-        'texto'         => 'Órdenes de compra',
+        'texto'         => 'Compras y proveedores',
         'subrutas'      => true,
         'excluir'       => [],
-        'soloEscritorio' => false,
-    ],
-    [
-        'ruta'          => '/admin/proveedores',
-        'icono'         => 'local_shipping',
-        'texto'         => 'Proveedores',
-        'subrutas'      => true,
-        'excluir'       => [],
+        'prefijos'      => ['/admin/proveedores'],   // el directorio de proveedores vive dentro de Compras
         'soloEscritorio' => false,
     ],
 ];
@@ -192,6 +185,11 @@ $estaActivo = function (array $enlace, string $ruta): bool {
     }
     if ($ruta === $enlace['ruta']) {
         return true;
+    }
+    foreach ($enlace['prefijos'] ?? [] as $prefijo) {
+        if ($ruta === $prefijo || strpos($ruta, $prefijo . '/') === 0) {
+            return true;
+        }
     }
     // Sólo coincide en la frontera de segmento: /admin/clientes NO activa /admin/clientesxx.
     return $enlace['subrutas'] && strpos($ruta, $enlace['ruta'] . '/') === 0;

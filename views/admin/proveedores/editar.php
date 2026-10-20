@@ -45,6 +45,7 @@ template('header', [
         . '<a class="btn btn--secundario" href="/admin/proveedores/detalle?id=' . (int) $proveedor->id . '">'
         . 'Ver detalle</a>',
 ]);
+template('tabsCompras', ['tab' => 'proveedores']);
 ?>
 
 <section class="encabezado-pagina">

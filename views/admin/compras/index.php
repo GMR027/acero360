@@ -25,6 +25,7 @@ template('header', [
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_box</span>'
         . '<span>Nueva orden</span></a>',
 ]);
+template('tabsCompras', ['tab' => 'ordenes']);
 ?>
 
 <section class="tarjeta tarjeta--sin-relleno">

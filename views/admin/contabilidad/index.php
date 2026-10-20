@@ -19,55 +19,86 @@ template('tabsContabilidad', ['tab' => 'resumen', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/contabilidad', 'periodo' => $periodo, 'empresas' => $empresas]);
 ?>
 
-<p class="nota nota--advertencia mb-lg" role="note">
-    <span class="material-symbols-outlined nota__icono" aria-hidden="true"><?= $cerrado ? 'lock' : 'info' ?></span>
-    <span>
-        <?php if ($cerrado) : ?><strong>Periodo cerrado.</strong> <?php endif; ?>
-        Importes <strong>registrados</strong> de <?= $periodo['empresa'] ? 'un negocio' : 'ambos negocios (un solo contribuyente' . ($contrib ? ', RFC ' . escaparValores($contrib['rfc']) : '') . ')' ?>.
-        No son estimaciones fiscales: el IVA a cargo y el ISR se calcularán en el módulo fiscal y deben validarse con el contador.
-    </span>
-</p>
-
-<h2 class="titulo-5 mb-md">Ventas</h2>
-<section class="rejilla-stats mb-lg" aria-label="Ventas del periodo">
-    <div class="stat"><span class="stat__etiqueta">Ventas del periodo</span>
-        <span class="stat__valor"><?= number_format($r['ventas']['operaciones']) ?></span><span class="stat__pie">operaciones</span></div>
-    <div class="stat"><span class="stat__etiqueta">Subtotal de operaciones</span>
-        <span class="stat__valor"><?= formatoMoneda($r['ventas']['subtotal']) ?></span><span class="stat__pie">antes de IVA, con descuentos</span></div>
-    <div class="stat"><span class="stat__etiqueta">IVA trasladado registrado</span>
-        <span class="stat__valor"><?= formatoMoneda($r['ventas']['iva']) ?></span><span class="stat__pie">Total <?= formatoMoneda($r['ventas']['total']) ?></span></div>
-    <div class="stat"><span class="stat__etiqueta">Cobrado en el periodo</span>
-        <span class="stat__valor"><?= formatoMoneda($r['cobrado_en_periodo']) ?></span><span class="stat__pie">Por cobrar de estas ventas: <?= formatoMoneda($r['por_cobrar']) ?></span></div>
-</section>
-
-<section class="rejilla-stats mb-lg" aria-label="Facturación">
-    <?php foreach (['facturada' => 'Facturadas', 'no_facturada' => 'No facturadas', 'sin_clasificar' => 'Sin clasificar'] as $clave => $etiqueta) : ?>
-        <div class="stat"><span class="stat__etiqueta"><?= $etiqueta ?></span>
-            <span class="stat__valor"><?= formatoMoneda($r['facturacion'][$clave]['total']) ?></span>
-            <span class="stat__pie"><?= number_format($r['facturacion'][$clave]['operaciones']) ?> operaciones</span></div>
-    <?php endforeach; ?>
-</section>
-
-<h2 class="titulo-5 mb-md">Gastos y compras</h2>
-<section class="rejilla-stats mb-lg" aria-label="Gastos del periodo">
-    <div class="stat"><span class="stat__etiqueta">Gastos registrados</span>
-        <span class="stat__valor"><?= number_format($g['operaciones']) ?></span><span class="stat__pie">cada gasto cuenta una vez</span></div>
-    <div class="stat"><span class="stat__etiqueta">Subtotal de gastos</span>
-        <span class="stat__valor"><?= formatoMoneda($gasto($g['subtotal'])) ?></span><span class="stat__pie">Total <?= formatoMoneda($gasto($g['total'])) ?></span></div>
-    <div class="stat"><span class="stat__etiqueta">IVA de gastos registrado</span>
-        <span class="stat__valor"><?= formatoMoneda($gasto($g['iva'])) ?></span><span class="stat__pie">potencialmente acreditable: por validar</span></div>
-    <div class="stat"><span class="stat__etiqueta">Pagado / pendiente</span>
-        <span class="stat__valor"><?= formatoMoneda($gasto($g['pagado'])) ?></span><span class="stat__pie">Pendiente de pago: <?= formatoMoneda($gasto($g['pendiente'])) ?></span></div>
-</section>
-
-<?php if ($g['sin_comprobante'] > 0 || $g['por_validar'] > 0) : ?>
-    <p class="nota nota--advertencia mb-lg" role="status">
-        <span class="material-symbols-outlined nota__icono" aria-hidden="true">fact_check</span>
-        <span><?= (int) $g['sin_comprobante'] ?> gasto(s) sin comprobante fiscal y <?= (int) $g['por_validar'] ?> con deducibilidad por validar.
-            Un adjunto no hace deducible un gasto: la revisión fiscal es manual.</span>
-    </p>
+<?php
+$pend = \App\Contabilidad::pendientes($periodo['anio'], $periodo['mes'], (int) $periodo['empresa']);
+$entra = $r['ventas']['total'];
+$sale  = $gasto($g['total']);
+$queda = $entra - $sale;
+?>
+<?php if ($cerrado) : ?>
+    <p class="nota nota--advertencia mb-lg" role="note"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lock</span>
+        <span><strong>Este mes ya está cerrado.</strong> No se pueden cambiar sus ventas ni gastos.</span></p>
 <?php endif; ?>
 
+<section class="rejilla-stats mb-lg" aria-label="Resumen del mes">
+    <div class="stat"><span class="stat__etiqueta">Vendiste</span>
+        <span class="stat__valor"><?= formatoMoneda($entra) ?></span>
+        <span class="stat__pie"><?= number_format($r['ventas']['operaciones']) ?> ventas · ya cobraste <?= formatoMoneda($r['cobrado_en_periodo']) ?></span></div>
+    <div class="stat"><span class="stat__etiqueta">Gastaste</span>
+        <span class="stat__valor"><?= formatoMoneda($sale) ?></span>
+        <span class="stat__pie"><?= number_format($g['operaciones']) ?> gastos · ya pagaste <?= formatoMoneda($gasto($g['pagado'])) ?></span></div>
+    <div class="stat"><span class="stat__etiqueta">Te queda (antes de impuestos)</span>
+        <span class="stat__valor"><?= formatoMoneda($queda) ?></span>
+        <span class="stat__pie">Ventas menos gastos del mes</span></div>
+</section>
+
+<?php
+$avisos = [];
+if ($pend['por_cobrar']['n'] > 0) {
+    $avisos[] = ['payments', $pend['por_cobrar']['n'] . ' venta(s) sin cobrar por completo: te deben ' . formatoMoneda($pend['por_cobrar']['monto']), '/admin/contabilidad/ingresos?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'Ver ventas'];
+}
+if ($pend['sin_indicar'] > 0) {
+    $avisos[] = ['receipt_long', $pend['sin_indicar'] . ' venta(s) sin indicar si se facturaron', '/admin/contabilidad/sin-facturar?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'Revisar'];
+}
+if ($pend['gastos_por_pagar']['n'] > 0) {
+    $avisos[] = ['request_quote', $pend['gastos_por_pagar']['n'] . ' gasto(s) por pagar: ' . formatoMoneda($pend['gastos_por_pagar']['monto']), '/admin/contabilidad/gastos?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'Ver gastos'];
+}
+if ($pend['gastos_sin_factura'] > 0) {
+    $avisos[] = ['attach_file', $pend['gastos_sin_factura'] . ' gasto(s) sin factura (no se podrán restar de tus impuestos)', '/admin/contabilidad/gastos?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'Ver gastos'];
+}
+?>
+<section class="tarjeta mb-lg">
+    <h2 class="titulo-5 mb-md">Lo que te falta hacer</h2>
+    <?php if (!$avisos) : ?>
+        <p class="texto-secundario"><span class="material-symbols-outlined" aria-hidden="true" style="vertical-align:middle;color:var(--color-exito,#2e7d32)">check_circle</span> Todo al día este mes.</p>
+    <?php else : ?>
+        <ul class="lista-simple">
+            <?php foreach ($avisos as [$icono, $texto, $enlace, $boton]) : ?>
+                <li class="lista-simple__elemento" style="display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap">
+                    <span><span class="material-symbols-outlined" aria-hidden="true" style="vertical-align:middle"><?= $icono ?></span> <?= escaparValores($texto) ?></span>
+                    <a class="btn btn--secundario btn--sm" href="<?= escaparValores($enlace) ?>"><?= $boton ?></a>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
+    <div class="encabezado-pagina__acciones mt-lg">
+        <a class="btn btn--primario" href="/admin/contabilidad/gastos/crear"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span><span>Anotar un gasto</span></a>
+        <a class="btn btn--secundario" href="/admin/ventas/crear"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">point_of_sale</span><span>Anotar una venta</span></a>
+        <a class="btn btn--secundario" href="/admin/fiscal"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">request_quote</span><span>¿Cuánto separo para impuestos?</span></a>
+    </div>
+</section>
+
+<details class="mb-lg">
+    <summary class="boton-enlace" style="cursor:pointer"><strong>Ver el detalle completo</strong> (IVA, subtotales y desglose por negocio)</summary>
+    <div class="mt-md">
+    <p class="nota nota--advertencia mb-lg" role="note">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
+        <span>Importes <strong>registrados</strong> de <?= $periodo['empresa'] ? 'un negocio' : 'tus negocios (RFC ' . ($contrib ? escaparValores($contrib['rfc']) : '—') . ')' ?>. No son cálculos de impuestos.</span>
+    </p>
+    <section class="rejilla-stats mb-lg" aria-label="Detalle de ventas">
+        <div class="stat"><span class="stat__etiqueta">Ventas sin IVA</span><span class="stat__valor"><?= formatoMoneda($r['ventas']['subtotal']) ?></span></div>
+        <div class="stat"><span class="stat__etiqueta">IVA cobrado en ventas</span><span class="stat__valor"><?= formatoMoneda($r['ventas']['iva']) ?></span></div>
+        <div class="stat"><span class="stat__etiqueta">Gastos sin IVA</span><span class="stat__valor"><?= formatoMoneda($gasto($g['subtotal'])) ?></span></div>
+        <div class="stat"><span class="stat__etiqueta">IVA pagado en gastos</span><span class="stat__valor"><?= formatoMoneda($gasto($g['iva'])) ?></span></div>
+    </section>
+    <section class="rejilla-stats mb-lg" aria-label="Facturación">
+        <?php foreach (['facturada' => 'Ventas facturadas', 'no_facturada' => 'Ventas sin factura', 'sin_clasificar' => 'Sin indicar'] as $clave => $etiqueta) : ?>
+            <div class="stat"><span class="stat__etiqueta"><?= $etiqueta ?></span>
+                <span class="stat__valor"><?= formatoMoneda($r['facturacion'][$clave]['total']) ?></span>
+                <span class="stat__pie"><?= number_format($r['facturacion'][$clave]['operaciones']) ?> ventas</span></div>
+        <?php endforeach; ?>
+    </section>
+    </div>
 <section class="tarjeta tarjeta--sin-relleno">
     <h2 class="titulo-5" style="padding:1rem 1rem 0">Detalle por negocio</h2>
     <div class="tabla-contenedor">
@@ -75,7 +106,7 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad', 'periodo' => $pe
             <caption class="solo-lectores">Ventas y gastos por negocio</caption>
             <thead><tr><th scope="col">Negocio</th><th scope="col" class="tabla--numerica">Ventas (subtotal)</th>
                 <th scope="col" class="tabla--numerica">IVA ventas</th><th scope="col" class="tabla--numerica">Gastos (subtotal)</th>
-                <th scope="col" class="tabla--numerica">IVA gastos</th><th scope="col" class="tabla--numerica">Diferencia registrada</th></tr></thead>
+                <th scope="col" class="tabla--numerica">IVA gastos</th><th scope="col" class="tabla--numerica">Ventas menos gastos</th></tr></thead>
             <tbody>
                 <?php foreach ($r['por_negocio'] as $n) : ?>
                     <tr><td><?= escaparValores($n['nombre']) ?></td>
@@ -95,12 +126,14 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad', 'periodo' => $pe
                 <td class="tabla--numerica cifra"><strong><?= formatoMoneda($r['ventas']['subtotal'] - $gasto($g['subtotal'])) ?></strong></td></tr></tfoot>
         </table>
     </div>
-    <p class="campo__ayuda" style="padding:0 1rem 1rem">«Diferencia registrada» = ventas − gastos del mes. No es utilidad fiscal ni base de ISR.</p>
+    <p class="campo__ayuda" style="padding:0 1rem 1rem">«Ventas menos gastos» = ventas − gastos del mes. No es utilidad fiscal ni base de ISR.</p>
 </section>
 
+</details>
+
 <section class="tarjeta mt-lg">
-    <h2 class="titulo-5 mb-md">Archivo fiscal del mes</h2>
-    <p class="campo__ayuda mb-md">Descarga en ZIP los documentos del periodo, con carpetas e índice. Son dos archivos independientes.</p>
+    <h2 class="titulo-5 mb-md">Facturas del mes para tu contador</h2>
+    <p class="campo__ayuda mb-md">Descarga en ZIP todos los archivos que subiste este mes.</p>
     <div class="encabezado-pagina__acciones">
         <a class="btn btn--secundario" href="/admin/contabilidad/zip?tipo=ventas&anio=<?= $periodo['anio'] ?>&mes=<?= $periodo['mes'] ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">folder_zip</span><span>Documentos de ventas (ZIP)</span></a>

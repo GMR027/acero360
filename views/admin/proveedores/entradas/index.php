@@ -45,15 +45,12 @@ $hayFiltros = !empty($parametros);
 $pendientePorPagar = \App\ProveedorEntradas::sumarMonto($filtros, true);
 
 template('header', [
-    'titulo'    => 'Entradas de proveedores',
-    'subtitulo' => 'Reportes fotográficos',
+    'titulo'    => 'Entregas anteriores de proveedores',
+    'subtitulo' => 'Historial: las compras nuevas se hacen con órdenes de compra',
     'rutaActiva' => '/admin/proveedores',
     'acciones'  => '<a class="btn btn--secundario" href="/admin/proveedores">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">contacts</span>'
         . '<span>Proveedores</span></a>'
-        . '<a class="btn btn--primario" href="/admin/proveedores/entradas/crear">'
-        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_a_photo</span>'
-        . '<span>Nueva entrada</span></a>',
 ]);
 ?>
 
@@ -125,7 +122,7 @@ template('header', [
             <?php if ($hayFiltros) : ?>
                 <a class="btn btn--secundario" href="/admin/proveedores/entradas">Restablecer filtros</a>
             <?php else : ?>
-                <a class="btn btn--primario" href="/admin/proveedores/entradas/crear">Nueva entrada</a>
+                <a class="btn btn--primario" href="/admin/compras/crear">Nueva orden de compra</a>
             <?php endif; ?>
         </div>
     <?php else : ?>

@@ -46,6 +46,7 @@ template('header', [
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_business</span>'
         . '<span>Nuevo proveedor</span></a>',
 ]);
+template('tabsCompras', ['tab' => 'proveedores']);
 ?>
 
 <section class="tarjeta tarjeta--sin-relleno">

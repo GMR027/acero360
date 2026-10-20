@@ -29,6 +29,7 @@ template('header', [
     'subtitulo' => $orden['proveedor_nombre'],
     'acciones'  => $acciones,
 ]);
+template('tabsCompras', ['tab' => 'ordenes']);
 ?>
 
 <section class="tarjeta">

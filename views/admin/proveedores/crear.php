@@ -45,6 +45,7 @@ template('header', [
     'subtitulo' => 'Módulo de proveedores',
     'acciones'  => '<a class="btn btn--secundario" href="/admin/proveedores">Volver</a>',
 ]);
+template('tabsCompras', ['tab' => 'proveedores']);
 ?>
 
 <section class="encabezado-pagina">

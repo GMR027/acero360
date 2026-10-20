@@ -28,9 +28,9 @@ class Contabilidad
     protected static $errores = [];
 
     public const FACTURACION = [
-        'sin_clasificar' => ['etiqueta' => 'Sin clasificar', 'clase' => 'badge--pendiente'],
-        'facturada'      => ['etiqueta' => 'Facturada',      'clase' => 'badge--aprobado'],
-        'no_facturada'   => ['etiqueta' => 'No facturada',   'clase' => 'badge--neutro'],
+        'sin_clasificar' => ['etiqueta' => 'Sin indicar', 'clase' => 'badge--pendiente'],
+        'facturada'      => ['etiqueta' => 'Facturada',     'clase' => 'badge--aprobado'],
+        'no_facturada'   => ['etiqueta' => 'No se facturó', 'clase' => 'badge--neutro'],
     ];
 
     public const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Cheque', 'Tarjeta', 'Otro'];
@@ -272,9 +272,9 @@ class Contabilidad
     public static function etiquetaCobro(string $estado): array
     {
         return [
-            'sin_cobro' => ['etiqueta' => 'Sin cobrar', 'clase' => 'badge--pendiente'],
-            'parcial'   => ['etiqueta' => 'Cobro parcial', 'clase' => 'badge--info'],
-            'cobrado'   => ['etiqueta' => 'Cobrada', 'clase' => 'badge--aprobado'],
+            'sin_cobro' => ['etiqueta' => 'Sin pagar', 'clase' => 'badge--pendiente'],
+            'parcial'   => ['etiqueta' => 'Pago parcial', 'clase' => 'badge--info'],
+            'cobrado'   => ['etiqueta' => 'Pagada', 'clase' => 'badge--aprobado'],
             'cancelado' => ['etiqueta' => 'Cancelada', 'clase' => 'badge--error'],
         ][$estado] ?? ['etiqueta' => $estado, 'clase' => 'badge--neutro'];
     }
@@ -747,6 +747,61 @@ class Contabilidad
         unset($n);
 
         return $r;
+    }
+
+    /**
+     * Lo que le falta hacer al usuario en el mes, en lenguaje llano (para la pantalla principal).
+     *
+     * @return array{por_cobrar: array{n: int, monto: float}, sin_indicar: int, gastos_por_pagar: array{n: int, monto: float}, gastos_sin_factura: int}
+     */
+    public static function pendientes(int $anio, int $mes, int $empresaId = 0): array
+    {
+        $filtro = $empresaId > 0 ? ' AND i.empresa_id = ' . (int) $empresaId : '';
+
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(ROUND(i.total * 100)) - SUM(COALESCE(k.cobrado, 0)), 0) AS saldo
+               FROM ingresos i
+               LEFT JOIN (SELECT ingreso_id, SUM(ROUND(importe * 100)) AS cobrado FROM cobros WHERE estado = 'vigente' GROUP BY ingreso_id) k ON k.ingreso_id = i.id
+              WHERE i.estado = 'vigente' AND YEAR(i.fecha) = ? AND MONTH(i.fecha) = ? $filtro
+                AND ROUND(i.total * 100) > COALESCE(k.cobrado, 0)"
+        );
+        $consulta->bind_param('ii', $anio, $mes);
+        $consulta->execute();
+        $porCobrar = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*) FROM ingresos i WHERE i.estado = 'vigente' AND i.estado_facturacion = 'sin_clasificar'
+                AND YEAR(i.fecha) = ? AND MONTH(i.fecha) = ? $filtro"
+        );
+        $consulta->bind_param('ii', $anio, $mes);
+        $consulta->execute();
+        $sinIndicar = (int) $consulta->get_result()->fetch_row()[0];
+        $consulta->close();
+
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*), COALESCE(SUM(ROUND(total * 100)), 0) FROM gastos
+              WHERE estado = 'vigente' AND estado_pago = 'pendiente' AND YEAR(fecha) = ? AND MONTH(fecha) = ?"
+        );
+        $consulta->bind_param('ii', $anio, $mes);
+        $consulta->execute();
+        [$nPagar, $montoPagar] = $consulta->get_result()->fetch_row();
+        $consulta->close();
+
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*) FROM gastos WHERE estado = 'vigente' AND comprobante_fiscal = 0 AND YEAR(fecha) = ? AND MONTH(fecha) = ?"
+        );
+        $consulta->bind_param('ii', $anio, $mes);
+        $consulta->execute();
+        $sinFactura = (int) $consulta->get_result()->fetch_row()[0];
+        $consulta->close();
+
+        return [
+            'por_cobrar' => ['n' => (int) $porCobrar['n'], 'monto' => (float) $porCobrar['saldo'] / 100.0],
+            'sin_indicar' => $sinIndicar,
+            'gastos_por_pagar' => ['n' => (int) $nPagar, 'monto' => (float) $montoPagar / 100.0],
+            'gastos_sin_factura' => $sinFactura,
+        ];
     }
 
     /** Años con movimientos (ingresos o gastos), más el actual. */

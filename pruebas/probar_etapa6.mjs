@@ -18,6 +18,7 @@ const EMAIL = 'prueba.etapa6@cotizaciones.local';
 const CLAVE = 'Prueba1234!';
 const sql = (c) => execFileSync('mysql', ['-u', 'root', DB, '-N', '-B', '-e', c], { encoding: 'utf8' }).trim();
 let ok = 0, mal = 0;
+const abrirTodo = (pg) => pg.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
 const verifica = (n, c, d = '') => { c ? ok++ : mal++; console.log((c ? '  ✓ ' : '  ✗ ') + n + (!c && d ? ' → ' + d : '')); };
 
 const datos = JSON.parse(execFileSync('php', [join(RAIZ, 'pruebas/php/sembrar_fiscal.php'), EMAIL, CLAVE], { env: { ...process.env, DB_NAME: DB }, encoding: 'utf8' }));
@@ -41,8 +42,9 @@ try {
 
   console.log('Resumen fiscal de febrero 2026');
   await pagina.goto(`${BASE}/admin/fiscal?anio=2026&mes=2`);
+  await abrirTodo(pagina);
   const t = await pagina.locator('main').innerText();
-  verifica('separa importes registrados, estimación y pagos reales', t.includes('Importes registrados') && t.includes('Estimación fiscal') && t.includes('Pagos reales registrados'));
+  verifica('separa importes registrados, estimación y pagos reales', t.includes('Lo que has anotado') && t.includes('El cálculo') && t.includes('Lo que ya declaraste'));
   verifica('advierte que es una estimación para validar con el contador', t.includes('Estimación administrativa') && t.includes('contador'));
   verifica('IVA estimado a cargo $782.00', t.includes('$782.00'));
   verifica('ISR determinado $436.33 y a pagar $246.16', t.includes('$436.33') && t.includes('$246.16'));
@@ -81,6 +83,7 @@ try {
   await pagina.click('button:has-text("Guardar importes reales")');
   verifica('registra lo declarado y pagado', sql("SELECT CONCAT(importe_declarado,'/',importe_pagado) FROM declaraciones WHERE impuesto='IVA' AND mes=2") === '782.00/700.00');
   await pagina.goto(`${BASE}/admin/fiscal?anio=2026&mes=2`);
+  await abrirTodo(pagina);
   verifica('el panel muestra pendiente de pago $82.00 y diferencia $0.00', (await pagina.locator('main').innerText()).includes('$82.00'));
   await pagina.goto(BASE + '/admin/fiscal/registros?anio=2026');
   await pagina.fill('#a-importe', '100'); await pagina.selectOption('#a-mes', '2'); await pagina.selectOption('#a-concepto', 'saldo_favor_iva_anterior');

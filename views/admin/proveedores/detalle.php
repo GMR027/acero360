@@ -57,10 +57,11 @@ template('header', [
         . '<a class="btn btn--secundario" href="/admin/proveedores/editar?id=' . (int) $proveedor->id . '">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>'
         . '<span>Editar</span></a>'
-        . '<a class="btn btn--primario" href="/admin/proveedores/entradas/crear?proveedor_id=' . (int) $proveedor->id . '">'
-        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_a_photo</span>'
-        . '<span>Nueva entrada</span></a>',
+        . '<a class="btn btn--primario" href="/admin/compras/crear?proveedor=' . (int) $proveedor->id . '">'
+        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_shopping_cart</span>'
+        . '<span>Nueva orden de compra</span></a>',
 ]);
+template('tabsCompras', ['tab' => 'proveedores']);
 ?>
 
 <section class="encabezado-pagina">
@@ -68,7 +69,7 @@ template('header', [
         <p class="texto-secundario">
             <span class="badge badge--info badge--sin-punto"><?= escaparValores($proveedor->tipo_proveedor) ?></span>
             &nbsp; <?= number_format($totalEntradas) ?>
-            <?= $totalEntradas === 1 ? 'entrada registrada' : 'entradas registradas' ?>
+            <?= $totalEntradas === 1 ? 'entrega anterior registrada' : 'entregas anteriores registradas' ?>
         </p>
     </div>
 </section>
@@ -106,11 +107,11 @@ template('header', [
         <div class="tarjeta__cuerpo">
             <?php if (empty($entradas)) : ?>
                 <p class="texto-secundario">
-                    Este proveedor todavía no tiene entradas registradas.
+                    Sin entregas anteriores. Las compras nuevas se registran con una orden de compra.
                 </p>
-                <a class="btn btn--primario btn--sm" href="/admin/proveedores/entradas/crear?proveedor_id=<?= (int) $proveedor->id ?>">
-                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_a_photo</span>
-                    <span>Registrar entrada</span>
+                <a class="btn btn--primario btn--sm" href="/admin/compras/crear?proveedor=<?= (int) $proveedor->id ?>">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_shopping_cart</span>
+                    <span>Nueva orden de compra</span>
                 </a>
             <?php else : ?>
                 <ul class="lista-simple">

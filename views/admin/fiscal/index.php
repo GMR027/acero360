@@ -20,23 +20,52 @@ $f        = \App\MotorFiscal::calcular($contrib, $periodo['anio'], $periodo['mes
 $m        = static fn ($centavos): string => $centavos === null ? '—' : formatoMoneda($centavos / 100);
 $gastos   = $reg['gastos'];
 
-template('header', ['titulo' => 'Resumen fiscal', 'subtitulo' => nombreMes($periodo['mes']) . ' ' . $periodo['anio'], 'rutaActiva' => '/admin/fiscal']);
+template('header', ['titulo' => 'Impuestos del mes', 'subtitulo' => nombreMes($periodo['mes']) . ' ' . $periodo['anio'], 'rutaActiva' => '/admin/fiscal']);
 template('tabsFiscal', ['tab' => 'panel', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/fiscal', 'periodo' => $periodo, 'empresas' => $empresas]);
 ?>
 
-<p class="nota nota--advertencia mb-lg" role="note">
-    <span class="material-symbols-outlined nota__icono" aria-hidden="true">gavel</span>
-    <span><strong>Estimación administrativa.</strong> Los importes estimados se calculan con las reglas instaladas y deben validarse con tu contador antes de presentar declaraciones.
-        El cálculo fiscal es del <strong>contribuyente</strong> (ambos negocios juntos); el filtro de negocio solo afecta el bloque de importes registrados.
-        <?= $cerrado ? '<strong>Periodo cerrado.</strong>' : '' ?></span>
-</p>
+<?php
+$ivaPagar = $f['habilitado'] ? (int) ($f['iva']['a_cargo'] ?? 0) : 0;
+$isrPagar = $f['habilitado'] ? (int) ($f['isr']['a_pagar'] ?? 0) : 0;
+?>
+<?php if ($f['habilitado']) : ?>
+    <section class="tarjeta mb-lg" aria-label="Cuánto separar">
+        <p class="texto-secundario">Para <?= escaparValores(nombreMes($periodo['mes'])) ?> <?= (int) $periodo['anio'] ?>, aproximadamente, deberías separar</p>
+        <p class="titulo-2" style="margin:.25rem 0"><?= $m($ivaPagar + $isrPagar) ?></p>
+        <ul class="lista-simple mt-md">
+            <li class="lista-simple__elemento"><strong>IVA:</strong> <?= $m($ivaPagar) ?>
+                <span class="texto-secundario">— el IVA que cobraste menos el IVA de tus gastos con factura.</span></li>
+            <li class="lista-simple__elemento"><strong>ISR (impuesto sobre tu ganancia):</strong> <?= $m($isrPagar) ?>
+                <span class="texto-secundario">— pago provisional de lo que va del año.</span></li>
+        </ul>
+        <p class="campo__ayuda mt-md">Es un cálculo aproximado con lo que has anotado. Cuenta solo lo que <strong>ya te pagaron</strong> y los gastos <strong>ya pagados y con factura</strong>.
+            Se paga a más tardar el día 17 del mes siguiente. Confírmalo con tu contador.<?= $cerrado ? ' <strong>Mes cerrado.</strong>' : '' ?></p>
+        <?php if (!empty($f['pendiente_de_pago']) && ($f['pagos_reales']['isr'] ?? $f['pagos_reales']['iva'] ?? null)) : ?>
+            <p class="campo__ayuda">Ya registraste pagos al SAT de este mes; abajo ves la comparación.</p>
+        <?php endif; ?>
+    </section>
+<?php endif; ?>
 
 <?php foreach ($f['avisos'] as $aviso) : ?>
     <p class="nota nota--advertencia mb-md" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">warning</span><span><?= escaparValores($aviso) ?></span></p>
 <?php endforeach; ?>
 
-<h2 class="titulo-5 mb-md">1 · Importes registrados <span class="badge badge--neutro">tal como se capturaron</span></h2>
+<?php if ($reg['facturacion']['sin_clasificar']['operaciones'] > 0 || $gastos['sin_comprobante'] > 0) : ?>
+    <p class="nota nota--advertencia mb-lg" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lightbulb</span>
+        <span>Para que el cálculo sea más justo: <?= (int) $gastos['sin_comprobante'] ?> gasto(s) no tienen factura (no se restan) y
+            <?= (int) $reg['facturacion']['sin_clasificar']['operaciones'] ?> venta(s) no indican si se facturaron.
+            <a href="/admin/contabilidad">Revisar en Contabilidad</a>.</span></p>
+<?php endif; ?>
+
+<details class="mb-lg"><summary class="boton-enlace" style="cursor:pointer"><strong>Ver cómo se calculó</strong> (para tu contador)</summary>
+<div class="mt-md">
+<p class="nota nota--advertencia mb-lg" role="note">
+    <span class="material-symbols-outlined nota__icono" aria-hidden="true">gavel</span>
+    <span><strong>Estimación administrativa.</strong> El cálculo es del <strong>contribuyente</strong> (todos tus negocios juntos).</span>
+</p>
+
+<h2 class="titulo-5 mb-md">1 · Lo que has anotado</h2>
 <section class="rejilla-stats mb-lg" aria-label="Importes registrados">
     <div class="stat"><span class="stat__etiqueta">Ventas del periodo</span><span class="stat__valor"><?= number_format($reg['ventas']['operaciones']) ?></span><span class="stat__pie">operaciones</span></div>
     <div class="stat"><span class="stat__etiqueta">Facturadas</span><span class="stat__valor"><?= formatoMoneda($reg['facturacion']['facturada']['total']) ?></span><span class="stat__pie"><?= (int) $reg['facturacion']['facturada']['operaciones'] ?> operaciones</span></div>
@@ -49,7 +78,7 @@ template('selectorPeriodo', ['accion' => '/admin/fiscal', 'periodo' => $periodo,
     <div class="stat"><span class="stat__etiqueta">IVA potencialmente acreditable</span><span class="stat__valor"><?= formatoMoneda($gastos['iva'] / 100) ?></span><span class="stat__pie">no todo será acreditable</span></div>
 </section>
 
-<h2 class="titulo-5 mb-md">2 · Estimación fiscal <span class="badge badge--info">flujo de efectivo</span></h2>
+<h2 class="titulo-5 mb-md">2 · El cálculo <span class="badge badge--info">solo lo cobrado y pagado</span></h2>
 <?php if (!$f['habilitado']) : ?>
     <p class="nota nota--advertencia mb-lg"><span>El cálculo no está disponible. Revisa los avisos de arriba.</span></p>
 <?php else : ?>
@@ -96,25 +125,27 @@ template('selectorPeriodo', ['accion' => '/admin/fiscal', 'periodo' => $periodo,
         base: <?= escaparValores($f['configuracion']['base'] ?? '') ?> · régimen: <?= escaparValores($f['configuracion']['regimen'] ?? '') ?>.</p>
 <?php endif; ?>
 
-<h2 class="titulo-5 mb-md">3 · Pagos reales registrados <span class="badge badge--aprobado">declarado y pagado</span></h2>
+<h2 class="titulo-5 mb-md">3 · Lo que ya declaraste y pagaste al SAT</h2>
 <section class="rejilla-stats mb-lg" aria-label="Pagos reales">
     <?php foreach (['isr' => 'ISR', 'iva' => 'IVA'] as $k => $n) : $real = $f['pagos_reales'][$k] ?? null; ?>
         <div class="stat"><span class="stat__etiqueta"><?= $n ?> declarado</span>
             <span class="stat__valor"><?= $real ? $m($real['declarado'] - ($real['saldo_favor'] ?? 0)) : 'Sin registrar' ?></span>
-            <span class="stat__pie"><?= $real ? 'Pagado ' . $m($real['pagado']) : 'Regístralo en «Retenciones, ajustes y pagos»' ?></span></div>
+            <span class="stat__pie"><?= $real ? 'Pagado ' . $m($real['pagado']) : 'Anótalo en «Pagos al SAT y ajustes»' ?></span></div>
         <div class="stat"><span class="stat__etiqueta">Diferencia <?= $n ?> (estimado − declarado)</span>
             <span class="stat__valor"><?= isset($f['comparacion'][$k]) ? $m($f['comparacion'][$k]) : '—' ?></span>
             <span class="stat__pie">Pendiente de pago: <?= $m($f['pendiente_de_pago'][$k] ?? null) ?></span></div>
     <?php endforeach; ?>
 </section>
 
+</div></details>
+
 <div class="encabezado-pagina__acciones">
     <form action="/admin/fiscal/guardar" method="post">
         <input type="hidden" name="anio" value="<?= $periodo['anio'] ?>"><input type="hidden" name="mes" value="<?= $periodo['mes'] ?>">
         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-        <button class="btn btn--secundario" type="submit"<?= $f['habilitado'] ? '' : ' disabled' ?>>Guardar este cálculo</button>
+        <button class="btn btn--secundario" type="submit"<?= $f['habilitado'] ? '' : ' disabled' ?>>Guardar este cálculo del mes</button>
     </form>
-    <a class="btn btn--primario" href="/admin/contabilidad/cierre?anio=<?= $periodo['anio'] ?>&mes=<?= $periodo['mes'] ?>">Revisión y cierre del mes</a>
+    <a class="btn btn--primario" href="/admin/contabilidad/cierre?anio=<?= $periodo['anio'] ?>&mes=<?= $periodo['mes'] ?>">Revisar y cerrar el mes</a>
 </div>
 
 <?php template('footer'); ?>

@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 $token = bin2hex(random_bytes(16));
 
 template('header', ['titulo' => 'Recepción · ' . $orden['folio'], 'subtitulo' => $orden['proveedor_nombre']]);
+template('tabsCompras', ['tab' => 'ordenes']);
 ?>
 
 <section class="tarjeta">

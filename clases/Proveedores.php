@@ -298,6 +298,7 @@ class Proveedores
         while ($fila = $resultado->fetch_assoc()) {
             $lista[] = [
                 'id'       => (int) $fila['id'],
+                'nombre'   => $fila['nombre'],
                 'etiqueta' => $fila['nombre'] . ($fila['rfc'] ? ' · ' . $fila['rfc'] : ''),
             ];
         }

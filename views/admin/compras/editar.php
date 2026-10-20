@@ -37,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 }
 
 template('header', ['titulo' => 'Editar orden de compra', 'subtitulo' => 'Compras a proveedores']);
+template('tabsCompras', ['tab' => 'ordenes']);
 ?>
 
 <section class="tarjeta">

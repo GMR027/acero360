@@ -286,6 +286,20 @@ class Gastos
     public static function normalizar(array $d, ?array $previo = null): array
     {
         $errores = [];
+
+        // Formulario sencillo: el usuario captura el TOTAL pagado y si lleva IVA; el subtotal se despeja.
+        $totalCapturado = str_replace(',', '.', trim((string) ($d['total'] ?? '')));
+        if (trim((string) ($d['subtotal'] ?? '')) === '' && $totalCapturado !== '') {
+            if (is_numeric($totalCapturado) && (float) $totalCapturado > 0) {
+                $tasaCapturada = (float) str_replace(',', '.', (string) ($d['iva_tasa'] ?? '16'));
+                $d['subtotal'] = number_format(round((float) $totalCapturado / (1 + $tasaCapturada / 100), 2), 2, '.', '');
+            }
+        }
+        // «Ya lo pagué» sin fecha de pago: se toma la fecha del gasto.
+        if (($d['estado_pago'] ?? '') === 'pagado' && trim((string) ($d['fecha_pago'] ?? '')) === '') {
+            $d['fecha_pago'] = (string) ($d['fecha'] ?? '');
+        }
+
         $fecha = (string) ($d['fecha'] ?? '');
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !strtotime($fecha)) {
             $errores[] = 'La fecha del gasto no es válida.';
@@ -301,15 +315,15 @@ class Gastos
             $consulta->close();
         }
         if ($beneficiario === '') {
-            $errores[] = 'Indica el proveedor o beneficiario.';
+            $errores[] = 'Escribe a quién le compraste o pagaste.';
         }
         if (trim((string) ($d['concepto'] ?? '')) === '') {
-            $errores[] = 'El concepto es obligatorio.';
+            $errores[] = 'Escribe en qué fue el gasto.';
         }
 
         $subtotal = str_replace(',', '.', trim((string) ($d['subtotal'] ?? '')));
         if (!is_numeric($subtotal) || (float) $subtotal <= 0) {
-            $errores[] = 'El subtotal debe ser un importe mayor a cero.';
+            $errores[] = 'Escribe cuánto pagaste (debe ser mayor a cero).';
             $subtotal = '0';
         }
         $tasa = str_replace(',', '.', trim((string) ($d['iva_tasa'] ?? '16')));

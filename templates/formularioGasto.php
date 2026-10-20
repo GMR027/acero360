@@ -20,107 +20,117 @@ $numEmpresas = max(1, count($empresas));
 <?php endif; ?>
 
 <div class="formulario__rejilla">
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="fecha">Fecha</label>
+    <div class="campo campo--completo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="concepto">¿En qué fue el gasto?</label>
+        <input class="control" type="text" id="concepto" name="concepto" maxlength="255" required value="<?= $v('concepto') ?>"
+               placeholder="Ej. Lámina calibre 18, gasolina, renta de bodega"></div>
+
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="beneficiario">¿A quién le pagaste?</label>
+        <input class="control" type="text" id="beneficiario" name="beneficiario" maxlength="150" required value="<?= $v('beneficiario') ?>"
+               list="lista-proveedores" placeholder="Nombre del proveedor o negocio" autocomplete="off">
+        <datalist id="lista-proveedores">
+            <?php foreach ($proveedores as $p) : ?><option value="<?= escaparValores($p['nombre'] ?? $p['etiqueta']) ?>" data-id="<?= (int) $p['id'] ?>"><?php endforeach; ?>
+        </datalist>
+        <input type="hidden" id="proveedor_id" name="proveedor_id" value="<?= (int) ($gasto['proveedor_id'] ?? 0) ?: '' ?>"></div>
+
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="fecha">¿Cuándo fue?</label>
         <input class="control" type="date" id="fecha" name="fecha" required value="<?= $v('fecha', date('Y-m-d')) ?>"></div>
 
-    <div class="campo"><label class="campo__etiqueta" for="proveedor_id">Proveedor del directorio</label>
-        <select class="control" id="proveedor_id" name="proveedor_id">
-            <option value="">— Otro / sin proveedor —</option>
-            <?php foreach ($proveedores as $p) : ?>
-                <option value="<?= (int) $p['id'] ?>"<?= (int) ($gasto['proveedor_id'] ?? 0) === $p['id'] ? ' selected' : '' ?>><?= escaparValores($p['etiqueta']) ?></option>
-            <?php endforeach; ?>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="total">¿Cuánto pagaste en total?</label>
+        <input class="control control--moneda" type="number" id="total" name="total" min="0.01" step="0.01" inputmode="decimal"
+               value="<?= $gasto && !empty($gasto['total']) ? $v('total') : '' ?>" required placeholder="0.00">
+        <span class="campo__ayuda">Lo que dice el ticket o la factura, con IVA incluido.</span></div>
+
+    <div class="campo"><label class="campo__etiqueta" for="iva_tasa">¿Ese total incluye IVA?</label>
+        <select class="control" id="iva_tasa" name="iva_tasa">
+            <option value="16"<?= (string) ($gasto['iva_tasa'] ?? '16') === '16' || (string) ($gasto['iva_tasa'] ?? '16') === '16.00' ? ' selected' : '' ?>>Sí, 16 % (lo normal)</option>
+            <option value="0"<?= (float) ($gasto['iva_tasa'] ?? 16) === 0.0 ? ' selected' : '' ?>>No tiene IVA</option>
+            <option value="8"<?= (float) ($gasto['iva_tasa'] ?? 16) === 8.0 ? ' selected' : '' ?>>Sí, 8 % (zona fronteriza)</option>
+        </select>
+        <span class="campo__ayuda">Si no sabes, déjalo en «Sí, 16 %».</span></div>
+
+    <div class="campo"><label class="campo__etiqueta" for="estado_pago">¿Ya lo pagaste?</label>
+        <select class="control" id="estado_pago" name="estado_pago">
+            <option value="pagado"<?= ($gasto['estado_pago'] ?? 'pendiente') === 'pagado' ? ' selected' : '' ?>>Sí, ya lo pagué</option>
+            <option value="pendiente"<?= ($gasto['estado_pago'] ?? 'pendiente') === 'pendiente' ? ' selected' : '' ?>>No, lo debo todavía</option>
         </select></div>
 
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="beneficiario">Proveedor o beneficiario</label>
-        <input class="control" type="text" id="beneficiario" name="beneficiario" maxlength="150" required value="<?= $v('beneficiario') ?>"
-               placeholder="Se completa con el proveedor elegido"></div>
+    <div class="campo"><label class="campo__etiqueta" for="comprobante_fiscal">¿Te dieron factura?</label>
+        <select class="control" id="comprobante_fiscal" name="comprobante_fiscal">
+            <option value="1"<?= !empty($gasto['comprobante_fiscal']) ? ' selected' : '' ?>>Sí, con factura</option>
+            <option value="0"<?= empty($gasto['comprobante_fiscal']) ? ' selected' : '' ?>>No, solo ticket o nota</option>
+        </select>
+        <span class="campo__ayuda">Solo los gastos con factura pueden restarse de tus impuestos. Después podrás adjuntarla.</span></div>
 
-    <div class="campo campo--completo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="concepto">Concepto</label>
-        <input class="control" type="text" id="concepto" name="concepto" maxlength="255" required value="<?= $v('concepto') ?>"></div>
-
-    <div class="campo"><label class="campo__etiqueta" for="categoria_id">Categoría</label>
-        <select class="control" id="categoria_id" name="categoria_id">
-            <option value="">— Sin categoría —</option>
-            <?php foreach ($categorias as $c) : ?>
-                <option value="<?= (int) $c['id'] ?>"<?= (int) ($gasto['categoria_id'] ?? 0) === (int) $c['id'] ? ' selected' : '' ?>><?= escaparValores($c['nombre']) ?></option>
-            <?php endforeach; ?>
-        </select></div>
-
-    <div class="campo"><label class="campo__etiqueta" for="naturaleza">Naturaleza</label>
-        <select class="control" id="naturaleza" name="naturaleza">
-            <?php foreach (\App\Gastos::NATURALEZAS as $clave => $texto) : ?>
-                <option value="<?= $clave ?>"<?= ($gasto['naturaleza'] ?? 'gasto') === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
-            <?php endforeach; ?>
-        </select></div>
-
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="subtotal">Subtotal (antes de IVA)</label>
-        <input class="control control--moneda" type="number" id="subtotal" name="subtotal" required min="0.01" step="0.01" inputmode="decimal" value="<?= $v('subtotal') ?>"></div>
-
-    <div class="campo"><label class="campo__etiqueta" for="iva_tasa">Tasa de IVA (%)</label>
-        <input class="control" type="number" id="iva_tasa" name="iva_tasa" min="0" max="30" step="0.01" list="tasas" value="<?= $v('iva_tasa', '16') ?>">
-        <datalist id="tasas"><option value="16"><option value="8"><option value="0"></datalist>
-        <span class="campo__ayuda">El IVA y el total se calculan al guardar.</span></div>
-
-    <fieldset class="campo campo--completo">
-        <legend class="campo__etiqueta">Negocio relacionado</legend>
-        <label class="comprobacion" for="compartido">
-            <input type="checkbox" id="compartido" name="compartido" value="1" <?= $compartido ? 'checked' : '' ?> data-compartido>
-            <span><strong>Gasto compartido por los negocios</strong><br><span class="texto-xs texto-secundario">Se registra una sola vez; el reparto solo sirve para reportes por negocio y no cambia el total.</span></span>
-        </label>
-        <div data-bloque-empresa<?= $compartido ? ' hidden' : '' ?>>
-            <label class="campo__etiqueta" for="empresa_id">Negocio</label>
-            <select class="control" id="empresa_id" name="empresa_id">
-                <option value="">— General (sin negocio) —</option>
+    <?php if (count($empresas) > 1) : ?>
+        <div class="campo"><label class="campo__etiqueta" for="empresa_id">¿Para cuál negocio fue?</label>
+            <select class="control" id="empresa_id" name="empresa_id" data-bloque-empresa>
+                <option value="">Para todos / no importa</option>
                 <?php foreach ($empresas as $e) : ?>
                     <option value="<?= (int) $e->id ?>"<?= (int) ($gasto['empresa_id'] ?? 0) === (int) $e->id ? ' selected' : '' ?>><?= escaparValores($e->nombre) ?></option>
                 <?php endforeach; ?>
-            </select>
-        </div>
-        <div data-bloque-reparto<?= $compartido ? '' : ' hidden' ?>>
-            <p class="campo__ayuda">Porcentaje de cada negocio (debe sumar 100):</p>
-            <?php foreach ($empresas as $e) : ?>
-                <div class="campo">
-                    <label class="campo__etiqueta" for="reparto_<?= (int) $e->id ?>"><?= escaparValores($e->nombre) ?> (%)</label>
-                    <input class="control" type="number" id="reparto_<?= (int) $e->id ?>" name="reparto[<?= (int) $e->id ?>]" min="0" max="100" step="0.01"
-                           value="<?= escaparValores((string) ($reparto[(int) $e->id] ?? ($compartido ? 0 : round(100 / $numEmpresas, 2)))) ?>">
-                </div>
-            <?php endforeach; ?>
-        </div>
-    </fieldset>
-
-    <div class="campo"><label class="campo__etiqueta" for="estado_pago">Estado de pago</label>
-        <select class="control" id="estado_pago" name="estado_pago">
-            <option value="pendiente"<?= ($gasto['estado_pago'] ?? 'pendiente') === 'pendiente' ? ' selected' : '' ?>>Pendiente</option>
-            <option value="pagado"<?= ($gasto['estado_pago'] ?? '') === 'pagado' ? ' selected' : '' ?>>Pagado</option>
-        </select></div>
-    <div class="campo"><label class="campo__etiqueta" for="fecha_pago">Fecha de pago</label>
-        <input class="control" type="date" id="fecha_pago" name="fecha_pago" value="<?= $v('fecha_pago') ?>"></div>
-    <div class="campo"><label class="campo__etiqueta" for="metodo_pago">Método de pago</label>
-        <select class="control" id="metodo_pago" name="metodo_pago">
-            <option value="">—</option>
-            <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?>
-                <option<?= ($gasto['metodo_pago'] ?? '') === $m ? ' selected' : '' ?>><?= escaparValores($m) ?></option>
-            <?php endforeach; ?>
-        </select></div>
-
-    <div class="campo campo--completo">
-        <label class="comprobacion" for="comprobante_fiscal">
-            <input type="checkbox" id="comprobante_fiscal" name="comprobante_fiscal" value="1" <?= !empty($gasto['comprobante_fiscal']) ? 'checked' : '' ?>>
-            <span><strong>Cuenta con comprobante fiscal (CFDI)</strong><br><span class="texto-xs texto-secundario">Es un indicador tuyo: no valida el CFDI ni vuelve deducible el gasto.</span></span>
-        </label>
-    </div>
-    <div class="campo"><label class="campo__etiqueta" for="uuid_fiscal">UUID (folio fiscal)</label>
-        <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= $v('uuid_fiscal') ?>"></div>
-    <div class="campo"><label class="campo__etiqueta" for="revision_fiscal">Revisión fiscal</label>
-        <select class="control" id="revision_fiscal" name="revision_fiscal">
-            <?php foreach (\App\Gastos::REVISION as $clave => $d) : ?>
-                <option value="<?= $clave ?>"<?= ($gasto['revision_fiscal'] ?? 'por_validar') === $clave ? ' selected' : '' ?>><?= escaparValores($d['etiqueta']) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <span class="campo__ayuda">Deducibilidad y acreditamiento se validan con el contador.</span></div>
-    <div class="campo campo--completo"><label class="campo__etiqueta" for="observaciones">Observaciones</label>
-        <textarea class="control" id="observaciones" name="observaciones" rows="3"><?= $v('observaciones') ?></textarea></div>
+            </select></div>
+    <?php endif; ?>
 </div>
+
+<details class="mt-lg"<?= $errores || !empty($gasto['compartido']) ? ' open' : '' ?>>
+    <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — categoría, folio fiscal, notas</summary>
+    <div class="formulario__rejilla mt-md">
+        <div class="campo"><label class="campo__etiqueta" for="categoria_id">Categoría</label>
+            <select class="control" id="categoria_id" name="categoria_id">
+                <option value="">— Sin categoría —</option>
+                <?php foreach ($categorias as $c) : ?>
+                    <option value="<?= (int) $c['id'] ?>"<?= (int) ($gasto['categoria_id'] ?? 0) === (int) $c['id'] ? ' selected' : '' ?>><?= escaparValores($c['nombre']) ?></option>
+                <?php endforeach; ?>
+            </select></div>
+
+        <div class="campo"><label class="campo__etiqueta" for="metodo_pago">¿Cómo lo pagaste?</label>
+            <select class="control" id="metodo_pago" name="metodo_pago">
+                <option value="">—</option>
+                <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?>
+                    <option<?= ($gasto['metodo_pago'] ?? '') === $m ? ' selected' : '' ?>><?= escaparValores($m) ?></option>
+                <?php endforeach; ?>
+            </select></div>
+
+        <div class="campo"><label class="campo__etiqueta" for="fecha_pago">Fecha en que lo pagaste</label>
+            <input class="control" type="date" id="fecha_pago" name="fecha_pago" value="<?= $v('fecha_pago') ?>">
+            <span class="campo__ayuda">Si la dejas vacía y ya está pagado, se usa la fecha del gasto.</span></div>
+
+        <div class="campo"><label class="campo__etiqueta" for="uuid_fiscal">Folio fiscal de la factura (UUID)</label>
+            <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= $v('uuid_fiscal') ?>">
+            <span class="campo__ayuda">Si subes el XML de la factura, se llena solo.</span></div>
+
+        <div class="campo"><label class="campo__etiqueta" for="naturaleza">Tipo de gasto</label>
+            <select class="control" id="naturaleza" name="naturaleza">
+                <?php foreach (\App\Gastos::NATURALEZAS as $clave => $texto) : ?>
+                    <option value="<?= $clave ?>"<?= ($gasto['naturaleza'] ?? 'gasto') === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <span class="campo__ayuda">Normalmente «Gasto». No lo cambies si no estás seguro.</span></div>
+
+        <input type="hidden" name="revision_fiscal" value="<?= $v('revision_fiscal', 'por_validar') ?>">
+
+        <fieldset class="campo campo--completo">
+            <legend class="campo__etiqueta">¿Se reparte entre varios negocios?</legend>
+            <label class="comprobacion" for="compartido">
+                <input type="checkbox" id="compartido" name="compartido" value="1" <?= $compartido ? 'checked' : '' ?> data-compartido>
+                <span>Sí, repartir este gasto entre mis negocios</span>
+            </label>
+            <div data-bloque-reparto<?= $compartido ? '' : ' hidden' ?>>
+                <p class="campo__ayuda">Porcentaje de cada negocio (debe sumar 100):</p>
+                <?php foreach ($empresas as $e) : ?>
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="reparto_<?= (int) $e->id ?>"><?= escaparValores($e->nombre) ?> (%)</label>
+                        <input class="control" type="number" id="reparto_<?= (int) $e->id ?>" name="reparto[<?= (int) $e->id ?>]" min="0" max="100" step="0.01"
+                               value="<?= escaparValores((string) ($reparto[(int) $e->id] ?? ($compartido ? 0 : round(100 / $numEmpresas, 2)))) ?>">
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </fieldset>
+
+        <div class="campo campo--completo"><label class="campo__etiqueta" for="observaciones">Notas</label>
+            <textarea class="control" id="observaciones" name="observaciones" rows="3"><?= $v('observaciones') ?></textarea></div>
+    </div>
+</details>
 
 <div class="formulario__acciones">
     <a class="btn btn--secundario" href="<?= escaparValores($cancelar) ?>">Cancelar</a>
@@ -128,15 +138,27 @@ $numEmpresas = max(1, count($empresas));
 </div>
 
 <script>
-/* Alterna entre «un negocio» y «reparto entre negocios»; el servidor valida de todos modos. */
+/* Reparto entre negocios y vínculo del proveedor elegido en la lista; el servidor valida de todos modos. */
 (function () {
   const marca = document.querySelector('[data-compartido]');
-  const bloqueEmpresa = document.querySelector('[data-bloque-empresa]');
   const bloqueReparto = document.querySelector('[data-bloque-reparto]');
-  if (!marca) { return; }
-  marca.addEventListener('change', function () {
-    bloqueEmpresa.hidden = marca.checked;
-    bloqueReparto.hidden = !marca.checked;
-  });
+  const selNegocio = document.querySelector('[data-bloque-empresa]');
+  if (marca) {
+    marca.addEventListener('change', function () {
+      bloqueReparto.hidden = !marca.checked;
+      if (selNegocio) { selNegocio.disabled = marca.checked; }
+    });
+  }
+  const nombre = document.getElementById('beneficiario');
+  const oculto = document.getElementById('proveedor_id');
+  const lista = document.getElementById('lista-proveedores');
+  if (nombre && oculto && lista) {
+    nombre.addEventListener('input', function () {
+      oculto.value = '';
+      lista.querySelectorAll('option').forEach(function (o) {
+        if (o.value === nombre.value) { oculto.value = o.dataset.id; }
+      });
+    });
+  }
 })();
 </script>
