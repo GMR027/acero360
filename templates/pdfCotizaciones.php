@@ -76,7 +76,7 @@ $tipoDoc = $esVenta ? 'Venta' : 'Cotización';
 $estado  = $esVenta
     ? \App\Ventas::datosEstado($cotizacion->estado)
     : \App\Cotizaciones::datosEstado($cotizacion->estado);
-$logo   = $imagenBase64($cotizacion->empresa_logo);
+$logo   = $imagenBase64(\App\Imagenes::logoRecortado($cotizacion->empresa_logo));
 
 $vence = '';
 if (!$esVenta && $cotizacion->fecha) {
@@ -132,7 +132,7 @@ if (trim((string) $cotizacion->empresa_cp) !== '') {
            tamaño de fuente raíz del motor y el resultado no es el mismo que
            el del navegador, lo que dejaría la marca distinta entre la pantalla
            y el documento. 1rem = 16px es el equivalente exacto. */
-        .logo  { max-height: 160px; max-width: 700px; display: block; margin-bottom: 0.4rem; }
+        .logo  { max-height: 128px; max-width: 480px; display: block; margin-bottom: 0.4rem; }
         .datos { font-size: 10px; color: #6b6b70; line-height: 1.5; }
 
         .documento { text-align: right; }

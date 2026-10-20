@@ -345,12 +345,13 @@ class Entregas
     /** @return array<int, array<string, mixed>> */
     public static function listarPreparaciones(string $estado = '', int $limite = 10, int $offset = 0): array
     {
-        $donde = isset(self::ESTADOS[$estado]) ? 'WHERE p.estado = ?' : 'WHERE 1 = 1';
+        $vigentes = $estado === 'vigentes';
+        $donde = isset(self::ESTADOS[$estado]) ? 'WHERE p.estado = ?' : ($vigentes ? "WHERE p.estado <> 'cancelada'" : 'WHERE 1 = 1');
         $consulta = self::$db->prepare(
             "SELECT p.*, (SELECT COUNT(*) FROM preparacion_ventas WHERE preparacion_id = p.id) AS ventas
                FROM preparaciones p $donde ORDER BY p.id DESC LIMIT ? OFFSET ?"
         );
-        if ($donde !== 'WHERE 1 = 1') {
+        if (isset(self::ESTADOS[$estado])) {
             $consulta->bind_param('sii', $estado, $limite, $offset);
         } else {
             $consulta->bind_param('ii', $limite, $offset);
@@ -367,6 +368,8 @@ class Entregas
         if (isset(self::ESTADOS[$estado])) {
             $consulta = self::$db->prepare('SELECT COUNT(*) AS n FROM preparaciones WHERE estado = ?');
             $consulta->bind_param('s', $estado);
+        } elseif ($estado === 'vigentes') {
+            $consulta = self::$db->prepare("SELECT COUNT(*) AS n FROM preparaciones WHERE estado <> 'cancelada'");
         } else {
             $consulta = self::$db->prepare('SELECT COUNT(*) AS n FROM preparaciones');
         }
@@ -384,19 +387,41 @@ class Entregas
      */
     public static function ventasDePreparacion(int $preparacionId): array
     {
+        $consulta = self::$db->prepare('SELECT venta_id FROM preparacion_ventas WHERE preparacion_id = ?');
+        $consulta->bind_param('i', $preparacionId);
+        $consulta->execute();
+        $ids = array_column($consulta->get_result()->fetch_all(MYSQLI_ASSOC), 'venta_id');
+        $consulta->close();
+
+        return self::ventasPorIds($ids, false);
+    }
+
+    /**
+     * Las ventas indicadas con su cliente y lo que aún falta entregar (para mostrar una selección
+     * en pantalla sin necesidad de guardarla).
+     *
+     * @param int[] $ventaIds
+     * @return array<int, array<string, mixed>>
+     */
+    public static function ventasPorIds(array $ventaIds, bool $soloRegistradas = true): array
+    {
+        $ventaIds = array_values(array_unique(array_filter(array_map('intval', $ventaIds))));
+        if (!$ventaIds) {
+            return [];
+        }
+        $marcadores = implode(',', array_fill(0, count($ventaIds), '?'));
         $consulta = self::$db->prepare(
-            'SELECT v.id, v.folio, v.fecha, v.total, v.estado, v.cotizacion_id,
+            "SELECT v.id, v.folio, v.fecha, v.total, v.estado, v.cotizacion_id,
                     cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     cl.ubicacion AS cliente_ubicacion, cl.telefono AS cliente_telefono,
                     e.nombre AS empresa_nombre
-               FROM preparacion_ventas pv
-               JOIN ventas v    ON v.id  = pv.venta_id
+               FROM ventas v
                JOIN clientes cl ON cl.id = v.cliente_id
                JOIN empresas e  ON e.id  = v.empresa_id
-              WHERE pv.preparacion_id = ?
-              ORDER BY cl.nombre, v.id'
+              WHERE v.id IN ($marcadores)" . ($soloRegistradas ? " AND v.estado = 'registrada'" : '') . "
+              ORDER BY cl.nombre, v.id"
         );
-        $consulta->bind_param('i', $preparacionId);
+        $consulta->bind_param(str_repeat('i', count($ventaIds)), ...$ventaIds);
         $consulta->execute();
         $ventas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
         $consulta->close();

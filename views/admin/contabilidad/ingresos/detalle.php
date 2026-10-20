@@ -58,7 +58,7 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
         <input type="hidden" name="accion" value="facturacion">
         <div class="formulario__rejilla">
             <div class="campo">
-                <label class="campo__etiqueta" for="estado_facturacion">¿Se le dio factura al cliente?</label>
+                <label class="campo__etiqueta" data-ayuda="Sí si ya le diste factura al cliente; No si no hizo falta; Sin indicar si aún no lo sabes." for="estado_facturacion">¿Se le dio factura al cliente?</label>
                 <select class="control" id="estado_facturacion" name="estado_facturacion" <?= $editable ? '' : 'disabled' ?>>
                     <?php foreach (\App\Contabilidad::FACTURACION as $clave => $d) : ?>
                         <option value="<?= $clave ?>"<?= $ingreso['estado_facturacion'] === $clave ? ' selected' : '' ?>><?= escaparValores($d['etiqueta']) ?></option>
@@ -127,13 +127,13 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
             <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="accion" value="cobro">
             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
             <div class="formulario__rejilla">
-                <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="cobro-fecha">¿Cuándo te pagaron?</label>
+                <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="El día en que recibiste el dinero." for="cobro-fecha">¿Cuándo te pagaron?</label>
                     <input class="control" type="date" id="cobro-fecha" name="fecha" required value="<?= date('Y-m-d') ?>"></div>
-                <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="cobro-importe">¿Cuánto te pagaron?</label>
+                <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Lo que el cliente te pagó en esta ocasión. Puedes anotar varios pagos." for="cobro-importe">¿Cuánto te pagaron?</label>
                     <input class="control control--moneda" type="number" id="cobro-importe" name="importe" required min="0.01" step="0.01" inputmode="decimal"
                            max="<?= number_format((float) $ingreso['saldo'], 2, '.', '') ?>" value="<?= number_format((float) $ingreso['saldo'], 2, '.', '') ?>">
                     <span class="campo__ayuda">Saldo pendiente: <?= formatoMoneda($ingreso['saldo']) ?></span></div>
-                <div class="campo"><label class="campo__etiqueta" for="cobro-metodo">¿Cómo te pagaron?</label>
+                <div class="campo"><label class="campo__etiqueta" data-ayuda="Efectivo, transferencia, etc." for="cobro-metodo">¿Cómo te pagaron?</label>
                     <select class="control" id="cobro-metodo" name="metodo">
                         <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?><option><?= escaparValores($m) ?></option><?php endforeach; ?>
                     </select></div>

@@ -39,3 +39,4 @@ Thumbs.db
 
 # La aplicación de escritorio no viaja en la imagen del servidor
 desktop/
+public/image/recortes/

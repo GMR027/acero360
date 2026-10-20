@@ -14,3 +14,4 @@
 # Aplicación de escritorio (Electron): dependencias y paquetes generados
 /desktop/node_modules/
 /desktop/dist/
+public/image/recortes/

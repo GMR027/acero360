@@ -28,7 +28,7 @@ $descuentoGlobal    = $desglose['global'];
 $pctGlobal          = $desglose['pct'];
 
 $logo = trim((string) $cotizacion->empresa_logo) !== ''
-    ? \App\Imagenes::url($cotizacion->empresa_logo)
+    ? \App\Imagenes::url(\App\Imagenes::logoRecortado($cotizacion->empresa_logo))
     : '';
 
 /** Productos de la venta que hoy tienen existencias negativas (se vendió antes de fabricar). */

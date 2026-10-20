@@ -19,10 +19,14 @@ $conteos = [
 
 /** Accesos rápidos a los módulos del panel. */
 $accesos = [
-    ['ruta' => '/admin/cotizaciones/crear', 'icono' => 'note_add',       'titulo' => 'Nueva cotización', 'texto' => 'Arma una cotización con catálogo, precios y totales.'],
-    ['ruta' => '/admin/clientes',          'icono' => 'group',          'titulo' => 'Directorio de clientes', 'texto' => 'Alta, edición y seguimiento de clientes VIP.'],
-    ['ruta' => '/admin/productos',         'icono' => 'inventory_2',    'titulo' => 'Catálogo de productos', 'texto' => 'Precios de lista e imágenes de cada producto.'],
-    ['ruta' => '/admin/empresas',          'icono' => 'corporate_fare', 'titulo' => 'Empresas y razón social', 'texto' => 'Los dos negocios que emiten cotizaciones.'],
+    ['ruta' => '/admin/cotizaciones/crear',         'icono' => 'note_add',      'titulo' => 'Hacer una cotización', 'texto' => 'Para darle un precio a un cliente.'],
+    ['ruta' => '/admin/ventas/crear',               'icono' => 'point_of_sale', 'titulo' => 'Anotar una venta',     'texto' => 'Cuando el cliente ya compró.'],
+    ['ruta' => '/admin/contabilidad/gastos/crear',  'icono' => 'receipt',       'titulo' => 'Anotar un gasto',      'texto' => 'Material, gasolina, renta… y sube su factura.'],
+    ['ruta' => '/admin/entregas',                   'icono' => 'package_2',     'titulo' => 'Entregar pedidos',     'texto' => 'Lo vendido que falta por entregar.'],
+    ['ruta' => '/admin/contabilidad',               'icono' => 'account_balance', 'titulo' => '¿Cómo voy este mes?', 'texto' => 'Vendiste, gastaste y qué te falta hacer.'],
+    ['ruta' => '/admin/fiscal',                     'icono' => 'request_quote', 'titulo' => '¿Cuánto separo de impuestos?', 'texto' => 'Una cifra aproximada del mes.'],
+    ['ruta' => '/admin/clientes',                   'icono' => 'group',         'titulo' => 'Mis clientes',         'texto' => 'Directorio y su historial.'],
+    ['ruta' => '/admin/ayuda',                      'icono' => 'help',          'titulo' => 'Ayuda y manual',       'texto' => 'Cómo hacer cada cosa paso a paso.'],
 ];
 
 /* ---------------------------------------------------------------------------
@@ -108,7 +112,7 @@ template('header', [
 </section>
 
 <section class="mb-lg" aria-labelledby="titulo-accesos">
-    <h2 class="titulo-4 mb-md" id="titulo-accesos">Accesos rápidos</h2>
+    <h2 class="titulo-4 mb-md" id="titulo-accesos">¿Qué quieres hacer hoy?</h2>
 
     <div class="rejilla-2">
         <?php foreach ($accesos as $acceso) : ?>

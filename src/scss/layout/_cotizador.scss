@@ -442,8 +442,8 @@
        max-width: 100% es lo que lo hace adaptativo en móvil: sin él, un
        archivo de gran ancho desbordaría el contenedor, el viewport se
        ensancharía y la barra inferior mediría más que la pantalla. */
-    max-height: 10rem;
-    max-width: 100%;
+    max-height: 8rem;
+    max-width: min(100%, 30rem);
     width: auto;
     height: auto;
     object-fit: contain;

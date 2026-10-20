@@ -168,6 +168,15 @@ $enlaces = [
         'prefijos'      => ['/admin/proveedores'],   // el directorio de proveedores vive dentro de Compras
         'soloEscritorio' => false,
     ],
+    [
+        'ruta'          => '/admin/ayuda',
+        'icono'         => 'help',
+        'texto'         => 'Ayuda y manual',
+        'subrutas'      => false,
+        'excluir'       => [],
+        'divisor'       => true,
+        'soloEscritorio' => false,
+    ],
 ];
 
 /**

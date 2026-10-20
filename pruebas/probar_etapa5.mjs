@@ -79,6 +79,23 @@ try {
   await abrirTodo(pagina);
   verifica('filtrar un negocio muestra solo sus ventas ($100)', (await pagina.locator('main').innerText()).includes('$100.00'));
 
+  console.log('Burbujas de ayuda (200 ms)');
+  await pagina.goto(`${BASE}/admin/contabilidad`);
+  await pagina.hover('.sidebar__enlace[href="/admin/fiscal"]');
+  await pagina.waitForTimeout(80);
+  verifica('antes de 200 ms no aparece la burbuja', await pagina.locator('#burbuja-ayuda').count() === 0 || await pagina.locator('#burbuja-ayuda').isHidden());
+  await pagina.waitForTimeout(350);
+  verifica('pasados 200 ms la burbuja explica la sección', (await pagina.locator('#burbuja-ayuda').isVisible()) && (await pagina.locator('#burbuja-ayuda').innerText()).includes('separar para impuestos'));
+  await pagina.mouse.move(600, 400);
+  await pagina.waitForTimeout(100);
+  verifica('al quitar el cursor la burbuja se oculta', await pagina.locator('#burbuja-ayuda').isHidden());
+  await pagina.goto(BASE + '/admin/contabilidad/gastos/crear');
+  await pagina.hover('label[for="total"]');
+  await pagina.waitForTimeout(400);
+  verifica('los campos del gasto también explican qué pedir', (await pagina.locator('#burbuja-ayuda').innerText()).includes('IVA incluido'));
+  await pagina.goto(BASE + '/admin/ayuda');
+  verifica('el manual está dentro de la plataforma', (await pagina.locator('main section').count()) >= 10 && (await pagina.content()).includes('Anotar un gasto y subir su factura'));
+
   console.log('Pantallas en lenguaje llano');
   await pagina.goto(`${BASE}/admin/contabilidad?anio=${anio}&mes=${mes}`);
   const llano = (await pagina.locator('main').innerText()).toLowerCase();

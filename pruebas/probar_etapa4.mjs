@@ -68,34 +68,30 @@ try {
     && (await pagina.locator('input[name="ventas[]"]').count()) === 2);
   verifica('resumen oculto sin selección', await pagina.locator('[data-resumen-agrupado]').isHidden());
   await pagina.check('#marcar-todas');
-  verifica('resumen agrupa 5 + 2 = 7 en una sola tarjeta',
-    (await pagina.locator('[data-resumen-lista] .producto-grupo').count()) === 1
-    && (await pagina.locator('[data-resumen-lista] .producto-grupo__cantidad').innerText()).trim() === '7');
-  await Promise.all([pagina.waitForURL('**/admin/entregas/detalle?id=*'), pagina.click('[data-crear-preparacion]')]);
-  verifica('preparación creada con folio', /PREP-\d{4}-\d{4}/.test(await pagina.locator('h1, .topbar__titulo').first().innerText() + await pagina.content()));
-  verifica('detalle muestra el producto agrupado (7)', (await pagina.locator('.producto-grupo__cantidad').first().innerText()).trim().startsWith('7'));
-  verifica('crear la preparación no movió el inventario', sql('SELECT stock FROM productos WHERE id=37') === stockInicial);
+  verifica('al marcar solo se cuenta lo seleccionado, sin controles de fases', (await pagina.locator('[data-resumen-contador]').innerText()).includes('2 ventas') && (await pagina.locator('button:has-text("Preparado"), button:has-text("En reparto")').count()) === 0);
+  await Promise.all([pagina.waitForURL('**/admin/entregas/ver?*'), pagina.click('[data-crear-preparacion]')]);
+  verifica('«Mostrar en pantalla» agrupa 5 + 2 = 7 en una tarjeta', (await pagina.locator('.producto-grupo').count()) === 1
+    && (await pagina.locator('.producto-grupo__cantidad').first().innerText()).trim().startsWith('7'));
+  verifica('mostrar la selección no guarda nada ni mueve el inventario', sql('SELECT COUNT(*) FROM preparaciones') === '0' && sql('SELECT stock FROM productos WHERE id=37') === stockInicial);
+  verifica('la pantalla no tiene botones de fase', (await pagina.locator('button:has-text("Cambiar estado"), button:has-text("Preparado")').count()) === 0);
+
+  console.log('Guardar la vista');
+  await pagina.fill('#notas', 'Ruta norte');
+  await Promise.all([pagina.waitForURL('**/admin/entregas/detalle?id=*'), pagina.click('button:has-text("Guardar esta vista")')]);
+  verifica('vista guardada con su nombre', /PREP-\d{4}-\d{4}/.test(await pagina.content()) && (await pagina.content()).includes('Ruta norte'));
+  verifica('la vista guardada muestra el producto agrupado (7)', (await pagina.locator('.producto-grupo__cantidad').first().innerText()).trim().startsWith('7'));
+  verifica('guardar la vista no movió el inventario', sql('SELECT stock FROM productos WHERE id=37') === stockInicial);
   const prepId = sql('SELECT MAX(id) FROM preparaciones');
-
-  console.log('Aviso de venta repetida');
   await pagina.goto(BASE + '/admin/entregas');
-  verifica('las ventas muestran en qué preparación están', (await pagina.locator('tbody .badge:has-text("PREP-")').count()) >= 2);
-  await pagina.check('input[name="ventas[]"] >> nth=0');
-  await pagina.click('[data-crear-preparacion]');
-  verifica('advierte que ya están en otra preparación', (await pagina.content()).includes('ya forman parte de otra preparación'));
-  verifica('no creó una segunda preparación', sql('SELECT COUNT(*) FROM preparaciones') === '1');
-  await pagina.click('a:has-text("Volver y revisar")');
+  verifica('aparece en «Vistas guardadas»', (await pagina.locator('h2:has-text("Vistas guardadas")').count()) === 1 && (await pagina.content()).includes('Ruta norte'));
 
-  console.log('Estados y entrega parcial');
+  console.log('Entrega parcial');
   await pagina.goto(`${BASE}/admin/entregas/detalle?id=${prepId}`);
-  await pagina.click('button:has-text("Preparado")');
-  verifica('estado → preparado', sql(`SELECT estado FROM preparaciones WHERE id=${prepId}`) === 'preparada');
   const ventaA = sql(`SELECT v.id FROM ventas v WHERE v.cliente_id=${c1}`);
   await pagina.click(`a[href*="entregar?venta=${ventaA}"]`);
   await pagina.fill('input[name="cantidad[37]"]', '3');
   await Promise.all([pagina.waitForURL('**/admin/entregas/detalle?id=*'), pagina.click('button:has-text("Confirmar entrega")')]);
   verifica('entrega parcial: 3 piezas registradas', sql(`SELECT SUM(er.cantidad) FROM entrega_renglones er JOIN entregas e ON e.id=er.entrega_id WHERE e.venta_id=${ventaA}`) === '3');
-  verifica('la preparación pasó a «en reparto»', sql(`SELECT estado FROM preparaciones WHERE id=${prepId}`) === 'en_reparto');
   verifica('entregar NO descuenta inventario otra vez', sql('SELECT stock FROM productos WHERE id=37') === stockInicial);
   verifica('el detalle muestra 3 / 5 entregadas', (await pagina.content()).includes('3 / 5'));
 
@@ -113,7 +109,7 @@ try {
 
   console.log('Móvil');
   await pagina.setViewportSize({ width: 390, height: 800 });
-  for (const ruta of ['/admin/entregas', '/admin/entregas/clientes', `/admin/entregas/detalle?id=${prepId}`, `/admin/entregas/entregar?venta=${ventaA}&prep=${prepId}`]) {
+  for (const ruta of ['/admin/entregas', `/admin/entregas/ver?ventas[]=${ventaA}`, '/admin/entregas/clientes', `/admin/entregas/detalle?id=${prepId}`, `/admin/entregas/entregar?venta=${ventaA}&prep=${prepId}`]) {
     await pagina.goto(BASE + ruta);
     const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     verifica(ruta.split('?')[0] + ' @390px sin desborde', !desborde);

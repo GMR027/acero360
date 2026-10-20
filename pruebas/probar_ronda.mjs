@@ -421,7 +421,7 @@ try {
         `${topePdf}px`
       );
       comprobar(
-        'el PDF usa el MISMO tope que la pantalla (10rem = 160px)',
+        'el PDF usa el MISMO tope que la pantalla (8rem = 128px)',
         topePdf !== null && topePantalla.fuente !== null && topePdf === topePantalla.fuente,
         `pantalla=${topePantalla.fuente}px pdf=${topePdf}px`
       );

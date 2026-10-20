@@ -182,6 +182,76 @@ class Imagenes
         return self::url($archivo ?: self::RETRATO_POR_DEFECTO);
     }
 
+    /**
+     * Logo sin márgenes vacíos: muchos logos vienen en un lienzo cuadrado con la marca pequeña al centro
+     * y se ven diminutos junto a otros. Devuelve el nombre de un archivo recortado a su contenido
+     * (se guarda una vez en public/image/recortes/) o el original si no hay nada que recortar.
+     */
+    public static function logoRecortado(?string $archivo): string
+    {
+        $archivo = trim((string) $archivo);
+        $origen  = dirname(__DIR__) . '/public/image/' . $archivo;
+        if ($archivo === '' || strpos($archivo, '..') !== false || !is_file($origen) || !function_exists('imagecreatefromstring')) {
+            return $archivo;
+        }
+
+        $nombre  = 'recortes/' . pathinfo($archivo, PATHINFO_FILENAME) . '-' . filemtime($origen) . '.png';
+        $destino = dirname(__DIR__) . '/public/image/' . $nombre;
+        if (is_file($destino)) {
+            return $nombre;
+        }
+
+        $imagen = @imagecreatefromstring((string) file_get_contents($origen));
+        if (!$imagen) {
+            return $archivo;
+        }
+        $ancho = imagesx($imagen);
+        $alto  = imagesy($imagen);
+        $minX = $ancho; $minY = $alto; $maxX = -1; $maxY = -1;
+        for ($y = 0; $y < $alto; $y++) {
+            for ($x = 0; $x < $ancho; $x++) {
+                $c = imagecolorat($imagen, $x, $y);
+                $transparente = (($c >> 24) & 0x7F) > 100;
+                $blanco = (($c >> 16) & 0xFF) > 244 && (($c >> 8) & 0xFF) > 244 && ($c & 0xFF) > 244;
+                if (!$transparente && !$blanco) {
+                    $minX = min($minX, $x); $maxX = max($maxX, $x);
+                    $minY = min($minY, $y); $maxY = max($maxY, $y);
+                }
+            }
+        }
+        if ($maxX < 0) {
+            imagedestroy($imagen);
+            return $archivo;
+        }
+
+        $relleno = (int) round(max($maxX - $minX, $maxY - $minY) * 0.03);
+        $minX = max(0, $minX - $relleno); $minY = max(0, $minY - $relleno);
+        $maxX = min($ancho - 1, $maxX + $relleno); $maxY = min($alto - 1, $maxY + $relleno);
+        $anchoNuevo = $maxX - $minX + 1;
+        $altoNuevo  = $maxY - $minY + 1;
+
+        // Si apenas hay margen, no vale la pena duplicar el archivo.
+        if ($anchoNuevo * $altoNuevo >= 0.92 * $ancho * $alto) {
+            imagedestroy($imagen);
+            return $archivo;
+        }
+
+        $recorte = imagecreatetruecolor($anchoNuevo, $altoNuevo);
+        imagealphablending($recorte, false);
+        imagesavealpha($recorte, true);
+        imagefill($recorte, 0, 0, imagecolorallocatealpha($recorte, 255, 255, 255, 127));
+        imagecopy($recorte, $imagen, 0, 0, $minX, $minY, $anchoNuevo, $altoNuevo);
+
+        if (!is_dir(dirname($destino))) {
+            @mkdir(dirname($destino), 0755, true);
+        }
+        $guardado = @imagepng($recorte, $destino);
+        imagedestroy($imagen);
+        imagedestroy($recorte);
+
+        return $guardado ? $nombre : $archivo;
+    }
+
     /** Ruta pública de la miniatura asociada a una imagen de producto. */
     public static function urlMiniatura(?string $archivo): string
     {

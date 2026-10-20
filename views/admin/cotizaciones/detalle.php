@@ -34,7 +34,7 @@ if ($cotizacion->fecha) {
 }
 
 $logo = trim((string) $cotizacion->empresa_logo) !== ''
-    ? \App\Imagenes::url($cotizacion->empresa_logo)
+    ? \App\Imagenes::url(\App\Imagenes::logoRecortado($cotizacion->empresa_logo))
     : '';
 
 /** Botones de cambio de estado (el actual queda deshabilitado). */

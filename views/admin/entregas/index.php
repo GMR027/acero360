@@ -19,15 +19,14 @@ $ventas = \App\Entregas::ventasPendientes($filtros, $pagina['limite'], $pagina['
 $lineas = \App\Entregas::pendientesDeVentas(array_column($ventas, 'id'));
 $empresas = \App\Empresas::mostrarTodos(100, 0);
 
-$estadoPrep = $_GET['estado'] ?? '';
-$totalPrep  = \App\Entregas::contarPreparaciones($estadoPrep);
+$totalPrep  = \App\Entregas::contarPreparaciones('vigentes');
 $paginaPrep = paginacion(8, $totalPrep, 'pagina_prep');
-$preparaciones = \App\Entregas::listarPreparaciones($estadoPrep, $paginaPrep['limite'], $paginaPrep['offset']);
+$preparaciones = \App\Entregas::listarPreparaciones('vigentes', $paginaPrep['limite'], $paginaPrep['offset']);
 
 $parametros = array_filter(['q' => $filtros['q'], 'empresa' => $filtros['empresa'] ?: ''], static fn ($v) => $v !== '');
 $rutaBase = '/admin/entregas' . ($parametros ? '?' . http_build_query($parametros) : '');
 
-template('header', ['titulo' => 'Pantalla de entrega', 'subtitulo' => 'Preparación de pedidos y entregas']);
+template('header', ['titulo' => 'Pantalla de entrega', 'subtitulo' => 'Elige los pedidos y míralos juntos en una pantalla']);
 template('tabsEntregas', ['tab' => 'preparacion']);
 ?>
 
@@ -60,7 +59,7 @@ template('tabsEntregas', ['tab' => 'preparacion']);
             <p>Solo aparecen ventas confirmadas (ventas directas o cotizaciones marcadas como vendidas).</p>
         </div>
     <?php else : ?>
-        <form action="/admin/entregas/crear" method="post" data-seleccion-ventas>
+        <form action="/admin/entregas/ver" method="get" data-seleccion-ventas>
             <div class="tabla-contenedor">
                 <table class="tabla">
                     <caption class="solo-lectores">Ventas confirmadas por entregar</caption>
@@ -70,7 +69,7 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                             <input type="checkbox" id="marcar-todas" data-marcar-todas>
                         </th>
                         <th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Negocio</th>
-                        <th scope="col" class="tabla--numerica">Por entregar</th><th scope="col">Preparación</th>
+                        <th scope="col" class="tabla--numerica">Por entregar</th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($ventas as $v) :
@@ -96,9 +95,6 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                                     <span class="texto-xs texto-secundario"><br><?= escaparValores((string) $v['cliente_ubicacion']) ?></span></td>
                                 <td><?= escaparValores($v['empresa_nombre']) ?></td>
                                 <td class="tabla--numerica cifra"><?= $pendiente ?> <?= (int) $v['entregadas'] > 0 ? '<span class="texto-xs texto-secundario">de ' . (int) $v['piezas'] . '</span>' : '' ?></td>
-                                <td><?= $v['en_preparaciones']
-                                    ? '<span class="badge badge--pendiente">En ' . escaparValores($v['en_preparaciones']) . '</span>'
-                                    : '<span class="texto-secundario">—</span>' ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -107,14 +103,10 @@ template('tabsEntregas', ['tab' => 'preparacion']);
 
             <div class="entregas-resumen" data-resumen-agrupado hidden>
                 <h2 class="titulo-5" data-resumen-contador></h2>
-                <p class="campo__ayuda mb-md">Productos iguales agrupados y sumados:</p>
-                <div class="entregas-rejilla" data-resumen-lista></div>
-                <div class="campo mt-md">
-                    <label class="campo__etiqueta" for="notas">Notas de la preparación (opcional)</label>
-                    <input class="control" type="text" id="notas" name="notas" maxlength="255" placeholder="Ej. ruta norte, sale el lunes">
-                </div>
                 <div class="formulario__acciones">
-                    <button class="btn btn--primario" type="submit" data-crear-preparacion disabled>Crear preparación</button>
+                    <button class="btn btn--primario" type="submit" data-crear-preparacion disabled>
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">visibility</span>
+                        <span>Mostrar en pantalla</span></button>
                 </div>
             </div>
         </form>
@@ -124,32 +116,22 @@ template('tabsEntregas', ['tab' => 'preparacion']);
 
 <section class="tarjeta tarjeta--sin-relleno mt-lg">
     <div class="tabla-toolbar">
-        <h2 class="titulo-5">Preparaciones</h2>
-        <form action="/admin/entregas" method="get">
-            <?php foreach ($parametros as $k => $val) : ?><input type="hidden" name="<?= escaparValores($k) ?>" value="<?= escaparValores((string) $val) ?>"><?php endforeach; ?>
-            <label class="solo-lectores" for="estado">Estado</label>
-            <select class="control control--compacto" id="estado" name="estado" onchange="this.form.requestSubmit()">
-                <option value="">Todos los estados</option>
-                <?php foreach (\App\Entregas::ESTADOS as $clave => $d) : ?>
-                    <option value="<?= $clave ?>"<?= $estadoPrep === $clave ? ' selected' : '' ?>><?= escaparValores($d['etiqueta']) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </form>
+        <h2 class="titulo-5">Vistas guardadas</h2>
+        <span class="texto-secundario texto-sm">Al mostrar una selección puedes guardarla para volver a abrirla.</span>
     </div>
     <?php if (!$preparaciones) : ?>
-        <p class="texto-secundario" style="padding:1rem">Aún no hay preparaciones.</p>
+        <p class="texto-secundario" style="padding:1rem">Aún no has guardado ninguna vista.</p>
     <?php else : ?>
         <div class="tabla-contenedor">
             <table class="tabla">
-                <caption class="solo-lectores">Preparaciones</caption>
-                <thead><tr><th scope="col">Folio</th><th scope="col" class="tabla--centro">Estado</th>
-                    <th scope="col" class="tabla--numerica">Ventas</th><th scope="col">Creada</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+                <caption class="solo-lectores">Vistas guardadas</caption>
+                <thead><tr><th scope="col">Nombre</th>
+                    <th scope="col" class="tabla--numerica">Ventas</th><th scope="col">Guardada</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                 <tbody>
-                    <?php foreach ($preparaciones as $p) : $est = \App\Entregas::ESTADOS[$p['estado']]; ?>
+                    <?php foreach ($preparaciones as $p) : ?>
                         <tr>
                             <td><strong><?= escaparValores($p['folio']) ?></strong>
                                 <?= $p['notas'] ? '<span class="texto-xs texto-secundario"><br>' . escaparValores($p['notas']) . '</span>' : '' ?></td>
-                            <td class="tabla--centro"><span class="badge <?= $est['clase'] ?>"><?= escaparValores($est['etiqueta']) ?></span></td>
                             <td class="tabla--numerica cifra"><?= (int) $p['ventas'] ?></td>
                             <td><?= date('d/m/Y H:i', strtotime($p['creado_en'])) ?></td>
                             <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/entregas/detalle?id=<?= (int) $p['id'] ?>">Abrir</a></td>
@@ -158,7 +140,7 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                 </tbody>
             </table>
         </div>
-        <?php template('paginacion', ['pagina' => $paginaPrep, 'rutaBase' => '/admin/entregas' . ($estadoPrep ? '?estado=' . urlencode($estadoPrep) : ''), 'total' => $totalPrep]); ?>
+        <?php template('paginacion', ['pagina' => $paginaPrep, 'rutaBase' => '/admin/entregas', 'total' => $totalPrep]); ?>
     <?php endif; ?>
 </section>
 

@@ -13,7 +13,7 @@ function iniciarEntregas() {
 
   const casillas = formulario.querySelectorAll('input[name="ventas[]"]');
   const resumen = document.querySelector('[data-resumen-agrupado]');
-  const lista = resumen.querySelector('[data-resumen-lista]');
+  const lista = resumen.querySelector('[data-resumen-lista]'); // opcional: ya no se muestra el resumen en línea
   const contador = resumen.querySelector('[data-resumen-contador]');
   const boton = formulario.querySelector('[data-crear-preparacion]');
   const todas = formulario.querySelector('[data-marcar-todas]');
@@ -44,7 +44,9 @@ function iniciarEntregas() {
       });
     });
 
-    lista.replaceChildren();
+    if (lista) {
+      lista.replaceChildren();
+    }
     grupos.forEach(function (grupo) {
       const tarjeta = document.createElement('article');
       tarjeta.className = 'producto-grupo';
@@ -59,7 +61,9 @@ function iniciarEntregas() {
       tarjeta.appendChild(texto('span', 'producto-grupo__sku', grupo.sku || 'Sin código'));
       tarjeta.appendChild(texto('strong', '', grupo.nombre));
       tarjeta.appendChild(texto('span', 'producto-grupo__cantidad', String(grupo.total)));
-      lista.appendChild(tarjeta);
+      if (lista) {
+        lista.appendChild(tarjeta);
+      }
     });
 
     resumen.hidden = marcadas === 0;

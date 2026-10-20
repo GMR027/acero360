@@ -83,7 +83,7 @@ $maxMb      = \App\Archivos::maxBytes() / 1048576;
             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
             <div class="formulario__rejilla">
                 <div class="campo">
-                    <label class="campo__etiqueta campo__etiqueta--obligatorio" for="doc-archivo">Elegir archivos</label>
+                    <label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Elige la factura en PDF y su XML, o la foto del ticket. Puedes elegir varios a la vez." for="doc-archivo">Elegir archivos</label>
                     <input class="control" type="file" id="doc-archivo" name="archivo[]" multiple required accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
                     <span class="campo__ayuda">Puedes elegir varios a la vez: PDF, XML o foto (JPG, PNG, WebP) · máx. <?= $maxMb ?> MB cada uno</span>
                 </div>

@@ -20,11 +20,11 @@ $numEmpresas = max(1, count($empresas));
 <?php endif; ?>
 
 <div class="formulario__rejilla">
-    <div class="campo campo--completo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="concepto">¿En qué fue el gasto?</label>
+    <div class="campo campo--completo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Describe en pocas palabras qué compraste o pagaste." for="concepto">¿En qué fue el gasto?</label>
         <input class="control" type="text" id="concepto" name="concepto" maxlength="255" required value="<?= $v('concepto') ?>"
                placeholder="Ej. Lámina calibre 18, gasolina, renta de bodega"></div>
 
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="beneficiario">¿A quién le pagaste?</label>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="El nombre de quien te cobró. Si ya está en tus proveedores, elígelo de la lista." for="beneficiario">¿A quién le pagaste?</label>
         <input class="control" type="text" id="beneficiario" name="beneficiario" maxlength="150" required value="<?= $v('beneficiario') ?>"
                list="lista-proveedores" placeholder="Nombre del proveedor o negocio" autocomplete="off">
         <datalist id="lista-proveedores">
@@ -32,15 +32,15 @@ $numEmpresas = max(1, count($empresas));
         </datalist>
         <input type="hidden" id="proveedor_id" name="proveedor_id" value="<?= (int) ($gasto['proveedor_id'] ?? 0) ?: '' ?>"></div>
 
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="fecha">¿Cuándo fue?</label>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="El día en que se hizo el gasto (el del ticket o la factura)." for="fecha">¿Cuándo fue?</label>
         <input class="control" type="date" id="fecha" name="fecha" required value="<?= $v('fecha', date('Y-m-d')) ?>"></div>
 
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="total">¿Cuánto pagaste en total?</label>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Lo que dice el ticket o la factura al final, con IVA incluido. La plataforma separa el IVA sola." for="total">¿Cuánto pagaste en total?</label>
         <input class="control control--moneda" type="number" id="total" name="total" min="0.01" step="0.01" inputmode="decimal"
                value="<?= $gasto && !empty($gasto['total']) ? $v('total') : '' ?>" required placeholder="0.00">
         <span class="campo__ayuda">Lo que dice el ticket o la factura, con IVA incluido.</span></div>
 
-    <div class="campo"><label class="campo__etiqueta" for="iva_tasa">¿Ese total incluye IVA?</label>
+    <div class="campo"><label class="campo__etiqueta" data-ayuda="Casi todo lleva 16 % de IVA. Si el ticket no lo desglosa o no lo lleva, elige «No tiene IVA»." for="iva_tasa">¿Ese total incluye IVA?</label>
         <select class="control" id="iva_tasa" name="iva_tasa">
             <option value="16"<?= (string) ($gasto['iva_tasa'] ?? '16') === '16' || (string) ($gasto['iva_tasa'] ?? '16') === '16.00' ? ' selected' : '' ?>>Sí, 16 % (lo normal)</option>
             <option value="0"<?= (float) ($gasto['iva_tasa'] ?? 16) === 0.0 ? ' selected' : '' ?>>No tiene IVA</option>
@@ -48,13 +48,13 @@ $numEmpresas = max(1, count($empresas));
         </select>
         <span class="campo__ayuda">Si no sabes, déjalo en «Sí, 16 %».</span></div>
 
-    <div class="campo"><label class="campo__etiqueta" for="estado_pago">¿Ya lo pagaste?</label>
+    <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige «Ya lo pagué» si el dinero ya salió. Solo lo pagado cuenta para tus impuestos." for="estado_pago">¿Ya lo pagaste?</label>
         <select class="control" id="estado_pago" name="estado_pago">
             <option value="pagado"<?= ($gasto['estado_pago'] ?? 'pendiente') === 'pagado' ? ' selected' : '' ?>>Sí, ya lo pagué</option>
             <option value="pendiente"<?= ($gasto['estado_pago'] ?? 'pendiente') === 'pendiente' ? ' selected' : '' ?>>No, lo debo todavía</option>
         </select></div>
 
-    <div class="campo"><label class="campo__etiqueta" for="comprobante_fiscal">¿Te dieron factura?</label>
+    <div class="campo"><label class="campo__etiqueta" data-ayuda="Solo los gastos con factura se pueden restar de tus impuestos. Un ticket no cuenta." for="comprobante_fiscal">¿Te dieron factura?</label>
         <select class="control" id="comprobante_fiscal" name="comprobante_fiscal">
             <option value="1"<?= !empty($gasto['comprobante_fiscal']) ? ' selected' : '' ?>>Sí, con factura</option>
             <option value="0"<?= empty($gasto['comprobante_fiscal']) ? ' selected' : '' ?>>No, solo ticket o nota</option>
@@ -62,7 +62,7 @@ $numEmpresas = max(1, count($empresas));
         <span class="campo__ayuda">Solo los gastos con factura pueden restarse de tus impuestos. Después podrás adjuntarla.</span></div>
 
     <?php if (count($empresas) > 1) : ?>
-        <div class="campo"><label class="campo__etiqueta" for="empresa_id">¿Para cuál negocio fue?</label>
+        <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige el negocio al que corresponde. «Para todos» si sirve a ambos." for="empresa_id">¿Para cuál negocio fue?</label>
             <select class="control" id="empresa_id" name="empresa_id" data-bloque-empresa>
                 <option value="">Para todos / no importa</option>
                 <?php foreach ($empresas as $e) : ?>
@@ -74,7 +74,7 @@ $numEmpresas = max(1, count($empresas));
 
 <?php if (!empty($permiteArchivos)) : ?>
     <div class="campo campo--completo mt-lg">
-        <label class="campo__etiqueta" for="doc-nuevo">Factura o comprobante (opcional)</label>
+        <label class="campo__etiqueta" data-ayuda="Sube aquí la factura (PDF y XML) o la foto del ticket. Puedes elegir varios archivos a la vez." for="doc-nuevo">Factura o comprobante (opcional)</label>
         <input class="control" type="file" id="doc-nuevo" name="archivo[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
         <span class="campo__ayuda">Sube la factura en PDF y su XML, o la foto del ticket. Puedes elegir varios. También podrás agregarlos después.</span>
     </div>
@@ -83,7 +83,7 @@ $numEmpresas = max(1, count($empresas));
 <details class="mt-lg"<?= $errores || !empty($gasto['compartido']) ? ' open' : '' ?>>
     <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — categoría, folio fiscal, notas</summary>
     <div class="formulario__rejilla mt-md">
-        <div class="campo"><label class="campo__etiqueta" for="categoria_id">Categoría</label>
+        <div class="campo"><label class="campo__etiqueta" data-ayuda="Sirve para ordenar tus gastos en reportes. No cambia los impuestos." for="categoria_id">Categoría</label>
             <select class="control" id="categoria_id" name="categoria_id">
                 <option value="">— Sin categoría —</option>
                 <?php foreach ($categorias as $c) : ?>
@@ -91,7 +91,7 @@ $numEmpresas = max(1, count($empresas));
                 <?php endforeach; ?>
             </select></div>
 
-        <div class="campo"><label class="campo__etiqueta" for="metodo_pago">¿Cómo lo pagaste?</label>
+        <div class="campo"><label class="campo__etiqueta" data-ayuda="Efectivo, transferencia, tarjeta… solo para tu control." for="metodo_pago">¿Cómo lo pagaste?</label>
             <select class="control" id="metodo_pago" name="metodo_pago">
                 <option value="">—</option>
                 <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?>
@@ -103,11 +103,11 @@ $numEmpresas = max(1, count($empresas));
             <input class="control" type="date" id="fecha_pago" name="fecha_pago" value="<?= $v('fecha_pago') ?>">
             <span class="campo__ayuda">Si la dejas vacía y ya está pagado, se usa la fecha del gasto.</span></div>
 
-        <div class="campo"><label class="campo__etiqueta" for="uuid_fiscal">Folio fiscal de la factura (UUID)</label>
+        <div class="campo"><label class="campo__etiqueta" data-ayuda="El folio único de la factura. Si subes el XML se llena solo." for="uuid_fiscal">Folio fiscal de la factura (UUID)</label>
             <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= $v('uuid_fiscal') ?>">
             <span class="campo__ayuda">Si subes el XML de la factura, se llena solo.</span></div>
 
-        <div class="campo"><label class="campo__etiqueta" for="naturaleza">Tipo de gasto</label>
+        <div class="campo"><label class="campo__etiqueta" data-ayuda="Déjalo en «Gasto» salvo que tu contador te diga otra cosa." for="naturaleza">Tipo de gasto</label>
             <select class="control" id="naturaleza" name="naturaleza">
                 <?php foreach (\App\Gastos::NATURALEZAS as $clave => $texto) : ?>
                     <option value="<?= $clave ?>"<?= ($gasto['naturaleza'] ?? 'gasto') === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
