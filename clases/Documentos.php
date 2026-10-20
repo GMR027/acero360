@@ -275,6 +275,22 @@ class Documentos
         self::enviar($bytes, 'ventas-sin-facturar-' . $periodo['anio'] . ($periodo['mes'] ? sprintf('-%02d', $periodo['mes']) : ''));
     }
 
+    /** PDF de estadísticas. Solo lectura. */
+    public static function descargarEstadisticas(array $reporte): void
+    {
+        ob_start();
+        \template('pdfEstadisticas', ['r' => $reporte]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'las estadísticas');
+        if ($bytes === null) {
+            \redirigir('/admin/estadisticas', 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        $p = $reporte['parametros'];
+        self::enviar($bytes, 'estadisticas-' . $p['tipo'] . '-' . $p['anio']);
+    }
+
     /** PDF del resumen de cierre (fotografía guardada). Solo lectura. */
     public static function descargarCierre(array $snapshot, array $estado): void
     {

@@ -1,0 +1,67 @@
+/* ==========================================================================
+   _estadisticas.scss — Gráficas SVG y bloques del módulo de estadísticas.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+
+.grafica {
+  margin: 0;
+  padding: $espacio-md;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde-fuerte;
+  border-radius: $radio-lg;
+
+  &__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 22rem;
+  }
+
+  &__rejilla {
+    stroke: $color-borde;
+    stroke-width: 1;
+  }
+
+  &__texto {
+    fill: $color-texto-secundario;
+    font-size: 11px;
+  }
+
+  &__leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $espacio-md;
+    margin: $espacio-sm 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: $fuente-sm;
+  }
+
+  &__leyenda li {
+    display: inline-flex;
+    align-items: center;
+    gap: $espacio-xs;
+  }
+
+  &__muestra {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+  }
+}
+
+.variacion {
+  font-weight: 700;
+
+  &--sube { color: #2e7d32; }
+  &--baja { color: #b3261e; }
+}
+
+.estadisticas-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: $espacio-lg;
+  margin-bottom: $espacio-lg;
+}

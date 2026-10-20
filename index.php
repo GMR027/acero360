@@ -165,6 +165,10 @@ $router->get('/admin/contabilidad/sin-facturar/exportar',   'views/admin/contabi
 $router->get('/admin/contabilidad/zip',                     'views/admin/contabilidad/zip.php',                  'soloAdmin');
 $router->get('/admin/contabilidad/periodos',                'views/admin/contabilidad/periodos.php',             'soloAdmin');
 
+// --- Estadísticas (Etapa 7) ---
+$router->get('/admin/estadisticas',          'views/admin/estadisticas/index.php',    'soloAdmin');
+$router->get('/admin/estadisticas/exportar', 'views/admin/estadisticas/exportar.php', 'soloAdmin');
+
 // --- Fiscal y cierre mensual (Etapa 6) ---
 $router->get('/admin/contabilidad/cierre',          'views/admin/contabilidad/cierre.php',          'soloAdmin');
 $router->post('/admin/contabilidad/cierre/accion',  'views/admin/contabilidad/cierre-accion.php',   'soloAdmin');

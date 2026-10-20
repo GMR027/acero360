@@ -3143,6 +3143,68 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 }
 
 /* ==========================================================================
+   _estadisticas.scss — Gráficas SVG y bloques del módulo de estadísticas.
+   ========================================================================== */
+.grafica {
+  margin: 0;
+  padding: 1rem;
+  background-color: #ffffff;
+  border: 1px solid #c9cdd4;
+  border-radius: 0.5rem;
+}
+.grafica__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 22rem;
+}
+.grafica__rejilla {
+  stroke: #e4e6ea;
+  stroke-width: 1;
+}
+.grafica__texto {
+  fill: #64646a;
+  font-size: 11px;
+}
+.grafica__leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+.grafica__leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.grafica__muestra {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+}
+
+.variacion {
+  font-weight: 700;
+}
+.variacion--sube {
+  color: #2e7d32;
+}
+.variacion--baja {
+  color: #b3261e;
+}
+
+.estadisticas-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ==========================================================================
    _utilidades.scss — Clases auxiliares de uso general.
    ========================================================================== */
 /* --- Espaciado ------------------------------------------------------------ */
