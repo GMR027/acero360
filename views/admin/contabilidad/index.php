@@ -21,16 +21,28 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad', 'periodo' => $pe
 
 <?php
 $pend = \App\Contabilidad::pendientes($periodo['anio'], $periodo['mes'], (int) $periodo['empresa']);
-// Las ventas sin factura no cuentan en «Vendiste» ni en «Te queda»: se muestran aparte en su propio cuadro.
+// Las ventas sin factura no cuentan en «Lo que vendiste»: se muestran aparte en su propio cuadro.
 $sinFactura = $r['facturacion']['no_facturada'];
 $entra = $r['ventas']['total'] - $sinFactura['total'];
 $operacionesFacturables = $r['ventas']['operaciones'] - $sinFactura['operaciones'];
 $sale  = $gasto($g['total']);
-$queda = $entra - $sale;
+$idContrib = \App\Contabilidad::contribuyentePrincipal();
+$imp = \App\ResumenFiscal::impuestosDelPeriodo($idContrib, $periodo['anio'], $periodo['mes']);
+$impAPagar = $imp['impuestos'];
+$conSigno = static fn (float $v): string => ($v < 0 ? '−' : '') . formatoMoneda(abs($v));
 [$anioAnt, $mesAnt] = \App\Contabilidad::mesAnterior($periodo['anio'], $periodo['mes']);
 $ra = \App\Contabilidad::resumenPeriodo($anioAnt, $mesAnt, $periodo['empresa']);
 $entraAnt = $ra['ventas']['total'] - $ra['facturacion']['no_facturada']['total'];
 $saleAnt  = $gasto($ra['gastos']['total']);
+$impAnt   = \App\ResumenFiscal::impuestosDelPeriodo($idContrib, $anioAnt, $mesAnt)['impuestos'];
+
+// Gastos del mes: los que tienen factura (se restan de impuestos) y los que no (solo informativos).
+$todosGastos = \App\Gastos::listar(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'empresa' => $periodo['empresa']], 200, 0);
+$gastosConFactura = array_values(array_filter($todosGastos, static fn ($x) => (int) $x['comprobante_fiscal'] === 1));
+$gastosSinFactura = array_values(array_filter($todosGastos, static fn ($x) => (int) $x['comprobante_fiscal'] === 0));
+$sumar = static fn (array $lista): float => array_sum(array_map(static fn ($x) => (float) $x['total'], $lista));
+$mesTexto = mb_strtolower(nombreMes($periodo['mes'])) . ' ' . $periodo['anio'];
+$enlaceGastos = '/admin/contabilidad/gastos?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'empresa' => $periodo['empresa']]);
 ?>
 <?php if ($cerrado) : ?>
     <p class="nota nota--advertencia mb-lg" role="note"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lock</span>
@@ -40,17 +52,73 @@ $saleAnt  = $gasto($ra['gastos']['total']);
 <?php
 template('resumenReporte', [
     'tarjetas' => [
-        ['etiqueta' => 'Vendiste', 'valor' => formatoMoneda($entra), 'pie' => number_format($operacionesFacturables) . ' ventas · ya cobraste ' . formatoMoneda($r['cobrado_en_periodo']),
+        ['etiqueta' => 'Lo que vendiste', 'valor' => formatoMoneda($entra), 'pie' => number_format($operacionesFacturables) . ' ventas con factura · ya cobraste ' . formatoMoneda($r['cobrado_en_periodo']),
             'variacion' => \App\Contabilidad::variacion($entra, $entraAnt)],
-        ['etiqueta' => 'Gastaste', 'valor' => formatoMoneda($sale), 'pie' => number_format($g['operaciones']) . ' gastos · ya pagaste ' . formatoMoneda($gasto($g['pagado'])),
+        ['etiqueta' => 'Lo que gastaste', 'valor' => formatoMoneda($sale), 'pie' => number_format($g['operaciones']) . ' gastos · ya pagaste ' . formatoMoneda($gasto($g['pagado'])),
             'variacion' => \App\Contabilidad::variacion($sale, $saleAnt), 'subeEsBueno' => false],
-        ['etiqueta' => 'Te queda (antes de impuestos)', 'valor' => formatoMoneda($queda), 'pie' => 'Ventas menos gastos del mes',
-            'variacion' => \App\Contabilidad::variacion($queda, $entraAnt - $saleAnt)],
+        ['etiqueta' => $impAPagar >= 0 ? 'Impuestos que debes pagar' : 'Impuestos a tu favor', 'valor' => formatoMoneda(abs($impAPagar)),
+            'pie' => 'IVA ' . $conSigno($imp['iva_por_pagar']) . ' + ISR ' . $conSigno($imp['isr_por_pagar']) . ' (estimación)',
+            'variacion' => \App\Contabilidad::variacion($impAPagar, $impAnt), 'subeEsBueno' => false],
     ],
     'etiquetaComparativa' => 'vs. ' . nombreMes($mesAnt) . ' ' . $anioAnt,
     'exportar' => '/admin/fiscal/exportar?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'tipo' => 'movimientos']),
 ]);
 ?>
+
+<?php
+/** Tabla de gastos del mes; $conIva = false oculta la columna de IVA (gastos sin factura no llevan IVA acreditable). */
+$tablaGastos = static function (array $lista, string $pie, bool $conIva): void { ?>
+    <div class="tabla-contenedor"><table class="tabla">
+        <caption class="solo-lectores"><?= escaparValores($pie) ?></caption>
+        <thead><tr><th scope="col">Fecha</th><th scope="col">En qué / a quién</th><th scope="col">Categoría</th>
+            <?php if ($conIva) : ?><th scope="col" class="tabla--numerica">IVA</th><?php endif; ?>
+            <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">¿Ya lo pagaste?</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+        <tbody>
+        <?php foreach ($lista as $x) : ?>
+            <tr>
+                <td><?= date('d/m/Y', strtotime($x['fecha'])) ?></td>
+                <td><strong><?= escaparValores($x['beneficiario']) ?></strong><span class="texto-xs texto-secundario"><br><?= escaparValores($x['concepto']) ?></span></td>
+                <td><?= escaparValores((string) $x['categoria_nombre']) ?: '—' ?></td>
+                <?php if ($conIva) : ?><td class="tabla--numerica cifra"><?= formatoMoneda($x['iva']) ?></td><?php endif; ?>
+                <td class="tabla--numerica cifra"><strong><?= formatoMoneda($x['total']) ?></strong></td>
+                <td class="tabla--centro"><?= $x['estado_pago'] === 'pagado' ? '<span class="badge badge--aprobado">Sí, pagado</span>' : '<span class="badge badge--pendiente">Falta pagar</span>' ?></td>
+                <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $x['id'] ?>">Abrir</a></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+        <tfoot><tr><td colspan="<?= $conIva ? 4 : 3 ?>"><strong><?= escaparValores($pie) ?></strong></td>
+            <td class="tabla--numerica cifra"><strong><?= formatoMoneda(array_sum(array_map(static fn ($x) => (float) $x['total'], $lista))) ?></strong></td><td colspan="2"></td></tr></tfoot>
+    </table></div>
+<?php };
+?>
+
+<section class="tarjeta tarjeta--sin-relleno mb-lg" aria-labelledby="gastos-con-factura">
+    <header class="flex-entre fila--envuelto" style="padding:1rem 1rem 0;gap:.5rem">
+        <div>
+            <h2 class="titulo-5" id="gastos-con-factura">Tus gastos de <?= escaparValores($mesTexto) ?></h2>
+            <p class="texto-sm texto-secundario">Lo que gastaste y <strong>sí tiene factura</strong>. Estos gastos se restan de tus impuestos.</p>
+        </div>
+        <a class="btn btn--texto btn--sm" href="<?= escaparValores($enlaceGastos) ?>">Ver todos los gastos →</a>
+    </header>
+    <?php if (!$gastosConFactura) : ?>
+        <p class="texto-secundario" style="padding:1rem">Este mes no hay gastos con factura. Usa «Anotar un gasto» para registrar uno.</p>
+    <?php else : ?>
+        <?php $tablaGastos($gastosConFactura, 'Total de gastos con factura', true); ?>
+    <?php endif; ?>
+</section>
+
+<section class="tarjeta tarjeta--sin-relleno mb-lg" aria-labelledby="gastos-sin-factura">
+    <header style="padding:1rem 1rem 0">
+        <h2 class="titulo-5" id="gastos-sin-factura">Gastos sin factura <span class="badge badge--neutro badge--sin-punto">Solo informativo</span></h2>
+        <p class="texto-sm texto-secundario">Gastos que no te dieron factura, por eso no llevan IVA y <strong>no se pueden restar de tus impuestos</strong>.
+            Se muestran para que sepas cuánto dinero salió. Si después te dan la factura, ábrelo y adjúntala para que cuente.</p>
+    </header>
+    <?php if (!$gastosSinFactura) : ?>
+        <p class="texto-secundario" style="padding:1rem">Este mes todos tus gastos tienen factura.</p>
+    <?php else : ?>
+        <?php $tablaGastos($gastosSinFactura, 'Total de gastos sin factura', false); ?>
+    <?php endif; ?>
+</section>
 
 <?php
 $enlaceSinFactura = '/admin/contabilidad/ingresos?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'empresa' => $periodo['empresa'], 'facturacion' => 'no_facturada']);
@@ -59,7 +127,7 @@ $enlaceSinFactura = '/admin/contabilidad/ingresos?' . http_build_query(['anio' =
     <div style="display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap">
         <div>
             <h2 class="titulo-5">Ventas sin factura</h2>
-            <p class="campo__ayuda">Solo para tu información: no cuentan en «Vendiste», ni en «Te queda», ni en tus impuestos.</p>
+            <p class="campo__ayuda">Solo para tu información: no cuentan en «Lo que vendiste» ni en tus impuestos.</p>
         </div>
         <div style="text-align:right">
             <strong style="font-size:1.5rem"><?= formatoMoneda($sinFactura['total']) ?></strong><br>
