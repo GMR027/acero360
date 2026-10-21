@@ -10,7 +10,7 @@ return [
      'intro' => 'Acero 360 sirve para cotizar, vender, entregar, llevar tus gastos y saber más o menos cuánto vas a pagar de impuestos. Todo se hace desde el menú de la izquierda (en el celular, desde el botón de abajo a la derecha).',
      'pasos' => [
         ['Entrar', ['Abre la página e inicia sesión con tu correo y contraseña.', 'Si olvidaste la contraseña, cámbiala en «Usuarios y perfil».']],
-        ['Moverte por el menú', ['«Nueva cotización», «Histórico», «Clientes» y «Productos» son lo de todos los días.', 'Debajo de la línea están Ventas, Pantalla de entrega, Contabilidad, Impuestos, Inventario y Compras y proveedores.']],
+        ['Moverte por el menú', ['«Nueva cotización», «Histórico», «Clientes» y «Productos» son lo de todos los días.', 'Debajo de la línea están Ventas, Pantalla de entrega, Contabilidad, Impuestos, Inventario y Compras y proveedores (un solo apartado).']],
         ['Burbujas de ayuda', ['Deja el cursor sobre cualquier botón, pestaña o campo y, medio segundo después, aparece una burbuja que explica qué hace.', 'Con teclado funciona igual al llegar con la tecla Tab. Escape la cierra.']],
      ],
      'consejos' => ['Si algo no se ve actualizado, recarga la página con Ctrl + Shift + R.']],
@@ -50,13 +50,19 @@ return [
      'consejos' => ['Puedes descargar el inventario en PDF o Excel.']],
 
     ['id' => 'compras', 'titulo' => 'Compras y proveedores', 'icono' => 'shopping_cart',
-     'intro' => 'Es un solo módulo con dos pestañas: Órdenes de compra y Proveedores.',
+     'intro' => 'Es un solo módulo con siete pestañas: Resumen, Compras y pedidos, Recepciones, Proveedores, Facturas, Pagos y Categorías. Una compra se captura una sola vez y desde ahí se recibe, se factura y se paga, sin repetir datos en Contabilidad.',
      'pasos' => [
-        ['Dar de alta un proveedor', ['Compras y proveedores → pestaña «Proveedores» → «Nuevo proveedor».']],
-        ['Comprar', ['Pestaña «Órdenes de compra» → «Nueva orden». Elige proveedor y productos con cantidad y costo.', 'Cuando llegue la mercancía, abre la orden y usa «Recibir». Las piezas suman al inventario (puedes recibir por partes).']],
-        ['Historial anterior', ['En Proveedores, el botón «Entradas» guarda las entregas con foto que se registraban antes. Las compras nuevas se hacen con órdenes de compra.']],
+        ['Dar de alta un proveedor', ['Pestaña «Proveedores» → «Nuevo proveedor». Un proveedor puede venderte distintas cosas: el tipo de compra se elige en cada compra, no en el proveedor.', 'Un proveedor inactivo ya no aparece en compras nuevas, pero su historial se conserva. Si tiene compras no se puede eliminar: desactívalo.']],
+        ['Comprar producto semiterminado para vender', ['«Nueva compra» → tipo «Producto semiterminado». Escribe cómo lo llama tu proveedor y elige a qué producto de tu catálogo corresponde (puedes dejarlo sin relacionar y definirlo después en el detalle de la compra).', 'Captura cantidad y costo. El nombre y el precio de venta de tu catálogo no cambian.']],
+        ['Comprar materiales, insumos y consumibles', ['«Nueva compra» → tipo «Material, insumo o consumible» (pintura, thinner, discos, guantes, soldadura, varilla, lámina…).', 'No necesitas crear productos. Si es un consumible, déjalo en «Consumible (sin inventario)». Si quieres llevar existencias (varilla, lámina), elige «Controlar en inventario» y escribe el nombre del material: queda aparte de los productos para venta.']],
+        ['Recibir la mercancía', ['Detalle de la compra → «Registrar recepción», o pestaña «Recepciones». Captura lo que realmente llegó; puedes recibir por partes.', 'Pedir no cambia las existencias: solo la recepción confirmada. Reenviar el formulario no suma dos veces.', 'Lo recibido de un semiterminado queda «por terminar» y todavía no se puede vender. Cuando lo termines, en «Recepciones → Semiterminados por terminar» usa «Pasar a disponibles». Si llegó ya terminado, márcalo al recibir.', 'No se acepta más de lo pendiente, salvo que marques «Llegó más de lo pendiente» (queda en la bitácora).']],
+        ['Factura (CFDI) y comprobantes', ['En el detalle de la compra, «Factura y comprobantes» → adjunta el XML del CFDI, el PDF o una foto. La compra se envía a Contabilidad una sola vez como un gasto; si la factura llega después, se asocia al mismo gasto.', 'Solo un XML con estructura de CFDI y timbre la deja «Con CFDI». Un PDF o una foto no cuentan como CFDI. Si no hubo factura, marca «Sin factura».', 'Adjuntar un documento no vuelve deducible la compra: queda «por validar» para tu contador. El mismo UUID no se puede usar en dos compras.']],
+        ['Pagos al proveedor', ['En el detalle de la compra, «Pagos al proveedor» → registra el pago, completo o parcial. Reduce el saldo pendiente y no crea otro gasto.', 'Si te equivocas, «Cancelar pago» con motivo: el pago queda en el historial y el saldo se recupera.']],
+        ['Ver pendientes y reportes', ['«Resumen» muestra lo que falta recibir, las piezas por terminar, las facturas pendientes y lo que debes. «Compras y pedidos» filtra por proveedor, fechas, categoría, tipo, recepción, factura y pago.', 'El expediente de cada proveedor (pestaña «Proveedores» → su nombre) reúne sus compras, recepciones, facturas, pagos y saldos.']],
+        ['Corregir', ['Una compra se edita o cancela mientras no tenga recepciones, pagos ni gasto vigente. Para corregir existencias usa «Corregir cantidad» en «Recepciones»: pide una razón y queda en la bitácora.']],
+        ['Historial anterior', ['Las «entregas anteriores» con foto que se registraban antes solo se muestran, como historial, en el expediente del proveedor que las tenga. Las compras nuevas se hacen con «Nueva compra».']],
      ],
-     'consejos' => ['Para registrar cuánto pagaste por una compra, anótalo como gasto en Contabilidad.']],
+     'consejos' => ['El costo de cada compra queda guardado tal como se compró: si cambia el costo actual de un producto, las compras anteriores no se alteran.', 'Actualizar el costo actual del catálogo es una opción aparte al recibir; nunca cambia el precio de venta.', 'El IVA de la compra no se calcula: captúralo solo si lo conoces; si lo dejas vacío queda como «no especificado».']],
 
     ['id' => 'gastos', 'titulo' => 'Anotar un gasto y subir su factura', 'icono' => 'receipt',
      'intro' => 'Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, honorarios.',

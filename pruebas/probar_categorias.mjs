@@ -5,7 +5,7 @@
  *   1. El botón "Crear Categorías" es el primero (lado izquierdo) de la
  *      barra de /admin/proveedores.
  *   2. /admin/proveedores/categorias lista el catálogo con su contador de
- *      entradas, deja buscar y marca la sección "Proveedores" como activa.
+ *      entradas, deja buscar y marca «Compras y proveedores» (pestaña Categorías) como activa.
  *   3. Alta: aparece en la lista, en el badge de conteo y — lo importante —
  *      en el campo «Categoría» de las entradas de TODOS los proveedores.
  *   4. Nombres repetidos y escapado de HTML en el nombre.
@@ -269,8 +269,10 @@ try {
     new RegExp(`${nombresBase.length}\\s+categor`, 'i').test(badgeTotal || ''),
     `"${badgeTotal}"`
   );
-  const activo = await page.getAttribute('a[href="/admin/proveedores"][aria-current]', 'aria-current');
-  comprobar('la sección "Proveedores" queda activa', activo === 'page', `${activo}`);
+  const menuActivo = ((await page.locator('.sidebar__enlace[aria-current="page"]').allInnerTexts()).join(' ')).replace(/\s+/g, ' ');
+  comprobar('el menú lateral marca «Compras y proveedores»', menuActivo.includes('Compras y proveedores'), menuActivo);
+  const pestanaActiva = ((await page.locator('nav[aria-label="Compras y proveedores"] a[aria-current="page"]').allInnerTexts()).join(' ')).replace(/\s+/g, ' ');
+  comprobar('la pestaña «Categorías» queda activa', pestanaActiva.includes('Categorías'), pestanaActiva);
 
   /* ------------------------------------------------------- 3. Alta */
   console.log('\n3. Crear categoría');

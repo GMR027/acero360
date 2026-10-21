@@ -43,7 +43,7 @@ const paginas = [
   '/admin/cotizaciones/precios-cliente',
   '/admin/ventas', '/admin/ventas/crear',
   '/admin/inventario',
-  '/admin/compras', '/admin/compras/crear', '/admin/estadisticas', '/admin/escritorio', '/admin/fiscal', '/admin/fiscal/configuracion', '/admin/contabilidad/cierre', '/admin/contabilidad', '/admin/contabilidad/ingresos', '/admin/contabilidad/gastos', '/admin/contabilidad/gastos/crear', '/admin/contabilidad/documentos', '/admin/contabilidad/sin-facturar', '/admin/contabilidad/periodos', '/admin/entregas', '/admin/entregas/clientes',
+  '/admin/compras', '/admin/compras/pedidos', '/admin/compras/recepciones', '/admin/compras/facturas', '/admin/compras/pagos', '/admin/compras/crear', '/admin/estadisticas', '/admin/escritorio', '/admin/fiscal', '/admin/fiscal/configuracion', '/admin/contabilidad/cierre', '/admin/contabilidad', '/admin/contabilidad/ingresos', '/admin/contabilidad/gastos', '/admin/contabilidad/gastos/crear', '/admin/contabilidad/documentos', '/admin/contabilidad/sin-facturar', '/admin/contabilidad/periodos', '/admin/entregas', '/admin/entregas/clientes',
   '/admin/proveedores', '/admin/proveedores/crear',
   '/admin/proveedores/categorias', '/admin/proveedores/categorias/crear',
   '/admin/proveedores/entradas', '/admin/proveedores/entradas/crear',

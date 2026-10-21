@@ -53,6 +53,7 @@ fi
 
 echo "==> Respaldos y restauración"
 ejecutar "respaldo y restauración" pruebas/probar_respaldo.sh "$DB_NAME"
+ejecutar "limpieza de entradas" pruebas/probar_limpieza_entradas.sh
 
 if [[ $RAPIDO -eq 0 ]]; then
     echo "==> Aplicación de escritorio (abre ventanas reales unos segundos)"

@@ -6,7 +6,7 @@
  *      se comprueba que lo compilado le siga la pista y que la imagen
  *      dibujada no lo rebasen (nunca se compara contra un número fijo).
  *   3. Botón "Exportar datos" a la izquierda de "Entradas".
- *   4. Sección "Balance general" con su botón verde de pago.
+ *   4. Expediente del proveedor (compras y saldos) y, si existe, su historial de entregas anteriores con el botón de pago.
  *   5. Contador de "Pendiente por pagar" en Entradas.
  *   6. Campo "Monto" en el formulario de entrada.
  *   7. Ninguna pantalla con desbordamiento horizontal (1440 y 390 px).
@@ -291,8 +291,8 @@ try {
     accionesProv.replace(/\s+/g, ' ').trim()
   );
 
-  /* ------------------------------------------------------- 4. Balance general */
-  console.log('\n4. Balance general del proveedor');
+  /* ------------------------------------------------------- 4. Expediente */
+  console.log('\n4. Expediente del proveedor y entregas anteriores');
   const idProveedor = await page.evaluate(async () => {
     const html = await (await fetch('/admin/proveedores')).text();
     const coincidencia = html.match(/\/admin\/proveedores\/detalle\?id=(\d+)/);
@@ -302,8 +302,18 @@ try {
   comprobar('hay al menos un proveedor', idProveedor > 0);
   if (idProveedor > 0) {
     await page.goto(`${BASE}/admin/proveedores/detalle?id=${idProveedor}`, { waitUntil: 'domcontentloaded' });
+    const expediente = await page.textContent('body');
+    comprobar('el expediente trae las compras y los saldos', expediente.includes('Saldo pendiente') && expediente.includes('Compras'));
+    comprobar('y las recepciones, facturas y pagos del proveedor',
+      expediente.includes('Pendiente de recibir') && expediente.includes('Facturas pendientes') && expediente.includes('Pagos'));
+  }
+
+  // Historial del registro fotográfico anterior: solo se muestra si el proveedor tiene entregas anteriores.
+  const idConHistorial = Number(sql('SELECT IFNULL(MIN(proveedor_id), 0) FROM proveedor_entradas'));
+  if (idConHistorial > 0) {
+    await page.goto(`${BASE}/admin/proveedores/detalle?id=${idConHistorial}`, { waitUntil: 'domcontentloaded' });
     const texto = await page.textContent('body');
-    comprobar('la sección existe', texto.includes('Balance general'));
+    comprobar('la sección de entregas anteriores existe', texto.includes('Entregas anteriores (historial)'));
     comprobar('trae el resumen de pagos', texto.includes('Pendiente por pagar'));
 
     const encabezados = await page.$$eval('section[aria-labelledby="titulo-balance"] thead th', (nodos) =>
@@ -330,6 +340,8 @@ try {
       (nodos) => nodos.length
     );
     comprobar('hay acciones por fila', accionesFila > 0, `${accionesFila} filas`);
+  } else {
+    console.log('  (sin entregas anteriores en esta base: no hay historial que verificar)');
   }
 
   /* ---------------------------------------------------------- 5. Contador */

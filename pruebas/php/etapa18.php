@@ -46,6 +46,9 @@ if ($viejas) {
         $db->query("DELETE FROM gastos WHERE id IN ($g)");
     }
 }
+$db->query("DELETE FROM periodos_contables WHERE contribuyente_id IN (SELECT id FROM contribuyentes WHERE rfc = 'T18XAXX010101')");
+$db->query("DELETE FROM empresas WHERE nombre = 'T18 Empresa 2'");
+$db->query("DELETE FROM contribuyentes WHERE rfc = 'T18XAXX010101'");
 $db->query("DELETE FROM materiales WHERE nombre LIKE 'T18 %'");
 $db->query('UPDATE productos SET stock = 10, stock_por_terminar = 0 WHERE id IN (36, 37)');
 
@@ -275,6 +278,33 @@ $prueba('una compra limpia sí se cancela y deja constancia', OrdenesCompra::can
     && (int) $uno("SELECT COUNT(*) FROM auditoria WHERE entidad='orden_compra' AND entidad_id=$G AND accion='cancelar'") === 1);
 $prueba('no se registran pagos de una compra cancelada', !PagosCompra::registrar($G, $hoy, '10', 'Efectivo', '', $token(), $usuario));
 PagosCompra::getErrores();
+
+echo "15. Separación por entidad fiscal y periodos cerrados\n";
+$db->query("INSERT INTO contribuyentes (rfc, razon_social) VALUES ('T18XAXX010101', 'T18 Segunda entidad')");
+$contrib2 = (int) $db->insert_id;
+$db->query("INSERT INTO empresas (contribuyente_id, nombre) VALUES ($contrib2, 'T18 Empresa 2')");
+$empresa2 = (int) $db->insert_id;
+$contrib1 = Contabilidad::contribuyentePrincipal();
+OrdenesCompra::crear(['tipo' => 'insumo', 'proveedor_id' => $proveedor, 'fecha_solicitud' => $hoy, 'referencia' => 'T18-H', 'empresa_id' => $empresa2],
+    [['descripcion' => 'Soldadura', 'unidad' => 'kg', 'cantidad' => '2', 'costo' => '100', 'controla' => 0]], $usuario);
+$H = OrdenesCompra::$ultimoId;
+OrdenesCompra::crear(['tipo' => 'insumo', 'proveedor_id' => $proveedor, 'fecha_solicitud' => $hoy, 'referencia' => 'T18-I'],
+    [['descripcion' => 'Lija', 'unidad' => 'pza', 'cantidad' => '5', 'costo' => '10', 'controla' => 0]], $usuario);
+$I = OrdenesCompra::$ultimoId;
+$prueba('cada compra queda en la entidad de su negocio', (int) OrdenesCompra::buscarID($H)['contribuyente_id'] === $contrib2 && (int) OrdenesCompra::buscarID($I)['contribuyente_id'] === $contrib1);
+$gH = CompraContable::enviarAContabilidad($H, $usuario);
+$gI = CompraContable::enviarAContabilidad($I, $usuario);
+$prueba('el gasto de cada compra pertenece a la misma entidad y negocio',
+    $gH > 0 && (int) Gastos::buscarID($gH)['contribuyente_id'] === $contrib2 && (int) Gastos::buscarID($gH)['empresa_id'] === $empresa2
+    && $gI > 0 && (int) Gastos::buscarID($gI)['contribuyente_id'] === $contrib1, $errores());
+$mesActual = (int) date('n');
+$anioActual = (int) date('Y');
+$db->query("INSERT INTO periodos_contables (contribuyente_id, anio, mes, estado, cerrado_en) VALUES ($contrib1, $anioActual, $mesActual, 'cerrado', NOW())");
+$prueba('con el periodo cerrado de la entidad A, no se paga una compra de A',
+    !PagosCompra::registrar($I, $hoy, '10', 'Efectivo', '', $token(), $usuario) && (float) OrdenesCompra::resumen($I)['pagado'] === 0.0);
+PagosCompra::getErrores();
+$prueba('pero sí una compra de la entidad B (periodos independientes)', PagosCompra::registrar($H, $hoy, '50', 'Efectivo', '', $token(), $usuario), $errores());
+$db->query("DELETE FROM periodos_contables WHERE contribuyente_id = $contrib1 AND anio = $anioActual AND mes = $mesActual");
 
 echo $fallos === 0 ? "\nTODO OK\n" : "\n$fallos prueba(s) fallaron\n";
 exit($fallos === 0 ? 0 : 1);
