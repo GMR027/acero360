@@ -140,17 +140,27 @@ function iniciarOrdenCompra() {
   };
 
   /** Rearma las opciones del catálogo de un renglón con las del proveedor elegido. */
+  const normalizar = function (texto) {
+    return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  };
+
   const llenarCatalogo = function (fila, proveedorId) {
     const selector = fila.querySelector('[data-catalogo]');
     if (!selector) {
       return;
     }
     const previo = selector.value;
+    const buscar = fila.querySelector('[data-buscar-catalogo]');
+    const texto = normalizar(buscar ? buscar.value : '');
     while (selector.options.length > 1) {
       selector.remove(1);
     }
     itemsDe(proveedorId).forEach(function (item) {
       if (!item.activo && String(item.id) !== previo) {
+        return;
+      }
+      // La búsqueda filtra por nombre o código; lo ya elegido siempre se conserva.
+      if (texto !== '' && String(item.id) !== previo && normalizar(item.codigo + ' ' + item.nombre).indexOf(texto) === -1) {
         return;
       }
       const opcion = document.createElement('option');
@@ -243,6 +253,10 @@ function iniciarOrdenCompra() {
     });
 
     cuerpo.addEventListener('input', function (evento) {
+      if (evento.target.hasAttribute('data-buscar-catalogo')) {
+        llenarCatalogo(evento.target.closest('[data-partida]'), selectorProveedor ? selectorProveedor.value : '');
+        return;
+      }
       // Si el costo se edita y ya no coincide con el del catálogo, se avisa cuál era.
       if (evento.target.hasAttribute('data-costo')) {
         const fila = evento.target.closest('[data-partida]');

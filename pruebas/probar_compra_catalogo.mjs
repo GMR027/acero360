@@ -62,6 +62,13 @@ try {
   await p.selectOption('#proveedor_id', prov);
   const o1 = await opciones(0);
   verifica('al elegir al proveedor muestra sus productos activos (con código)', o1.some((t) => t.includes('AG-1 · CC Armazón')) && o1.some((t) => t.includes('AG-2 · CC Base')));
+  await p.locator('[data-bloque-tipo="semiterminado"] [data-partida]').first().locator('[data-buscar-catalogo]').fill('ag-2');
+  const oBusq = await opciones(0);
+  verifica('la búsqueda por código filtra la lista', oBusq.some((t) => t.includes('CC Base')) && !oBusq.some((t) => t.includes('CC Armazón')));
+  await p.locator('[data-bloque-tipo="semiterminado"] [data-partida]').first().locator('[data-buscar-catalogo]').fill('ARMAZON');
+  const oBusq2 = await opciones(0);
+  verifica('la búsqueda por nombre ignora mayúsculas y acentos', oBusq2.some((t) => t.includes('CC Armazón')) && !oBusq2.some((t) => t.includes('CC Base')));
+  await p.locator('[data-bloque-tipo="semiterminado"] [data-partida]').first().locator('[data-buscar-catalogo]').fill('');
   verifica('no muestra inactivos ni los de otro proveedor', !o1.some((t) => t.includes('Descontinuado') || t.includes('Ajeno')));
 
   console.log('Recuperación automática y cálculos');

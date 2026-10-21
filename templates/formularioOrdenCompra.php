@@ -139,6 +139,7 @@ $catalogoProveedor = $catalogos[(int) ($orden['proveedor_id'] ?? 0)] ?? [];
                     ?>
                     <tr data-partida>
                         <td>
+                            <input class="control mb-sm" type="search" aria-label="Buscar en el catálogo por nombre o código" placeholder="Buscar por nombre o código" autocomplete="off" data-buscar-catalogo>
                             <select class="control" name="proveedor_producto_id[]" aria-label="Producto del catálogo del proveedor" data-catalogo>
                                 <option value="0">— Otro / fuera del catálogo —</option>
                                 <?php foreach ($catalogoProveedor as $it) : ?>
