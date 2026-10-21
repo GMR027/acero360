@@ -18,6 +18,8 @@ namespace App;
  *   • Lo recibido de un semiterminado va a «por terminar» (NO a la existencia vendible) salvo que se
  *     indique que ya viene terminado; los materiales van a materiales; los consumibles no se recepcionan.
  *   • Nunca se recibe más que lo pendiente, salvo confirmación explícita (queda auditada).
+ *   • Costo del proveedor (partidas y recepciones) y costo interno del producto propio (productos.costo_actual)
+ *     son independientes: una compra de semiterminados no escribe nunca en productos.costo_actual.
  *   • El costo recibido queda en recepcion_partidas (histórico); cambiar
  *     productos.costo_actual después nunca lo altera.
  *   • Cerrar una orden con faltantes es válido; una orden cerrada solo se
@@ -1230,7 +1232,8 @@ class OrdenesCompra
                 $insertar->execute();
 
                 // El costo vigente del catálogo solo cambia por una acción explícita y solo para productos.
-                if ($actualizaCosto && $productoId) {
+                // Costo del proveedor ≠ costo interno: en compras de semiterminados NUNCA se copia al producto propio.
+                if ($actualizaCosto && $productoId && $orden['tipo'] !== 'semiterminado') {
                     $actualizar = self::$db->prepare('UPDATE productos SET costo_actual = ? WHERE id = ?');
                     $actualizar->bind_param('si', $costo, $productoId);
                     $actualizar->execute();

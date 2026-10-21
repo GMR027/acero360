@@ -54,7 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 }
 
 $token = bin2hex(random_bytes(16));
-$hayProductos = (bool) array_filter($partidas, static fn ($p) => $p['producto_id']);
+// Solo compras que no son de semiterminados pueden copiar el costo al catálogo (el costo del proveedor no es el interno).
+$hayProductos = $orden['tipo'] !== 'semiterminado' && (bool) array_filter($partidas, static fn ($p) => $p['producto_id']);
 
 template('header', ['titulo' => 'Recepción · ' . $orden['folio'], 'subtitulo' => $orden['proveedor_nombre']]);
 template('tabsCompras', ['tab' => 'recepciones']);

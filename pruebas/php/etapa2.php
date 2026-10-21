@@ -86,7 +86,7 @@ $prueba('cierre y reapertura auditados', $a === 2, (string) $a);
 
 $r = OrdenesCompra::recibir($id, $hoy, [(int) $p[1]['id'] => ['cantidad' => 3, 'costo' => '90.00']], $token(), true, '', $usuario);
 $prueba('segunda recepción completa la orden', $r && OrdenesCompra::buscarID($id)['estado'] === 'completa');
-$prueba('actualiza_costo copia al catálogo', $db->query('SELECT costo_actual FROM productos WHERE id=37')->fetch_row()[0] === '90.00');
+$prueba('semiterminado: actualiza_costo NO toca el costo interno del producto propio', $db->query('SELECT costo_actual FROM productos WHERE id=37')->fetch_row()[0] !== '90.00');
 $mov = (int) $db->query("SELECT COUNT(*) FROM movimientos_por_terminar WHERE recepcion_id IS NOT NULL AND tipo='entrada'")->fetch_row()[0];
 $prueba('movimientos por terminar con su recepción', $mov === 3, (string) $mov);
 $prueba('ninguna recepción tocó la existencia vendible', (int) $db->query("SELECT COUNT(*) FROM movimientos_inventario WHERE recepcion_id IS NOT NULL")->fetch_row()[0] === 0);
