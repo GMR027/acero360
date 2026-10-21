@@ -172,9 +172,51 @@ class CompraContable
             self::$errores = Archivos::getErrores();
             return false;
         }
-        $documentoId = Archivos::$ultimoId;
 
-        return self::sincronizarCfdi($ordenId, $gastoId, $documentoId, $usuarioId);
+        // Archivos::subir ya llamó a sincronizarDocumentos(); si ahí hubo un conflicto (UUID repetido) los errores quedaron aquí.
+        return self::$errores === [];
+    }
+
+    /** Evita que una baja provocada por la propia sincronización la vuelva a disparar. */
+    private static bool $sincronizando = false;
+
+    /**
+     * Gancho de Archivos (subir/baja de un documento de un gasto): si ese gasto pertenece a una compra, su estado
+     * documental se recalcula desde los documentos ACTIVOS. «Con CFDI» solo con un XML con timbre; si ya no hay
+     * ninguno, vuelve a «CFDI pendiente» (nunca a «Sin factura»: eso lo decide el usuario).
+     */
+    public static function sincronizarDocumentos(int $gastoId, int $usuarioId): void
+    {
+        if (self::$sincronizando) {
+            return;
+        }
+        $consulta = self::$db->prepare('SELECT id, estado_cfdi FROM ordenes_compra WHERE gasto_id = ?');
+        $consulta->bind_param('i', $gastoId);
+        $consulta->execute();
+        $orden = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+        if (!$orden) {
+            return;
+        }
+
+        self::$sincronizando = true;
+        try {
+            $cfdi = array_values(array_filter(
+                Archivos::deOperacion('gasto', $gastoId, false),
+                static fn ($d) => $d['estado_validacion'] === 'cfdi_con_timbre'
+            ));
+            if ($cfdi) {
+                self::sincronizarCfdi((int) $orden['id'], $gastoId, (int) $cfdi[0]['id'], $usuarioId);
+            } elseif ($orden['estado_cfdi'] === 'con_cfdi') {
+                $actualizar = self::$db->prepare("UPDATE ordenes_compra SET estado_cfdi = 'pendiente_cfdi' WHERE id = ?");
+                $actualizar->bind_param('i', $orden['id']);
+                $actualizar->execute();
+                $actualizar->close();
+                Auditoria::registrar('orden_compra', (int) $orden['id'], 'cfdi_retirado', $usuarioId, 'Ya no hay un XML de CFDI activo', ['gasto_id' => $gastoId]);
+            }
+        } finally {
+            self::$sincronizando = false;
+        }
     }
 
     /**

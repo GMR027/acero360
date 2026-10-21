@@ -203,6 +203,15 @@ $prueba('«con CFDI» no se puede fijar a mano', !CompraContable::definirEstadoC
 CompraContable::getErrores();
 $prueba('«sin factura» sí', CompraContable::definirEstadoCfdi($E, 'no_facturada', $usuario) && OrdenesCompra::buscarID($E)['estado_cfdi'] === 'no_facturada');
 
+echo "Los documentos del gasto se reflejan en la compra (venga el cambio de donde venga)\n";
+$gastosAntesDoc = $totalGastos();
+$docCfdi = (int) $uno("SELECT id FROM documentos WHERE entidad='gasto' AND entidad_id=$g1 AND estado_validacion='cfdi_con_timbre' AND activo=1 LIMIT 1");
+$prueba('dar de baja el XML devuelve la compra a «CFDI pendiente»', Archivos::baja($docCfdi, 'Se subió el XML equivocado', $usuario)
+    && OrdenesCompra::buscarID($C)['estado_cfdi'] === 'pendiente_cfdi', $errores());
+$ok = Archivos::subir('gasto', $g1, $archivo('correcto.xml', $cfdi($uuid, '1460.00')), 'auto', $usuario, null, '', false);
+$prueba('subir el XML correcto desde la pantalla genérica la vuelve a «Con CFDI»', $ok && OrdenesCompra::buscarID($C)['estado_cfdi'] === 'con_cfdi', $errores());
+$prueba('sin duplicar el gasto', $totalGastos() === $gastosAntesDoc && $gastosDe($C) === 1);
+
 echo "7-8. Pagos parciales: saldo correcto y sin gastos duplicados\n";
 $gastosAntesPagos = $totalGastos();
 $prueba('saldo inicial 1460', OrdenesCompra::resumen($C)['saldo'] == 1460.0 && OrdenesCompra::resumen($C)['estado_pago'] === 'pendiente');

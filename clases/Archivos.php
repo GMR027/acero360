@@ -303,6 +303,9 @@ class Archivos
 
             self::$db->commit();
             self::$ultimoId = $id;
+            if ($entidad === 'gasto') {
+                CompraContable::sincronizarDocumentos($entidadId, $usuarioId);   // la compra ligada a este gasto refleja sus documentos
+            }
             return true;
         } catch (\Throwable $excepcion) {
             self::$db->rollBack();
@@ -426,6 +429,9 @@ class Archivos
         $consulta->close();
 
         Auditoria::registrar('documento', $id, 'baja', $usuarioId, $motivo);
+        if ($doc['entidad'] === 'gasto') {
+            CompraContable::sincronizarDocumentos((int) $doc['entidad_id'], $usuarioId);
+        }
         return true;
     }
 
