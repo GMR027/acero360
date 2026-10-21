@@ -23,6 +23,11 @@ if (preg_match('#^/admin/seguimiento(\?[a-z_=&]*)?$#', (string) ($_POST['volver'
     $destino = $_POST['volver'];
 }
 
+// El conmutador de la lista de ingresos regresa a la misma lista (mismos filtros y página).
+if (preg_match('#^/admin/contabilidad/ingresos(\?[A-Za-z0-9_=&%.+-]*)?$#', (string) ($_POST['volver'] ?? ''))) {
+    $destino = $_POST['volver'];
+}
+
 if (!\App\Contabilidad::buscarIngreso($id)) {
     redirigir('/admin/contabilidad/ingresos', 'error', 'El ingreso ya no existe.');
 }
@@ -34,6 +39,22 @@ if ($accion === 'facturacion') {
         !empty($_POST['confirma_manual'])
     );
     $mensaje = 'Facturación actualizada.';
+} elseif ($accion === 'facturacion_alterna') {
+    // Conmutador de la lista: Pendiente de facturar ⇄ Facturada. Facturar sin CFDI adjunto queda marcado como confirmación manual.
+    $ingreso = \App\Contabilidad::buscarIngreso($id);
+    $nuevo   = ($ingreso['estado_facturacion'] ?? '') === 'facturada' ? 'sin_clasificar' : 'facturada';
+    $ok = \App\Contabilidad::actualizarFacturacion($id, $nuevo, '', '', $nuevo === 'facturada' ? date('Y-m-d') : '', $usuario, $nuevo === 'facturada');
+    $mensaje = $nuevo === 'facturada' ? 'Marcada como facturada.' : 'Marcada como pendiente de facturar.';
+} elseif ($accion === 'cobro_alterna') {
+    // Conmutador de la lista: Sin pagar ⇄ Pagada. Pagar registra un cobro por el saldo; revertir cancela los cobros vigentes.
+    $ingreso = \App\Contabilidad::buscarIngreso($id);
+    if (($ingreso['estado_cobro'] ?? '') === 'cobrado') {
+        $ok = \App\Contabilidad::cancelarCobrosDeIngreso($id, 'Revertido desde la lista de ingresos', $usuario);
+        $mensaje = 'Marcada como sin pagar: se cancelaron sus cobros.';
+    } else {
+        $ok = \App\Contabilidad::registrarCobro($id, date('Y-m-d'), (string) ($ingreso['saldo'] ?? 0), '', 'Marcada como pagada', $usuario);
+        $mensaje = 'Marcada como pagada: se registró el cobro del saldo.';
+    }
 } elseif ($accion === 'cobro') {
     if (!consumirToken($_POST['token'] ?? null)) {
         redirigir($destino, 'error', 'Este formulario ya se envió; no se registró el cobro dos veces.');

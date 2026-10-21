@@ -71,7 +71,7 @@ template('tabsCompras', ['tab' => 'pedidos']);
         <span class="stat__etiqueta">Comprado</span>
         <span class="stat__valor cifra"><?= formatoMoneda($resumen['total']) ?></span>
         <span class="stat__pie">Subtotal <?= formatoMoneda($resumen['subtotal']) ?>
-            · IVA <?= $resumen['iva'] === null ? 'no especificado' : formatoMoneda($resumen['iva']) ?></span>
+            · IVA <?= $orden['iva_tasa'] !== null ? '(' . rtrim(rtrim(number_format((float) $orden['iva_tasa'], 2, '.', ''), '0'), '.') . ' %) ' : '' ?><?= $resumen['iva'] === null ? 'no especificado' : formatoMoneda($resumen['iva']) ?></span>
     </article>
     <article class="stat">
         <span class="stat__etiqueta">Facturado</span>
@@ -96,6 +96,7 @@ template('tabsCompras', ['tab' => 'pedidos']);
         <table class="tabla">
             <caption class="solo-lectores">Comparativo comprado contra recibido</caption>
             <thead><tr>
+                <th scope="col">Imagen</th>
                 <th scope="col">Artículo</th>
                 <th scope="col" class="tabla--numerica">Comprado</th>
                 <th scope="col" class="tabla--numerica">Recibido</th>
@@ -103,10 +104,22 @@ template('tabsCompras', ['tab' => 'pedidos']);
                 <th scope="col" class="tabla--numerica">Costo pactado</th>
                 <th scope="col" class="tabla--numerica">Costo recibido</th>
                 <th scope="col" class="tabla--numerica">Importe</th>
+                <?php if ($orden['iva_tasa'] !== null) : ?><th scope="col" class="tabla--numerica">IVA</th><?php endif; ?>
             </tr></thead>
             <tbody>
                 <?php foreach ($partidas as $p) : ?>
                     <tr>
+                        <td>
+                            <?php $imagenArticulo = $p['catalogo_imagen'] ?: ($p['producto_imagen'] ?? ''); ?>
+                            <?php if ($imagenArticulo) : ?>
+                                <a href="<?= escaparValores(\App\Imagenes::url($imagenArticulo)) ?>" target="_blank" rel="noopener">
+                                    <img src="<?= escaparValores(\App\Imagenes::urlMiniatura($imagenArticulo)) ?>" alt="<?= escaparValores($p['descripcion'] ?: $p['nombre_mostrado']) ?>"
+                                         width="64" height="64" loading="lazy" style="object-fit:cover;border-radius:.5rem;display:block">
+                                </a>
+                            <?php else : ?>
+                                <span class="material-symbols-outlined texto-secundario" aria-hidden="true" title="Sin imagen">image</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <strong><?= escaparValores($p['descripcion'] ?: $p['nombre_mostrado']) ?></strong>
                             <?php if ($p['codigo']) : ?><span class="texto-xs texto-secundario">· <?= escaparValores($p['codigo']) ?></span><?php endif; ?>
@@ -146,6 +159,13 @@ template('tabsCompras', ['tab' => 'pedidos']);
                                 <span class="texto-secundario">catálogo: <?= formatoMoneda($p['costo_catalogo']) ?></span></span><?php endif; ?></td>
                         <td class="tabla--numerica cifra"><?= $p['costo_final'] !== null ? formatoMoneda($p['costo_final']) : '—' ?></td>
                         <td class="tabla--numerica cifra"><?= formatoMoneda($p['importe_esperado']) ?></td>
+                        <?php if ($orden['iva_tasa'] !== null) : ?>
+                            <td class="tabla--numerica cifra">
+                                <?php if ((int) $p['aplica_iva'] === 1) : ?>
+                                    <span class="badge badge--info badge--sin-punto"><?= rtrim(rtrim(number_format((float) $orden['iva_tasa'], 2, '.', ''), '0'), '.') ?> %</span>
+                                <?php else : ?><span class="texto-secundario" title="Partida sin IVA">Sin IVA</span><?php endif; ?>
+                            </td>
+                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

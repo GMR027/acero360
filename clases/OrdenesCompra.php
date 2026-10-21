@@ -182,11 +182,13 @@ class OrdenesCompra
         $consulta = self::$db->prepare(
             'SELECT c.*, pr.nombre AS producto_nombre, pr.sku AS producto_sku, pr.imagen AS producto_imagen,
                     pr.unidad AS producto_unidad, mt.nombre AS material_nombre, mt.unidad AS material_unidad,
+                    pp.imagen AS catalogo_imagen,
                     COALESCE(SUM(rp.cantidad_recibida), 0) AS recibida,
                     COALESCE(SUM(ROUND(rp.cantidad_recibida * rp.costo_unitario * 100)), 0) AS recibido_centavos
                FROM orden_compra_partidas c
                LEFT JOIN productos pr ON pr.id = c.producto_id
                LEFT JOIN materiales mt ON mt.id = c.material_id
+               LEFT JOIN proveedor_productos pp ON pp.id = c.proveedor_producto_id
                LEFT JOIN recepcion_partidas rp ON rp.partida_id = c.id
               WHERE c.orden_id = ?
               GROUP BY c.id

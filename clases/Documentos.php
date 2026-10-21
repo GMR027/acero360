@@ -295,6 +295,21 @@ class Documentos
         self::enviar($bytes, $nombre);
     }
 
+    /** PDF del reporte fiscal (ventas, gastos, impuestos y proveedores). Solo lectura. */
+    public static function descargarReporteFiscal(array $datos, string $nombre, string $volver): void
+    {
+        ob_start();
+        \template('pdfFiscalMovimientos', $datos);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'el reporte', 'landscape');
+        if ($bytes === null) {
+            \redirigir($volver, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, $nombre);
+    }
+
     /** PDF de estadísticas. Solo lectura. */
     public static function descargarEstadisticas(array $reporte): void
     {
@@ -416,6 +431,7 @@ class Documentos
             'orden'       => $orden,
             'partidas'    => $partidas,
             'totales'     => OrdenesCompra::totales($partidas),
+            'resumen'     => OrdenesCompra::resumen($ordenId),
             'recepciones' => OrdenesCompra::recepciones($ordenId),
             'tipo'        => $tipo === 'cierre' ? 'cierre' : 'orden',
         ]);

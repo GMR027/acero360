@@ -45,6 +45,32 @@ $activo = !array_key_exists('activo', $registro) || (int) $registro['activo'] ==
         <input class="control" type="text" id="descripcion" name="descripcion" maxlength="255"
                value="<?= escaparValores($registro['descripcion'] ?? '') ?>" placeholder="Características que lo identifican (medida, calibre, acabado…)">
     </div>
+    <div class="campo campo--completo">
+        <span class="campo__etiqueta">Imagen del artículo</span>
+        <div class="carga-imagen">
+            <div class="carga-imagen__zona">
+                <?php if (!empty($registro['imagen'])) : ?>
+                    <img class="carga-imagen__preview" src="<?= escaparValores(\App\Imagenes::urlMiniatura($registro['imagen'])) ?>"
+                         alt="<?= escaparValores($registro['nombre'] ?? '') ?>">
+                <?php else : ?>
+                    <span class="carga-imagen__placeholder material-symbols-outlined" aria-hidden="true">image</span>
+                <?php endif; ?>
+                <span class="campo__ayuda">
+                    Se muestra al recibir la compra para identificar el artículo. JPG, PNG o WebP de hasta 6 MB.
+                    <?php if (!empty($registro['imagen'])) : ?><br>Deja el campo vacío para conservar la imagen actual.<?php endif; ?>
+                </span>
+            </div>
+            <label class="campo__etiqueta" for="imagen">Archivo de imagen</label>
+            <input class="control carga-imagen__input" type="file" id="imagen" name="imagen"
+                   accept="image/jpeg,image/png,image/webp" data-preview>
+            <?php if (!empty($registro['imagen'])) : ?>
+                <label class="comprobacion" for="quitar_imagen">
+                    <input type="checkbox" id="quitar_imagen" name="quitar_imagen" value="1">
+                    <span class="texto-sm">Quitar la imagen actual</span>
+                </label>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
 
 <label class="comprobacion" for="activo">

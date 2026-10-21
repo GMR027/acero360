@@ -187,6 +187,77 @@ class ResumenFiscal
     }
 
     /**
+     * Proveedores: compras y pagos del periodo y lo que se les debe hoy (todas las compras vigentes, sin importar
+     * el periodo). El total de una compra es subtotal + IVA capturado, igual que en Compras.
+     *
+     * @return array{proveedores: array<int, array<string, mixed>>, compras: array<int, array<string, mixed>>, pagos: array<int, array<string, mixed>>, totales: array<string, float>}
+     */
+    public static function proveedores(int $anio, int $mes = 0): array
+    {
+        $filtroMes = $mes > 0 ? ' AND MONTH(%s) = ' . (int) $mes : '';
+        $totalSql  = '(ROUND(o.total_esperado * 100) + COALESCE(ROUND(o.iva * 100), 0)) / 100';
+        $pagadoSql = "(SELECT COALESCE(SUM(p.importe), 0) FROM pagos_compra p WHERE p.orden_id = o.id AND p.estado = 'vigente')";
+
+        $consulta = self::$db->prepare(
+            "SELECT DATE(o.fecha_solicitud) AS fecha, o.folio, pr.nombre AS proveedor, o.estado, o.estado_cfdi,
+                    o.total_esperado AS subtotal, COALESCE(o.iva, 0) AS iva, $totalSql AS total, $pagadoSql AS pagado
+               FROM ordenes_compra o JOIN proveedores pr ON pr.id = o.proveedor_id
+              WHERE o.estado <> 'cancelada' AND YEAR(o.fecha_solicitud) = ?" . sprintf($filtroMes, 'o.fecha_solicitud') . '
+              ORDER BY pr.nombre, o.fecha_solicitud, o.id'
+        );
+        $consulta->bind_param('i', $anio);
+        $consulta->execute();
+        $compras = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        $consulta = self::$db->prepare(
+            "SELECT p.fecha, o.folio, pr.nombre AS proveedor, p.metodo, p.referencia, p.importe
+               FROM pagos_compra p JOIN ordenes_compra o ON o.id = p.orden_id JOIN proveedores pr ON pr.id = o.proveedor_id
+              WHERE p.estado = 'vigente' AND YEAR(p.fecha) = ?" . sprintf($filtroMes, 'p.fecha') . '
+              ORDER BY pr.nombre, p.fecha, p.id'
+        );
+        $consulta->bind_param('i', $anio);
+        $consulta->execute();
+        $pagos = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        $deuda = self::$db->query(
+            "SELECT pr.id, pr.nombre, pr.rfc, COALESCE(SUM($totalSql), 0) AS comprado_total, COALESCE(SUM($pagadoSql), 0) AS pagado_total
+               FROM proveedores pr JOIN ordenes_compra o ON o.proveedor_id = pr.id AND o.estado <> 'cancelada'
+              GROUP BY pr.id, pr.nombre, pr.rfc"
+        )->fetch_all(MYSQLI_ASSOC);
+
+        $porProveedor = [];
+        foreach ($deuda as $d) {
+            $porProveedor[$d['nombre']] = [
+                'proveedor' => $d['nombre'], 'rfc' => (string) $d['rfc'], 'compras' => 0, 'comprado' => 0.0, 'pagado_periodo' => 0.0,
+                'saldo' => round((float) $d['comprado_total'] - (float) $d['pagado_total'], 2),
+            ];
+        }
+        foreach ($compras as $c) {
+            $porProveedor[$c['proveedor']] ??= ['proveedor' => $c['proveedor'], 'rfc' => '', 'compras' => 0, 'comprado' => 0.0, 'pagado_periodo' => 0.0, 'saldo' => 0.0];
+            $porProveedor[$c['proveedor']]['compras']++;
+            $porProveedor[$c['proveedor']]['comprado'] += (float) $c['total'];
+        }
+        foreach ($pagos as $p) {
+            $porProveedor[$p['proveedor']] ??= ['proveedor' => $p['proveedor'], 'rfc' => '', 'compras' => 0, 'comprado' => 0.0, 'pagado_periodo' => 0.0, 'saldo' => 0.0];
+            $porProveedor[$p['proveedor']]['pagado_periodo'] += (float) $p['importe'];
+        }
+        // Solo proveedores con movimiento en el periodo o con saldo pendiente.
+        $proveedores = array_values(array_filter($porProveedor, static fn ($x) => $x['compras'] > 0 || $x['pagado_periodo'] > 0 || abs($x['saldo']) >= 0.005));
+        usort($proveedores, static fn ($a, $b) => [$b['saldo'], $a['proveedor']] <=> [$a['saldo'], $b['proveedor']]);
+
+        $totales = ['comprado' => 0.0, 'pagado_periodo' => 0.0, 'saldo' => 0.0];
+        foreach ($proveedores as $x) {
+            $totales['comprado'] += $x['comprado'];
+            $totales['pagado_periodo'] += $x['pagado_periodo'];
+            $totales['saldo'] += $x['saldo'];
+        }
+
+        return ['proveedores' => $proveedores, 'compras' => $compras, 'pagos' => $pagos, 'totales' => array_map(static fn ($v) => round($v, 2), $totales)];
+    }
+
+    /**
      * Impuestos de un mes (o del año si $mes = 0) en la forma que se muestra y exporta.
      *
      * @return array<string, float>

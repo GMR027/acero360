@@ -116,7 +116,7 @@ template('tabsCompras', ['tab' => 'proveedores']);
                         <th scope="col">RFC</th>
                         <th scope="col" class="tabla__col-secundaria">Teléfono</th>
                         <th scope="col" class="tabla__col-secundaria">Ubicación</th>
-                        <th scope="col" class="tabla--centro">Entradas</th>
+                        <th scope="col" class="tabla--centro">Compras</th>
                         <th scope="col" class="tabla--numerica">Acciones</th>
                     </tr>
                 </thead>
@@ -138,8 +138,9 @@ template('tabsCompras', ['tab' => 'proveedores']);
                             </td>
                             <td class="tabla--centro cifra">
                                 <a class="badge badge--info badge--sin-punto"
-                                   href="/admin/proveedores/entradas?proveedor=<?= (int) $proveedor->id ?>">
-                                    <?= number_format($proveedor->contarEntradas()) ?>
+                                   href="/admin/compras/pedidos?proveedor=<?= (int) $proveedor->id ?>"
+                                   title="Compras realizadas a este proveedor">
+                                    <?= number_format($proveedor->contarCompras()) ?>
                                 </a>
                             </td>
                             <td class="tabla--numerica">

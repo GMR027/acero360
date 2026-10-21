@@ -6,7 +6,7 @@
  * $tipo 'cierre' → solicitado vs. recibido, costos finales y diferencias
  *                  (revisión interna antes de pagar).
  *
- * Variables: $orden, $partidas, $totales, $recepciones, $tipo
+ * Variables: $orden, $partidas, $totales, $resumen, $recepciones, $tipo
  */
 $cierre = $tipo === 'cierre';
 $mx = static fn ($v) => '$' . number_format((float) $v, 2);
@@ -14,6 +14,23 @@ $estado = \App\OrdenesCompra::ESTADOS[$orden['estado']]['etiqueta'] ?? $orden['e
 $tipoTexto = $orden['tipo'] === 'insumo' ? 'Material, insumo o consumible' : 'Producto semiterminado';
 $cfdiTexto = \App\CompraContable::ESTADOS_CFDI[$orden['estado_cfdi']]['etiqueta'] ?? $orden['estado_cfdi'];
 $num = static fn ($v) => \App\OrdenesCompra::num($v);
+
+/** Miniatura (o imagen completa) de public/image en base64, o '' si no existe. */
+$imagenBase64 = static function (?string $archivo): string {
+    $archivo = trim((string) $archivo);
+    if ($archivo === '' || strpos($archivo, '..') !== false) {
+        return '';
+    }
+    $mini = preg_replace('/\.([a-z0-9]+)$/i', '_mini.$1', $archivo);
+    foreach ([$mini, $archivo] as $nombre) {
+        $ruta = dirname(__DIR__) . '/public/image/' . $nombre;
+        if (is_file($ruta)) {
+            $mime = function_exists('mime_content_type') ? mime_content_type($ruta) : 'image/jpeg';
+            return 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($ruta));
+        }
+    }
+    return '';
+};
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -32,6 +49,7 @@ $num = static fn ($v) => \App\OrdenesCompra::num($v);
         .falta { color: #b3261e; font-weight: 700; } .sobra { color: #b26a00; font-weight: 700; }
         .total td { font-weight: 700; background: #f5f7fa; }
         .aviso { margin-top: 1rem; padding: .5rem; background: #fff7e0; border: 1px solid #f0d58a; font-size: 9.5px; }
+        img.foto { width: 40px; height: 40px; }
         .sin-borde td { border: 0; padding: .1rem 0; }
     </style>
 </head>
@@ -55,7 +73,7 @@ $num = static fn ($v) => \App\OrdenesCompra::num($v);
     <table>
         <thead>
             <tr>
-                <th>Código</th><th>Artículo</th><th>Solicitado</th>
+                <?php if ($cierre) : ?><th>Imagen</th><?php endif; ?><th>Código</th><th>Artículo</th><th>Solicitado</th>
                 <?php if ($cierre) : ?><th>Recibido</th><th>Faltante</th><?php endif; ?>
                 <th>Costo esperado</th>
                 <?php if ($cierre) : ?><th>Costo final</th><th>Diferencia</th><?php endif; ?>
@@ -65,6 +83,9 @@ $num = static fn ($v) => \App\OrdenesCompra::num($v);
         <tbody>
             <?php foreach ($partidas as $p) : ?>
                 <tr>
+                    <?php if ($cierre) : $img = $imagenBase64($p['catalogo_imagen'] ?: ($p['producto_imagen'] ?? '')); ?>
+                        <td class="centro"><?php if ($img !== '') : ?><img class="foto" src="<?= $img ?>" alt=""><?php endif; ?></td>
+                    <?php endif; ?>
                     <td class="centro"><?= escaparValores($p['producto_sku'] ?? '') ?></td>
                     <td><?= escaparValores($p['descripcion'] ?: $p['nombre_mostrado']) ?><?= $p['codigo'] ? ' · ' . escaparValores($p['codigo']) : '' ?>
                         <?= $p['descripcion'] && $p['producto_nombre'] ? '<br><span style="color:#6b6b70">Catálogo: ' . escaparValores($p['producto_nombre']) . '</span>' : '' ?>
@@ -87,7 +108,7 @@ $num = static fn ($v) => \App\OrdenesCompra::num($v);
         </tbody>
         <tfoot>
             <tr class="total">
-                <td colspan="2" class="num">Totales</td>
+                <td colspan="<?= $cierre ? 3 : 2 ?>" class="num">Totales</td>
                 <td class="num"><?= $num($totales['piezas_solicitadas']) ?></td>
                 <?php if ($cierre) : ?>
                     <td class="num"><?= $num($totales['piezas_recibidas']) ?></td>
@@ -99,6 +120,15 @@ $num = static fn ($v) => \App\OrdenesCompra::num($v);
             </tr>
         </tfoot>
     </table>
+
+    <?php if ($resumen['iva'] !== null || $orden['iva_tasa'] !== null) : ?>
+        <table style="width:45%;margin:.6rem 0 0 auto">
+            <tr><td>Subtotal de la compra</td><td class="num"><?= $mx($resumen['subtotal']) ?></td></tr>
+            <tr><td>IVA<?= $orden['iva_tasa'] !== null ? ' (' . rtrim(rtrim(number_format((float) $orden['iva_tasa'], 2, '.', ''), '0'), '.') . ' %)' : '' ?></td>
+                <td class="num"><?= $resumen['iva'] !== null ? $mx($resumen['iva']) : 'No especificado' ?></td></tr>
+            <tr class="total"><td>Total de la compra</td><td class="num"><?= $mx($resumen['total']) ?></td></tr>
+        </table>
+    <?php endif; ?>
 
     <?php if ($cierre && $recepciones) : ?>
         <h2>Historial de recepciones</h2>

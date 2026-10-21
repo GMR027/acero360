@@ -86,6 +86,7 @@ template('tabsCompras', ['tab' => 'recepciones']);
         <div class="tabla-contenedor">
             <table class="tabla">
                 <thead><tr>
+                    <th scope="col">Imagen</th>
                     <th scope="col">Código</th>
                     <th scope="col">Artículo</th>
                     <th scope="col" class="tabla--numerica">Solicitada</th>
@@ -107,6 +108,17 @@ template('tabsCompras', ['tab' => 'recepciones']);
                             : ($pend > 0 ? ['Parcial', 'badge--pendiente'] : ['Completa', 'badge--aprobado']);
                         ?>
                         <tr data-partida data-solicitada="<?= escaparValores((string) $p['solicitada']) ?>" data-recibida="<?= escaparValores((string) $p['recibida']) ?>">
+                            <td>
+                                <?php $imagenArticulo = $p['catalogo_imagen'] ?: ($p['producto_imagen'] ?? ''); ?>
+                                <?php if ($imagenArticulo) : ?>
+                                    <a href="<?= escaparValores(\App\Imagenes::url($imagenArticulo)) ?>" target="_blank" rel="noopener">
+                                        <img src="<?= escaparValores(\App\Imagenes::urlMiniatura($imagenArticulo)) ?>" alt="<?= escaparValores($nombre) ?>"
+                                             width="64" height="64" loading="lazy" style="object-fit:cover;border-radius:.5rem;display:block">
+                                    </a>
+                                <?php else : ?>
+                                    <span class="material-symbols-outlined texto-secundario" aria-hidden="true" title="Sin imagen">image</span>
+                                <?php endif; ?>
+                            </td>
                             <td class="cifra"><?= escaparValores($p['codigo'] ?: '—') ?></td>
                             <td><strong><?= escaparValores($nombre) ?></strong>
                                 <span class="texto-xs texto-secundario"><br>

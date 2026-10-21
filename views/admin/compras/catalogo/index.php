@@ -74,7 +74,7 @@ template('tabsCompras', ['tab' => 'catalogo']);
         <div class="tabla-contenedor"><table class="tabla">
             <caption class="solo-lectores">Productos semiterminados por proveedor</caption>
             <thead><tr><th scope="col">Proveedor</th><th scope="col">Producto</th><th scope="col">Código</th>
-                <th scope="col" class="tabla--numerica">Costo unitario</th><th scope="col" class="tabla--centro">Productos propios</th>
+                <th scope="col" class="tabla--numerica">Costo unitario</th><th scope="col">Producto relacionado</th>
                 <th scope="col" class="tabla--centro">Estado</th><th scope="col" class="tabla--numerica">Acciones</th></tr></thead>
             <tbody>
             <?php foreach ($filas as $f) : $activo = (int) $f['activo'] === 1; ?>
@@ -84,7 +84,13 @@ template('tabsCompras', ['tab' => 'catalogo']);
                         <?= $f['descripcion'] ? '<span class="texto-xs texto-secundario"><br>' . escaparValores($f['descripcion']) . '</span>' : '' ?></td>
                     <td><?= escaparValores((string) $f['codigo']) ?: '—' ?></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda($f['costo_unitario']) ?></td>
-                    <td class="tabla--centro cifra"><?= (int) $f['relaciones'] > 0 ? (int) $f['relaciones'] : '<span class="texto-secundario">—</span>' ?></td>
+                    <td>
+                        <?php if ((string) $f['relacionados'] !== '') : ?>
+                            <?php foreach (explode('||', (string) $f['relacionados']) as $nombreRel) : ?>
+                                <span class="badge badge--info badge--sin-punto"><?= escaparValores($nombreRel) ?></span>
+                            <?php endforeach; ?>
+                        <?php else : ?><span class="texto-secundario">No relacionado</span><?php endif; ?>
+                    </td>
                     <td class="tabla--centro"><span class="badge <?= $activo ? 'badge--aprobado' : 'badge--neutro' ?>"><?= $activo ? 'Activo' : 'Inactivo' ?></span></td>
                     <td class="tabla--numerica">
                         <a class="btn btn--secundario btn--sm" href="/admin/compras/catalogo/editar?id=<?= (int) $f['id'] ?>">Editar</a>

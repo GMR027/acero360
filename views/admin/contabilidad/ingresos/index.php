@@ -38,6 +38,20 @@ $var = static fn (string $k): ?float => $ant ? \App\Contabilidad::variacion($tot
 $parametros = array_filter(['anio' => $filtros['anio'], 'mes' => $filtros['mes'], 'empresa' => $periodo['empresa'], 'facturacion' => $filtros['facturacion'], 'q' => $filtros['q'],
     'estado' => $filtros['estado'], 'cobro' => $filtros['cobro'], 'desde' => $filtros['desde'], 'hasta' => $filtros['hasta'], 'todos' => $filtros['anio'] ? '' : '1'],
     static fn ($v) => $v !== '' && $v !== 0);
+$volverLista = $_SERVER['REQUEST_URI'] ?? '/admin/contabilidad/ingresos';
+/** Conmutador de una celda: botón tipo switch que envía la acción y regresa a esta lista. */
+$conmutador = static function (array $i, string $accion, bool $activo, string $etiqueta, string $titulo, string $mensaje, string $boton) use ($volverLista): string {
+    ob_start(); ?>
+    <form class="conmutador-estado" action="/admin/contabilidad/ingresos/accion" method="post"
+          data-confirmacion-sobre="Ingreso" data-confirmacion="<?= escaparValores($titulo) ?>"
+          data-confirmacion-mensaje="<?= escaparValores($mensaje) ?>" data-confirmacion-boton="<?= escaparValores($boton) ?>">
+        <input type="hidden" name="id" value="<?= (int) $i['id'] ?>"><input type="hidden" name="accion" value="<?= $accion ?>">
+        <input type="hidden" name="volver" value="<?= escaparValores($volverLista) ?>">
+        <button class="conmutador-estado__boton" type="submit" role="switch" aria-checked="<?= $activo ? 'true' : 'false' ?>"
+                aria-label="<?= escaparValores($etiqueta . ' · ' . $i['folio']) ?>"><span class="conmutador-estado__pista" aria-hidden="true"></span></button>
+    </form>
+    <?php return (string) ob_get_clean();
+};
 $rutaBase = '/admin/contabilidad/ingresos' . ($parametros ? '?' . http_build_query($parametros) : '');
 
 template('header', ['titulo' => 'Ingresos por ventas', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
@@ -111,8 +125,20 @@ template('resumenReporte', [
                             <td class="tabla--numerica cifra"><?= formatoMoneda((float) $i['subtotal'] - (float) $i['descuento']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($i['iva']) ?></td>
                             <td class="tabla--numerica cifra"><strong><?= formatoMoneda($i['total']) ?></strong></td>
-                            <td class="tabla--centro"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span></td>
-                            <td class="tabla--centro"><span class="badge <?= $cobro['clase'] ?>"><?= escaparValores($cobro['etiqueta']) ?></span></td>
+                            <td class="tabla--centro"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span>
+                                <?php if ($i['estado'] === 'vigente') :
+                                    $facturada = $i['estado_facturacion'] === 'facturada';
+                                    echo $conmutador($i, 'facturacion_alterna', $facturada, 'Facturada', $facturada ? '¿Marcar como pendiente de facturar?' : '¿Marcar como facturada?',
+                                        $facturada ? 'Se quitan el folio y el UUID guardados de la factura.' : 'Si no hay un CFDI adjunto, queda como confirmación manual de que ya se emitió la factura.',
+                                        $facturada ? 'Sí, pendiente' : 'Sí, facturada');
+                                endif; ?></td>
+                            <td class="tabla--centro"><span class="badge <?= $cobro['clase'] ?>"><?= escaparValores($cobro['etiqueta']) ?></span>
+                                <?php if ($i['estado'] === 'vigente' && ($i['estado_cobro'] === 'cobrado' || (float) $i['saldo'] > 0)) :
+                                    $pagada = $i['estado_cobro'] === 'cobrado';
+                                    echo $conmutador($i, 'cobro_alterna', $pagada, 'Pagada', $pagada ? '¿Marcar como sin pagar?' : '¿Marcar como pagada?',
+                                        $pagada ? 'Se cancelan los cobros registrados y el saldo vuelve a ser el total.' : 'Se registra hoy un cobro por el saldo pendiente (' . formatoMoneda($i['saldo']) . ').',
+                                        $pagada ? 'Sí, sin pagar' : 'Sí, pagada');
+                                endif; ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($i['saldo']) ?></td>
                             <td class="tabla--centro"><a href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $i['id'] ?>#documentos" aria-label="Ver los documentos de la venta <?= escaparValores($i['folio']) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : '<span class="badge badge--neutro badge--sin-punto">Sin documentos</span>' ?></a></td>
                             <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $i['id'] ?>">Abrir</a></td>

@@ -51,6 +51,14 @@ class Seguimiento
 
     /** Novedades de la plataforma: [clave/versión, fecha, título, texto, enlace]. */
     public const NOVEDADES = [
+        ['1.2.3', '2026-10-21', 'Conmutadores de facturación y cobro en Ingresos',
+         'En la lista de ingresos, un interruptor junto a Facturación pasa la venta de Pendiente de facturar a Facturada, y otro junto a Cobro de Sin pagar a Pagada (y de regreso). Piden confirmación; marcar como pagada registra el cobro del saldo y revertirlo cancela los cobros.', '/admin/contabilidad/ingresos'],
+        ['1.2.2', '2026-10-21', 'Reporte fiscal con proveedores',
+         'El reporte de ventas y gastos (PDF y Excel) separa Ventas, Gastos e Impuestos por pagar con totales por sección, y agrega Proveedores: compras y pagos del periodo y cuánto se les debe. El Excel trae una hoja por cada parte.', '/admin/fiscal/movimientos'],
+        ['1.2.1', '2026-10-21', 'Cierre de compra con IVA e imagen',
+         'El PDF del reporte de cierre de una orden de compra muestra subtotal, IVA y total cuando la compra lleva IVA, y la imagen de cada artículo del catálogo.', '/admin/compras'],
+        ['1.2.0', '2026-10-21', 'Imagen en el catálogo del proveedor',
+         'Cada artículo del catálogo del proveedor puede tener su imagen, que se ve en el catálogo y al recibir la compra para identificar lo que llega.', '/admin/compras/catalogo'],
         ['1.1.0', '2026-10-20', 'Ahora es Acero 360',
          'La plataforma estrena nombre y logotipo, un menú de Ajustes con pestañas (empresas, datos fiscales, aplicación de escritorio y versión) y este Centro de seguimiento.', '/admin/ajustes?seccion=novedades'],
     ];

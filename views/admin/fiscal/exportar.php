@@ -3,6 +3,7 @@
  * views/admin/fiscal/exportar.php — Reportes de impuestos en PDF, Excel o CSV.
  *   tipo=impuestos    → impuestos por pagar del mes (o los 12 meses si mes=0)
  *   tipo=movimientos  → todas las ventas y gastos del periodo, con los impuestos por pagar al final
+ *                     (PDF y Excel traen además la sección de proveedores: compras, pagos y saldo)
  * Solo lectura: exportar no modifica ninguna cifra.
  */
 
@@ -72,8 +73,71 @@ if ($tipo === 'impuestos' && $mes > 0) {
     $filas[] = ['', '', '', '', '', 'IMPUESTOS POR PAGAR', '', '', round($imp['impuestos'], 2)];
     $nombre = "ventas-y-gastos-$sufijo";
     $horizontal = true;
+    $prov   = \App\ResumenFiscal::proveedores($anio, $mes);
 }
 
+if ($tipo === 'movimientos' && $formato === 'pdf') {
+    \App\Documentos::descargarReporteFiscal(
+        ['titulo' => $titulo, 'd' => $d, 'imp' => $imp, 'tasa' => $tasa, 'prov' => $prov, 'aviso' => $aviso . ' Lo que se debe a proveedores es el saldo de sus compras menos los pagos registrados.'],
+        $nombre,
+        $volver
+    );
+}
+if ($tipo === 'movimientos' && $formato === 'xlsx') {
+    $mon = static fn ($v) => ['v' => round((float) $v, 2), 'f' => 'moneda'];
+    $neg = static fn (array $textos) => array_map(static fn ($t) => ['v' => $t, 'f' => 'neg'], $textos);
+    $ventas = array_values(array_filter($d['filas'], static fn ($f) => $f['tipo'] === 'Venta'));
+    $gastos = array_values(array_filter($d['filas'], static fn ($f) => $f['tipo'] !== 'Venta'));
+    $hojaMov = static function (string $nombreHoja, array $filasMov, string $colTipo, string $totalTexto, float $iva, float $total) use ($mon, $neg) {
+        $filas = [$neg(['Fecha', $nombreHoja === 'Ventas' ? 'Folio' : 'Concepto', $nombreHoja === 'Ventas' ? 'Cliente' : 'Proveedor o beneficiario', 'Negocio', $colTipo, 'Subtotal', 'IVA', 'Total'])];
+        $sub = 0.0;
+        foreach ($filasMov as $f) {
+            $sub += (float) $f['subtotal'];
+            $filas[] = [$f['fecha'], $f['referencia'], $f['contraparte'], $f['negocio'], $f['detalle'], $mon($f['subtotal']), $mon($f['iva']), $mon($f['total'])];
+        }
+        $filas[] = [['v' => $totalTexto, 'f' => 'neg'], '', '', '', '', $mon($sub), $mon($iva), $mon($total)];
+
+        return ['nombre' => $nombreHoja, 'filas' => $filas, 'anchos' => [1 => 12, 2 => 22, 3 => 30, 4 => 22, 5 => 22, 6 => 14, 7 => 14, 8 => 14]];
+    };
+    $filasRes = [
+        [['v' => $titulo, 'f' => 'titulo']], [],
+        $neg(['Concepto', 'Importe']),
+        ['Ventas (total)', $mon($d['totales']['ventas'])], ['   de las cuales facturadas', $mon($d['totales']['ventas_facturadas'])],
+        ['Gastos (total)', $mon($d['totales']['gastos'])],
+        ['IVA por pagar', $mon($imp['iva_por_pagar'])], ["ISR por pagar ($tasa %)", $mon($imp['isr_por_pagar'])],
+        [['v' => 'IMPUESTOS POR PAGAR', 'f' => 'neg'], $mon($imp['impuestos'])], [],
+        ['Comprado a proveedores en el periodo', $mon($prov['totales']['comprado'])],
+        ['Pagado a proveedores en el periodo', $mon($prov['totales']['pagado_periodo'])],
+        [['v' => 'SE DEBE A PROVEEDORES (hoy)', 'f' => 'neg'], $mon($prov['totales']['saldo'])], [],
+        [['v' => $aviso, 'f' => 'nota']],
+    ];
+    $filasProv = [$neg(['Proveedor', 'RFC', 'Compras', 'Comprado en el periodo', 'Pagado en el periodo', 'Se debe (saldo)'])];
+    foreach ($prov['proveedores'] as $x) {
+        $filasProv[] = [$x['proveedor'], $x['rfc'], (int) $x['compras'], $mon($x['comprado']), $mon($x['pagado_periodo']), $mon($x['saldo'])];
+    }
+    $filasProv[] = [['v' => 'TOTAL', 'f' => 'neg'], '', '', $mon($prov['totales']['comprado']), $mon($prov['totales']['pagado_periodo']), $mon($prov['totales']['saldo'])];
+    $filasCompras = [$neg(['Fecha', 'Folio', 'Proveedor', 'Estado', 'Subtotal', 'IVA', 'Total', 'Pagado', 'Debe'])];
+    foreach ($prov['compras'] as $c) {
+        $filasCompras[] = [$c['fecha'], $c['folio'], $c['proveedor'], \App\OrdenesCompra::ESTADOS[$c['estado']]['etiqueta'] ?? $c['estado'],
+            $mon($c['subtotal']), $mon($c['iva']), $mon($c['total']), $mon($c['pagado']), $mon(max(0, (float) $c['total'] - (float) $c['pagado']))];
+    }
+    $filasPagos = [$neg(['Fecha', 'Proveedor', 'Compra', 'Método', 'Referencia', 'Importe'])];
+    foreach ($prov['pagos'] as $p) {
+        $filasPagos[] = [$p['fecha'], $p['proveedor'], $p['folio'], (string) $p['metodo'], (string) $p['referencia'], $mon($p['importe'])];
+    }
+    $bytes = \App\Exportador::libro([
+        ['nombre' => 'Resumen', 'filas' => $filasRes, 'anchos' => [1 => 42, 2 => 18]],
+        $hojaMov('Ventas', $ventas, 'Estado', 'TOTAL VENTAS', $d['totales']['iva_ventas'], $d['totales']['ventas']),
+        $hojaMov('Gastos', $gastos, 'Tipo', 'TOTAL GASTOS', $d['totales']['iva_gastos'], $d['totales']['gastos']),
+        ['nombre' => 'Proveedores', 'filas' => $filasProv, 'anchos' => [1 => 32, 2 => 16, 3 => 10, 4 => 22, 5 => 22, 6 => 18]],
+        ['nombre' => 'Compras', 'filas' => $filasCompras, 'anchos' => [1 => 12, 2 => 16, 3 => 30, 4 => 18, 5 => 14, 6 => 14, 7 => 14, 8 => 14, 9 => 14]],
+        ['nombre' => 'Pagos a proveedores', 'filas' => $filasPagos, 'anchos' => [1 => 12, 2 => 30, 3 => 16, 4 => 16, 5 => 20, 6 => 14]],
+    ]);
+    if ($bytes === null) {
+        redirigir($volver, 'error', 'No fue posible generar el archivo de Excel.');
+    }
+    \App\Exportador::descargar($bytes, $nombre . '.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
 if ($formato === 'pdf') {
     \App\Documentos::descargarTabla($titulo, 'Ambos negocios', $enc, $filas, $nombre, $aviso, $volver, $horizontal);
 }

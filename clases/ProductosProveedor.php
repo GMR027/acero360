@@ -67,7 +67,9 @@ class ProductosProveedor
         [$donde, $tipos, $valores] = self::condiciones($filtros);
         $consulta = self::$db->prepare(
             "SELECT pp.*, p.nombre AS proveedor_nombre, p.activo AS proveedor_activo,
-                    (SELECT COUNT(*) FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id) AS relaciones
+                    (SELECT COUNT(*) FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id) AS relaciones,
+                    (SELECT GROUP_CONCAT(pr.nombre ORDER BY pr.nombre SEPARATOR '||') FROM proveedor_producto_relaciones r
+                       JOIN productos pr ON pr.id = r.producto_id WHERE r.proveedor_producto_id = pp.id) AS relacionados
                FROM proveedor_productos pp JOIN proveedores p ON p.id = pp.proveedor_id
               WHERE $donde ORDER BY pp.activo DESC, p.nombre ASC, pp.nombre ASC LIMIT ? OFFSET ?"
         );
@@ -281,10 +283,11 @@ class ProductosProveedor
 
         try {
             $consulta = self::$db->prepare(
-                'INSERT INTO proveedor_productos (proveedor_id, nombre, descripcion, codigo, costo_unitario, activo, creado_por)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO proveedor_productos (proveedor_id, nombre, descripcion, imagen, codigo, costo_unitario, activo, creado_por)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
             );
-            $consulta->bind_param('issssii', $d['proveedor_id'], $d['nombre'], $d['descripcion'], $d['codigo'], $d['costo_unitario'], $d['activo'], $usuarioId);
+            $imagen = ($datos['imagen'] ?? '') !== '' ? (string) $datos['imagen'] : null;
+            $consulta->bind_param('isssssii', $d['proveedor_id'], $d['nombre'], $d['descripcion'], $imagen, $d['codigo'], $d['costo_unitario'], $d['activo'], $usuarioId);
             $consulta->execute();
             self::$ultimoId = (int) self::$db->insert_id;
             $consulta->close();
@@ -315,11 +318,18 @@ class ProductosProveedor
 
         try {
             $consulta = self::$db->prepare(
-                'UPDATE proveedor_productos SET proveedor_id = ?, nombre = ?, descripcion = ?, codigo = ?, costo_unitario = ?, activo = ? WHERE id = ?'
+                'UPDATE proveedor_productos SET proveedor_id = ?, nombre = ?, descripcion = ?, codigo = ?, costo_unitario = ?, activo = ?,
+                        imagen = CASE WHEN ? = 0 THEN imagen ELSE NULLIF(?, \'\') END WHERE id = ?'
             );
-            $consulta->bind_param('issssii', $d['proveedor_id'], $d['nombre'], $d['descripcion'], $d['codigo'], $d['costo_unitario'], $d['activo'], $id);
+            // Imagen: sin clave = conservar la actual; cadena vacía = quitarla; nombre = reemplazarla.
+            $cambiaImagen = array_key_exists('imagen', $datos) ? 1 : 0;
+            $imagenNueva  = (string) ($datos['imagen'] ?? '');
+            $consulta->bind_param('issssiisi', $d['proveedor_id'], $d['nombre'], $d['descripcion'], $d['codigo'], $d['costo_unitario'], $d['activo'], $cambiaImagen, $imagenNueva, $id);
             $consulta->execute();
             $consulta->close();
+            if ($cambiaImagen && (string) ($previo['imagen'] ?? '') !== '' && $previo['imagen'] !== $imagenNueva) {
+                Imagenes::eliminar($previo['imagen']);
+            }
 
             $cambios = [];
             foreach (['proveedor_id', 'nombre', 'descripcion', 'codigo', 'costo_unitario', 'activo'] as $campo) {

@@ -612,6 +612,28 @@ class Contabilidad
         return true;
     }
 
+    /** Cancela todos los cobros vigentes de un ingreso (todo o nada). */
+    public static function cancelarCobrosDeIngreso(int $ingresoId, string $motivo, int $usuarioId): bool
+    {
+        self::$errores = [];
+        $vigentes = array_filter(self::cobrosDeIngreso($ingresoId), static fn ($c) => $c['estado'] === 'vigente');
+        if (!$vigentes) {
+            self::$errores[] = 'Este ingreso no tiene cobros vigentes.';
+            return false;
+        }
+
+        self::$db->begin_transaction();
+        foreach ($vigentes as $c) {
+            if (!self::cancelarCobro((int) $c['id'], $motivo, $usuarioId)) {
+                self::$db->rollBack();
+                return false;
+            }
+        }
+        self::$db->commit();
+
+        return true;
+    }
+
     /* --------------------------------------------------------------------
      * LISTADOS
      * ------------------------------------------------------------------ */

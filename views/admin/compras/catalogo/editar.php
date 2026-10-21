@@ -22,10 +22,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
         'costo_unitario' => str_replace(',', '.', trim((string) ($_POST['costo_unitario'] ?? ''))),
         'activo'         => isset($_POST['activo']) ? 1 : 0,
     ];
-    if (\App\ProductosProveedor::actualizar($id, $registro, (int) ($_SESSION['id'] ?? 0))) {
+    // Imagen del artículo: solo <input type="file">; se recorta a cuadrado.
+    $archivo = $_FILES['imagen'] ?? null;
+    $imagenNueva = null;
+    if (is_array($archivo) && !empty($archivo['tmp_name'])) {
+        $imagenNueva = \App\Imagenes::subir($archivo, 'catalogo', 'cuadrada');
+        if ($imagenNueva === null) {
+            $errores[] = \App\Imagenes::ultimoError();
+        }
+    }
+    if (!empty($_POST['quitar_imagen']) && $imagenNueva === null) {
+        $imagenNueva = '';
+    }
+    if ($imagenNueva !== null) {
+        $registro['imagen'] = $imagenNueva;
+    }
+    if (!$errores && \App\ProductosProveedor::actualizar($id, $registro, (int) ($_SESSION['id'] ?? 0))) {
         redirigir('/admin/compras/catalogo/detalle?id=' . $id, 'exito', 'Producto del proveedor actualizado.');
     }
-    $errores = \App\ProductosProveedor::getErrores();
+    $errores = array_merge($errores, \App\ProductosProveedor::getErrores());
+    if (!empty($imagenNueva)) {
+        \App\Imagenes::eliminar($imagenNueva);
+    }
+    $registro['imagen'] = \App\ProductosProveedor::buscarID($id)['imagen'] ?? null;
 }
 
 // El proveedor actual se ofrece aunque esté inactivo (para no perder la asignación al editar).
@@ -42,7 +61,7 @@ template('tabsCompras', ['tab' => 'catalogo']);
 ?>
 
 <section class="tarjeta">
-    <form class="formulario" action="/admin/compras/catalogo/editar?id=<?= $id ?>" method="post" data-validar novalidate>
+    <form class="formulario" action="/admin/compras/catalogo/editar?id=<?= $id ?>" method="post" enctype="multipart/form-data" data-validar novalidate>
         <?php template('formularioProductoProveedor', [
             'registro' => $registro, 'errores' => $errores, 'editando' => true,
             'proveedores' => $proveedores, 'cancelar' => '/admin/compras/catalogo/detalle?id=' . $id,

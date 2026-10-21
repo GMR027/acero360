@@ -2257,6 +2257,51 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   font-size: 1.25rem;
 }
 
+/* Conmutador de estado en la tabla (botón con aspecto de switch): un clic cambia el estado del renglón */
+.conmutador-estado {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+}
+.conmutador-estado__boton {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.conmutador-estado__pista {
+  position: relative;
+  width: 2.5rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background-color: var(--color-borde-fuerte);
+  transition: background-color 150ms ease;
+}
+.conmutador-estado__pista::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background-color: #fff;
+  transition: transform 150ms ease;
+}
+.conmutador-estado__boton[aria-checked=true] .conmutador-estado__pista {
+  background-color: var(--color-exito);
+}
+.conmutador-estado__boton[aria-checked=true] .conmutador-estado__pista::after {
+  transform: translateX(1.1rem);
+}
+.conmutador-estado__boton:focus-visible .conmutador-estado__pista {
+  outline: 2px solid var(--color-primario);
+  outline-offset: 2px;
+}
+
 /* ==========================================================================
    _alertas.scss — Alertas visuales (toasts).
    Reemplazan a alert(), confirm() y prompt(): todo el feedback de la app se
