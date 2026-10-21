@@ -125,12 +125,6 @@ template('tabsCompras', ['tab' => 'recepciones']);
                                     <?= $p['producto_id'] ? 'Producto propio: ' . escaparValores($p['producto_nombre']) : ($p['material_id'] ? 'Material: ' . escaparValores($p['material_nombre']) : '') ?></span></td>
                             <td class="tabla--numerica cifra"><?= $p['solicitada'] ?> <span class="texto-xs"><?= escaparValores($p['unidad_mostrada']) ?></span></td>
                             <td class="tabla--numerica cifra"><?= $p['recibida'] ?></td>
-                            <?php if ($sinProducto) : ?>
-                                <td colspan="4"><span class="badge badge--pendiente">Sin relacionar</span>
-                                    <span class="texto-xs texto-secundario">Relaciónala con un producto propio en el detalle de la compra antes de recibirla.</span></td>
-                                <td><span class="badge <?= $estadoPartida[1] ?>"><?= $estadoPartida[0] ?></span></td>
-                                <td></td>
-                            <?php else : ?>
                                 <td><input class="control" type="number" min="0" step="<?= $paso ?>" inputmode="decimal" data-cantidad
                                            name="cantidad[<?= (int) $p['id'] ?>]" aria-label="Cantidad recibida de <?= escaparValores($nombre) ?>"
                                            value="<?= $pend ?>"></td>
@@ -142,7 +136,10 @@ template('tabsCompras', ['tab' => 'recepciones']);
                                 <td class="tabla--numerica cifra" data-importe>—</td>
                                 <td><span class="badge <?= $estadoPartida[1] ?>"><?= $estadoPartida[0] ?></span></td>
                                 <td>
-                                    <?php if ($p['material_id']) : ?>
+                                    <?php if ($sinProducto) : ?>
+                                        <span class="texto-sm">Solo registro</span>
+                                        <span class="texto-xs texto-secundario"><br>Sin producto relacionado: se anota cuánto llegó, no mueve inventario.</span>
+                                    <?php elseif ($p['material_id']) : ?>
                                         <span class="texto-sm">Inventario de materiales</span>
                                     <?php else : ?>
                                         <label class="comprobacion" for="term-<?= (int) $p['id'] ?>">
@@ -152,7 +149,6 @@ template('tabsCompras', ['tab' => 'recepciones']);
                                         <span class="texto-xs texto-secundario">Sin marcar: queda «por terminar» y no se puede vender todavía.</span>
                                     <?php endif; ?>
                                 </td>
-                            <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

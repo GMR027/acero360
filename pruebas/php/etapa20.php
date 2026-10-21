@@ -138,9 +138,6 @@ $prueba('esa línea no tiene referencia al catálogo', OC::partidas(OC::$ultimoI
 
 echo "Recepción desde el catálogo\n";
 $P = OC::partidas($D);
-$r = OC::recibir($D, $hoy, [(int) $P[0]['id'] => ['cantidad' => 2, 'costo' => $P[0]['costo_esperado']]], bin2hex(random_bytes(16)), false, '', $usuario);
-$prueba('sin producto propio relacionado, no se puede recibir', !$r);
-OC::getErrores();
 $prueba('al relacionar el producto propio, ya se recibe', OC::relacionarProducto((int) $P[0]['id'], $propia2, $usuario)
     && OC::recibir($D, $hoy, [(int) $P[0]['id'] => ['cantidad' => 2, 'costo' => $P[0]['costo_esperado']]], bin2hex(random_bytes(16)), false, '', $usuario), $errores());
 $pp = OC::partidas($D)[0];

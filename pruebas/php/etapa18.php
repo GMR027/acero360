@@ -130,9 +130,21 @@ OrdenesCompra::crear(
 $B = OrdenesCompra::$ultimoId;
 $partidaB = OrdenesCompra::partidas($B)[0];
 $prueba('se puede capturar sin producto relacionado', $B > 0 && $partidaB['producto_id'] === null, $errores());
-$r = OrdenesCompra::recibir($B, $hoy, [(int) $partidaB['id'] => ['cantidad' => 2, 'costo' => '50.00']], $token(), false, '', $usuario);
-$prueba('no se puede recibir sin relacionar (no inventa asociaciones)', !$r && $porTerminar(37) === 0);
-OrdenesCompra::getErrores();
+// Sin relación se puede registrar cuánto llegó (solo registro): no toca ningún inventario.
+OrdenesCompra::crear(
+    ['tipo' => 'semiterminado', 'proveedor_id' => $proveedor, 'fecha_solicitud' => $hoy, 'referencia' => 'T18-B2'],
+    [['producto_id' => 0, 'cantidad' => '5', 'costo' => '50.00', 'descripcion' => 'Pieza suelta sin relacionar']],
+    $usuario
+);
+$B2 = OrdenesCompra::$ultimoId;
+$partidaB2 = OrdenesCompra::partidas($B2)[0];
+$stockAntesB2 = $stock(37);
+$r = OrdenesCompra::recibir($B2, $hoy, [(int) $partidaB2['id'] => ['cantidad' => 2, 'costo' => '50.00']], $token(), false, '', $usuario);
+$prueba('sin relacionar se registra lo que llegó, sin mover inventario', $r && $porTerminar(37) === 0 && $stock(37) === $stockAntesB2, $errores());
+$partidaB2 = OrdenesCompra::partidas($B2)[0];
+$prueba('queda el faltante (llegaron 2 de 5)', $partidaB2['recibida'] === 2 && $partidaB2['pendiente'] === 3);
+$r = OrdenesCompra::recibir($B2, $hoy, [(int) $partidaB2['id'] => ['cantidad' => 3, 'costo' => '50.00']], $token(), false, '', $usuario);
+$prueba('al completar lo faltante la compra queda recibida completa', $r && OrdenesCompra::buscarID($B2)['estado'] === 'completa', $errores());
 $prueba('se relaciona después', OrdenesCompra::relacionarProducto((int) $partidaB['id'], 37, $usuario), $errores());
 $r = OrdenesCompra::recibir($B, $hoy, [(int) $partidaB['id'] => ['cantidad' => 5, 'costo' => '50.00', 'terminado' => true]], $token(), false, '', $usuario);
 $prueba('«ya viene terminado» sí suma a existencia vendible', $r && $stock(37) === 15 && $porTerminar(37) === 0, $errores());
@@ -266,12 +278,12 @@ $prueba('recibir sin la opción no cambió el costo del catálogo', (string) $un
 
 echo "12. Historial por proveedor\n";
 $filas = OrdenesCompra::listar(['proveedor' => $proveedor, 'q' => 'T18-'], 50, 0);
-$prueba('lista las 6 compras del proveedor', count($filas) === 6, (string) count($filas));  // A–F (G se crea después)
+$prueba('lista las 7 compras del proveedor', count($filas) === 7, (string) count($filas));  // A–F y B2 (G se crea después)
 $prueba('filtra por tipo insumo', count(OrdenesCompra::listar(['proveedor' => $proveedor, 'q' => 'T18-', 'tipo' => 'insumo'], 50, 0)) === 4);
 $prueba('filtra por pago pendiente/parcial/pagada', count(OrdenesCompra::listar(['q' => 'T18-', 'pago' => 'parcial'], 50, 0)) === 1);
 $prueba('filtra por CFDI pendiente', count(OrdenesCompra::listar(['q' => 'T18-', 'cfdi' => 'pendiente_cfdi'], 50, 0)) >= 2);
 $tot = OrdenesCompra::totalesFiltrados(['proveedor' => $proveedor, 'q' => 'T18-']);
-$prueba('totales coherentes (comprado = facturado + pendiente + sin factura)', $tot['compras'] === 6 && $tot['comprado'] > 0 && $tot['saldo'] === $tot['comprado'] - $tot['pagado']);
+$prueba('totales coherentes (comprado = facturado + pendiente + sin factura)', $tot['compras'] === 7 && $tot['comprado'] > 0 && $tot['saldo'] === $tot['comprado'] - $tot['pagado']);
 
 echo "Cancelación\n";
 $prueba('una compra con gasto vigente no se cancela', !OrdenesCompra::cancelar($C, $usuario));

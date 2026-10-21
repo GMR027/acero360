@@ -1211,9 +1211,8 @@ class OrdenesCompra
                         return false;
                     }
                 } else {
-                    self::$db->rollback();
-                    self::$errores[] = 'Relaciona «' . $nombre . '» con un producto del catálogo antes de recibirlo.';
-                    return false;
+                    // Sin producto ni material relacionado: solo se registra cuánto llegó; no mueve inventario.
+                    $destino = 'sin_relacion';
                 }
 
                 $pendiente = (float) $partida['pendiente'];
@@ -1236,6 +1235,9 @@ class OrdenesCompra
                 }
                 $aInsertar[$partidaId] = [$cantidad, number_format((float) $costo, 2, '.', ''), $destino];
 
+                if ($destino === 'sin_relacion') {
+                    continue;
+                }
                 if ($destino === 'material') {
                     $materiales[(int) $partida['material_id']] = ($materiales[(int) $partida['material_id']] ?? 0) + $cantidad;
                 } elseif ($destino === 'stock') {

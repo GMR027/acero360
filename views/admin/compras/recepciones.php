@@ -41,7 +41,7 @@ $pendientes  = \App\OrdenesCompra::pendientesDeRecibir($proveedorId, 200);
 $porTerminar = \App\PorTerminar::listar();
 $materiales  = \App\Materiales::listar(false);
 $historial   = \App\OrdenesCompra::historialRecepciones($proveedorId, 30);
-$destinos    = ['por_terminar' => 'Por terminar', 'stock' => 'Disponible para venta', 'material' => 'Material'];
+$destinos    = ['por_terminar' => 'Por terminar', 'stock' => 'Disponible para venta', 'material' => 'Material', 'sin_relacion' => 'Solo registro'];
 
 template('header', [
     'titulo'    => 'Compras y proveedores',
