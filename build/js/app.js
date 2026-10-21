@@ -2396,6 +2396,38 @@ function iniciarOrdenCompra() {
     });
   };
 
+  const campoTasa = document.getElementById('iva_tasa');
+  const baseGravable = document.querySelector('[data-base-gravable]');
+  // El IVA es automático mientras esté vacío o no se haya escrito a mano; «Recalcular IVA» vuelve al cálculo.
+  let ivaManual = campoIva ? campoIva.value !== '' : false;
+
+  /** Base gravable (centavos) de las partidas «Con IVA» del bloque visible. */
+  const gravableActual = function () {
+    let base = 0;
+    bloques.forEach(function (bloque) {
+      if (!bloque.hidden) {
+        base += Number(bloque.dataset.gravable || 0);
+      }
+    });
+    return base;
+  };
+
+  /** IVA = base gravable × tasa, redondeado al centavo (mitad hacia arriba), como en el servidor. */
+  const calcularIvaCentavos = function () {
+    const tasa = Number.parseFloat(campoTasa ? campoTasa.value : '');
+    return Number.isFinite(tasa) ? Math.round(gravableActual() * tasa / 100) : null;
+  };
+
+  const actualizarIvaAutomatico = function () {
+    if (baseGravable) {
+      baseGravable.textContent = formatoMoneda.format(gravableActual() / 100);
+    }
+    if (campoIva && !ivaManual) {
+      const iva = calcularIvaCentavos();
+      campoIva.value = iva === null ? '' : (iva / 100).toFixed(2);
+    }
+  };
+
   /** Subtotal (centavos) del bloque visible + IVA capturado = total de la compra. */
   const actualizarTotalCompra = function () {
     if (!totalCompra) {
@@ -2501,6 +2533,17 @@ function iniciarOrdenCompra() {
       });
       total.textContent = formatoMoneda.format(centavos / 100);
       bloque.dataset.subtotal = String(centavos);
+      let gravable = 0;
+      cuerpo.querySelectorAll('[data-partida]').forEach(function (fila) {
+        const aplica = fila.querySelector('[data-aplica-iva]');
+        if (aplica && aplica.value === '1') {
+          const milesimas = Math.round((Number.parseFloat(fila.querySelector('[data-cantidad]').value) || 0) * 1000);
+          const costo = Math.round((Number.parseFloat(fila.querySelector('[data-costo]').value) || 0) * 100);
+          gravable += Math.round((milesimas * costo) / 1000);
+        }
+      });
+      bloque.dataset.gravable = String(gravable);
+      actualizarIvaAutomatico();
       actualizarTotalCompra();
     };
 
@@ -2616,19 +2659,30 @@ function iniciarOrdenCompra() {
   if (calcularIva && campoIva) {
     calcularIva.addEventListener('click', function (evento) {
       evento.preventDefault();
-      let subtotal = 0;
-      bloques.forEach(function (bloque) {
-        if (!bloque.hidden) {
-          subtotal += Number(bloque.dataset.subtotal || 0);
-        }
-      });
-      campoIva.value = (Math.round(subtotal * 0.16) / 100).toFixed(2);
+      ivaManual = false;
+      actualizarIvaAutomatico();
       actualizarTotalCompra();
     });
   }
   if (campoIva) {
-    campoIva.addEventListener('input', actualizarTotalCompra);
+    campoIva.addEventListener('input', function () {
+      ivaManual = campoIva.value !== '';
+      actualizarTotalCompra();
+    });
   }
+  if (campoTasa) {
+    campoTasa.addEventListener('input', function () {
+      actualizarIvaAutomatico();
+      actualizarTotalCompra();
+    });
+  }
+  document.querySelectorAll('[data-partidas-cuerpo]').forEach(function (cuerpo) {
+    cuerpo.addEventListener('change', function (evento) {
+      if (evento.target.hasAttribute('data-aplica-iva')) {
+        cuerpo.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  });
 
   aplicarTipo();
 }

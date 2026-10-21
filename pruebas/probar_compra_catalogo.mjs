@@ -77,9 +77,11 @@ try {
   await fila(1).locator('[data-catalogo]').selectOption(base);
   await fila(1).locator('[data-cantidad]').fill('3');
   verifica('subtotal = suma de importes (1205 + 240)', dinero(await semi.locator('[data-total]').innerText()) === 1445);
-  verifica('total de la compra en vivo', dinero(await p.locator('[data-total-compra]').innerText()) === 1445);
-  await p.click('[data-calcular-iva]');
-  verifica('el IVA se calcula solo si se pide (16 % de 1445 = 231.20)', (await p.inputValue('#iva')) === '231.20' && dinero(await p.locator('[data-total-compra]').innerText()) === 1676.2);
+  verifica('el IVA se calcula solo con la tasa del catálogo fiscal (16 % de 1445 = 231.20)', (await p.inputValue('#iva_tasa')) === '16' && (await p.inputValue('#iva')) === '231.20');
+  verifica('total de la compra en vivo (subtotal + IVA)', dinero(await p.locator('[data-total-compra]').innerText()) === 1676.2);
+  await fila(1).locator('[data-aplica-iva]').selectOption('0');
+  verifica('una partida «Sin IVA» sale de la base gravable (16 % de 1205 = 192.80)', (await p.inputValue('#iva')) === '192.80');
+  await fila(1).locator('[data-aplica-iva]').selectOption('1');
 
   console.log('Cambiar el costo a propósito');
   await fila(1).locator('[data-cambiar-costo]').click();

@@ -103,6 +103,7 @@ class OrdenesCompra
                 'descripcion'    => $descripcion,
                 'unidad'         => trim((string) ($post['unidad'][$i] ?? '')),
                 'controla'       => !empty($post['controla'][$i]) ? 1 : 0,
+                'aplica_iva'     => !empty($post['aplica_iva'][$i]) ? 1 : 0,
             ];
         }
         return $lineas;
@@ -121,6 +122,7 @@ class OrdenesCompra
             'empresa_id'      => (int) ($post['empresa_id'] ?? 0),
             'estado_cfdi'     => (string) ($post['estado_cfdi'] ?? 'pendiente_cfdi'),
             'iva'             => trim((string) ($post['iva'] ?? '')),
+            'iva_tasa'        => trim((string) ($post['iva_tasa'] ?? '')),
             'observaciones'   => trim((string) ($post['observaciones'] ?? '')),
         ];
     }
@@ -140,6 +142,7 @@ class OrdenesCompra
             'descripcion'    => (string) $p['descripcion'],
             'unidad'         => (string) ($p['unidad'] ?? ''),
             'controla'       => (int) $p['controla'],
+            'aplica_iva'     => (int) $p['aplica_iva'],
         ], self::partidas($ordenId));
     }
 
@@ -832,6 +835,46 @@ class OrdenesCompra
         }
     }
 
+    /**
+     * Tasa general de IVA (%) del catálogo fiscal ACTIVO para el ejercicio de la fecha; null si no hay catálogo activo
+     * (entonces no se supone ninguna tasa: el IVA se captura a mano).
+     */
+    public static function tasaIvaVigente(string $fecha): ?string
+    {
+        $anio = preg_match('/^(\d{4})-/', $fecha, $m) ? (int) $m[1] : (int) date('Y');
+        $tasa = CatalogoFiscal::activa('iva_tasas', $anio)['doc']['tasa_general'] ?? null;
+
+        return is_numeric($tasa) ? rtrim(rtrim(number_format((float) $tasa, 2, '.', ''), '0'), '.') : null;
+    }
+
+    /**
+     * IVA automático: (suma de importes de las partidas gravadas) × tasa, redondeado al centavo (mitad hacia arriba),
+     * igual que el IVA de los gastos. Solo cuenta las partidas marcadas con aplica_iva.
+     *
+     * @param array<int, array<string, mixed>> $lineas
+     */
+    public static function ivaDe(array $lineas, $tasa): string
+    {
+        $base = 0;
+        foreach ($lineas as $l) {
+            if (!empty($l['aplica_iva'])) {
+                $base += (int) round(self::importe($l['cantidad'], $l['costo']) * 100);
+            }
+        }
+
+        return Gastos::calcular(number_format($base / 100, 2, '.', ''), $tasa)['iva'];
+    }
+
+    /** Con tasa y sin importe de IVA capturado, calcula el IVA de las partidas gravadas; con importe capturado se respeta. */
+    private static function aplicarIva(array $h, array $lineas): array
+    {
+        if ($h['iva'] === null && $h['iva_tasa'] !== null) {
+            $h['iva'] = self::ivaDe($lineas, $h['iva_tasa']);
+        }
+
+        return $h;
+    }
+
     private static function totalDe(array $lineas): string
     {
         $total = 0;
@@ -856,6 +899,7 @@ class OrdenesCompra
             'contribuyente'   => $empresa ? Contabilidad::contribuyenteDeEmpresa($empresa) : Contabilidad::contribuyentePrincipal(),
             'estado_cfdi'     => in_array($datos['estado_cfdi'] ?? '', ['pendiente_cfdi', 'no_facturada'], true) ? $datos['estado_cfdi'] : 'pendiente_cfdi',
             'iva'             => $iva !== '' ? number_format((float) $iva, 2, '.', '') : null,
+            'iva_tasa'        => is_numeric(str_replace(',', '.', trim((string) ($datos['iva_tasa'] ?? '')))) ? number_format((float) str_replace(',', '.', trim((string) $datos['iva_tasa'])), 2, '.', '') : null,
             'observaciones'   => trim((string) ($datos['observaciones'] ?? '')) ?: null,
         ];
     }
@@ -872,19 +916,20 @@ class OrdenesCompra
 
             $h = self::encabezado($datos);
             $lineas = self::resolverLineas($h['tipo'], $lineas, $h['proveedor_id']);
+            $h = self::aplicarIva($h, $lineas);
             $folio = trim((string) ($datos['folio'] ?? '')) ?: self::siguienteFolio();
             $totalPesos = self::totalDe($lineas);
             $estado = array_sum(array_column($lineas, 'controla')) > 0 ? 'solicitada' : 'sin_recepcion';
 
             $consulta = self::$db->prepare(
                 'INSERT INTO ordenes_compra (folio, tipo, proveedor_id, fecha_solicitud, referencia, categoria_id, contribuyente_id, empresa_id,
-                        estado, total_esperado, estado_cfdi, iva, observaciones, usuario_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                        estado, total_esperado, estado_cfdi, iva, iva_tasa, observaciones, usuario_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $consulta->bind_param(
-                'ssissiiisssssi',
+                'ssissiiissssssi',
                 $folio, $h['tipo'], $h['proveedor_id'], $h['fecha'], $h['referencia'], $h['categoria_id'], $h['contribuyente'], $h['empresa_id'],
-                $estado, $totalPesos, $h['estado_cfdi'], $h['iva'], $h['observaciones'], $usuarioId
+                $estado, $totalPesos, $h['estado_cfdi'], $h['iva'], $h['iva_tasa'], $h['observaciones'], $usuarioId
             );
             $consulta->execute();
             $ordenId = (int) self::$db->insert_id;
@@ -952,19 +997,20 @@ class OrdenesCompra
 
             $h = self::encabezado($datos);
             $lineas = self::resolverLineas($h['tipo'], $lineas, $h['proveedor_id'], $id);
+            $h = self::aplicarIva($h, $lineas);
             $totalPesos = self::totalDe($lineas);
             $estado = array_sum(array_column($lineas, 'controla')) > 0 ? 'solicitada' : 'sin_recepcion';
             $folio = trim((string) ($datos['folio'] ?? '')) ?: $orden['folio']; // vacío = conserva el actual
 
             $consulta = self::$db->prepare(
                 'UPDATE ordenes_compra SET folio = ?, tipo = ?, proveedor_id = ?, fecha_solicitud = ?, referencia = ?, categoria_id = ?,
-                        contribuyente_id = ?, empresa_id = ?, estado = ?, total_esperado = ?, estado_cfdi = ?, iva = ?, observaciones = ?
+                        contribuyente_id = ?, empresa_id = ?, estado = ?, total_esperado = ?, estado_cfdi = ?, iva = ?, iva_tasa = ?, observaciones = ?
                   WHERE id = ?'
             );
             $consulta->bind_param(
-                'ssissiiisssssi',
+                'ssissiiissssssi',
                 $folio, $h['tipo'], $h['proveedor_id'], $h['fecha'], $h['referencia'], $h['categoria_id'], $h['contribuyente'], $h['empresa_id'],
-                $estado, $totalPesos, $h['estado_cfdi'], $h['iva'], $h['observaciones'], $id
+                $estado, $totalPesos, $h['estado_cfdi'], $h['iva'], $h['iva_tasa'], $h['observaciones'], $id
             );
             $consulta->execute();
             $consulta->close();
@@ -1402,8 +1448,8 @@ class OrdenesCompra
         $consulta = self::$db->prepare(
             'INSERT INTO orden_compra_partidas
                 (orden_id, producto_id, material_id, proveedor_producto_id, descripcion, codigo, unidad, controla,
-                 cantidad_solicitada, costo_esperado, costo_catalogo, importe_esperado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 cantidad_solicitada, costo_esperado, costo_catalogo, importe_esperado, aplica_iva)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         foreach ($lineas as $linea) {
             $productoId = $linea['producto_id'] !== null ? (int) $linea['producto_id'] : null;
@@ -1417,7 +1463,8 @@ class OrdenesCompra
             $catalogoId = $linea['proveedor_producto_id'] !== null ? (int) $linea['proveedor_producto_id'] : null;
             $codigo     = $linea['codigo'] !== null && $linea['codigo'] !== '' ? (string) $linea['codigo'] : null;
             $costoCat   = $linea['costo_catalogo'] !== null ? number_format((float) $linea['costo_catalogo'], 2, '.', '') : null;
-            $consulta->bind_param('iiiisssissss', $ordenId, $productoId, $materialId, $catalogoId, $descripcion, $codigo, $unidad, $controla, $cantidad, $costo, $costoCat, $importe);
+            $aplicaIva  = !empty($linea['aplica_iva']) ? 1 : 0;
+            $consulta->bind_param('iiiisssissssi', $ordenId, $productoId, $materialId, $catalogoId, $descripcion, $codigo, $unidad, $controla, $cantidad, $costo, $costoCat, $importe, $aplicaIva);
             $consulta->execute();
         }
         $consulta->close();

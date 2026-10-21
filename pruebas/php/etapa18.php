@@ -99,7 +99,7 @@ $p = OrdenesCompra::partidas($A)[0];
 $prueba('comprado 10 · recibido 4 · pendiente 6', $p['solicitada'] === 10 && $p['recibida'] === 4 && $p['pendiente'] === 6);
 $prueba('estado parcial', OrdenesCompra::buscarID($A)['estado'] === 'parcial');
 $rs = OrdenesCompra::resumen($A);
-$prueba('guardar y recibir NO marcan la compra como pagada (pagado 0, saldo = total)', $rs['pagado'] == 0.0 && $rs['saldo'] == $rs['total'] && $rs['estado_pago'] === 'pendiente');
+$prueba('guardar y recibir NO cambian pago ni factura (pagado 0, saldo = total, CFDI pendiente)', $rs['pagado'] == 0.0 && $rs['saldo'] == $rs['total'] && $rs['estado_pago'] === 'pendiente' && $rs['estado_cfdi'] === 'pendiente_cfdi');
 
 echo "10. Recepción repetida no duplica\n";
 $r = OrdenesCompra::recibir($A, $hoy, [(int) $partidaA['id'] => ['cantidad' => 4, 'costo' => '100.00']], $t, false, '', $usuario);

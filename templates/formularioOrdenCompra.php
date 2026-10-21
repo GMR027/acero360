@@ -10,8 +10,11 @@
 $errores = $errores ?? [];
 $catalogos = $catalogos ?? [];
 $tipo = $orden['tipo'] ?? 'semiterminado';
-$lineas = $lineas ?: [['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0]];
-$vacia = ['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0];
+$lineas = $lineas ?: [['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0, 'aplica_iva' => 1]];
+$vacia = ['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0, 'aplica_iva' => 1];
+// Tasa de IVA: la de la compra si ya tiene una; en una compra nueva, la del catálogo fiscal activo (si no hay, vacía: IVA a mano).
+$tasaIva = isset($orden['id']) ? ($orden['iva_tasa'] ?? '') : (\App\OrdenesCompra::tasaIvaVigente((string) ($orden['fecha_solicitud'] ?? date('Y-m-d'))) ?? '');
+$tasaIva = $tasaIva !== '' ? rtrim(rtrim(number_format((float) $tasaIva, 2, '.', ''), '0'), '.') : '';
 $estadoCfdi = in_array($orden['estado_cfdi'] ?? '', ['pendiente_cfdi', 'no_facturada'], true) ? $orden['estado_cfdi'] : 'pendiente_cfdi';
 $cantidadTexto = static fn ($c) => rtrim(rtrim(number_format((float) $c, 3, '.', ''), '0'), '.') ?: '1';
 ?>
@@ -92,11 +95,17 @@ $cantidadTexto = static fn ($c) => rtrim(rtrim(number_format((float) $c, 3, '.',
         <span class="campo__ayuda">«Con CFDI» se marca solo al adjuntar el XML en el detalle de la compra.</span>
     </div>
     <div class="campo">
-        <label class="campo__etiqueta" data-ayuda="Solo si lo conoces (viene en la factura o la nota). No se calcula ni se supone: vacío significa «no especificado»." for="iva">IVA de la compra</label>
+        <label class="campo__etiqueta" data-ayuda="Porcentaje que se aplica a las partidas marcadas «Con IVA». Viene del catálogo fiscal activo; si no hay uno, déjalo vacío y captura el IVA de la factura." for="iva_tasa">Tasa de IVA (%)</label>
+        <input class="control" type="number" id="iva_tasa" name="iva_tasa" min="0" max="30" step="0.01" inputmode="decimal"
+               value="<?= escaparValores($tasaIva) ?>" placeholder="Sin tasa">
+        <span class="campo__ayuda"><?= $tasaIva !== '' && !isset($orden['id']) ? 'Tasa general del catálogo fiscal activo.' : 'Sin tasa, el IVA se captura a mano.' ?></span>
+    </div>
+    <div class="campo">
+        <label class="campo__etiqueta" data-ayuda="Se calcula con la base de las partidas «Con IVA» y la tasa; puedes corregirlo para que coincida con la factura. Vacío significa «no especificado»." for="iva">IVA de la compra</label>
         <input class="control control--moneda" type="number" id="iva" name="iva" min="0" step="0.01" inputmode="decimal"
-               value="<?= escaparValores($orden['iva'] ?? '') ?>" placeholder="Opcional">
-        <button class="btn btn--texto btn--sm" type="button" data-calcular-iva>Calcular 16 % del subtotal</button>
-        <span class="campo__ayuda">En pesos. Se suma al total de la compra. El botón usa la tasa estándar de 16 % y puedes corregir el importe.</span>
+               value="<?= escaparValores($orden['iva'] ?? '') ?>" placeholder="Automático">
+        <button class="btn btn--texto btn--sm" type="button" data-calcular-iva>Recalcular IVA</button>
+        <span class="campo__ayuda">En pesos. Se suma al total de la compra. Base gravable: <strong class="cifra" data-base-gravable>$0.00</strong>.</span>
     </div>
 </div>
 
@@ -119,6 +128,7 @@ $catalogoProveedor = $catalogos[(int) ($orden['proveedor_id'] ?? 0)] ?? [];
                 <th scope="col">Producto propio</th>
                 <th scope="col" class="tabla--numerica">Cantidad</th>
                 <th scope="col" class="tabla--numerica">Costo unitario</th>
+                <th scope="col">IVA</th>
                 <th scope="col" class="tabla--numerica">Importe</th>
                 <th scope="col"><span class="solo-lectores">Quitar</span></th>
             </tr></thead>
@@ -159,13 +169,17 @@ $catalogoProveedor = $catalogos[(int) ($orden['proveedor_id'] ?? 0)] ?? [];
                             <button class="btn btn--texto btn--sm" type="button" data-cambiar-costo<?= $delCatalogo ? '' : ' hidden' ?>>Cambiar costo</button>
                             <span class="texto-xs texto-secundario" data-aviso-costo><?= $modificado ? 'Catálogo: ' . escaparValores(number_format((float) $l['costo_catalogo'], 2)) : '' ?></span>
                         </td>
+                        <td><select class="control" name="aplica_iva[]" aria-label="Aplica IVA" data-aplica-iva>
+                                <option value="1"<?= !isset($l['aplica_iva']) || !empty($l['aplica_iva']) ? ' selected' : '' ?>>Con IVA</option>
+                                <option value="0"<?= isset($l['aplica_iva']) && empty($l['aplica_iva']) ? ' selected' : '' ?>>Sin IVA</option>
+                            </select></td>
                         <td class="tabla--numerica cifra" data-importe>$0.00</td>
                         <td><button class="btn btn--peligro btn--sm btn--icono" type="button" data-quitar-partida aria-label="Quitar partida">
                             <span class="material-symbols-outlined" aria-hidden="true">delete</span></button></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
-            <tfoot><tr><td colspan="4" class="tabla--numerica"><strong>Subtotal</strong></td>
+            <tfoot><tr><td colspan="5" class="tabla--numerica"><strong>Subtotal</strong></td>
                 <td class="tabla--numerica cifra"><strong data-total>$0.00</strong></td><td></td></tr></tfoot>
         </table>
     </div>
@@ -194,6 +208,7 @@ $filasInsumo = $tipo === 'insumo' ? $lineas : [$vacia];
                 <th scope="col">Cantidad y unidad</th>
                 <th scope="col" class="tabla--numerica">Costo unitario</th>
                 <th scope="col">Inventario</th>
+                <th scope="col">IVA</th>
                 <th scope="col" class="tabla--numerica">Importe</th>
                 <th scope="col"><span class="solo-lectores">Quitar</span></th>
             </tr></thead>
@@ -219,13 +234,17 @@ $filasInsumo = $tipo === 'insumo' ? $lineas : [$vacia];
                                    aria-label="Nombre del material" placeholder="Nombre del material" data-material
                                    value="<?= escaparValores($l['material_nuevo'] ?? '') ?>"<?= empty($l['controla']) ? ' hidden' : '' ?>>
                         </td>
+                        <td><select class="control" name="aplica_iva[]" aria-label="Aplica IVA" data-aplica-iva>
+                                <option value="1"<?= !isset($l['aplica_iva']) || !empty($l['aplica_iva']) ? ' selected' : '' ?>>Con IVA</option>
+                                <option value="0"<?= isset($l['aplica_iva']) && empty($l['aplica_iva']) ? ' selected' : '' ?>>Sin IVA</option>
+                            </select></td>
                         <td class="tabla--numerica cifra" data-importe>$0.00</td>
                         <td><button class="btn btn--peligro btn--sm btn--icono" type="button" data-quitar-partida aria-label="Quitar partida">
                             <span class="material-symbols-outlined" aria-hidden="true">delete</span></button></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
-            <tfoot><tr><td colspan="4" class="tabla--numerica"><strong>Subtotal</strong></td>
+            <tfoot><tr><td colspan="5" class="tabla--numerica"><strong>Subtotal</strong></td>
                 <td class="tabla--numerica cifra"><strong data-total>$0.00</strong></td><td></td></tr></tfoot>
         </table>
     </div>
@@ -235,7 +254,7 @@ $filasInsumo = $tipo === 'insumo' ? $lineas : [$vacia];
 </section>
 
 <p class="mt-lg texto-lg" aria-live="polite">Total de la compra: <strong class="cifra" data-total-compra>$0.00</strong>
-    <span class="texto-sm texto-secundario">(subtotal + IVA capturado)</span></p>
+    <span class="texto-sm texto-secundario">(subtotal + IVA)</span></p>
 
 <div class="campo campo--completo mt-lg">
     <label class="campo__etiqueta" for="observaciones">Observaciones</label>
