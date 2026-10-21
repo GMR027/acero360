@@ -22,12 +22,15 @@ $prueba = function (string $nombre, bool $ok, string $detalle = '') use (&$fallo
     $fallos += $ok ? 0 : 1;
 };
 $stock = fn (int $id) => (int) $db->query("SELECT stock FROM productos WHERE id = $id")->fetch_row()[0];
+$porTerminar = fn (int $id) => (int) $db->query("SELECT stock_por_terminar FROM productos WHERE id = $id")->fetch_row()[0];
 $usuario = (int) $db->query('SELECT id FROM usuarios LIMIT 1')->fetch_row()[0];
 // Estado limpio (la prueba puede correrse varias veces)
 $db->query('DELETE FROM movimientos_inventario WHERE recepcion_id IS NOT NULL');
+$db->query('DELETE FROM movimientos_por_terminar');
+$db->query('DELETE FROM pagos_compra');
 $db->query('DELETE FROM recepciones');
 $db->query('DELETE FROM ordenes_compra');
-$db->query("UPDATE productos SET stock = 10 WHERE id IN (36, 37)");
+$db->query("UPDATE productos SET stock = 10, stock_por_terminar = 0 WHERE id IN (36, 37)");
 $hoy = date('Y-m-d');
 $token = fn () => bin2hex(random_bytes(16));
 
@@ -52,7 +55,8 @@ OrdenesCompra::getErrores();
 $t = $token();
 $r = OrdenesCompra::recibir($id, $hoy, [(int) $p[0]['id'] => ['cantidad' => 5, 'costo' => '105.00'], (int) $p[1]['id'] => ['cantidad' => 2, 'costo' => '90.00']], $t, false, '', $usuario);
 $prueba('recepción parcial', $r, implode('|', OrdenesCompra::getErrores()));
-$prueba('stock sumado solo lo recibido', $stock(36) === 15 && $stock(37) === 12, $stock(36) . '/' . $stock(37));
+$prueba('semiterminado: la existencia vendible NO cambia', $stock(36) === 10 && $stock(37) === 10, $stock(36) . '/' . $stock(37));
+$prueba('por terminar suma solo lo recibido', $porTerminar(36) === 5 && $porTerminar(37) === 2, $porTerminar(36) . '/' . $porTerminar(37));
 $prueba('estado parcial', OrdenesCompra::buscarID($id)['estado'] === 'parcial');
 
 $p = OrdenesCompra::partidas($id);
@@ -61,7 +65,7 @@ $prueba('costo final 105.00 y diferencia +24.50', $p[0]['costo_final'] === 105.0
 
 // Reenvío del mismo formulario (mismo token): no duplica
 $r = OrdenesCompra::recibir($id, $hoy, [(int) $p[1]['id'] => ['cantidad' => 3, 'costo' => '90.00']], $t, false, '', $usuario);
-$prueba('mismo token no duplica entrada', !$r && $stock(37) === 12);
+$prueba('mismo token no duplica entrada', !$r && $porTerminar(37) === 2 && $stock(37) === 10);
 OrdenesCompra::getErrores();
 
 // Cambiar costo_actual no altera el histórico
@@ -71,7 +75,7 @@ $prueba('costo histórico intacto tras cambiar costo_actual', OrdenesCompra::par
 // Cerrar con faltantes, luego no admite recepciones
 $prueba('cerrar con faltantes', OrdenesCompra::cerrar($id, 'Proveedor no surtió', $usuario));
 $r = OrdenesCompra::recibir($id, $hoy, [(int) $p[1]['id'] => ['cantidad' => 1, 'costo' => '90.00']], $token(), false, '', $usuario);
-$prueba('orden cerrada rechaza recepción', !$r && $stock(37) === 12);
+$prueba('orden cerrada rechaza recepción', !$r && $porTerminar(37) === 2);
 OrdenesCompra::getErrores();
 $prueba('reabrir exige motivo', !OrdenesCompra::reabrir($id, '', $usuario));
 OrdenesCompra::getErrores();
@@ -82,8 +86,9 @@ $prueba('cierre y reapertura auditados', $a === 2, (string) $a);
 $r = OrdenesCompra::recibir($id, $hoy, [(int) $p[1]['id'] => ['cantidad' => 3, 'costo' => '90.00']], $token(), true, '', $usuario);
 $prueba('segunda recepción completa la orden', $r && OrdenesCompra::buscarID($id)['estado'] === 'completa');
 $prueba('actualiza_costo copia al catálogo', $db->query('SELECT costo_actual FROM productos WHERE id=37')->fetch_row()[0] === '90.00');
-$mov = (int) $db->query("SELECT COUNT(*) FROM movimientos_inventario WHERE recepcion_id IS NOT NULL AND motivo='recepcion'")->fetch_row()[0];
-$prueba('movimientos con recepción y motivo', $mov === 3, (string) $mov);
+$mov = (int) $db->query("SELECT COUNT(*) FROM movimientos_por_terminar WHERE recepcion_id IS NOT NULL AND tipo='entrada'")->fetch_row()[0];
+$prueba('movimientos por terminar con su recepción', $mov === 3, (string) $mov);
+$prueba('ninguna recepción tocó la existencia vendible', (int) $db->query("SELECT COUNT(*) FROM movimientos_inventario WHERE recepcion_id IS NOT NULL")->fetch_row()[0] === 0);
 $prueba('historial de 2 recepciones', count(OrdenesCompra::recepciones($id)) === 2);
 
 echo "Stock negativo (configuración)\n";

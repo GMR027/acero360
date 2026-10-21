@@ -510,7 +510,11 @@ class Gastos
         ]];
     }
 
-    public static function crear(array $datos, int $usuarioId): bool
+    /**
+     * @param bool $dentroDeTransaccion true cuando el llamador ya abrió una transacción (p. ej. la compra que crea
+     *        su gasto): no abre, confirma ni revierte; ante un error devuelve false y el llamador revierte.
+     */
+    public static function crear(array $datos, int $usuarioId, bool $dentroDeTransaccion = false): bool
     {
         [$errores, $g] = self::normalizar($datos);
         self::$errores = $errores;
@@ -525,7 +529,9 @@ class Gastos
         }
 
         try {
-            self::$db->begin_transaction();
+            if (!$dentroDeTransaccion) {
+                self::$db->begin_transaction();
+            }
 
             $consulta = self::$db->prepare(
                 'INSERT INTO gastos (contribuyente_id, fecha, proveedor_id, beneficiario_tipo, beneficiario, concepto, categoria_id, naturaleza,
@@ -549,11 +555,15 @@ class Gastos
             self::guardarReparto($id, $g['reparto']);
             Auditoria::registrar('gasto', $id, 'crear', $usuarioId, null, ['total' => $g['total'], 'compartido' => $g['compartido']]);
 
-            self::$db->commit();
+            if (!$dentroDeTransaccion) {
+                self::$db->commit();
+            }
             self::$ultimoId = $id;
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
-            self::$db->rollBack();
+            if (!$dentroDeTransaccion) {
+                self::$db->rollBack();
+            }
             error_log('[Gastos::crear] ' . $excepcion->getMessage());
             self::$errores[] = 'No fue posible guardar el gasto.';
             return false;

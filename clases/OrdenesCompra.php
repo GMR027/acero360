@@ -5,11 +5,19 @@ namespace App;
 /**
  * OrdenesCompra — solicitudes de material a proveedores y su recepción.
  *
+ * Una «compra» puede ser de dos tipos (columna tipo):
+ *   • semiterminado — producto del catálogo que el proveedor entrega por terminar. La relación con el
+ *     producto es opcional al capturar (se puede definir después) pero obligatoria para recibir.
+ *   • insumo — pintura, discos, guantes, varilla…: partidas libres, sin producto del catálogo. Cada partida
+ *     decide si se controla en inventario (como material, nunca como producto de venta) o es consumible.
+ *
  * Reglas:
  *   • Crear o editar una orden NO toca el inventario.
- *   • Cada recepción (parcial o total) suma al inventario SOLO lo recibido,
- *     dentro de una transacción con la orden bloqueada y un token de un solo
- *     uso: reenviar el formulario o volver a consultar/exportar no duplica.
+ *   • Cada recepción (parcial o total) suma SOLO lo recibido, dentro de una transacción con la orden
+ *     bloqueada y un token de un solo uso: reenviar el formulario o volver a consultar/exportar no duplica.
+ *   • Lo recibido de un semiterminado va a «por terminar» (NO a la existencia vendible) salvo que se
+ *     indique que ya viene terminado; los materiales van a materiales; los consumibles no se recepcionan.
+ *   • Nunca se recibe más que lo pendiente, salvo confirmación explícita (queda auditada).
  *   • El costo recibido queda en recepcion_partidas (histórico); cambiar
  *     productos.costo_actual después nunca lo altera.
  *   • Cerrar una orden con faltantes es válido; una orden cerrada solo se
@@ -34,7 +42,19 @@ class OrdenesCompra
         'completa'   => ['etiqueta' => 'Recibida completa', 'clase' => 'badge--aprobado'],
         'cerrada'    => ['etiqueta' => 'Cerrada', 'clase' => 'badge--neutro'],
         'cancelada'  => ['etiqueta' => 'Cancelada', 'clase' => 'badge--error'],
+        'sin_recepcion' => ['etiqueta' => 'Sin recepción', 'clase' => 'badge--neutro'],
     ];
+
+    public const TIPOS = [
+        'semiterminado' => 'Producto semiterminado para venta',
+        'insumo'        => 'Material, insumo o consumible',
+    ];
+
+    /** Cantidad con hasta 3 decimales; entera si lo es (así 5 sigue siendo int). */
+    public static function num($valor)
+    {
+        return Materiales::numero($valor);
+    }
 
     public static function setDB($database): void
     {
@@ -48,25 +68,37 @@ class OrdenesCompra
         return $errores;
     }
 
-    /** Importe en pesos de cantidad × costo, calculado en centavos. */
-    public static function importe(int $cantidad, $costo): float
+    /** Importe en pesos de cantidad × costo, calculado en centavos (cantidad con hasta 3 decimales). */
+    public static function importe($cantidad, $costo): float
     {
-        return ((int) round(((float) $costo) * 100) * $cantidad) / 100;
+        $milesimas = (int) round((float) $cantidad * 1000);
+        return ((int) round(((int) round(((float) $costo) * 100) * $milesimas) / 1000)) / 100;
     }
 
     /** Convierte los arreglos paralelos del formulario en partidas. */
     public static function lineasDePost(array $post): array
     {
         $lineas = [];
-        foreach ((array) ($post['producto_id'] ?? []) as $i => $productoId) {
-            if ((int) $productoId === 0 && (int) ($post['cantidad'][$i] ?? 0) <= 1 && (float) ($post['costo'][$i] ?? 0) === 0.0) {
+        $n = max(count((array) ($post['cantidad'] ?? [])), count((array) ($post['producto_id'] ?? [])), count((array) ($post['descripcion'] ?? [])));
+        for ($i = 0; $i < $n; $i++) {
+            $cantidad = str_replace(',', '.', trim((string) ($post['cantidad'][$i] ?? '')));
+            $costo = str_replace(',', '.', trim((string) ($post['costo'][$i] ?? '0')));
+            $producto = (int) ($post['producto_id'][$i] ?? 0);
+            $material = (int) ($post['material_id'][$i] ?? 0);
+            $descripcion = trim((string) ($post['descripcion'][$i] ?? ''));
+            $nuevo = trim((string) ($post['material_nuevo'][$i] ?? ''));
+            if ($producto === 0 && $material === 0 && $descripcion === '' && $nuevo === '' && ($cantidad === '' || (float) $cantidad <= 1) && (float) $costo === 0.0) {
                 continue; // renglón vacío
             }
             $lineas[] = [
-                'producto_id' => (int) $productoId,
-                'cantidad'    => (int) ($post['cantidad'][$i] ?? 0),
-                'costo'       => str_replace(',', '.', trim((string) ($post['costo'][$i] ?? '0'))),
-                'descripcion' => trim((string) ($post['descripcion'][$i] ?? '')),
+                'producto_id'    => $producto,
+                'material_id'    => $material,
+                'material_nuevo' => $nuevo,
+                'cantidad'       => $cantidad,
+                'costo'          => $costo,
+                'descripcion'    => $descripcion,
+                'unidad'         => trim((string) ($post['unidad'][$i] ?? '')),
+                'controla'       => !empty($post['controla'][$i]) ? 1 : 0,
             ];
         }
         return $lineas;
@@ -107,11 +139,12 @@ class OrdenesCompra
     {
         $consulta = self::$db->prepare(
             'SELECT c.*, pr.nombre AS producto_nombre, pr.sku AS producto_sku, pr.imagen AS producto_imagen,
-                    pr.unidad AS producto_unidad,
+                    pr.unidad AS producto_unidad, mt.nombre AS material_nombre, mt.unidad AS material_unidad,
                     COALESCE(SUM(rp.cantidad_recibida), 0) AS recibida,
                     COALESCE(SUM(ROUND(rp.cantidad_recibida * rp.costo_unitario * 100)), 0) AS recibido_centavos
                FROM orden_compra_partidas c
-               JOIN productos pr ON pr.id = c.producto_id
+               LEFT JOIN productos pr ON pr.id = c.producto_id
+               LEFT JOIN materiales mt ON mt.id = c.material_id
                LEFT JOIN recepcion_partidas rp ON rp.partida_id = c.id
               WHERE c.orden_id = ?
               GROUP BY c.id
@@ -123,17 +156,19 @@ class OrdenesCompra
 
         $partidas = [];
         while ($fila = $resultado->fetch_assoc()) {
-            $solicitada = (int) $fila['cantidad_solicitada'];
-            $recibida   = (int) $fila['recibida'];
+            $solicitada = round((float) $fila['cantidad_solicitada'], 3);
+            $recibida   = round((float) $fila['recibida'], 3);
             $recibido   = (int) $fila['recibido_centavos'];
-            $esperadoRecibido = (int) round((float) $fila['costo_esperado'] * 100) * $recibida;
+            $esperadoRecibido = (int) round((int) round((float) $fila['costo_esperado'] * 100) * $recibida);
 
-            $fila['solicitada']       = $solicitada;
-            $fila['recibida']         = $recibida;
-            $fila['pendiente']        = $solicitada - $recibida;
+            $fila['solicitada']       = self::num($solicitada);
+            $fila['recibida']         = self::num($recibida);
+            $fila['pendiente']        = self::num($solicitada - $recibida);
             $fila['importe_recibido'] = $recibido / 100;
             $fila['costo_final']      = $recibida > 0 ? round($recibido / 100 / $recibida, 2) : null;
             $fila['diferencia']       = ($recibido - $esperadoRecibido) / 100;
+            $fila['nombre_mostrado']  = $fila['producto_nombre'] ?? $fila['material_nombre'] ?? ($fila['descripcion'] ?: 'Sin descripción');
+            $fila['unidad_mostrada']  = $fila['unidad'] ?: ($fila['producto_unidad'] ?? $fila['material_unidad'] ?? 'pza');
             $partidas[] = $fila;
         }
         $consulta->close();
@@ -167,9 +202,10 @@ class OrdenesCompra
 
         if ($recepciones) {
             $consulta = self::$db->prepare(
-                'SELECT rp.*, pr.nombre AS producto_nombre, pr.sku AS producto_sku
+                'SELECT rp.*, pr.nombre AS producto_nombre, pr.sku AS producto_sku, mt.nombre AS material_nombre
                    FROM recepcion_partidas rp
-                   JOIN productos pr ON pr.id = rp.producto_id
+                   LEFT JOIN productos pr ON pr.id = rp.producto_id
+                   LEFT JOIN materiales mt ON mt.id = rp.material_id
                    JOIN recepciones r ON r.id = rp.recepcion_id
                   WHERE r.orden_id = ? ORDER BY rp.id'
             );
@@ -217,14 +253,20 @@ class OrdenesCompra
         ];
     }
 
+    /** Suma de pagos vigentes de la compra `o` (para filtros y columnas). */
+    private const PAGADO_SQL = "(SELECT COALESCE(SUM(pc.importe), 0) FROM pagos_compra pc WHERE pc.orden_id = o.id AND pc.estado = 'vigente')";
+    private const TOTAL_SQL = '(o.total_esperado + COALESCE(o.iva, 0))';
+
     /** @return array<int, array<string, mixed>> */
     public static function listar(array $filtros, int $limite, int $offset): array
     {
         [$donde, $tipos, $valores] = self::condiciones($filtros);
 
         $consulta = self::$db->prepare(
-            "SELECT o.*, p.nombre AS proveedor_nombre
+            'SELECT o.*, p.nombre AS proveedor_nombre, cat.nombre AS categoria_nombre,
+                    ' . self::TOTAL_SQL . ' AS total_compra, ' . self::PAGADO_SQL . " AS pagado
                FROM ordenes_compra o JOIN proveedores p ON p.id = o.proveedor_id
+               LEFT JOIN categorias_proveedor cat ON cat.id = o.categoria_id
               WHERE $donde ORDER BY o.fecha_solicitud DESC, o.id DESC LIMIT ? OFFSET ?"
         );
         $valores[] = $limite;
@@ -233,6 +275,12 @@ class OrdenesCompra
         $consulta->execute();
         $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
         $consulta->close();
+
+        foreach ($filas as &$fila) {
+            $fila['saldo'] = ((int) round((float) $fila['total_compra'] * 100) - (int) round((float) $fila['pagado'] * 100)) / 100;
+            $fila['estado_pago'] = PagosCompra::estado((int) round((float) $fila['total_compra'] * 100), (int) round((float) $fila['pagado'] * 100));
+        }
+        unset($fila);
 
         return $filas;
     }
@@ -253,7 +301,46 @@ class OrdenesCompra
         return $total;
     }
 
-    /** @return array{0: string, 1: string, 2: array<int, mixed>} */
+    /**
+     * Totales de las compras que cumplen los filtros (para el resumen y los reportes), en pesos.
+     *
+     * @return array{compras: int, comprado: float, facturado: float, pendiente_documentar: float, pagado: float, saldo: float}
+     */
+    public static function totalesFiltrados(array $filtros): array
+    {
+        [$donde, $tipos, $valores] = self::condiciones($filtros);
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*) AS compras,
+                    COALESCE(SUM(ROUND(" . self::TOTAL_SQL . " * 100)), 0) AS comprado,
+                    COALESCE(SUM(IF(o.estado_cfdi = 'con_cfdi', ROUND(" . self::TOTAL_SQL . " * 100), 0)), 0) AS facturado,
+                    COALESCE(SUM(IF(o.estado_cfdi = 'pendiente_cfdi', ROUND(" . self::TOTAL_SQL . " * 100), 0)), 0) AS por_documentar,
+                    COALESCE(SUM(ROUND(" . self::PAGADO_SQL . " * 100)), 0) AS pagado
+               FROM ordenes_compra o JOIN proveedores p ON p.id = o.proveedor_id
+              WHERE $donde AND o.estado <> 'cancelada'"
+        );
+        if ($tipos !== '') {
+            $consulta->bind_param($tipos, ...$valores);
+        }
+        $consulta->execute();
+        $f = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return [
+            'compras'              => (int) $f['compras'],
+            'comprado'             => (int) $f['comprado'] / 100,
+            'facturado'            => (int) $f['facturado'] / 100,
+            'pendiente_documentar' => (int) $f['por_documentar'] / 100,
+            'pagado'               => (int) $f['pagado'] / 100,
+            'saldo'                => ((int) $f['comprado'] - (int) $f['pagado']) / 100,
+        ];
+    }
+
+    /**
+     * Filtros: q (folio, proveedor, referencia), estado, proveedor, tipo, categoria, desde, hasta,
+     * cfdi (pendiente_cfdi|con_cfdi|no_facturada), pago (pendiente|parcial|pagada), recepcion (pendiente).
+     *
+     * @return array{0: string, 1: string, 2: array<int, mixed>}
+     */
     private static function condiciones(array $filtros): array
     {
         $donde = ['1 = 1'];
@@ -262,9 +349,9 @@ class OrdenesCompra
 
         $termino = trim((string) ($filtros['q'] ?? ''));
         if ($termino !== '') {
-            $donde[] = '(o.folio LIKE ? OR p.nombre LIKE ?)';
-            $tipos .= 'ss';
-            $valores[] = $valores[] = '%' . $termino . '%';
+            $donde[] = '(o.folio LIKE ? OR p.nombre LIKE ? OR o.referencia LIKE ?)';
+            $tipos .= 'sss';
+            $valores[] = $valores[] = $valores[] = '%' . $termino . '%';
         }
         if (isset(self::ESTADOS[$filtros['estado'] ?? ''])) {
             $donde[] = 'o.estado = ?';
@@ -276,8 +363,73 @@ class OrdenesCompra
             $tipos .= 'i';
             $valores[] = (int) $filtros['proveedor'];
         }
+        if (isset(self::TIPOS[$filtros['tipo'] ?? ''])) {
+            $donde[] = 'o.tipo = ?';
+            $tipos .= 's';
+            $valores[] = $filtros['tipo'];
+        }
+        if ((int) ($filtros['categoria'] ?? 0) > 0) {
+            $donde[] = 'o.categoria_id = ?';
+            $tipos .= 'i';
+            $valores[] = (int) $filtros['categoria'];
+        }
+        foreach (['desde' => 'o.fecha_solicitud >= ?', 'hasta' => 'o.fecha_solicitud <= ?'] as $clave => $sql) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($filtros[$clave] ?? ''))) {
+                $donde[] = $sql;
+                $tipos .= 's';
+                $valores[] = $filtros[$clave];
+            }
+        }
+        if (isset(CompraContable::ESTADOS_CFDI[$filtros['cfdi'] ?? ''])) {
+            $donde[] = 'o.estado_cfdi = ?';
+            $tipos .= 's';
+            $valores[] = $filtros['cfdi'];
+        }
+        if (($filtros['recepcion'] ?? '') === 'pendiente') {
+            $donde[] = "o.estado IN ('solicitada', 'parcial')";
+        }
+        switch ($filtros['pago'] ?? '') {
+            case 'pendiente':
+                $donde[] = self::PAGADO_SQL . ' = 0';
+                break;
+            case 'parcial':
+                $donde[] = self::PAGADO_SQL . ' > 0 AND ' . self::PAGADO_SQL . ' < ' . self::TOTAL_SQL;
+                break;
+            case 'pagada':
+                $donde[] = self::PAGADO_SQL . ' > 0 AND ' . self::PAGADO_SQL . ' >= ' . self::TOTAL_SQL;
+                break;
+        }
 
         return [implode(' AND ', $donde), $tipos, $valores];
+    }
+
+    /**
+     * Importes de una compra en pesos: comprado, IVA, total, facturado, pagado, saldo y estados.
+     * «Facturado» solo cuenta con un CFDI adjunto (estado con_cfdi); lo demás está pendiente de documentar o sin factura.
+     *
+     * @return array<string, mixed>
+     */
+    public static function resumen(int $ordenId): array
+    {
+        $orden = self::buscarID($ordenId);
+        if (!$orden) {
+            return [];
+        }
+        $total = PagosCompra::totalCompra($orden);
+        $pagado = PagosCompra::pagado($ordenId);
+
+        return [
+            'subtotal'             => Contabilidad::centavos($orden['total_esperado']) / 100,
+            'iva'                  => $orden['iva'] !== null ? (float) $orden['iva'] : null,
+            'total'                => $total / 100,
+            'facturado'            => $orden['estado_cfdi'] === 'con_cfdi' ? $total / 100 : 0.0,
+            'pendiente_documentar' => $orden['estado_cfdi'] === 'pendiente_cfdi' ? $total / 100 : 0.0,
+            'pagado'               => $pagado / 100,
+            'saldo'                => ($total - $pagado) / 100,
+            'estado_pago'          => PagosCompra::estado($total, $pagado),
+            'estado_cfdi'          => $orden['estado_cfdi'],
+            'gasto_id'             => $orden['gasto_id'] !== null ? (int) $orden['gasto_id'] : null,
+        ];
     }
 
     /* --------------------------------------------------------------------
@@ -285,14 +437,19 @@ class OrdenesCompra
      * ------------------------------------------------------------------ */
 
     /**
-     * Valida los datos de la orden.
+     * Valida los datos de la compra y sus partidas.
      *
-     * @param array<int, array{producto_id: int, cantidad: int, costo: mixed, descripcion?: string}> $lineas
+     * @param array<int, array<string, mixed>> $lineas
      * @return string[]
      */
     public static function validar(array $datos, array $lineas): array
     {
         $errores = [];
+
+        $tipo = (string) ($datos['tipo'] ?? 'semiterminado');
+        if (!isset(self::TIPOS[$tipo])) {
+            $errores[] = 'Elige el tipo de compra.';
+        }
 
         $proveedor = (int) ($datos['proveedor_id'] ?? 0);
         $consulta = self::$db->prepare('SELECT activo FROM proveedores WHERE id = ?');
@@ -304,12 +461,47 @@ class OrdenesCompra
         if (!$fila) {
             $errores[] = 'Elige un proveedor válido.';
         } elseif ((int) $fila['activo'] !== 1) {
-            $errores[] = 'El proveedor está desactivado.';
+            // Una compra ya existente puede conservar a su proveedor inactivo; las nuevas no.
+            $propia = (int) ($datos['id'] ?? 0);
+            $actual = 0;
+            if ($propia > 0) {
+                $c = self::$db->prepare('SELECT proveedor_id FROM ordenes_compra WHERE id = ?');
+                $c->bind_param('i', $propia);
+                $c->execute();
+                $actual = (int) ($c->get_result()->fetch_assoc()['proveedor_id'] ?? 0);
+                $c->close();
+            }
+            if ($actual !== $proveedor) {
+                $errores[] = 'El proveedor está desactivado.';
+            }
         }
 
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($datos['fecha_solicitud'] ?? ''))
             || !strtotime((string) $datos['fecha_solicitud'])) {
-            $errores[] = 'La fecha de solicitud no es válida.';
+            $errores[] = 'La fecha de la compra no es válida.';
+        }
+
+        if (mb_strlen(trim((string) ($datos['referencia'] ?? ''))) > 60) {
+            $errores[] = 'La referencia del proveedor puede tener hasta 60 caracteres.';
+        }
+        foreach (['categoria_id' => ['categorias_proveedor', 'La categoría elegida ya no existe.'], 'empresa_id' => ['empresas', 'El negocio elegido ya no existe.']] as $campo => [$tabla, $mensaje]) {
+            $valor = (int) ($datos[$campo] ?? 0);
+            if ($valor > 0) {
+                $c = self::$db->prepare("SELECT COUNT(*) FROM $tabla WHERE id = ?");
+                $c->bind_param('i', $valor);
+                $c->execute();
+                if ((int) $c->get_result()->fetch_row()[0] === 0) {
+                    $errores[] = $mensaje;
+                }
+                $c->close();
+            }
+        }
+        if (isset($datos['estado_cfdi']) && !in_array($datos['estado_cfdi'], ['pendiente_cfdi', 'no_facturada'], true)) {
+            $errores[] = 'El estado de la factura solo puede ser «CFDI pendiente» o «Sin factura»; «Con CFDI» se obtiene al adjuntar el XML.';
+        }
+        $iva = str_replace(',', '.', trim((string) ($datos['iva'] ?? '')));
+        if ($iva !== '' && (!is_numeric($iva) || (float) $iva < 0)) {
+            $errores[] = 'El IVA debe ser un número mayor o igual a cero (o déjalo vacío si no lo sabes).';
         }
 
         $folio = trim((string) ($datos['folio'] ?? ''));
@@ -324,29 +516,124 @@ class OrdenesCompra
                 $repetido = (int) $consulta->get_result()->fetch_row()[0];
                 $consulta->close();
                 if ($repetido > 0) {
-                    $errores[] = "Ya existe una orden con el folio $folio. Elige otro o déjalo vacío para que se asigne solo.";
+                    $errores[] = "Ya existe una compra con el folio $folio. Elige otro o déjalo vacío para que se asigne solo.";
                 }
             }
         }
 
         if (empty($lineas)) {
-            $errores[] = 'Agrega al menos un producto a la orden.';
+            $errores[] = 'Agrega al menos una partida a la compra.';
         }
 
         foreach ($lineas as $indice => $linea) {
             $n = $indice + 1;
-            if ((int) $linea['producto_id'] <= 0) {
-                $errores[] = "Partida $n: elige un producto.";
-            }
-            if ((int) $linea['cantidad'] <= 0) {
+            $cantidad = str_replace(',', '.', trim((string) ($linea['cantidad'] ?? '')));
+            $productoId = (int) ($linea['producto_id'] ?? 0);
+            $descripcion = trim((string) ($linea['descripcion'] ?? ''));
+
+            if (!is_numeric($cantidad) || (float) $cantidad <= 0) {
                 $errores[] = "Partida $n: la cantidad debe ser mayor a cero.";
+            } elseif (abs((float) $cantidad * 1000 - round((float) $cantidad * 1000)) > 1e-6) {
+                $errores[] = "Partida $n: la cantidad admite hasta 3 decimales.";
             }
-            if (!is_numeric($linea['costo']) || (float) $linea['costo'] < 0) {
+            if (!is_numeric($linea['costo'] ?? '') || (float) $linea['costo'] < 0) {
                 $errores[] = "Partida $n: el costo unitario debe ser un número mayor o igual a cero.";
+            }
+            if (mb_strlen($descripcion) > 200) {
+                $errores[] = "Partida $n: la descripción puede tener hasta 200 caracteres.";
+            }
+
+            if ($tipo === 'semiterminado') {
+                if ($productoId <= 0 && $descripcion === '') {
+                    $errores[] = "Partida $n: escribe cómo lo nombra el proveedor o elige el producto del catálogo.";
+                }
+                if (is_numeric($cantidad) && (float) $cantidad != (int) $cantidad) {
+                    $errores[] = "Partida $n: las piezas de un semiterminado se cuentan completas (sin decimales).";
+                }
+                if ($productoId > 0) {
+                    $c = self::$db->prepare('SELECT COUNT(*) FROM productos WHERE id = ?');
+                    $c->bind_param('i', $productoId);
+                    $c->execute();
+                    if ((int) $c->get_result()->fetch_row()[0] === 0) {
+                        $errores[] = "Partida $n: el producto elegido ya no existe.";
+                    }
+                    $c->close();
+                }
+            } elseif ($tipo === 'insumo') {
+                if ($descripcion === '') {
+                    $errores[] = "Partida $n: describe lo que compraste.";
+                }
+                if ($productoId > 0) {
+                    $errores[] = "Partida $n: un insumo no se liga a un producto de venta (usa «semiterminado» para eso).";
+                }
+                if (!empty($linea['controla']) && (int) ($linea['material_id'] ?? 0) <= 0 && trim((string) ($linea['material_nuevo'] ?? '')) === '') {
+                    $errores[] = "Partida $n: para controlarlo en inventario elige un material o escribe el nombre del nuevo.";
+                }
             }
         }
 
         return $errores;
+    }
+
+    /**
+     * Resuelve cada partida a su forma final: material creado si hace falta, bandera «controla» y cantidades.
+     * Debe llamarse dentro de la transacción (puede crear materiales).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function resolverLineas(string $tipo, array $lineas): array
+    {
+        $resueltas = [];
+        foreach ($lineas as $linea) {
+            $productoId = $tipo === 'semiterminado' ? ((int) ($linea['producto_id'] ?? 0) ?: null) : null;
+            $materialId = null;
+            $controla = 1;
+            if ($tipo === 'insumo') {
+                $controla = !empty($linea['controla']) ? 1 : 0;
+                if ($controla) {
+                    $materialId = (int) ($linea['material_id'] ?? 0) ?: null;
+                    if (!$materialId) {
+                        $materialId = Materiales::crear((string) $linea['material_nuevo'], (string) ($linea['unidad'] ?? '') ?: 'pza') ?: null;
+                    }
+                    if (!$materialId) {
+                        throw new \RuntimeException(implode(' ', Materiales::getErrores()) ?: 'No fue posible crear el material.');
+                    }
+                }
+            }
+            $linea['producto_id'] = $productoId;
+            $linea['material_id'] = $materialId;
+            $linea['controla'] = $controla;
+            $resueltas[] = $linea;
+        }
+        return $resueltas;
+    }
+
+    private static function totalDe(array $lineas): string
+    {
+        $total = 0;
+        foreach ($lineas as $linea) {
+            $total += (int) round(self::importe($linea['cantidad'], $linea['costo']) * 100);
+        }
+        return number_format($total / 100, 2, '.', '');
+    }
+
+    /** Datos del encabezado normalizados para guardar. @return array<string, mixed> */
+    private static function encabezado(array $datos): array
+    {
+        $empresa = (int) ($datos['empresa_id'] ?? 0) ?: null;
+        $iva = str_replace(',', '.', trim((string) ($datos['iva'] ?? '')));
+        return [
+            'tipo'            => (string) ($datos['tipo'] ?? 'semiterminado'),
+            'proveedor_id'    => (int) $datos['proveedor_id'],
+            'fecha'           => (string) $datos['fecha_solicitud'],
+            'referencia'      => trim((string) ($datos['referencia'] ?? '')) ?: null,
+            'categoria_id'    => (int) ($datos['categoria_id'] ?? 0) ?: null,
+            'empresa_id'      => $empresa,
+            'contribuyente'   => $empresa ? Contabilidad::contribuyenteDeEmpresa($empresa) : Contabilidad::contribuyentePrincipal(),
+            'estado_cfdi'     => in_array($datos['estado_cfdi'] ?? '', ['pendiente_cfdi', 'no_facturada'], true) ? $datos['estado_cfdi'] : 'pendiente_cfdi',
+            'iva'             => $iva !== '' ? number_format((float) $iva, 2, '.', '') : null,
+            'observaciones'   => trim((string) ($datos['observaciones'] ?? '')) ?: null,
+        ];
     }
 
     public static function crear(array $datos, array $lineas, int $usuarioId): bool
@@ -359,42 +646,69 @@ class OrdenesCompra
         try {
             self::$db->begin_transaction();
 
+            $h = self::encabezado($datos);
+            $lineas = self::resolverLineas($h['tipo'], $lineas);
             $folio = trim((string) ($datos['folio'] ?? '')) ?: self::siguienteFolio();
-            $total = 0;
-            foreach ($lineas as $linea) {
-                $total += (int) round(self::importe((int) $linea['cantidad'], $linea['costo']) * 100);
-            }
-            $totalPesos = number_format($total / 100, 2, '.', '');
-            $observaciones = trim((string) ($datos['observaciones'] ?? '')) ?: null;
+            $totalPesos = self::totalDe($lineas);
+            $estado = array_sum(array_column($lineas, 'controla')) > 0 ? 'solicitada' : 'sin_recepcion';
 
             $consulta = self::$db->prepare(
-                'INSERT INTO ordenes_compra (folio, proveedor_id, fecha_solicitud, total_esperado, observaciones, usuario_id, contribuyente_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO ordenes_compra (folio, tipo, proveedor_id, fecha_solicitud, referencia, categoria_id, contribuyente_id, empresa_id,
+                        estado, total_esperado, estado_cfdi, iva, observaciones, usuario_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
-            $proveedorId = (int) $datos['proveedor_id'];
-            $contribuyente = Contabilidad::contribuyentePrincipal();
-            $consulta->bind_param('sisssii', $folio, $proveedorId, $datos['fecha_solicitud'], $totalPesos, $observaciones, $usuarioId, $contribuyente);
+            $consulta->bind_param(
+                'ssissiiisssssi',
+                $folio, $h['tipo'], $h['proveedor_id'], $h['fecha'], $h['referencia'], $h['categoria_id'], $h['contribuyente'], $h['empresa_id'],
+                $estado, $totalPesos, $h['estado_cfdi'], $h['iva'], $h['observaciones'], $usuarioId
+            );
             $consulta->execute();
             $ordenId = (int) self::$db->insert_id;
             $consulta->close();
 
             self::guardarPartidas($ordenId, $lineas);
-            Auditoria::registrar('orden_compra', $ordenId, 'crear', $usuarioId, null, ['folio' => $folio, 'total' => $totalPesos]);
+            Auditoria::registrar('orden_compra', $ordenId, 'crear', $usuarioId, null, ['folio' => $folio, 'tipo' => $h['tipo'], 'total' => $totalPesos]);
 
             self::$db->commit();
             self::$ultimoId = $ordenId;
             return true;
+        } catch (\RuntimeException $excepcion) {
+            self::$db->rollback();
+            self::$errores[] = $excepcion->getMessage();
+            return false;
         } catch (\mysqli_sql_exception $excepcion) {
             self::$db->rollback();
             error_log('[OrdenesCompra::crear] ' . $excepcion->getMessage());
-            self::$errores[] = 'No fue posible guardar la orden de compra.';
+            self::$errores[] = 'No fue posible guardar la compra.';
             return false;
         }
     }
 
-    /** Edita una orden mientras no tenga recepciones ni esté cerrada/cancelada. */
+    /**
+     * Indica por qué una compra ya no se puede editar o cancelar (null = se puede).
+     * No se corrige una compra con recepciones, pagos vigentes o un gasto vigente: primero se anula eso (queda auditado).
+     */
+    private static function motivoBloqueo(array $orden): ?string
+    {
+        if (!in_array($orden['estado'], ['solicitada', 'sin_recepcion'], true) || self::contarRecepciones((int) $orden['id']) > 0) {
+            return 'Solo se puede modificar una compra que aún no tenga recepciones ni esté cerrada o cancelada.';
+        }
+        if (PagosCompra::pagado((int) $orden['id']) > 0) {
+            return 'La compra tiene pagos vigentes: cancela los pagos (con motivo) antes de modificarla.';
+        }
+        if (!empty($orden['gasto_id'])) {
+            $gasto = Gastos::buscarID((int) $orden['gasto_id']);
+            if ($gasto && $gasto['estado'] === 'vigente') {
+                return 'La compra ya está en contabilidad (gasto #' . $orden['gasto_id'] . '): cancela ese gasto antes de modificarla.';
+            }
+        }
+        return null;
+    }
+
+    /** Edita una compra mientras no tenga recepciones, pagos ni gasto vigentes. */
     public static function actualizar(int $id, array $datos, array $lineas, int $usuarioId): bool
     {
+        $datos['id'] = $id;
         self::$errores = self::validar($datos, $lineas);
         if (self::$errores) {
             return false;
@@ -404,27 +718,29 @@ class OrdenesCompra
             self::$db->begin_transaction();
             $orden = self::bloquear($id);
 
-            if (!$orden || $orden['estado'] !== 'solicitada' || self::contarRecepciones($id) > 0) {
+            $bloqueo = $orden ? self::motivoBloqueo($orden) : 'La compra no existe.';
+            if ($bloqueo !== null) {
                 self::$db->rollback();
-                self::$errores[] = 'Solo se puede editar una orden solicitada que aún no tenga recepciones.';
+                self::$errores[] = $bloqueo;
                 return false;
             }
 
-            $total = 0;
-            foreach ($lineas as $linea) {
-                $total += (int) round(self::importe((int) $linea['cantidad'], $linea['costo']) * 100);
-            }
-            $totalPesos = number_format($total / 100, 2, '.', '');
-            $observaciones = trim((string) ($datos['observaciones'] ?? '')) ?: null;
-            $proveedorId = (int) $datos['proveedor_id'];
-
+            $h = self::encabezado($datos);
+            $lineas = self::resolverLineas($h['tipo'], $lineas);
+            $totalPesos = self::totalDe($lineas);
+            $estado = array_sum(array_column($lineas, 'controla')) > 0 ? 'solicitada' : 'sin_recepcion';
             $folio = trim((string) ($datos['folio'] ?? '')) ?: $orden['folio']; // vacío = conserva el actual
 
             $consulta = self::$db->prepare(
-                'UPDATE ordenes_compra SET folio = ?, proveedor_id = ?, fecha_solicitud = ?, total_esperado = ?, observaciones = ?
+                'UPDATE ordenes_compra SET folio = ?, tipo = ?, proveedor_id = ?, fecha_solicitud = ?, referencia = ?, categoria_id = ?,
+                        contribuyente_id = ?, empresa_id = ?, estado = ?, total_esperado = ?, estado_cfdi = ?, iva = ?, observaciones = ?
                   WHERE id = ?'
             );
-            $consulta->bind_param('sisssi', $folio, $proveedorId, $datos['fecha_solicitud'], $totalPesos, $observaciones, $id);
+            $consulta->bind_param(
+                'ssissiiisssssi',
+                $folio, $h['tipo'], $h['proveedor_id'], $h['fecha'], $h['referencia'], $h['categoria_id'], $h['contribuyente'], $h['empresa_id'],
+                $estado, $totalPesos, $h['estado_cfdi'], $h['iva'], $h['observaciones'], $id
+            );
             $consulta->execute();
             $consulta->close();
 
@@ -434,28 +750,89 @@ class OrdenesCompra
             $borrar->close();
 
             self::guardarPartidas($id, $lineas);
-            Auditoria::registrar('orden_compra', $id, 'editar', $usuarioId, null, ['total' => $totalPesos, 'folio' => $folio]);
+            Auditoria::registrar('orden_compra', $id, 'editar', $usuarioId, null, ['total' => $totalPesos, 'folio' => $folio, 'tipo' => $h['tipo']]);
 
             self::$db->commit();
             return true;
+        } catch (\RuntimeException $excepcion) {
+            self::$db->rollback();
+            self::$errores[] = $excepcion->getMessage();
+            return false;
         } catch (\mysqli_sql_exception $excepcion) {
             self::$db->rollback();
             error_log('[OrdenesCompra::actualizar] ' . $excepcion->getMessage());
-            self::$errores[] = 'No fue posible actualizar la orden de compra.';
+            self::$errores[] = 'No fue posible actualizar la compra.';
             return false;
         }
     }
 
-    /** Cancela una orden sin recepciones. */
+    /**
+     * Relaciona una partida de semiterminado con un producto del catálogo (o cambia la relación) mientras
+     * no tenga lo recibido. Nunca inventa asociaciones: solo la que el usuario elige.
+     */
+    public static function relacionarProducto(int $partidaId, int $productoId, int $usuarioId): bool
+    {
+        self::$errores = [];
+        try {
+            self::$db->begin_transaction();
+            $consulta = self::$db->prepare(
+                'SELECT c.*, o.tipo, o.estado FROM orden_compra_partidas c JOIN ordenes_compra o ON o.id = c.orden_id WHERE c.id = ? FOR UPDATE'
+            );
+            $consulta->bind_param('i', $partidaId);
+            $consulta->execute();
+            $partida = $consulta->get_result()->fetch_assoc();
+            $consulta->close();
+
+            if (!$partida || $partida['tipo'] !== 'semiterminado') {
+                self::$db->rollback();
+                self::$errores[] = 'Solo las partidas de un semiterminado se relacionan con un producto del catálogo.';
+                return false;
+            }
+            $recibida = self::$db->query('SELECT COALESCE(SUM(cantidad_recibida), 0) FROM recepcion_partidas WHERE partida_id = ' . (int) $partidaId)->fetch_row()[0];
+            if ((float) $recibida > 0 && (int) $partida['producto_id'] !== $productoId) {
+                self::$db->rollback();
+                self::$errores[] = 'Esta partida ya tiene piezas recibidas; no se puede cambiar su producto.';
+                return false;
+            }
+            $existe = self::$db->prepare('SELECT COUNT(*) FROM productos WHERE id = ?');
+            $existe->bind_param('i', $productoId);
+            $existe->execute();
+            if ((int) $existe->get_result()->fetch_row()[0] === 0) {
+                self::$db->rollback();
+                self::$errores[] = 'El producto elegido no existe.';
+                return false;
+            }
+            $existe->close();
+
+            $actualizar = self::$db->prepare('UPDATE orden_compra_partidas SET producto_id = ? WHERE id = ?');
+            $actualizar->bind_param('ii', $productoId, $partidaId);
+            $actualizar->execute();
+            $actualizar->close();
+
+            Auditoria::registrar('orden_compra', (int) $partida['orden_id'], 'relacionar_producto', $usuarioId, null, [
+                'partida' => $partidaId, 'antes' => $partida['producto_id'], 'despues' => $productoId,
+            ]);
+            self::$db->commit();
+            return true;
+        } catch (\mysqli_sql_exception $excepcion) {
+            self::$db->rollback();
+            error_log('[OrdenesCompra::relacionarProducto] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible relacionar el producto.';
+            return false;
+        }
+    }
+
+    /** Cancela una compra sin recepciones, pagos ni gasto vigentes. */
     public static function cancelar(int $id, int $usuarioId): bool
     {
         try {
             self::$db->begin_transaction();
             $orden = self::bloquear($id);
 
-            if (!$orden || $orden['estado'] !== 'solicitada' || self::contarRecepciones($id) > 0) {
+            $bloqueo = $orden ? self::motivoBloqueo($orden) : 'La compra no existe.';
+            if ($bloqueo !== null) {
                 self::$db->rollback();
-                self::$errores[] = 'Solo se puede cancelar una orden solicitada sin recepciones.';
+                self::$errores[] = $bloqueo;
                 return false;
             }
 
@@ -470,7 +847,7 @@ class OrdenesCompra
         } catch (\mysqli_sql_exception $excepcion) {
             self::$db->rollback();
             error_log('[OrdenesCompra::cancelar] ' . $excepcion->getMessage());
-            self::$errores[] = 'No fue posible cancelar la orden.';
+            self::$errores[] = 'No fue posible cancelar la compra.';
             return false;
         }
     }
@@ -480,9 +857,13 @@ class OrdenesCompra
      * ------------------------------------------------------------------ */
 
     /**
-     * Registra una recepción y suma al inventario lo realmente recibido.
+     * Registra una recepción y suma SOLO lo realmente recibido.
      *
-     * @param array<int, array{cantidad: mixed, costo: mixed}> $renglones partida_id => datos.
+     * Destino de cada renglón: material → materiales; producto → «por terminar» (o existencia vendible si el
+     * renglón trae 'terminado' => true, es decir, ya llegó terminado). Un consumible no se recepciona.
+     *
+     * @param array<int, array{cantidad: mixed, costo: mixed, terminado?: mixed}> $renglones partida_id => datos.
+     * @param bool $confirmaExcedente true solo cuando el usuario confirmó explícitamente recibir más de lo pendiente.
      */
     public static function recibir(
         int $ordenId,
@@ -491,7 +872,8 @@ class OrdenesCompra
         string $token,
         bool $actualizaCosto,
         string $notas,
-        int $usuarioId
+        int $usuarioId,
+        bool $confirmaExcedente = false
     ): bool {
         self::$errores = [];
 
@@ -508,9 +890,10 @@ class OrdenesCompra
             self::$db->begin_transaction();
             $orden = self::bloquear($ordenId);
 
-            if (!$orden || !in_array($orden['estado'], ['solicitada', 'parcial'], true)) {
+            $admitidos = $confirmaExcedente ? ['solicitada', 'parcial', 'completa'] : ['solicitada', 'parcial'];
+            if (!$orden || !in_array($orden['estado'], $admitidos, true)) {
                 self::$db->rollback();
-                self::$errores[] = 'La orden no admite más recepciones (debe estar solicitada o con recepción parcial).';
+                self::$errores[] = 'La compra no admite más recepciones (debe estar solicitada o con recepción parcial).';
                 return false;
             }
 
@@ -520,27 +903,72 @@ class OrdenesCompra
             }
 
             $aInsertar = [];
-            $agrupadas = [];
+            $enStock = [];
+            $porTerminar = [];
+            $materiales = [];
+            $excedentes = [];
             foreach ($renglones as $partidaId => $datos) {
-                $cantidad = (int) ($datos['cantidad'] ?? 0);
-                if ($cantidad === 0) {
+                $cantidad = str_replace(',', '.', trim((string) ($datos['cantidad'] ?? '0')));
+                if ($cantidad === '' || (is_numeric($cantidad) && (float) $cantidad == 0.0)) {
                     continue;
                 }
                 $partidaId = (int) $partidaId;
-                if (!isset($partidas[$partidaId]) || $cantidad < 0) {
+                if (!is_numeric($cantidad) || (float) $cantidad < 0 || !isset($partidas[$partidaId])) {
                     self::$db->rollback();
                     self::$errores[] = 'Hay una cantidad recibida inválida.';
                     return false;
                 }
-                $costo = $datos['costo'] ?? '';
-                if (!is_numeric($costo) || (float) $costo < 0) {
+                $cantidad = round((float) $cantidad, 3);
+                $partida = $partidas[$partidaId];
+                $nombre = $partida['nombre_mostrado'];
+
+                if (!(int) $partida['controla']) {
                     self::$db->rollback();
-                    self::$errores[] = 'El costo unitario de «' . $partidas[$partidaId]['producto_nombre'] . '» no es válido.';
+                    self::$errores[] = '«' . $nombre . '» es un consumible sin control de inventario: no lleva recepción.';
                     return false;
                 }
-                $aInsertar[$partidaId] = [$cantidad, number_format((float) $costo, 2, '.', '')];
-                $productoId = (int) $partidas[$partidaId]['producto_id'];
-                $agrupadas[$productoId] = ($agrupadas[$productoId] ?? 0) + $cantidad;
+                if ($partida['material_id']) {
+                    $destino = 'material';
+                } elseif ($partida['producto_id']) {
+                    $destino = !empty($datos['terminado']) ? 'stock' : 'por_terminar';
+                    if ($cantidad != (int) $cantidad) {
+                        self::$db->rollback();
+                        self::$errores[] = 'Las piezas de «' . $nombre . '» se reciben completas (sin decimales).';
+                        return false;
+                    }
+                } else {
+                    self::$db->rollback();
+                    self::$errores[] = 'Relaciona «' . $nombre . '» con un producto del catálogo antes de recibirlo.';
+                    return false;
+                }
+
+                $pendiente = (float) $partida['pendiente'];
+                if ($cantidad > $pendiente + 0.0005) {
+                    if (!$confirmaExcedente) {
+                        self::$db->rollback();
+                        self::$errores[] = 'La cantidad recibida de «' . $nombre . '» (' . self::num($cantidad) . ') excede lo pendiente ('
+                            . self::num(max(0, $pendiente)) . '). Si realmente llegó de más, confirma el excedente de forma explícita.';
+                        return false;
+                    }
+                    $excedentes[] = ['partida' => $partidaId, 'pendiente' => self::num(max(0, $pendiente)), 'recibido' => self::num($cantidad)];
+                }
+
+                $costo = $datos['costo'] ?? '';
+                $costo = str_replace(',', '.', trim((string) $costo));
+                if (!is_numeric($costo) || (float) $costo < 0) {
+                    self::$db->rollback();
+                    self::$errores[] = 'El costo unitario de «' . $nombre . '» no es válido.';
+                    return false;
+                }
+                $aInsertar[$partidaId] = [$cantidad, number_format((float) $costo, 2, '.', ''), $destino];
+
+                if ($destino === 'material') {
+                    $materiales[(int) $partida['material_id']] = ($materiales[(int) $partida['material_id']] ?? 0) + $cantidad;
+                } elseif ($destino === 'stock') {
+                    $enStock[(int) $partida['producto_id']] = ($enStock[(int) $partida['producto_id']] ?? 0) + (int) $cantidad;
+                } else {
+                    $porTerminar[(int) $partida['producto_id']] = ($porTerminar[(int) $partida['producto_id']] ?? 0) + (int) $cantidad;
+                }
             }
 
             if (!$aInsertar) {
@@ -560,22 +988,25 @@ class OrdenesCompra
                 $consulta->execute();
             } catch (\mysqli_sql_exception $duplicada) {
                 self::$db->rollback();
-                self::$errores[] = 'Esta recepción ya fue registrada; no se volvió a sumar al inventario.';
+                self::$errores[] = 'Esta recepción ya fue registrada; no se volvió a sumar.';
                 return false;
             }
             $recepcionId = (int) self::$db->insert_id;
             $consulta->close();
 
             $insertar = self::$db->prepare(
-                'INSERT INTO recepcion_partidas (recepcion_id, partida_id, producto_id, cantidad_recibida, costo_unitario)
-                 VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO recepcion_partidas (recepcion_id, partida_id, producto_id, material_id, destino, cantidad_recibida, costo_unitario)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
-            foreach ($aInsertar as $partidaId => [$cantidad, $costo]) {
-                $productoId = (int) $partidas[$partidaId]['producto_id'];
-                $insertar->bind_param('iiiis', $recepcionId, $partidaId, $productoId, $cantidad, $costo);
+            foreach ($aInsertar as $partidaId => [$cantidad, $costo, $destino]) {
+                $productoId = $partidas[$partidaId]['producto_id'] !== null ? (int) $partidas[$partidaId]['producto_id'] : null;
+                $materialId = $partidas[$partidaId]['material_id'] !== null ? (int) $partidas[$partidaId]['material_id'] : null;
+                $texto = number_format($cantidad, 3, '.', '');
+                $insertar->bind_param('iiiisss', $recepcionId, $partidaId, $productoId, $materialId, $destino, $texto, $costo);
                 $insertar->execute();
 
-                if ($actualizaCosto) {
+                // El costo vigente del catálogo solo cambia por una acción explícita y solo para productos.
+                if ($actualizaCosto && $productoId) {
                     $actualizar = self::$db->prepare('UPDATE productos SET costo_actual = ? WHERE id = ?');
                     $actualizar->bind_param('si', $costo, $productoId);
                     $actualizar->execute();
@@ -584,16 +1015,31 @@ class OrdenesCompra
             }
             $insertar->close();
 
-            if (!Inventario::entradaPorRecepcion($agrupadas, $recepcionId, $usuarioId, 'Recepción ' . $orden['folio'])) {
+            $nota = 'Recepción ' . $orden['folio'];
+            if ($enStock && !Inventario::entradaPorRecepcion($enStock, $recepcionId, $usuarioId, $nota)) {
                 self::$db->rollback();
                 self::$errores = Inventario::getErrores() ?: ['No fue posible sumar al inventario.'];
+                return false;
+            }
+            if ($porTerminar) {
+                PorTerminar::entradaPorRecepcion($porTerminar, $recepcionId, $usuarioId, $nota);
+            }
+            if ($materiales && !Materiales::entradaPorRecepcion($materiales, $recepcionId, $usuarioId, $nota)) {
+                self::$db->rollback();
+                self::$errores = Materiales::getErrores() ?: ['No fue posible sumar el material.'];
                 return false;
             }
 
             self::recalcularEstado($ordenId);
             Auditoria::registrar('orden_compra', $ordenId, 'recepcion', $usuarioId, null, [
-                'recepcion_id' => $recepcionId, 'piezas' => array_sum($agrupadas),
+                'recepcion_id' => $recepcionId,
+                'vendibles' => array_sum($enStock), 'por_terminar' => array_sum($porTerminar), 'material' => array_sum($materiales),
             ]);
+            if ($excedentes) {
+                Auditoria::registrar('orden_compra', $ordenId, 'excedente', $usuarioId, 'Recepción con excedente confirmado', [
+                    'recepcion_id' => $recepcionId, 'partidas' => $excedentes,
+                ]);
+            }
 
             self::$db->commit();
             return true;
@@ -702,14 +1148,18 @@ class OrdenesCompra
         return $n;
     }
 
-    /** solicitada → parcial → completa según lo recibido. No toca cerrada/cancelada. */
+    /** solicitada → parcial → completa según lo recibido (solo cuentan las partidas que llevan recepción). */
     private static function recalcularEstado(int $ordenId): void
     {
-        $partidas = self::partidas($ordenId);
+        $partidas = array_filter(self::partidas($ordenId), static fn ($p) => (int) $p['controla'] === 1);
         $recibidas = array_sum(array_column($partidas, 'recibida'));
         $pendiente = array_sum(array_map(static fn ($p) => max(0, $p['pendiente']), $partidas));
 
-        $estado = $recibidas === 0 ? 'solicitada' : ($pendiente > 0 ? 'parcial' : 'completa');
+        if (!$partidas) {
+            $estado = 'sin_recepcion';
+        } else {
+            $estado = $recibidas == 0 ? 'solicitada' : ($pendiente > 0 ? 'parcial' : 'completa');
+        }
 
         $consulta = self::$db->prepare(
             "UPDATE ordenes_compra SET estado = ? WHERE id = ? AND estado NOT IN ('cancelada')"
@@ -719,20 +1169,24 @@ class OrdenesCompra
         $consulta->close();
     }
 
+    /** @param array<int, array<string, mixed>> $lineas ya resueltas por resolverLineas(). */
     private static function guardarPartidas(int $ordenId, array $lineas): void
     {
         $consulta = self::$db->prepare(
             'INSERT INTO orden_compra_partidas
-                (orden_id, producto_id, descripcion, cantidad_solicitada, costo_esperado, importe_esperado)
-             VALUES (?, ?, ?, ?, ?, ?)'
+                (orden_id, producto_id, material_id, descripcion, unidad, controla, cantidad_solicitada, costo_esperado, importe_esperado)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         foreach ($lineas as $linea) {
-            $productoId = (int) $linea['producto_id'];
-            $cantidad   = (int) $linea['cantidad'];
+            $productoId = $linea['producto_id'] !== null ? (int) $linea['producto_id'] : null;
+            $materialId = $linea['material_id'] !== null ? (int) $linea['material_id'] : null;
+            $cantidad   = number_format((float) $linea['cantidad'], 3, '.', '');
             $costo      = number_format((float) $linea['costo'], 2, '.', '');
-            $importe    = number_format(self::importe($cantidad, $linea['costo']), 2, '.', '');
+            $importe    = number_format(self::importe($linea['cantidad'], $linea['costo']), 2, '.', '');
             $descripcion = trim((string) ($linea['descripcion'] ?? '')) ?: null;
-            $consulta->bind_param('iisiss', $ordenId, $productoId, $descripcion, $cantidad, $costo, $importe);
+            $unidad     = trim((string) ($linea['unidad'] ?? '')) ?: null;
+            $controla   = (int) $linea['controla'];
+            $consulta->bind_param('iiississs', $ordenId, $productoId, $materialId, $descripcion, $unidad, $controla, $cantidad, $costo, $importe);
             $consulta->execute();
         }
         $consulta->close();

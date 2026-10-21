@@ -223,6 +223,17 @@ class Inventario
     }
 
     /**
+     * Pasa a existencia vendible unidades que estaban «por terminar» (PorTerminar::terminar lo llama).
+     * NO abre transacción.
+     *
+     * @param array<int, int> $agrupadas producto_id => unidades terminadas.
+     */
+    public static function entradaTerminado(array $agrupadas, int $usuarioId, string $notas = ''): bool
+    {
+        return self::mover($agrupadas, 'entrada', 0, $usuarioId, $notas, 0, 0, 'terminado');
+    }
+
+    /**
      * Núcleo de escritura: mueve el stock de varios productos y registra
      * el movimiento en la bitácora. NO abre transacción.
      *
