@@ -90,7 +90,7 @@ try {
   console.log('Un solo módulo: navegación');
   await pagina.goto(BASE + '/admin/compras');
   const pestanas = (await pagina.locator('nav[aria-label="Compras y proveedores"] a').allInnerTexts()).map((t) => t.trim());
-  verifica('las 7 secciones están en un mismo lugar', pestanas.length === 7 && ['Resumen', 'Compras y pedidos', 'Recepciones', 'Proveedores', 'Facturas', 'Pagos', 'Categorías'].every((t) => pestanas.some((p) => p.endsWith(t))), pestanas.join(' | '));
+  verifica('las 8 secciones están en un mismo lugar', pestanas.length === 8 && ['Resumen', 'Compras y pedidos', 'Recepciones', 'Proveedores', 'Catálogo', 'Facturas', 'Pagos', 'Categorías'].every((t) => pestanas.some((p) => p.endsWith(t))), pestanas.join(' | '));
   verifica('el menú lateral tiene una sola entrada «Compras y proveedores»',
     (await pagina.locator('.sidebar__enlace:has-text("Compras y proveedores")').count()) === 1
     && (await pagina.locator('.sidebar__enlace:text-is("Proveedores")').count()) === 0);

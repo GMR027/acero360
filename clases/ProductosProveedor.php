@@ -1,0 +1,415 @@
+<?php
+
+namespace App;
+
+/**
+ * ProductosProveedor — catálogo de productos SEMITERMINADOS que ofrece cada proveedor.
+ *
+ * No son productos propios: conservan su identidad, código y costo. Reglas:
+ *   • Un proveedor tiene muchos; el mismo artículo puede existir en otro proveedor con otro costo.
+ *   • Nombre y código no se repiten dentro del mismo proveedor (se avisa cuál ya existe en vez de duplicar).
+ *   • Nunca se borran: se desactivan. Los inactivos no se ofrecen en compras nuevas pero siguen en el historial.
+ *   • El costo del catálogo es el vigente; cambiarlo NO altera compras anteriores (cada compra guarda el suyo)
+ *     y queda en la bitácora de auditoría.
+ *   • La relación con los productos propios es opcional, N:M y sin cantidades (no es un sistema de producción).
+ */
+class ProductosProveedor
+{
+    /** @var \mysqli Conexión inyectada desde includes/app.php. */
+    protected static $db;
+
+    /** @var string[] Mensajes de la última operación. */
+    protected static $errores = [];
+
+    /** Id del último registro creado (para redirigir a su ficha). */
+    public static int $ultimoId = 0;
+
+    public static function setDB($database): void
+    {
+        self::$db = $database;
+    }
+
+    public static function getErrores(): array
+    {
+        $errores = self::$errores;
+        self::$errores = [];
+        return $errores;
+    }
+
+    /* --------------------------------------------------------------------
+     * LECTURA
+     * ------------------------------------------------------------------ */
+
+    /** @return array<string, mixed>|null */
+    public static function buscarID(int $id): ?array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT pp.*, p.nombre AS proveedor_nombre, p.activo AS proveedor_activo,
+                    (SELECT COUNT(*) FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id) AS relaciones
+               FROM proveedor_productos pp JOIN proveedores p ON p.id = pp.proveedor_id
+              WHERE pp.id = ? LIMIT 1'
+        );
+        $consulta->bind_param('i', $id);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ?: null;
+    }
+
+    /**
+     * Filtros: q (nombre, código o descripción), proveedor, estado ('activos'|'inactivos'), relacion ('con'|'sin').
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function listar(array $filtros, int $limite = 15, int $offset = 0): array
+    {
+        [$donde, $tipos, $valores] = self::condiciones($filtros);
+        $consulta = self::$db->prepare(
+            "SELECT pp.*, p.nombre AS proveedor_nombre, p.activo AS proveedor_activo,
+                    (SELECT COUNT(*) FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id) AS relaciones
+               FROM proveedor_productos pp JOIN proveedores p ON p.id = pp.proveedor_id
+              WHERE $donde ORDER BY pp.activo DESC, p.nombre ASC, pp.nombre ASC LIMIT ? OFFSET ?"
+        );
+        $valores[] = $limite;
+        $valores[] = $offset;
+        $consulta->bind_param($tipos . 'ii', ...$valores);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        return $filas;
+    }
+
+    public static function contar(array $filtros): int
+    {
+        [$donde, $tipos, $valores] = self::condiciones($filtros);
+        $consulta = self::$db->prepare(
+            "SELECT COUNT(*) FROM proveedor_productos pp JOIN proveedores p ON p.id = pp.proveedor_id WHERE $donde"
+        );
+        if ($tipos !== '') {
+            $consulta->bind_param($tipos, ...$valores);
+        }
+        $consulta->execute();
+        $total = (int) $consulta->get_result()->fetch_row()[0];
+        $consulta->close();
+
+        return $total;
+    }
+
+    /** @return array{0: string, 1: string, 2: array<int, mixed>} */
+    private static function condiciones(array $f): array
+    {
+        $donde = ['1 = 1'];
+        $tipos = '';
+        $valores = [];
+
+        $termino = trim((string) ($f['q'] ?? ''));
+        if ($termino !== '') {
+            $donde[] = '(pp.nombre LIKE ? OR pp.codigo LIKE ? OR pp.descripcion LIKE ?)';
+            $tipos .= 'sss';
+            $valores[] = $valores[] = $valores[] = '%' . $termino . '%';
+        }
+        if ((int) ($f['proveedor'] ?? 0) > 0) {
+            $donde[] = 'pp.proveedor_id = ?';
+            $tipos .= 'i';
+            $valores[] = (int) $f['proveedor'];
+        }
+        if (($f['estado'] ?? '') === 'activos') {
+            $donde[] = 'pp.activo = 1';
+        } elseif (($f['estado'] ?? '') === 'inactivos') {
+            $donde[] = 'pp.activo = 0';
+        }
+        if (($f['relacion'] ?? '') === 'con') {
+            $donde[] = 'EXISTS (SELECT 1 FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id)';
+        } elseif (($f['relacion'] ?? '') === 'sin') {
+            $donde[] = 'NOT EXISTS (SELECT 1 FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id)';
+        }
+        if ((int) ($f['producto'] ?? 0) > 0) {
+            $donde[] = 'EXISTS (SELECT 1 FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id AND r.producto_id = ?)';
+            $tipos .= 'i';
+            $valores[] = (int) $f['producto'];
+        }
+
+        return [implode(' AND ', $donde), $tipos, $valores];
+    }
+
+    /**
+     * Semiterminados activos de un proveedor, para elegirlos al armar una compra (con su costo vigente).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function paraSelector(int $proveedorId): array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT id, nombre, codigo, descripcion, costo_unitario FROM proveedor_productos
+              WHERE proveedor_id = ? AND activo = 1 ORDER BY nombre'
+        );
+        $consulta->bind_param('i', $proveedorId);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        return $filas;
+    }
+
+    /* --------------------------------------------------------------------
+     * ESCRITURA
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Valida y normaliza los datos del formulario.
+     *
+     * @return array{0: string[], 1: array<string, mixed>}
+     */
+    public static function validar(array $d, int $id = 0): array
+    {
+        $errores = [];
+        $proveedorId = (int) ($d['proveedor_id'] ?? 0);
+        $nombre = trim((string) ($d['nombre'] ?? ''));
+        $descripcion = trim((string) ($d['descripcion'] ?? ''));
+        $codigo = trim((string) ($d['codigo'] ?? ''));
+        $costo = str_replace(',', '.', trim((string) ($d['costo_unitario'] ?? '')));
+
+        $consulta = self::$db->prepare('SELECT activo FROM proveedores WHERE id = ?');
+        $consulta->bind_param('i', $proveedorId);
+        $consulta->execute();
+        $proveedor = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        if (!$proveedor) {
+            $errores[] = 'Elige un proveedor válido.';
+        } elseif ((int) $proveedor['activo'] !== 1) {
+            // Un registro existente puede conservar a su proveedor inactivo; los nuevos no.
+            $actual = $id > 0 ? (int) (self::buscarID($id)['proveedor_id'] ?? 0) : 0;
+            if ($actual !== $proveedorId) {
+                $errores[] = 'El proveedor está desactivado: no se le pueden agregar productos nuevos.';
+            }
+        }
+        if ($nombre === '' || mb_strlen($nombre) > 150) {
+            $errores[] = 'El nombre del producto es obligatorio (hasta 150 caracteres).';
+        }
+        if (mb_strlen($descripcion) > 255) {
+            $errores[] = 'La descripción puede tener hasta 255 caracteres.';
+        }
+        if (mb_strlen($codigo) > 40) {
+            $errores[] = 'El código puede tener hasta 40 caracteres.';
+        }
+        if ($costo === '' || !is_numeric($costo) || (float) $costo < 0 || (float) $costo > 9999999999.99) {
+            $errores[] = 'El costo unitario de compra debe ser un número mayor o igual a cero.';
+            $costo = '0';
+        }
+
+        // Sin duplicados innecesarios dentro del mismo proveedor.
+        if ($proveedor && $nombre !== '') {
+            $existente = self::duplicado($proveedorId, 'nombre', $nombre, $id);
+            if ($existente) {
+                $errores[] = 'Este proveedor ya tiene un producto llamado «' . $existente['nombre'] . '»' . ((int) $existente['activo'] === 0 ? ' (inactivo: puedes reactivarlo)' : '') . '. Edítalo en vez de crear otro.';
+            }
+        }
+        if ($proveedor && $codigo !== '') {
+            $existente = self::duplicado($proveedorId, 'codigo', $codigo, $id);
+            if ($existente) {
+                $errores[] = 'Este proveedor ya usa el código «' . $codigo . '» en «' . $existente['nombre'] . '».';
+            }
+        }
+
+        return [$errores, [
+            'proveedor_id'   => $proveedorId,
+            'nombre'         => $nombre,
+            'descripcion'    => $descripcion !== '' ? $descripcion : null,
+            'codigo'         => $codigo !== '' ? $codigo : null,
+            'costo_unitario' => number_format((float) $costo, 2, '.', ''),
+            // Sin indicar el estado, un producto nuevo queda activo; el formulario lo manda siempre de forma explícita.
+            'activo'         => array_key_exists('activo', $d) ? (!empty($d['activo']) ? 1 : 0) : 1,
+        ]];
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function duplicado(int $proveedorId, string $campo, string $valor, int $exceptoId): ?array
+    {
+        $consulta = self::$db->prepare("SELECT id, nombre, activo FROM proveedor_productos WHERE proveedor_id = ? AND $campo = ? AND id <> ? LIMIT 1");
+        $consulta->bind_param('isi', $proveedorId, $valor, $exceptoId);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ?: null;
+    }
+
+    public static function crear(array $datos, int $usuarioId): bool
+    {
+        [$errores, $d] = self::validar($datos);
+        self::$errores = $errores;
+        if ($errores) {
+            return false;
+        }
+
+        try {
+            $consulta = self::$db->prepare(
+                'INSERT INTO proveedor_productos (proveedor_id, nombre, descripcion, codigo, costo_unitario, activo, creado_por)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+            );
+            $consulta->bind_param('issssii', $d['proveedor_id'], $d['nombre'], $d['descripcion'], $d['codigo'], $d['costo_unitario'], $d['activo'], $usuarioId);
+            $consulta->execute();
+            self::$ultimoId = (int) self::$db->insert_id;
+            $consulta->close();
+
+            Auditoria::registrar('proveedor_producto', self::$ultimoId, 'crear', $usuarioId, null, [
+                'proveedor_id' => $d['proveedor_id'], 'nombre' => $d['nombre'], 'costo' => $d['costo_unitario'],
+            ]);
+            return true;
+        } catch (\mysqli_sql_exception $excepcion) {
+            error_log('[ProductosProveedor::crear] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible guardar el producto (¿ya existe con ese nombre o código para el proveedor?).';
+            return false;
+        }
+    }
+
+    public static function actualizar(int $id, array $datos, int $usuarioId): bool
+    {
+        $previo = self::buscarID($id);
+        if (!$previo) {
+            self::$errores[] = 'El producto ya no existe.';
+            return false;
+        }
+        [$errores, $d] = self::validar($datos, $id);
+        self::$errores = $errores;
+        if ($errores) {
+            return false;
+        }
+
+        try {
+            $consulta = self::$db->prepare(
+                'UPDATE proveedor_productos SET proveedor_id = ?, nombre = ?, descripcion = ?, codigo = ?, costo_unitario = ?, activo = ? WHERE id = ?'
+            );
+            $consulta->bind_param('issssii', $d['proveedor_id'], $d['nombre'], $d['descripcion'], $d['codigo'], $d['costo_unitario'], $d['activo'], $id);
+            $consulta->execute();
+            $consulta->close();
+
+            $cambios = [];
+            foreach (['proveedor_id', 'nombre', 'descripcion', 'codigo', 'costo_unitario', 'activo'] as $campo) {
+                if ((string) $previo[$campo] !== (string) $d[$campo]) {
+                    $cambios[$campo] = ['antes' => $previo[$campo], 'despues' => $d[$campo]];
+                }
+            }
+            if ($cambios) {
+                Auditoria::registrar('proveedor_producto', $id, isset($cambios['costo_unitario']) ? 'cambiar_costo' : 'editar', $usuarioId, null, $cambios);
+            }
+            return true;
+        } catch (\mysqli_sql_exception $excepcion) {
+            error_log('[ProductosProveedor::actualizar] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible actualizar el producto.';
+            return false;
+        }
+    }
+
+    /** Activa o desactiva (no se borra: las compras históricas conservan su referencia). */
+    public static function cambiarEstado(int $id, bool $activo, int $usuarioId): bool
+    {
+        $previo = self::buscarID($id);
+        if (!$previo) {
+            self::$errores[] = 'El producto ya no existe.';
+            return false;
+        }
+        if ($activo && (int) $previo['proveedor_activo'] !== 1) {
+            self::$errores[] = 'No se puede reactivar: el proveedor está desactivado.';
+            return false;
+        }
+        $valor = $activo ? 1 : 0;
+        if ((int) $previo['activo'] === $valor) {
+            return true;
+        }
+        $consulta = self::$db->prepare('UPDATE proveedor_productos SET activo = ? WHERE id = ?');
+        $consulta->bind_param('ii', $valor, $id);
+        $consulta->execute();
+        $consulta->close();
+        Auditoria::registrar('proveedor_producto', $id, $activo ? 'activar' : 'desactivar', $usuarioId);
+
+        return true;
+    }
+
+    /* --------------------------------------------------------------------
+     * RELACIÓN CON PRODUCTOS PROPIOS
+     * ------------------------------------------------------------------ */
+
+    /** Productos propios relacionados con un semiterminado. @return array<int, array<string, mixed>> */
+    public static function productosRelacionados(int $id): array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT p.id, p.nombre, p.sku, p.costo_actual, p.activo FROM proveedor_producto_relaciones r
+               JOIN productos p ON p.id = r.producto_id WHERE r.proveedor_producto_id = ? ORDER BY p.nombre'
+        );
+        $consulta->bind_param('i', $id);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        return $filas;
+    }
+
+    /**
+     * Semiterminados (y de qué proveedor) que se relacionan con un producto propio.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function deProducto(int $productoId): array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT pp.id, pp.nombre, pp.codigo, pp.costo_unitario, pp.activo, pr.id AS proveedor_id, pr.nombre AS proveedor_nombre
+               FROM proveedor_producto_relaciones r
+               JOIN proveedor_productos pp ON pp.id = r.proveedor_producto_id
+               JOIN proveedores pr ON pr.id = pp.proveedor_id
+              WHERE r.producto_id = ? ORDER BY pr.nombre, pp.nombre'
+        );
+        $consulta->bind_param('i', $productoId);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        return $filas;
+    }
+
+    /** Relaciona un semiterminado con un producto propio (idempotente: repetirlo no duplica). */
+    public static function relacionar(int $id, int $productoId, int $usuarioId): bool
+    {
+        if (!self::buscarID($id)) {
+            self::$errores[] = 'El producto del proveedor ya no existe.';
+            return false;
+        }
+        $existe = self::$db->prepare('SELECT COUNT(*) FROM productos WHERE id = ?');
+        $existe->bind_param('i', $productoId);
+        $existe->execute();
+        $hay = (int) $existe->get_result()->fetch_row()[0];
+        $existe->close();
+        if ($hay === 0) {
+            self::$errores[] = 'Elige un producto propio válido.';
+            return false;
+        }
+
+        $consulta = self::$db->prepare('INSERT IGNORE INTO proveedor_producto_relaciones (proveedor_producto_id, producto_id, creado_por) VALUES (?, ?, ?)');
+        $consulta->bind_param('iii', $id, $productoId, $usuarioId);
+        $consulta->execute();
+        $nuevo = self::$db->affected_rows > 0;
+        $consulta->close();
+        if ($nuevo) {
+            Auditoria::registrar('proveedor_producto', $id, 'relacionar', $usuarioId, null, ['producto_id' => $productoId]);
+        }
+
+        return true;
+    }
+
+    public static function desrelacionar(int $id, int $productoId, int $usuarioId): bool
+    {
+        $consulta = self::$db->prepare('DELETE FROM proveedor_producto_relaciones WHERE proveedor_producto_id = ? AND producto_id = ?');
+        $consulta->bind_param('ii', $id, $productoId);
+        $consulta->execute();
+        $quitado = self::$db->affected_rows > 0;
+        $consulta->close();
+        if ($quitado) {
+            Auditoria::registrar('proveedor_producto', $id, 'desrelacionar', $usuarioId, null, ['producto_id' => $productoId]);
+        }
+
+        return true;
+    }
+}

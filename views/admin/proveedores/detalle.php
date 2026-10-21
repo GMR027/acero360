@@ -101,6 +101,9 @@ template('tabsCompras', ['tab' => 'proveedores']);
                 <div class="ficha__fila"><dt>Ubicación</dt><dd><?= escaparValores($proveedor->ubicacion ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Tipo de proveedor</dt><dd><?= escaparValores($proveedor->tipo_proveedor) ?></dd></div>
                 <div class="ficha__fila"><dt>Compras registradas</dt><dd class="cifra"><?= number_format($totCompras['compras']) ?></dd></div>
+                <div class="ficha__fila"><dt>Productos en catálogo</dt><dd class="cifra">
+                    <a href="/admin/compras/catalogo?proveedor=<?= (int) $proveedor->id ?>&amp;estado=todos"><?= number_format(\App\ProductosProveedor::contar(['proveedor' => (int) $proveedor->id])) ?></a>
+                    · <a href="/admin/compras/catalogo/crear?proveedor=<?= (int) $proveedor->id ?>">Agregar</a></dd></div>
             </dl>
         </div>
     </section>

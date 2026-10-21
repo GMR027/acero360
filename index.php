@@ -235,6 +235,14 @@ $router->get('/admin/compras/pedidos',  'views/admin/compras/pedidos.php', 'solo
 $router->get('/admin/compras/recepciones', 'views/admin/compras/recepciones.php', 'soloAdmin');
 $router->post('/admin/compras/recepciones', 'views/admin/compras/recepciones.php', 'soloAdmin');
 $router->get('/admin/compras/facturas', 'views/admin/compras/facturas.php', 'soloAdmin');
+// Catálogo de productos semiterminados por proveedor.
+$router->get('/admin/compras/catalogo',          'views/admin/compras/catalogo/index.php',   'soloAdmin');
+$router->get('/admin/compras/catalogo/crear',    'views/admin/compras/catalogo/crear.php',   'soloAdmin');
+$router->post('/admin/compras/catalogo/crear',   'views/admin/compras/catalogo/crear.php',   'soloAdmin');
+$router->get('/admin/compras/catalogo/editar',   'views/admin/compras/catalogo/editar.php',  'soloAdmin');
+$router->post('/admin/compras/catalogo/editar',  'views/admin/compras/catalogo/editar.php',  'soloAdmin');
+$router->get('/admin/compras/catalogo/detalle',  'views/admin/compras/catalogo/detalle.php', 'soloAdmin');
+$router->post('/admin/compras/catalogo/accion',  'views/admin/compras/catalogo/accion.php',  'soloAdmin');
 $router->post('/admin/compras/comprobante', 'views/admin/compras/comprobante.php', 'soloAdmin');
 $router->get('/admin/compras/pagos',    'views/admin/compras/pagos.php',   'soloAdmin');
 $router->post('/admin/compras/pago',    'views/admin/compras/pago.php',    'soloAdmin');

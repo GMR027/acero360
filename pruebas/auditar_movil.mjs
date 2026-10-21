@@ -24,7 +24,7 @@ sql(`INSERT INTO usuarios (nombre,email,contrasena,rol) VALUES ('Auditoría móv
 const paginas = [
   '/admin', '/admin/clientes', '/admin/productos', '/admin/empresas', '/admin/usuarios', '/admin/cotizaciones', '/admin/cotizaciones/crear',
   '/admin/ventas', '/admin/ventas/crear', '/admin/inventario', '/admin/inventario/completo', '/admin/proveedores', '/admin/proveedores/entradas',
-  '/admin/compras', '/admin/compras/pedidos', '/admin/compras/recepciones', '/admin/compras/facturas', '/admin/compras/pagos', '/admin/compras/crear', '/admin/entregas', '/admin/entregas/clientes',
+  '/admin/compras', '/admin/compras/pedidos', '/admin/compras/recepciones', '/admin/compras/facturas', '/admin/compras/pagos', '/admin/compras/catalogo', '/admin/compras/catalogo/crear', '/admin/compras/crear', '/admin/entregas', '/admin/entregas/clientes',
   '/admin/contabilidad', '/admin/contabilidad/ingresos', '/admin/contabilidad/gastos', '/admin/contabilidad/gastos/crear',
   '/admin/contabilidad/documentos', '/admin/contabilidad/sin-facturar', '/admin/contabilidad/cierre',
   '/admin/fiscal', '/admin/fiscal/configuracion', '/admin/estadisticas', '/admin/escritorio',

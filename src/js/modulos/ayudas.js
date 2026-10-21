@@ -39,6 +39,8 @@ const AYUDAS_POR_RUTA = {
   '/admin/compras/pedidos': 'Todas tus compras a proveedores, con filtros por proveedor, fecha, categoría, factura y pago.',
   '/admin/compras/crear': 'Registrar una compra: semiterminados para vender o materiales e insumos.',
   '/admin/compras/recepciones': 'Lo pendiente de recibir, los semiterminados por terminar y los materiales en inventario.',
+  '/admin/compras/catalogo': 'Los productos semiterminados que te vende cada proveedor, con su código y costo.',
+  '/admin/compras/catalogo/crear': 'Dar de alta un producto semiterminado de un proveedor.',
   '/admin/compras/facturas': 'Qué compras están facturadas, pendientes de factura o sin factura.',
   '/admin/compras/pagos': 'Saldos pendientes con proveedores y pagos realizados.',
   '/admin/proveedores': 'Directorio de proveedores y su expediente: compras, facturas y pagos.',

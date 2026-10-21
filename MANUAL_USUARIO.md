@@ -135,12 +135,19 @@ Cuántas piezas tienes de cada producto y por qué cambió.
 
 ## 6. Compras y proveedores
 
-Es un solo módulo con siete pestañas: Resumen, Compras y pedidos, Recepciones, Proveedores, Facturas, Pagos y Categorías. Una compra se captura una sola vez y desde ahí se recibe, se factura y se paga, sin repetir datos en Contabilidad.
+Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, Proveedores, Catálogo, Facturas, Pagos y Categorías. Una compra se captura una sola vez y desde ahí se recibe, se factura y se paga, sin repetir datos en Contabilidad.
 
 ### Dar de alta un proveedor
 
 1. Pestaña «Proveedores» → «Nuevo proveedor». Un proveedor puede venderte distintas cosas: el tipo de compra se elige en cada compra, no en el proveedor.
 2. Un proveedor inactivo ya no aparece en compras nuevas, pero su historial se conserva. Si tiene compras no se puede eliminar: desactívalo.
+
+### Catálogo de semiterminados por proveedor
+
+1. Pestaña «Catálogo» → «Nuevo producto»: elige el proveedor y captura nombre, descripción, código y costo unitario de compra. Un proveedor puede tener muchos; el mismo artículo puede existir en otro proveedor con otro costo.
+2. No se repiten nombre ni código dentro del mismo proveedor. No se borran: «Desactivar» deja de ofrecerlos en compras nuevas y se conservan en el historial (puedes reactivarlos).
+3. Opcional: en la ficha del producto, «Relacionar» con tus productos propios, para saber qué semiterminado de qué proveedor se usa en cada uno (también se ve desde la edición del producto propio). Son cosas distintas: cada uno conserva su código y costo.
+4. Cambiar el costo del catálogo no altera compras anteriores y queda en la bitácora.
 
 ### Comprar producto semiterminado para vender
 

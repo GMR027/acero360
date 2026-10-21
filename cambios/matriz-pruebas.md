@@ -49,6 +49,10 @@ Los 15 escenarios obligatorios del prompt de reestructuración. `php/etapa18.php
 | 14 | Ventas, cotizaciones, inventario, gastos, contabilidad e impuestos siguen funcionando | regresión completa (`ejecutar_todo.sh`) |
 | 15 | Permisos y separación por entidad fiscal / periodos cerrados independientes | `probar_permisos.mjs` (recorre todas las rutas) · `etapa18` |
 
+## Catálogo de semiterminados por proveedor (fases 2 y 3 del segundo prompt)
+
+`php/etapa19.php` (lógica: alta, duplicados por proveedor, mismo artículo con otro costo en otro proveedor, desactivar sin borrar, auditoría de costos, relación N:M con productos propios, compras históricas intactas) y `probar_catalogo.mjs` (interfaz de punta a punta, confirmaciones, filtros, consulta desde el producto propio, móvil). Migración 020 ensayada sobre un respaldo real (aplicar → revertir → aplicar).
+
 ## Ensayos adicionales
 - **Migración 019 sobre un respaldo REAL de producción** (BD en la migración 10 → 011…019): aplica limpia, los datos quedan intactos y la reversión funciona (aplicar → revertir → aplicar).
 - **Actualización de producción:** base del esquema original (pre-Etapa 2) → 8 migraciones con la imagen Docker del proyecto → datos intactos, segunda corrida idempotente, aplicación sirviendo con el acceso a archivos internos bloqueado (403).
