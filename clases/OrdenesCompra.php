@@ -368,11 +368,12 @@ class OrdenesCompra
             $observaciones = trim((string) ($datos['observaciones'] ?? '')) ?: null;
 
             $consulta = self::$db->prepare(
-                'INSERT INTO ordenes_compra (folio, proveedor_id, fecha_solicitud, total_esperado, observaciones, usuario_id)
-                 VALUES (?, ?, ?, ?, ?, ?)'
+                'INSERT INTO ordenes_compra (folio, proveedor_id, fecha_solicitud, total_esperado, observaciones, usuario_id, contribuyente_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
             $proveedorId = (int) $datos['proveedor_id'];
-            $consulta->bind_param('sisssi', $folio, $proveedorId, $datos['fecha_solicitud'], $totalPesos, $observaciones, $usuarioId);
+            $contribuyente = Contabilidad::contribuyentePrincipal();
+            $consulta->bind_param('sisssii', $folio, $proveedorId, $datos['fecha_solicitud'], $totalPesos, $observaciones, $usuarioId, $contribuyente);
             $consulta->execute();
             $ordenId = (int) self::$db->insert_id;
             $consulta->close();
