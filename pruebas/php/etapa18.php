@@ -29,28 +29,33 @@ $hoy = date('Y-m-d');
 $token = fn () => bin2hex(random_bytes(16));
 $errores = fn () => implode('|', array_merge(OrdenesCompra::getErrores(), PagosCompra::getErrores(), CompraContable::getErrores(), Materiales::getErrores(), PorTerminar::getErrores(), Archivos::getErrores()));
 
-// --- Estado limpio: solo lo que esta prueba creó en corridas anteriores (referencia T18-…)
-$viejas = array_column($db->query("SELECT id FROM ordenes_compra WHERE referencia LIKE 'T18-%'")->fetch_all(MYSQLI_ASSOC), 'id');
-if ($viejas) {
-    $ids = implode(',', array_map('intval', $viejas));
-    $gastos = array_filter(array_column($db->query("SELECT gasto_id FROM ordenes_compra WHERE id IN ($ids)")->fetch_all(MYSQLI_ASSOC), 'gasto_id'));
-    $db->query("DELETE FROM pagos_compra WHERE orden_id IN ($ids)");
-    $db->query("DELETE FROM movimientos_por_terminar WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN ($ids))");
-    $db->query("DELETE FROM movimientos_material WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN ($ids))");
-    $db->query("DELETE FROM movimientos_inventario WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN ($ids))");
-    $db->query("DELETE FROM recepciones WHERE orden_id IN ($ids)");
-    $db->query("DELETE FROM ordenes_compra WHERE id IN ($ids)");
-    if ($gastos) {
-        $g = implode(',', array_map('intval', $gastos));
-        $db->query("DELETE FROM documentos WHERE entidad = 'gasto' AND entidad_id IN ($g)");
-        $db->query("DELETE FROM gastos WHERE id IN ($g)");
+// --- Limpieza: solo lo que esta prueba creó (referencia T18-…, materiales «T18 …», entidad/negocio T18). Corre al inicio y al final
+//     para no dejar rastro (otras pruebas cuentan negocios, gastos y existencias).
+$limpiar = function () use ($db) {
+    $viejas = array_column($db->query("SELECT id FROM ordenes_compra WHERE referencia LIKE 'T18-%'")->fetch_all(MYSQLI_ASSOC), 'id');
+    if ($viejas) {
+        $ids = implode(',', array_map('intval', $viejas));
+        $gastos = array_filter(array_column($db->query("SELECT gasto_id FROM ordenes_compra WHERE id IN ($ids)")->fetch_all(MYSQLI_ASSOC), 'gasto_id'));
+        $db->query("DELETE FROM pagos_compra WHERE orden_id IN ($ids)");
+        $db->query("DELETE FROM movimientos_por_terminar WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN ($ids))");
+        $db->query("DELETE FROM movimientos_material WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN ($ids))");
+        $db->query("DELETE FROM movimientos_inventario WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN ($ids))");
+        $db->query("DELETE FROM recepciones WHERE orden_id IN ($ids)");
+        $db->query("DELETE FROM ordenes_compra WHERE id IN ($ids)");
+        if ($gastos) {
+            $g = implode(',', array_map('intval', $gastos));
+            $db->query("DELETE FROM documentos WHERE entidad = 'gasto' AND entidad_id IN ($g)");
+            $db->query("DELETE FROM gasto_reparto WHERE gasto_id IN ($g)");
+            $db->query("DELETE FROM gastos WHERE id IN ($g)");
+        }
     }
-}
-$db->query("DELETE FROM periodos_contables WHERE contribuyente_id IN (SELECT id FROM contribuyentes WHERE rfc = 'T18XAXX010101')");
-$db->query("DELETE FROM empresas WHERE nombre = 'T18 Empresa 2'");
-$db->query("DELETE FROM contribuyentes WHERE rfc = 'T18XAXX010101'");
-$db->query("DELETE FROM materiales WHERE nombre LIKE 'T18 %'");
-$db->query('UPDATE productos SET stock = 10, stock_por_terminar = 0 WHERE id IN (36, 37)');
+    $db->query("DELETE FROM periodos_contables WHERE contribuyente_id IN (SELECT id FROM contribuyentes WHERE rfc = 'T18XAXX010101')");
+    $db->query("DELETE FROM empresas WHERE nombre = 'T18 Empresa 2'");
+    $db->query("DELETE FROM contribuyentes WHERE rfc = 'T18XAXX010101'");
+    $db->query("DELETE FROM materiales WHERE nombre LIKE 'T18 %'");
+    $db->query('UPDATE productos SET stock = 10, stock_por_terminar = 0 WHERE id IN (36, 37)');
+};
+$limpiar();
 
 $proveedor = 10;   // Agustín
 $stock = fn (int $id) => (int) $uno("SELECT stock FROM productos WHERE id = $id");
@@ -305,6 +310,8 @@ $prueba('con el periodo cerrado de la entidad A, no se paga una compra de A',
 PagosCompra::getErrores();
 $prueba('pero sí una compra de la entidad B (periodos independientes)', PagosCompra::registrar($H, $hoy, '50', 'Efectivo', '', $token(), $usuario), $errores());
 $db->query("DELETE FROM periodos_contables WHERE contribuyente_id = $contrib1 AND anio = $anioActual AND mes = $mesActual");
+
+$limpiar();
 
 echo $fallos === 0 ? "\nTODO OK\n" : "\n$fallos prueba(s) fallaron\n";
 exit($fallos === 0 ? 0 : 1);
