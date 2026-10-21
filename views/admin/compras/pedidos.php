@@ -139,7 +139,11 @@ template('tabsCompras', ['tab' => 'pedidos']);
                             <td><?= escaparValores(date('d/m/Y', strtotime($o['fecha_solicitud']))) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($o['total_compra']) ?></td>
                             <td class="tabla--numerica cifra"><?= $o['estado'] === 'cancelada' ? '—' : formatoMoneda($o['saldo']) ?></td>
-                            <td class="tabla--centro"><span class="badge <?= $est['clase'] ?>"><?= escaparValores($est['etiqueta']) ?></span></td>
+                            <td class="tabla--centro"><span class="badge <?= $est['clase'] ?>"><?= escaparValores($est['etiqueta']) ?></span>
+                                <?php if (trim((string) $o['motivo_cierre']) !== '') : ?>
+                                    <a style="font-weight:700;text-decoration:none;color:var(--color-advertencia-texto);margin-left:.25rem" href="/admin/compras/detalle?id=<?= (int) $o['id'] ?>"
+                                       title="Nota de cierre: <?= escaparValores($o['motivo_cierre']) ?>" aria-label="Tiene nota de cierre: <?= escaparValores($o['motivo_cierre']) ?>">!</a>
+                                <?php endif; ?></td>
                             <td class="tabla--centro"><span class="badge <?= $cfdi['clase'] ?>"><?= escaparValores($cfdi['etiqueta']) ?></span></td>
                             <td class="tabla--centro"><?= $o['estado'] === 'cancelada' ? '—' : '<span class="badge ' . $pago['clase'] . '">' . escaparValores($pago['etiqueta']) . '</span>' ?></td>
                             <td class="tabla--numerica">
