@@ -8,13 +8,14 @@
  */
 $documentos = \App\Archivos::deOperacion($entidad, $entidadId);
 $bloqueado  = $bloqueado ?? false;
+$sinSubida  = $sinSubida ?? false;
 $maxMb      = \App\Archivos::maxBytes() / 1048576;
 ?>
 <section class="tarjeta tarjeta--sin-relleno mt-lg" id="documentos">
     <h2 class="titulo-5" style="padding:1rem 1rem 0">Facturas y comprobantes</h2>
 
     <?php if (!$documentos) : ?>
-        <p class="texto-secundario" style="padding:1rem">Aún no has subido nada. Puedes subir la factura en PDF y su XML, o una foto del ticket.</p>
+        <p class="texto-secundario" style="padding:1rem">Aún no has subido nada.</p>
     <?php else : ?>
         <div class="tabla-contenedor">
             <table class="tabla">
@@ -75,7 +76,8 @@ $maxMb      = \App\Archivos::maxBytes() / 1048576;
         </div>
     <?php endif; ?>
 
-    <?php if (!$bloqueado) : ?>
+    <?php if ($sinSubida) : ?>
+    <?php elseif (!$bloqueado) : ?>
         <form class="formulario" style="padding:1rem" action="/admin/contabilidad/documentos/subir" method="post" enctype="multipart/form-data">
             <input type="hidden" name="entidad" value="<?= escaparValores($entidad) ?>">
             <input type="hidden" name="entidad_id" value="<?= $entidadId ?>">

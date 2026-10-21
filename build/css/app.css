@@ -2257,12 +2257,20 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   font-size: 1.25rem;
 }
 
+/* Etiqueta de estado + conmutador en una sola línea */
+.celda-estado {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+  min-width: 9.5rem;
+}
+
 /* Conmutador de estado en la tabla (botón con aspecto de switch): un clic cambia el estado del renglón */
 .conmutador-estado {
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
   margin: 0;
 }
 .conmutador-estado__boton {

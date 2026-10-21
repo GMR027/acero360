@@ -51,45 +51,63 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
 </section>
 
 <section class="tarjeta mb-lg">
-    <h2 class="titulo-5 mb-md">¿Se facturó esta venta?</h2>
-    <p class="campo__ayuda mb-md">Es un dato explícito: una venta sin factura adjunta no se considera «no facturada» hasta que tú lo indiques.</p>
-    <form class="formulario" action="/admin/contabilidad/ingresos/accion" method="post" novalidate>
+    <h2 class="titulo-5 mb-md">Factura</h2>
+    <form class="formulario" action="/admin/contabilidad/ingresos/accion" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="id" value="<?= $id ?>">
         <input type="hidden" name="accion" value="facturacion">
         <div class="formulario__rejilla">
             <div class="campo">
-                <label class="campo__etiqueta" data-ayuda="Facturada si ya existe la factura; No facturada si no se emitió; Pendiente si aún falta confirmarlo." for="estado_facturacion">¿Se le dio factura al cliente?</label>
+                <label class="campo__etiqueta" for="estado_facturacion">¿Ya se facturó?</label>
                 <select class="control" id="estado_facturacion" name="estado_facturacion" <?= $editable ? '' : 'disabled' ?>>
                     <?php foreach (\App\Contabilidad::FACTURACION as $clave => $d) : ?>
                         <option value="<?= $clave ?>"<?= $ingreso['estado_facturacion'] === $clave ? ' selected' : '' ?>><?= escaparValores($d['etiqueta']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="campo">
-                <label class="campo__etiqueta" for="factura_folio">Folio de la factura (si hay)</label>
-                <input class="control" type="text" id="factura_folio" name="factura_folio" maxlength="40" value="<?= escaparValores((string) $ingreso['factura_folio']) ?>" <?= $editable ? '' : 'disabled' ?>>
-            </div>
-            <div class="campo">
-                <label class="campo__etiqueta" for="uuid_fiscal">Folio fiscal UUID (si hay)</label>
-                <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= escaparValores((string) $ingreso['uuid_fiscal']) ?>" <?= $editable ? '' : 'disabled' ?>>
-            </div>
-            <div class="campo">
-                <label class="campo__etiqueta" for="fecha_facturacion">Fecha de la factura (si hay)</label>
-                <input class="control" type="date" id="fecha_facturacion" name="fecha_facturacion" value="<?= escaparValores((string) $ingreso['fecha_facturacion']) ?>" <?= $editable ? '' : 'disabled' ?>>
-            </div>
-        </div>
-        <?php if ($editable) : ?>
-            <?php if (!\App\Contabilidad::cfdiDeIngreso($id)) : ?>
-                <label class="comprobacion mt-md" for="confirma_manual"><input type="checkbox" id="confirma_manual" name="confirma_manual" value="1">
-                    Sin CFDI adjunto: confirmo manualmente que ya se facturó (queda registrado)</label>
+            <?php if ($editable) : ?>
+                <div class="campo">
+                    <label class="campo__etiqueta" for="doc-archivo">Subir factura (PDF y/o XML)</label>
+                    <input class="control" type="file" id="doc-archivo" name="archivo[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
+                </div>
             <?php endif; ?>
+        </div>
+        <details class="mt-md">
+            <summary class="texto-sm">Folio, UUID y fecha (opcional)</summary>
+            <div class="formulario__rejilla mt-sm">
+                <div class="campo">
+                    <label class="campo__etiqueta" for="factura_folio">Folio de la factura</label>
+                    <input class="control" type="text" id="factura_folio" name="factura_folio" maxlength="40" value="<?= escaparValores((string) $ingreso['factura_folio']) ?>" <?= $editable ? '' : 'disabled' ?>>
+                </div>
+                <div class="campo">
+                    <label class="campo__etiqueta" for="uuid_fiscal">Folio fiscal UUID</label>
+                    <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= escaparValores((string) $ingreso['uuid_fiscal']) ?>" <?= $editable ? '' : 'disabled' ?>>
+                </div>
+                <div class="campo">
+                    <label class="campo__etiqueta" for="fecha_facturacion">Fecha de la factura</label>
+                    <input class="control" type="date" id="fecha_facturacion" name="fecha_facturacion" value="<?= escaparValores((string) $ingreso['fecha_facturacion']) ?>" <?= $editable ? '' : 'disabled' ?>>
+                </div>
+            </div>
+        </details>
+        <?php if ($editable) : ?>
             <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar</button></div>
         <?php endif; ?>
     </form>
 </section>
 
+<?php template('documentosOperacion', ['entidad' => 'ingreso', 'entidadId' => $id, 'retorno' => $retorno, 'bloqueado' => $cerrado || $ingreso['estado'] === 'cancelado', 'sinSubida' => true]); ?>
+
 <section id="cobros" class="tarjeta tarjeta--sin-relleno mb-lg">
-    <h2 class="titulo-5" style="padding:1rem 1rem 0">Pagos recibidos del cliente</h2>
+    <h2 class="titulo-5" style="padding:1rem 1rem 0">Pago</h2>
+    <?php if ($editable) : ?>
+        <form action="/admin/contabilidad/ingresos/accion" method="post" style="padding:1rem">
+            <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="accion" value="cobro_alterna">
+            <?php if ($ingreso['estado_cobro'] === 'cobrado') : ?>
+                <button class="btn btn--secundario" type="submit">Marcar como sin pagar</button>
+            <?php elseif ((float) $ingreso['saldo'] > 0) : ?>
+                <button class="btn btn--primario" type="submit">Ya me pagaron todo (<?= formatoMoneda($ingreso['saldo']) ?>)</button>
+            <?php endif; ?>
+        </form>
+    <?php endif; ?>
     <?php if ($cobros) : ?>
         <div class="tabla-contenedor">
             <table class="tabla">
@@ -129,7 +147,8 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
     <?php endif; ?>
 
     <?php if ($editable && (float) $ingreso['saldo'] > 0) : ?>
-        <form class="formulario" style="padding:1rem" action="/admin/contabilidad/ingresos/accion" method="post" novalidate>
+        <details style="padding:0 1rem 1rem"><summary class="texto-sm">Anotar un pago parcial</summary>
+        <form class="formulario mt-sm" action="/admin/contabilidad/ingresos/accion" method="post" novalidate>
             <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="accion" value="cobro">
             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
             <div class="formulario__rejilla">
@@ -149,10 +168,8 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
                     <input class="control" type="text" id="cobro-ref" name="referencia" maxlength="80"></div>
             </div>
             <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Anotar pago recibido</button></div>
-        </form>
+        </form></details>
     <?php endif; ?>
 </section>
-
-<?php template('documentosOperacion', ['entidad' => 'ingreso', 'entidadId' => $id, 'retorno' => $retorno, 'bloqueado' => $cerrado || $ingreso['estado'] === 'cancelado']); ?>
 
 <?php template('footer'); ?>

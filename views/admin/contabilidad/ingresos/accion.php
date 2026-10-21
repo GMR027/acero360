@@ -33,6 +33,18 @@ if (!\App\Contabilidad::buscarIngreso($id)) {
 }
 
 if ($accion === 'facturacion') {
+    // Los archivos se adjuntan primero para que un CFDI timbrado respalde la factura.
+    $fallos = [];
+    foreach (\App\Archivos::listaDeSubidas($_FILES['archivo'] ?? null) as $archivo) {
+        if (!\App\Archivos::subir('ingreso', $id, $archivo, 'auto', $usuario)) {
+            $fallos[] = $archivo['name'] . ': ' . (\App\Archivos::getErrores()[0] ?? 'no se pudo adjuntar');
+        }
+    }
+    if ($fallos) {
+        redirigir($destino, 'error', implode(' · ', $fallos));
+    }
+    // Elegir «Facturada» ya es la confirmación: sin CFDI timbrado queda registrada como manual.
+    $_POST['confirma_manual'] = '1';
     $ok = \App\Contabilidad::actualizarFacturacion(
         $id, (string) ($_POST['estado_facturacion'] ?? ''), (string) ($_POST['factura_folio'] ?? ''),
         (string) ($_POST['uuid_fiscal'] ?? ''), (string) ($_POST['fecha_facturacion'] ?? ''), $usuario,
