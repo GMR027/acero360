@@ -10,8 +10,8 @@
 $errores = $errores ?? [];
 $catalogos = $catalogos ?? [];
 $tipo = $orden['tipo'] ?? 'semiterminado';
-$lineas = $lineas ?: [['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0, 'aplica_iva' => 1]];
-$vacia = ['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0, 'aplica_iva' => 1];
+$lineas = $lineas ?: [['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0, 'aplica_iva' => 1, 'proveedor_producto_id' => 0]];
+$vacia = ['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0, 'aplica_iva' => 1, 'proveedor_producto_id' => 0];
 // Tasa de IVA: la de la compra si ya tiene una; en una compra nueva, la del catálogo fiscal activo (si no hay, vacía: IVA a mano).
 $tasaIva = isset($orden['id']) ? ($orden['iva_tasa'] ?? '') : (\App\OrdenesCompra::tasaIvaVigente((string) ($orden['fecha_solicitud'] ?? date('Y-m-d'))) ?? '');
 $tasaIva = $tasaIva !== '' ? rtrim(rtrim(number_format((float) $tasaIva, 2, '.', ''), '0'), '.') : '';
@@ -143,7 +143,7 @@ $catalogoProveedor = $catalogos[(int) ($orden['proveedor_id'] ?? 0)] ?? [];
                             <select class="control" name="proveedor_producto_id[]" aria-label="Producto del catálogo del proveedor" data-catalogo>
                                 <option value="0">— Otro / fuera del catálogo —</option>
                                 <?php foreach ($catalogoProveedor as $it) : ?>
-                                    <option value="<?= (int) $it['id'] ?>" <?= (int) $l['proveedor_producto_id'] === $it['id'] ? 'selected' : '' ?>>
+                                    <option value="<?= (int) $it['id'] ?>" <?= (int) ($l['proveedor_producto_id'] ?? 0) === $it['id'] ? 'selected' : '' ?>>
                                         <?= escaparValores(($it['codigo'] !== '' ? $it['codigo'] . ' · ' : '') . $it['nombre'] . ($it['activo'] ? '' : ' (inactivo)')) ?></option>
                                 <?php endforeach; ?>
                             </select>
