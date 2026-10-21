@@ -85,10 +85,15 @@ template('tabsCompras', ['tab' => 'recepciones']);
         <div class="tabla-contenedor">
             <table class="tabla">
                 <thead><tr>
+                    <th scope="col">Código</th>
                     <th scope="col">Artículo</th>
-                    <th scope="col" class="tabla--numerica">Pendiente</th>
+                    <th scope="col" class="tabla--numerica">Solicitada</th>
+                    <th scope="col" class="tabla--numerica">Recibida antes</th>
                     <th scope="col" class="tabla--numerica">Recibido ahora</th>
-                    <th scope="col" class="tabla--numerica">Costo unitario efectivo</th>
+                    <th scope="col" class="tabla--numerica">Pendiente</th>
+                    <th scope="col" class="tabla--numerica">Costo unitario</th>
+                    <th scope="col" class="tabla--numerica">Importe</th>
+                    <th scope="col">Estado</th>
                     <th scope="col">Destino</th>
                 </tr></thead>
                 <tbody>
@@ -96,22 +101,33 @@ template('tabsCompras', ['tab' => 'recepciones']);
                         $sinProducto = !$p['producto_id'] && !$p['material_id'];
                         $nombre = $p['descripcion'] ?: $p['nombre_mostrado'];
                         $paso = $p['material_id'] ? '0.001' : '1';
+                        $pend = max(0, $p['pendiente']);
+                        $estadoPartida = $p['recibida'] <= 0 ? ['Sin recibir', 'badge--pendiente']
+                            : ($pend > 0 ? ['Parcial', 'badge--pendiente'] : ['Completa', 'badge--aprobado']);
                         ?>
-                        <tr>
+                        <tr data-partida data-solicitada="<?= escaparValores((string) $p['solicitada']) ?>" data-recibida="<?= escaparValores((string) $p['recibida']) ?>">
+                            <td class="cifra"><?= escaparValores($p['codigo'] ?: '—') ?></td>
                             <td><strong><?= escaparValores($nombre) ?></strong>
                                 <span class="texto-xs texto-secundario"><br>
-                                    <?= $p['producto_id'] ? 'Catálogo: ' . escaparValores($p['producto_nombre']) : ($p['material_id'] ? 'Material: ' . escaparValores($p['material_nombre']) : '') ?></span></td>
-                            <td class="tabla--numerica cifra"><?= max(0, $p['pendiente']) ?> <span class="texto-xs"><?= escaparValores($p['unidad_mostrada']) ?></span></td>
+                                    <?= $p['producto_id'] ? 'Producto propio: ' . escaparValores($p['producto_nombre']) : ($p['material_id'] ? 'Material: ' . escaparValores($p['material_nombre']) : '') ?></span></td>
+                            <td class="tabla--numerica cifra"><?= $p['solicitada'] ?> <span class="texto-xs"><?= escaparValores($p['unidad_mostrada']) ?></span></td>
+                            <td class="tabla--numerica cifra"><?= $p['recibida'] ?></td>
                             <?php if ($sinProducto) : ?>
-                                <td colspan="3"><span class="badge badge--pendiente">Sin relacionar</span>
-                                    <span class="texto-xs texto-secundario">Relaciónala con un producto del catálogo en el detalle de la compra antes de recibirla.</span></td>
+                                <td colspan="4"><span class="badge badge--pendiente">Sin relacionar</span>
+                                    <span class="texto-xs texto-secundario">Relaciónala con un producto propio en el detalle de la compra antes de recibirla.</span></td>
+                                <td><span class="badge <?= $estadoPartida[1] ?>"><?= $estadoPartida[0] ?></span></td>
+                                <td></td>
                             <?php else : ?>
-                                <td><input class="control" type="number" min="0" step="<?= $paso ?>" inputmode="decimal"
+                                <td><input class="control" type="number" min="0" step="<?= $paso ?>" inputmode="decimal" data-cantidad
                                            name="cantidad[<?= (int) $p['id'] ?>]" aria-label="Cantidad recibida de <?= escaparValores($nombre) ?>"
-                                           value="<?= max(0, $p['pendiente']) ?>"></td>
-                                <td><input class="control control--moneda" type="number" min="0" step="0.01" inputmode="decimal"
-                                           name="costo[<?= (int) $p['id'] ?>]" aria-label="Costo unitario de <?= escaparValores($nombre) ?>"
-                                           value="<?= escaparValores(number_format((float) $p['costo_esperado'], 2, '.', '')) ?>"></td>
+                                           value="<?= $pend ?>"></td>
+                                <td class="tabla--numerica cifra" data-pendiente><?= $pend ?></td>
+                                <td><input class="control control--moneda" type="number" min="0" step="0.01" inputmode="decimal" data-costo
+                                           name="costo[<?= (int) $p['id'] ?>]" aria-label="Costo unitario del proveedor de <?= escaparValores($nombre) ?>"
+                                           value="<?= escaparValores(number_format((float) $p['costo_esperado'], 2, '.', '')) ?>">
+                                    <?php if ($p['costo_modificado']) : ?><span class="texto-xs texto-secundario">Catálogo: <?= formatoMoneda($p['costo_catalogo']) ?></span><?php endif; ?></td>
+                                <td class="tabla--numerica cifra" data-importe>—</td>
+                                <td><span class="badge <?= $estadoPartida[1] ?>"><?= $estadoPartida[0] ?></span></td>
                                 <td>
                                     <?php if ($p['material_id']) : ?>
                                         <span class="texto-sm">Inventario de materiales</span>
@@ -153,5 +169,26 @@ template('tabsCompras', ['tab' => 'recepciones']);
         </div>
     </form>
 </section>
+
+
+<script>
+(function () {
+    var fmt = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+    function calcular(fila) {
+        var c = fila.querySelector('[data-cantidad]');
+        if (!c) { return; }
+        var ahora = parseFloat(c.value) || 0;
+        var costo = parseFloat(fila.querySelector('[data-costo]').value) || 0;
+        var pend = Math.round((parseFloat(fila.dataset.solicitada) - parseFloat(fila.dataset.recibida) - ahora) * 1000) / 1000;
+        var celda = fila.querySelector('[data-pendiente]');
+        celda.textContent = pend < 0 ? '0 (excedente ' + (-pend) + ')' : pend;
+        fila.querySelector('[data-importe]').textContent = ahora > 0 ? fmt.format(ahora * costo) : '—';
+    }
+    document.querySelectorAll('[data-partida]').forEach(function (fila) {
+        fila.addEventListener('input', function () { calcular(fila); });
+        calcular(fila);
+    });
+})();
+</script>
 
 <?php template('footer'); ?>
