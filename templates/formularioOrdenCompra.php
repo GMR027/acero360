@@ -49,7 +49,7 @@ $cantidadTexto = static fn ($c) => rtrim(rtrim(number_format((float) $c, 3, '.',
         </select>
     </div>
     <div class="campo">
-        <label class="campo__etiqueta campo__etiqueta--obligatorio" for="fecha_solicitud">Fecha de la compra</label>
+        <label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Día en que generas la solicitud (hoy por defecto). La fecha de recepción se captura en cada recepción y la de la factura sale de su CFDI." for="fecha_solicitud">Fecha de la solicitud</label>
         <input class="control" type="date" id="fecha_solicitud" name="fecha_solicitud" required
                value="<?= escaparValores($orden['fecha_solicitud'] ?? date('Y-m-d')) ?>">
     </div>

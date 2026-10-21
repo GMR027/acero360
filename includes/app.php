@@ -17,6 +17,11 @@
 /** Versión de la plataforma Acero 360: única fuente = archivo VERSION de la raíz (la leen también deploy.sh y la app de escritorio). */
 define('ACERO360_VERSION', is_readable(__DIR__ . '/../VERSION') ? trim((string) file_get_contents(__DIR__ . '/../VERSION')) : '0.0.0');
 
+// Fecha local del sistema (la imagen de producción ya la fija en php.ini; esto cubre el entorno local).
+if (ini_get('date.timezone') === '' || ini_get('date.timezone') === 'UTC') {
+    date_default_timezone_set('America/Mexico_City');
+}
+
 require __DIR__ . '/funciones.php';
 require __DIR__ . '/../config/database.php';
 require __DIR__ . '/../vendor/autoload.php';
