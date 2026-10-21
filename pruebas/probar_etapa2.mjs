@@ -95,7 +95,7 @@ try {
   await semi.locator('[data-agregar-partida]').click();
   verifica('agregar producto crea otro renglón', (await semi.locator('[data-partida]').count()) === 2);
   const segundo = semi.locator('[data-partida]').nth(1);
-  await segundo.locator('select').selectOption({ index: 2 });
+  await segundo.locator('select[name="producto_id[]"]').selectOption({ index: 2 });
   await segundo.locator('[data-cantidad]').fill('3');
   await segundo.locator('[data-costo]').fill('10.50');
   const total = (await semi.locator('[data-total]').innerText()).replace(/\s/g, '');
@@ -103,7 +103,7 @@ try {
   await semi.locator('[data-partida]').nth(1).locator('[data-quitar-partida]').click();
   verifica('quitar renglón', (await semi.locator('[data-partida]').count()) === 1);
   await semi.locator('[data-agregar-partida]').click();
-  await semi.locator('[data-partida]').nth(1).locator('select').selectOption({ index: 2 });
+  await semi.locator('[data-partida]').nth(1).locator('select[name="producto_id[]"]').selectOption({ index: 2 });
   await semi.locator('[data-partida]').nth(1).locator('[data-cantidad]').fill('3');
   await semi.locator('[data-partida]').nth(1).locator('[data-costo]').fill('10.50');
   await Promise.all([pagina.waitForURL('**/admin/compras/detalle?id=*'), pagina.click('button[type=submit]')]);

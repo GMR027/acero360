@@ -151,8 +151,12 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 
 ### Comprar producto semiterminado para vender
 
-1. «Nueva compra» → tipo «Producto semiterminado». Escribe cómo lo llama tu proveedor y elige a qué producto de tu catálogo corresponde (puedes dejarlo sin relacionar y definirlo después en el detalle de la compra).
-2. Captura cantidad y costo. El nombre y el precio de venta de tu catálogo no cambian.
+1. «Nueva compra» → tipo «Producto semiterminado» → elige primero al proveedor. Cada partida ofrece solo los productos activos del catálogo de ese proveedor: al elegir uno se llenan solos el nombre, el código y el costo. Solo escribes la cantidad; el importe de cada partida (cantidad × costo) y el total se calculan solos.
+2. Si el producto está relacionado con un único producto propio, se propone también. Si no lo está, elige a cuál corresponde o déjalo para después en el detalle de la compra. El nombre y el precio de venta de tu catálogo no cambian.
+3. El costo viene bloqueado. Si de verdad esta vez pactaste otro precio, usa «Cambiar costo»: queda el precio final usado, se avisa cuál era el del catálogo y queda en la bitácora.
+4. El IVA no se calcula solo: captúralo, o usa «Calcular 16 % del subtotal» y corrígelo si hace falta. El total de la compra es el subtotal más ese IVA.
+5. ¿El producto no está en el catálogo? Elige «Otro / fuera del catálogo» y escríbelo, o agrégalo antes al catálogo.
+6. Cada compra guarda una copia del nombre, código y costo usados: si luego cambias el costo en el catálogo o desactivas el producto, las compras anteriores no se alteran.
 
 ### Comprar materiales, insumos y consumibles
 

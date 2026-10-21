@@ -8,6 +8,7 @@
  * Hay dos tablas de partidas, una por tipo; solo la del tipo elegido se envía (la otra queda deshabilitada).
  */
 $errores = $errores ?? [];
+$catalogos = $catalogos ?? [];
 $tipo = $orden['tipo'] ?? 'semiterminado';
 $lineas = $lineas ?: [['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0]];
 $vacia = ['producto_id' => 0, 'material_id' => 0, 'material_nuevo' => '', 'cantidad' => 1, 'costo' => '0.00', 'descripcion' => '', 'unidad' => '', 'controla' => 0];
@@ -94,40 +95,56 @@ $cantidadTexto = static fn ($c) => rtrim(rtrim(number_format((float) $c, 3, '.',
         <label class="campo__etiqueta" data-ayuda="Solo si lo conoces (viene en la factura o la nota). No se calcula ni se supone: vacío significa «no especificado»." for="iva">IVA de la compra</label>
         <input class="control control--moneda" type="number" id="iva" name="iva" min="0" step="0.01" inputmode="decimal"
                value="<?= escaparValores($orden['iva'] ?? '') ?>" placeholder="Opcional">
-        <span class="campo__ayuda">En pesos, ya calculado. Se suma al total de la compra.</span>
+        <button class="btn btn--texto btn--sm" type="button" data-calcular-iva>Calcular 16 % del subtotal</button>
+        <span class="campo__ayuda">En pesos. Se suma al total de la compra. El botón usa la tasa estándar de 16 % y puedes corregir el importe.</span>
     </div>
 </div>
 
 <?php
 /* ---- Tabla de semiterminados ------------------------------------------------------------------ */
 $filasSemi = $tipo === 'semiterminado' ? $lineas : [$vacia];
+$catalogoProveedor = $catalogos[(int) ($orden['proveedor_id'] ?? 0)] ?? [];
 ?>
+<script type="application/json" id="catalogo-proveedores"><?= json_encode($catalogos ?? new stdClass(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?></script>
 <section data-bloque-tipo="semiterminado"<?= $tipo === 'semiterminado' ? '' : ' hidden' ?>>
     <h2 class="titulo-5 mb-md">Productos semiterminados</h2>
-    <p class="campo__ayuda mb-md">Escribe cómo los nombra el proveedor y elige a qué producto de tu catálogo corresponden.
-        Si todavía no sabes a cuál, déjalo sin relacionar y defínelo después: no se podrá recibir hasta relacionarlo.</p>
+    <p class="campo__ayuda mb-md">Elige al proveedor y luego sus productos del catálogo: el nombre, el código y el costo se llenan solos y el costo queda bloqueado
+        (puedes cambiarlo con «Cambiar costo»). ¿No está en el catálogo? Elige «Otro» y escríbelo, o
+        <a href="/admin/compras/catalogo/crear" target="_blank" rel="noopener">agrégalo al catálogo</a>.</p>
     <div class="tabla-contenedor">
         <table class="tabla" data-partidas>
             <caption class="solo-lectores">Productos semiterminados de la compra</caption>
             <thead><tr>
-                <th scope="col">Nombre del proveedor</th>
-                <th scope="col">Producto del catálogo</th>
+                <th scope="col">Producto del proveedor</th>
+                <th scope="col">Producto propio</th>
                 <th scope="col" class="tabla--numerica">Cantidad</th>
                 <th scope="col" class="tabla--numerica">Costo unitario</th>
                 <th scope="col" class="tabla--numerica">Importe</th>
                 <th scope="col"><span class="solo-lectores">Quitar</span></th>
             </tr></thead>
             <tbody data-partidas-cuerpo>
-                <?php foreach ($filasSemi as $l) : ?>
+                <?php foreach ($filasSemi as $l) :
+                    $delCatalogo = (int) ($l['proveedor_producto_id'] ?? 0) > 0;
+                    $modificado = $delCatalogo && ($l['costo_catalogo'] ?? null) !== null && abs((float) $l['costo'] - (float) $l['costo_catalogo']) > 0.004;
+                    ?>
                     <tr data-partida>
-                        <td><input class="control" type="text" name="descripcion[]" maxlength="200" aria-label="Nombre del proveedor"
-                                   placeholder="Ej. Canastilla sin pintar" value="<?= escaparValores($l['descripcion'] ?? '') ?>"></td>
                         <td>
-                            <select class="control" name="producto_id[]" aria-label="Producto del catálogo">
+                            <select class="control" name="proveedor_producto_id[]" aria-label="Producto del catálogo del proveedor" data-catalogo>
+                                <option value="0">— Otro / fuera del catálogo —</option>
+                                <?php foreach ($catalogoProveedor as $it) : ?>
+                                    <option value="<?= (int) $it['id'] ?>" <?= (int) $l['proveedor_producto_id'] === $it['id'] ? 'selected' : '' ?>>
+                                        <?= escaparValores(($it['codigo'] !== '' ? $it['codigo'] . ' · ' : '') . $it['nombre'] . ($it['activo'] ? '' : ' (inactivo)')) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input class="control mt-sm" type="text" name="descripcion[]" maxlength="200" aria-label="Nombre del producto del proveedor"
+                                   placeholder="Nombre como lo llama el proveedor" value="<?= escaparValores($l['descripcion'] ?? '') ?>"<?= $delCatalogo ? ' readonly' : '' ?> data-descripcion>
+                            <span class="texto-xs texto-secundario" data-codigo><?= $delCatalogo && ($l['codigo'] ?? '') !== '' ? 'Código ' . escaparValores($l['codigo']) : '' ?></span>
+                        </td>
+                        <td>
+                            <select class="control" name="producto_id[]" aria-label="Producto propio al que corresponde">
                                 <option value="0">— Relacionar después —</option>
                                 <?php foreach ($catalogo as $prod) : ?>
-                                    <option value="<?= (int) $prod['id'] ?>" data-costo-catalogo="<?= escaparValores((string) ($prod['costo'] ?? '')) ?>"
-                                        <?= (int) ($l['producto_id'] ?? 0) === $prod['id'] ? 'selected' : '' ?>>
+                                    <option value="<?= (int) $prod['id'] ?>" <?= (int) ($l['producto_id'] ?? 0) === $prod['id'] ? 'selected' : '' ?>>
                                         <?= escaparValores(($prod['sku'] ? $prod['sku'] . ' · ' : '') . $prod['nombre']) ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -135,8 +152,13 @@ $filasSemi = $tipo === 'semiterminado' ? $lineas : [$vacia];
                         </td>
                         <td><input class="control" type="number" name="cantidad[]" min="1" step="1" inputmode="numeric" required
                                    aria-label="Cantidad" value="<?= (int) $l['cantidad'] ?>" data-cantidad></td>
-                        <td><input class="control control--moneda" type="number" name="costo[]" min="0" step="0.01" inputmode="decimal"
-                                   required aria-label="Costo unitario" value="<?= escaparValores(number_format((float) $l['costo'], 2, '.', '')) ?>" data-costo></td>
+                        <td>
+                            <input class="control control--moneda" type="number" name="costo[]" min="0" step="0.01" inputmode="decimal"
+                                   required aria-label="Costo unitario" value="<?= escaparValores(number_format((float) $l['costo'], 2, '.', '')) ?>"
+                                   <?= $delCatalogo && !$modificado ? 'readonly' : '' ?> data-costo>
+                            <button class="btn btn--texto btn--sm" type="button" data-cambiar-costo<?= $delCatalogo ? '' : ' hidden' ?>>Cambiar costo</button>
+                            <span class="texto-xs texto-secundario" data-aviso-costo><?= $modificado ? 'Catálogo: ' . escaparValores(number_format((float) $l['costo_catalogo'], 2)) : '' ?></span>
+                        </td>
                         <td class="tabla--numerica cifra" data-importe>$0.00</td>
                         <td><button class="btn btn--peligro btn--sm btn--icono" type="button" data-quitar-partida aria-label="Quitar partida">
                             <span class="material-symbols-outlined" aria-hidden="true">delete</span></button></td>
@@ -211,6 +233,9 @@ $filasInsumo = $tipo === 'insumo' ? $lineas : [$vacia];
         <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Agregar partida</span>
     </button>
 </section>
+
+<p class="mt-lg texto-lg" aria-live="polite">Total de la compra: <strong class="cifra" data-total-compra>$0.00</strong>
+    <span class="texto-sm texto-secundario">(subtotal + IVA capturado)</span></p>
 
 <div class="campo campo--completo mt-lg">
     <label class="campo__etiqueta" for="observaciones">Observaciones</label>

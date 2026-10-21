@@ -66,7 +66,7 @@ $num = static fn ($v) => \App\OrdenesCompra::num($v);
             <?php foreach ($partidas as $p) : ?>
                 <tr>
                     <td class="centro"><?= escaparValores($p['producto_sku'] ?? '') ?></td>
-                    <td><?= escaparValores($p['descripcion'] ?: $p['nombre_mostrado']) ?>
+                    <td><?= escaparValores($p['descripcion'] ?: $p['nombre_mostrado']) ?><?= $p['codigo'] ? ' · ' . escaparValores($p['codigo']) : '' ?>
                         <?= $p['descripcion'] && $p['producto_nombre'] ? '<br><span style="color:#6b6b70">Catálogo: ' . escaparValores($p['producto_nombre']) . '</span>' : '' ?>
                         <?= $p['material_nombre'] ? '<br><span style="color:#6b6b70">Material: ' . escaparValores($p['material_nombre']) . '</span>' : '' ?></td>
                     <td class="num"><?= $num($p['solicitada']) ?> <?= escaparValores($p['unidad_mostrada']) ?></td>

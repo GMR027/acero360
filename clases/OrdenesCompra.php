@@ -87,11 +87,13 @@ class OrdenesCompra
             $material = (int) ($post['material_id'][$i] ?? 0);
             $descripcion = trim((string) ($post['descripcion'][$i] ?? ''));
             $nuevo = trim((string) ($post['material_nuevo'][$i] ?? ''));
-            if ($producto === 0 && $material === 0 && $descripcion === '' && $nuevo === '' && ($cantidad === '' || (float) $cantidad <= 1) && (float) $costo === 0.0) {
+            $catalogo = (int) ($post['proveedor_producto_id'][$i] ?? 0);
+            if ($producto === 0 && $material === 0 && $catalogo === 0 && $descripcion === '' && $nuevo === '' && ($cantidad === '' || (float) $cantidad <= 1) && (float) $costo === 0.0) {
                 continue; // renglón vacío
             }
             $lineas[] = [
                 'producto_id'    => $producto,
+                'proveedor_producto_id' => $catalogo,
                 'material_id'    => $material,
                 'material_nuevo' => $nuevo,
                 'cantidad'       => $cantidad,
@@ -126,6 +128,9 @@ class OrdenesCompra
     {
         return array_map(static fn ($p) => [
             'producto_id'    => (int) $p['producto_id'],
+            'proveedor_producto_id' => (int) $p['proveedor_producto_id'],
+            'codigo'         => (string) ($p['codigo'] ?? ''),
+            'costo_catalogo' => $p['costo_catalogo'],
             'material_id'    => (int) $p['material_id'],
             'material_nuevo' => (string) ($p['material_nombre'] ?? ''),
             'cantidad'       => $p['solicitada'],
@@ -200,6 +205,9 @@ class OrdenesCompra
             $fila['costo_final']      = $recibida > 0 ? round($recibido / 100 / $recibida, 2) : null;
             $fila['diferencia']       = ($recibido - $esperadoRecibido) / 100;
             $fila['nombre_mostrado']  = $fila['producto_nombre'] ?? $fila['material_nombre'] ?? ($fila['descripcion'] ?: 'Sin descripción');
+            // Si el costo usado difiere del que tenía el catálogo al comprar, el usuario lo modificó a mano.
+            $fila['costo_modificado'] = $fila['proveedor_producto_id'] !== null && $fila['costo_catalogo'] !== null
+                && abs((float) $fila['costo_esperado'] - (float) $fila['costo_catalogo']) > 0.004;
             $fila['unidad_mostrada']  = $fila['unidad'] ?: ($fila['producto_unidad'] ?? $fila['material_unidad'] ?? 'pza');
             $partidas[] = $fila;
         }
@@ -656,7 +664,10 @@ class OrdenesCompra
             } elseif (abs((float) $cantidad * 1000 - round((float) $cantidad * 1000)) > 1e-6) {
                 $errores[] = "Partida $n: la cantidad admite hasta 3 decimales.";
             }
-            if (!is_numeric($linea['costo'] ?? '') || (float) $linea['costo'] < 0) {
+            $catalogoId = (int) ($linea['proveedor_producto_id'] ?? 0);
+            $costoVacio = trim((string) ($linea['costo'] ?? '')) === '';
+            // Con un producto del catálogo, un costo vacío se toma del catálogo; capturado a mano, debe ser válido.
+            if (!($catalogoId > 0 && $costoVacio) && (!is_numeric($linea['costo'] ?? '') || (float) $linea['costo'] < 0)) {
                 $errores[] = "Partida $n: el costo unitario debe ser un número mayor o igual a cero.";
             }
             if (mb_strlen($descripcion) > 200) {
@@ -664,13 +675,18 @@ class OrdenesCompra
             }
 
             if ($tipo === 'semiterminado') {
-                if ($productoId <= 0 && $descripcion === '') {
-                    $errores[] = "Partida $n: escribe cómo lo nombra el proveedor o elige el producto del catálogo.";
+                if ($catalogoId > 0) {
+                    [, $falla] = self::itemCatalogo($catalogoId, $proveedor, (int) ($datos['id'] ?? 0));
+                    if ($falla !== null) {
+                        $errores[] = "Partida $n: $falla";
+                    }
+                } elseif ($productoId <= 0 && $descripcion === '') {
+                    $errores[] = "Partida $n: elige el producto del catálogo del proveedor o escribe cómo lo nombra.";
                 }
                 if (is_numeric($cantidad) && (float) $cantidad != (int) $cantidad) {
                     $errores[] = "Partida $n: las piezas de un semiterminado se cuentan completas (sin decimales).";
                 }
-                if ($productoId > 0) {
+                if ($productoId > 0) {   // producto propio al que corresponde
                     $c = self::$db->prepare('SELECT COUNT(*) FROM productos WHERE id = ?');
                     $c->bind_param('i', $productoId);
                     $c->execute();
@@ -680,6 +696,9 @@ class OrdenesCompra
                     $c->close();
                 }
             } elseif ($tipo === 'insumo') {
+                if ($catalogoId > 0) {
+                    $errores[] = "Partida $n: los productos del catálogo de semiterminados no se usan en insumos.";
+                }
                 if ($descripcion === '') {
                     $errores[] = "Partida $n: describe lo que compraste.";
                 }
@@ -696,18 +715,86 @@ class OrdenesCompra
     }
 
     /**
-     * Resuelve cada partida a su forma final: material creado si hace falta, bandera «controla» y cantidades.
+     * Producto del catálogo del proveedor para una partida: [fila, null] o [null, motivo del rechazo].
+     * Debe pertenecer al proveedor elegido y estar activo; en una compra ya guardada se acepta uno que se desactivó después
+     * (para poder corregir la compra sin perder sus partidas).
+     *
+     * @return array{0: array<string, mixed>|null, 1: string|null}
+     */
+    private static function itemCatalogo(int $catalogoId, int $proveedorId, int $ordenId): array
+    {
+        $item = ProductosProveedor::buscarID($catalogoId);
+        if (!$item) {
+            return [null, 'el producto del catálogo ya no existe.'];
+        }
+        if ((int) $item['proveedor_id'] !== $proveedorId) {
+            return [null, '«' . $item['nombre'] . '» no es de este proveedor: vuelve a elegir los productos.'];
+        }
+        if ((int) $item['activo'] !== 1) {
+            $yaEnLaCompra = false;
+            if ($ordenId > 0) {
+                $c = self::$db->prepare('SELECT COUNT(*) FROM orden_compra_partidas WHERE orden_id = ? AND proveedor_producto_id = ?');
+                $c->bind_param('ii', $ordenId, $catalogoId);
+                $c->execute();
+                $yaEnLaCompra = (int) $c->get_result()->fetch_row()[0] > 0;
+                $c->close();
+            }
+            if (!$yaEnLaCompra) {
+                return [null, '«' . $item['nombre'] . '» está inactivo y no se ofrece en compras nuevas.'];
+            }
+        }
+        return [$item, null];
+    }
+
+    /**
+     * Resuelve cada partida a su forma final: material creado si hace falta, bandera «controla», y — para un producto
+     * del catálogo — nombre, código y costo tomados del catálogo (con copia del costo del catálogo para el historial).
      * Debe llamarse dentro de la transacción (puede crear materiales).
      *
      * @return array<int, array<string, mixed>>
      */
-    private static function resolverLineas(string $tipo, array $lineas): array
+    private static function resolverLineas(string $tipo, array $lineas, int $proveedorId = 0, int $ordenId = 0): array
     {
+        // Copias de catálogo ya guardadas en esta compra (al editar se conserva el costo de catálogo con el que se compró).
+        $previas = [];
+        if ($ordenId > 0) {
+            foreach (self::partidas($ordenId) as $p) {
+                if ($p['proveedor_producto_id']) {
+                    $previas[(int) $p['proveedor_producto_id']] = $p;
+                }
+            }
+        }
+
         $resueltas = [];
         foreach ($lineas as $linea) {
             $productoId = $tipo === 'semiterminado' ? ((int) ($linea['producto_id'] ?? 0) ?: null) : null;
             $materialId = null;
             $controla = 1;
+            $catalogoId = null;
+            $linea['codigo'] = null;
+            $linea['costo_catalogo'] = null;
+
+            if ($tipo === 'semiterminado' && (int) ($linea['proveedor_producto_id'] ?? 0) > 0) {
+                [$item, $falla] = self::itemCatalogo((int) $linea['proveedor_producto_id'], $proveedorId, $ordenId);
+                if ($item === null) {
+                    throw new \RuntimeException($falla ?? 'Producto del catálogo no válido.');
+                }
+                $catalogoId = (int) $item['id'];
+                $linea['descripcion'] = $item['nombre'];
+                $linea['codigo'] = $item['codigo'];
+                // Si el semiterminado está relacionado con UN solo producto propio y no se eligió otro, se asocia solo.
+                if ($productoId === null) {
+                    $relacionados = ProductosProveedor::productosRelacionados($catalogoId);
+                    if (count($relacionados) === 1) {
+                        $productoId = (int) $relacionados[0]['id'];
+                    }
+                }
+                $previa = $previas[$catalogoId] ?? null;
+                $linea['costo_catalogo'] = $previa && $previa['costo_catalogo'] !== null ? $previa['costo_catalogo'] : $item['costo_unitario'];
+                if (trim((string) ($linea['costo'] ?? '')) === '') {
+                    $linea['costo'] = $item['costo_unitario'];
+                }
+            }
             if ($tipo === 'insumo') {
                 $controla = !empty($linea['controla']) ? 1 : 0;
                 if ($controla) {
@@ -721,11 +808,26 @@ class OrdenesCompra
                 }
             }
             $linea['producto_id'] = $productoId;
+            $linea['proveedor_producto_id'] = $catalogoId;
             $linea['material_id'] = $materialId;
             $linea['controla'] = $controla;
             $resueltas[] = $linea;
         }
         return $resueltas;
+    }
+
+    /** Deja en la bitácora las partidas cuyo costo se cambió a mano respecto al del catálogo. */
+    private static function auditarCostosManuales(int $ordenId, array $lineas, int $usuarioId): void
+    {
+        $cambios = [];
+        foreach ($lineas as $l) {
+            if ($l['proveedor_producto_id'] && $l['costo_catalogo'] !== null && abs((float) $l['costo'] - (float) $l['costo_catalogo']) > 0.004) {
+                $cambios[] = ['producto' => $l['descripcion'], 'catalogo' => number_format((float) $l['costo_catalogo'], 2, '.', ''), 'usado' => number_format((float) $l['costo'], 2, '.', '')];
+            }
+        }
+        if ($cambios) {
+            Auditoria::registrar('orden_compra', $ordenId, 'costo_modificado', $usuarioId, 'Costo distinto al del catálogo del proveedor', ['partidas' => $cambios]);
+        }
     }
 
     private static function totalDe(array $lineas): string
@@ -767,7 +869,7 @@ class OrdenesCompra
             self::$db->begin_transaction();
 
             $h = self::encabezado($datos);
-            $lineas = self::resolverLineas($h['tipo'], $lineas);
+            $lineas = self::resolverLineas($h['tipo'], $lineas, $h['proveedor_id']);
             $folio = trim((string) ($datos['folio'] ?? '')) ?: self::siguienteFolio();
             $totalPesos = self::totalDe($lineas);
             $estado = array_sum(array_column($lineas, 'controla')) > 0 ? 'solicitada' : 'sin_recepcion';
@@ -787,6 +889,7 @@ class OrdenesCompra
             $consulta->close();
 
             self::guardarPartidas($ordenId, $lineas);
+            self::auditarCostosManuales($ordenId, $lineas, $usuarioId);
             Auditoria::registrar('orden_compra', $ordenId, 'crear', $usuarioId, null, ['folio' => $folio, 'tipo' => $h['tipo'], 'total' => $totalPesos]);
 
             self::$db->commit();
@@ -846,7 +949,7 @@ class OrdenesCompra
             }
 
             $h = self::encabezado($datos);
-            $lineas = self::resolverLineas($h['tipo'], $lineas);
+            $lineas = self::resolverLineas($h['tipo'], $lineas, $h['proveedor_id'], $id);
             $totalPesos = self::totalDe($lineas);
             $estado = array_sum(array_column($lineas, 'controla')) > 0 ? 'solicitada' : 'sin_recepcion';
             $folio = trim((string) ($datos['folio'] ?? '')) ?: $orden['folio']; // vacío = conserva el actual
@@ -870,6 +973,7 @@ class OrdenesCompra
             $borrar->close();
 
             self::guardarPartidas($id, $lineas);
+            self::auditarCostosManuales($id, $lineas, $usuarioId);
             Auditoria::registrar('orden_compra', $id, 'editar', $usuarioId, null, ['total' => $totalPesos, 'folio' => $folio, 'tipo' => $h['tipo']]);
 
             self::$db->commit();
@@ -1294,8 +1398,9 @@ class OrdenesCompra
     {
         $consulta = self::$db->prepare(
             'INSERT INTO orden_compra_partidas
-                (orden_id, producto_id, material_id, descripcion, unidad, controla, cantidad_solicitada, costo_esperado, importe_esperado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                (orden_id, producto_id, material_id, proveedor_producto_id, descripcion, codigo, unidad, controla,
+                 cantidad_solicitada, costo_esperado, costo_catalogo, importe_esperado)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         foreach ($lineas as $linea) {
             $productoId = $linea['producto_id'] !== null ? (int) $linea['producto_id'] : null;
@@ -1306,7 +1411,10 @@ class OrdenesCompra
             $descripcion = trim((string) ($linea['descripcion'] ?? '')) ?: null;
             $unidad     = trim((string) ($linea['unidad'] ?? '')) ?: null;
             $controla   = (int) $linea['controla'];
-            $consulta->bind_param('iiississs', $ordenId, $productoId, $materialId, $descripcion, $unidad, $controla, $cantidad, $costo, $importe);
+            $catalogoId = $linea['proveedor_producto_id'] !== null ? (int) $linea['proveedor_producto_id'] : null;
+            $codigo     = $linea['codigo'] !== null && $linea['codigo'] !== '' ? (string) $linea['codigo'] : null;
+            $costoCat   = $linea['costo_catalogo'] !== null ? number_format((float) $linea['costo_catalogo'], 2, '.', '') : null;
+            $consulta->bind_param('iiiisssissss', $ordenId, $productoId, $materialId, $catalogoId, $descripcion, $codigo, $unidad, $controla, $cantidad, $costo, $costoCat, $importe);
             $consulta->execute();
         }
         $consulta->close();

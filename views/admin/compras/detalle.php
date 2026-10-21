@@ -109,6 +109,10 @@ template('tabsCompras', ['tab' => 'pedidos']);
                     <tr>
                         <td>
                             <strong><?= escaparValores($p['descripcion'] ?: $p['nombre_mostrado']) ?></strong>
+                            <?php if ($p['codigo']) : ?><span class="texto-xs texto-secundario">· <?= escaparValores($p['codigo']) ?></span><?php endif; ?>
+                            <?php if ($p['proveedor_producto_id']) : ?>
+                                <span class="texto-xs"><br><a href="/admin/compras/catalogo/detalle?id=<?= (int) $p['proveedor_producto_id'] ?>">Ver en el catálogo del proveedor</a></span>
+                            <?php endif; ?>
                             <span class="texto-xs texto-secundario"><br>
                                 <?php if ($p['producto_id']) : ?>Catálogo: <?= escaparValores(($p['producto_sku'] ? $p['producto_sku'] . ' · ' : '') . $p['producto_nombre']) ?>
                                 <?php elseif ($p['material_id']) : ?>Material controlado: <?= escaparValores($p['material_nombre']) ?>
@@ -137,7 +141,9 @@ template('tabsCompras', ['tab' => 'pedidos']);
                             <?php if (!(int) $p['controla']) : ?>—
                             <?php else : ?><?= $p['pendiente'] > 0 ? '<strong>' . $p['pendiente'] . '</strong>' : ($p['pendiente'] < 0 ? '+' . abs($p['pendiente']) . ' excedente' : '0') ?><?php endif; ?>
                         </td>
-                        <td class="tabla--numerica cifra"><?= formatoMoneda($p['costo_esperado']) ?></td>
+                        <td class="tabla--numerica cifra"><?= formatoMoneda($p['costo_esperado']) ?>
+                            <?php if ($p['costo_modificado']) : ?><span class="texto-xs"><br><span class="badge badge--pendiente">Costo modificado</span>
+                                <span class="texto-secundario">catálogo: <?= formatoMoneda($p['costo_catalogo']) ?></span></span><?php endif; ?></td>
                         <td class="tabla--numerica cifra"><?= $p['costo_final'] !== null ? formatoMoneda($p['costo_final']) : '—' ?></td>
                         <td class="tabla--numerica cifra"><?= formatoMoneda($p['importe_esperado']) ?></td>
                     </tr>

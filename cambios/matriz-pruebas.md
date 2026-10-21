@@ -53,6 +53,10 @@ Los 15 escenarios obligatorios del prompt de reestructuración. `php/etapa18.php
 
 `php/etapa19.php` (lógica: alta, duplicados por proveedor, mismo artículo con otro costo en otro proveedor, desactivar sin borrar, auditoría de costos, relación N:M con productos propios, compras históricas intactas) y `probar_catalogo.mjs` (interfaz de punta a punta, confirmaciones, filtros, consulta desde el producto propio, móvil). Migración 020 ensayada sobre un respaldo real (aplicar → revertir → aplicar).
 
+## Solicitud de compra desde el catálogo (sección 4 del segundo prompt)
+
+`php/etapa20.php` (lógica: solo el catálogo activo del proveedor; nombre, código y costo recuperados; importe y total; IVA; copia histórica del costo al cambiar el catálogo; costo manual respetado y auditado; producto de otro proveedor o inactivo rechazado; recepción con el costo histórico; verificado con mutaciones) y `probar_compra_catalogo.mjs` (interfaz: selector por proveedor, rellenado y bloqueo, importes y total en vivo, «Cambiar costo», historial intacto, producto desactivado, cambio de proveedor, móvil). Migración 021 ensayada sobre un respaldo real (aplicar → revertir → aplicar).
+
 ## Ensayos adicionales
 - **Migración 019 sobre un respaldo REAL de producción** (BD en la migración 10 → 011…019): aplica limpia, los datos quedan intactos y la reversión funciona (aplicar → revertir → aplicar).
 - **Actualización de producción:** base del esquema original (pre-Etapa 2) → 8 migraciones con la imagen Docker del proyecto → datos intactos, segunda corrida idempotente, aplicación sirviendo con el acceso a archivos internos bloqueado (403).

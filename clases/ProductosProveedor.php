@@ -153,6 +153,40 @@ class ProductosProveedor
         return $filas;
     }
 
+    /**
+     * Catálogos para el formulario de compra, por proveedor: solo productos activos de proveedores activos, más los ids
+     * indicados (los que ya usa la compra que se edita, aunque hoy estén inactivos). Cada uno trae los ids de los
+     * productos propios con los que se relaciona (para proponer el producto propio sin escribirlo).
+     *
+     * @param int[] $incluirIds
+     * @return array<int, array<int, array<string, mixed>>> proveedor_id => lista
+     */
+    public static function paraFormulario(array $incluirIds = []): array
+    {
+        $extra = implode(',', array_map('intval', array_filter($incluirIds))) ?: '0';
+        $filas = self::$db->query(
+            "SELECT pp.id, pp.proveedor_id, pp.nombre, pp.codigo, pp.costo_unitario, pp.activo,
+                    (SELECT GROUP_CONCAT(r.producto_id) FROM proveedor_producto_relaciones r WHERE r.proveedor_producto_id = pp.id) AS propios
+               FROM proveedor_productos pp JOIN proveedores p ON p.id = pp.proveedor_id
+              WHERE (pp.activo = 1 AND p.activo = 1) OR pp.id IN ($extra)
+              ORDER BY pp.nombre"
+        )->fetch_all(MYSQLI_ASSOC);
+
+        $mapa = [];
+        foreach ($filas as $f) {
+            $mapa[(int) $f['proveedor_id']][] = [
+                'id'     => (int) $f['id'],
+                'nombre' => $f['nombre'],
+                'codigo' => (string) $f['codigo'],
+                'costo'  => number_format((float) $f['costo_unitario'], 2, '.', ''),
+                'activo' => (int) $f['activo'] === 1,
+                'propios' => array_map('intval', array_filter(explode(',', (string) $f['propios']))),
+            ];
+        }
+
+        return $mapa;
+    }
+
     /* --------------------------------------------------------------------
      * ESCRITURA
      * ------------------------------------------------------------------ */

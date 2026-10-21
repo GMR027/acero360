@@ -32,6 +32,7 @@ template('tabsCompras', ['tab' => 'pedidos']);
             'categorias' => \App\CategoriasProveedor::mapa(),
             'empresas' => \App\Empresas::paraSelector(),
             'materiales' => \App\Materiales::listar(),
+            'catalogos' => \App\ProductosProveedor::paraFormulario(array_column($lineas, 'proveedor_producto_id')),
         ]); ?>
     </form>
 </section>
