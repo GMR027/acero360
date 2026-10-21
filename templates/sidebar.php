@@ -126,18 +126,11 @@ $enlaces = [
     [
         'ruta'          => '/admin/compras',
         'icono'         => 'shopping_cart',
-        'texto'         => 'Compras',
+        'texto'         => 'Compras y proveedores',
         'subrutas'      => true,
         'excluir'       => [],
+        'prefijos'      => ['/admin/proveedores'],
         'grupo'         => 'Compras y abastecimiento',
-        'soloEscritorio' => false,
-    ],
-    [
-        'ruta'          => '/admin/proveedores',
-        'icono'         => 'local_shipping',
-        'texto'         => 'Proveedores',
-        'subrutas'      => true,
-        'excluir'       => [],
         'soloEscritorio' => false,
     ],
     [

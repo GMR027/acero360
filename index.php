@@ -230,7 +230,14 @@ $router->get('/admin/entregas/pdf',      'views/admin/entregas/pdf.php',      's
 $router->get('/admin/entregas/imprimir', 'views/admin/entregas/imprimir.php', 'soloAdmin');
 
 // --- Órdenes de compra y recepciones (Etapa 2) ---
-$router->get('/admin/compras',          'views/admin/compras/index.php',   'soloAdmin');
+$router->get('/admin/compras',          'views/admin/compras/resumen.php', 'soloAdmin');
+$router->get('/admin/compras/pedidos',  'views/admin/compras/pedidos.php', 'soloAdmin');
+$router->get('/admin/compras/recepciones', 'views/admin/compras/recepciones.php', 'soloAdmin');
+$router->post('/admin/compras/recepciones', 'views/admin/compras/recepciones.php', 'soloAdmin');
+$router->get('/admin/compras/facturas', 'views/admin/compras/facturas.php', 'soloAdmin');
+$router->post('/admin/compras/comprobante', 'views/admin/compras/comprobante.php', 'soloAdmin');
+$router->get('/admin/compras/pagos',    'views/admin/compras/pagos.php',   'soloAdmin');
+$router->post('/admin/compras/pago',    'views/admin/compras/pago.php',    'soloAdmin');
 $router->get('/admin/compras/crear',    'views/admin/compras/crear.php',   'soloAdmin');
 $router->post('/admin/compras/crear',   'views/admin/compras/crear.php',   'soloAdmin');
 $router->get('/admin/compras/editar',   'views/admin/compras/editar.php',  'soloAdmin');

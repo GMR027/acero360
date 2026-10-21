@@ -27,6 +27,7 @@ $usuario = (int) $db->query('SELECT id FROM usuarios LIMIT 1')->fetch_row()[0];
 // Estado limpio (la prueba puede correrse varias veces)
 $db->query('DELETE FROM movimientos_inventario WHERE recepcion_id IS NOT NULL');
 $db->query('DELETE FROM movimientos_por_terminar');
+$db->query('DELETE FROM movimientos_material');
 $db->query('DELETE FROM pagos_compra');
 $db->query('DELETE FROM recepciones');
 $db->query('DELETE FROM ordenes_compra');

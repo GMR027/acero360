@@ -34,9 +34,10 @@ if ($esEnvio) {
 
 template('header', [
     'titulo'    => 'Nueva categoría',
-    'subtitulo' => 'Módulo de proveedores',
+    'subtitulo' => 'Categorías de compra',
     'acciones'  => '<a class="btn btn--secundario" href="/admin/proveedores/categorias">Volver</a>',
 ]);
+template('tabsCompras', ['tab' => 'categorias']);
 ?>
 
 <section class="encabezado-pagina">

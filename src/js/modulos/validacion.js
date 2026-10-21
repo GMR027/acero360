@@ -133,7 +133,8 @@ function validarFormulario(formulario) {
   let primerInvalido = null;
 
   controles.forEach(function (control) {
-    if (control.type === 'hidden' || control.type === 'submit' || control.type === 'button') {
+    // Un campo deshabilitado no se envía, así que tampoco se valida (p. ej. el bloque de partidas del otro tipo de compra).
+    if (control.type === 'hidden' || control.type === 'submit' || control.type === 'button' || control.disabled) {
       return;
     }
 

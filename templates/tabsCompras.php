@@ -1,11 +1,16 @@
 <?php
 /**
- * templates/tabsCompras.php — «Compras y proveedores»: las órdenes de compra y el directorio de proveedores
- * son un solo módulo. Variable: $tab ('ordenes' | 'proveedores').
+ * templates/tabsCompras.php — «Compras y proveedores»: todo el abastecimiento es un solo módulo.
+ * Variable: $tab ('resumen' | 'pedidos' | 'recepciones' | 'proveedores' | 'facturas' | 'pagos' | 'categorias').
  */
 $secciones = [
-    'ordenes'     => ['/admin/compras', 'Órdenes de compra', 'shopping_cart'],
+    'resumen'     => ['/admin/compras', 'Resumen', 'dashboard'],
+    'pedidos'     => ['/admin/compras/pedidos', 'Compras y pedidos', 'shopping_cart'],
+    'recepciones' => ['/admin/compras/recepciones', 'Recepciones', 'inventory_2'],
     'proveedores' => ['/admin/proveedores', 'Proveedores', 'local_shipping'],
+    'facturas'    => ['/admin/compras/facturas', 'Facturas', 'receipt_long'],
+    'pagos'       => ['/admin/compras/pagos', 'Pagos', 'payments'],
+    'categorias'  => ['/admin/proveedores/categorias', 'Categorías', 'category'],
 ];
 ?>
 <nav class="chip-grupo entregas-tabs ajustes-tabs" aria-label="Compras y proveedores">

@@ -39,9 +39,10 @@ $usos = \App\CategoriasProveedor::enUso((int) $categoria->id);
 
 template('header', [
     'titulo'    => 'Editar categoría',
-    'subtitulo' => 'Módulo de proveedores',
+    'subtitulo' => 'Categorías de compra',
     'acciones'  => '<a class="btn btn--secundario" href="/admin/proveedores/categorias">Volver</a>',
 ]);
+template('tabsCompras', ['tab' => 'categorias']);
 ?>
 
 <section class="encabezado-pagina">

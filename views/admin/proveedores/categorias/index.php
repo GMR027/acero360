@@ -31,7 +31,7 @@ $hayFiltros = $termino !== '';
 
 template('header', [
     'titulo'    => 'Categorías de compra',
-    'subtitulo' => 'Módulo de proveedores',
+    'subtitulo' => 'Categorías de compra',
     'acciones'  => '<a class="btn btn--secundario" href="/admin/proveedores">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>'
         . '<span>Volver</span></a>'
@@ -39,14 +39,15 @@ template('header', [
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span>'
         . '<span>Nueva categoría</span></a>',
 ]);
+template('tabsCompras', ['tab' => 'categorias']);
 ?>
 
 <section class="encabezado-pagina">
     <div>
         <p class="texto-secundario">
-            Las categorías se ofrecen en el campo «Categoría» de las entradas de
+            Las categorías se ofrecen en el campo «Categoría» de las compras de
             <strong>todos</strong> los proveedores. Si una categoría ya está en uso no se puede
-            borrar (se avisa antes), pero sí renombrarla: sólo cambia el texto y las entradas
+            borrar (se avisa antes), pero sí renombrarla: sólo cambia el texto y las compras
             conservan su id.
         </p>
     </div>

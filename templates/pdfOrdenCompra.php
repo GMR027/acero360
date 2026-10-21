@@ -11,6 +11,9 @@
 $cierre = $tipo === 'cierre';
 $mx = static fn ($v) => '$' . number_format((float) $v, 2);
 $estado = \App\OrdenesCompra::ESTADOS[$orden['estado']]['etiqueta'] ?? $orden['estado'];
+$tipoTexto = $orden['tipo'] === 'insumo' ? 'Material, insumo o consumible' : 'Producto semiterminado';
+$cfdiTexto = \App\CompraContable::ESTADOS_CFDI[$orden['estado_cfdi']]['etiqueta'] ?? $orden['estado_cfdi'];
+$num = static fn ($v) => \App\OrdenesCompra::num($v);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -38,6 +41,8 @@ $estado = \App\OrdenesCompra::ESTADOS[$orden['estado']]['etiqueta'] ?? $orden['e
         <tr><td>Proveedor: <strong><?= escaparValores($orden['proveedor_nombre']) ?></strong>
             <?= $orden['proveedor_rfc'] ? ' · RFC ' . escaparValores($orden['proveedor_rfc']) : '' ?></td>
             <td class="num">Fecha de solicitud: <?= escaparValores(date('d/m/Y', strtotime($orden['fecha_solicitud']))) ?></td></tr>
+        <tr><td>Tipo: <?= escaparValores($tipoTexto) ?><?= $orden['referencia'] ? ' · Pedido/folio del proveedor: ' . escaparValores($orden['referencia']) : '' ?></td>
+            <td class="num">Factura: <?= escaparValores($cfdiTexto) ?></td></tr>
         <tr><td>Estado: <?= escaparValores($estado) ?></td>
             <td class="num">Emitido: <?= date('d/m/Y H:i') ?></td></tr>
         <?php if ($cierre && $orden['cerrada_en']) : ?>
@@ -46,11 +51,11 @@ $estado = \App\OrdenesCompra::ESTADOS[$orden['estado']]['etiqueta'] ?? $orden['e
         <?php endif; ?>
     </table>
 
-    <h2>Productos</h2>
+    <h2>Partidas</h2>
     <table>
         <thead>
             <tr>
-                <th>Código</th><th>Producto</th><th>Solicitado</th>
+                <th>Código</th><th>Artículo</th><th>Solicitado</th>
                 <?php if ($cierre) : ?><th>Recibido</th><th>Faltante</th><?php endif; ?>
                 <th>Costo esperado</th>
                 <?php if ($cierre) : ?><th>Costo final</th><th>Diferencia</th><?php endif; ?>
@@ -61,13 +66,14 @@ $estado = \App\OrdenesCompra::ESTADOS[$orden['estado']]['etiqueta'] ?? $orden['e
             <?php foreach ($partidas as $p) : ?>
                 <tr>
                     <td class="centro"><?= escaparValores($p['producto_sku'] ?? '') ?></td>
-                    <td><?= escaparValores($p['producto_nombre']) ?>
-                        <?= $p['descripcion'] ? '<br><span style="color:#6b6b70">' . escaparValores($p['descripcion']) . '</span>' : '' ?></td>
-                    <td class="num"><?= (int) $p['solicitada'] ?></td>
+                    <td><?= escaparValores($p['descripcion'] ?: $p['nombre_mostrado']) ?>
+                        <?= $p['descripcion'] && $p['producto_nombre'] ? '<br><span style="color:#6b6b70">Catálogo: ' . escaparValores($p['producto_nombre']) . '</span>' : '' ?>
+                        <?= $p['material_nombre'] ? '<br><span style="color:#6b6b70">Material: ' . escaparValores($p['material_nombre']) . '</span>' : '' ?></td>
+                    <td class="num"><?= $num($p['solicitada']) ?> <?= escaparValores($p['unidad_mostrada']) ?></td>
                     <?php if ($cierre) : ?>
-                        <td class="num"><?= (int) $p['recibida'] ?></td>
+                        <td class="num"><?= (int) $p['controla'] ? $num($p['recibida']) : '—' ?></td>
                         <td class="num <?= $p['pendiente'] > 0 ? 'falta' : ($p['pendiente'] < 0 ? 'sobra' : '') ?>">
-                            <?= $p['pendiente'] > 0 ? (int) $p['pendiente'] : ($p['pendiente'] < 0 ? '+' . abs((int) $p['pendiente']) . ' excedente' : '0') ?>
+                            <?= !(int) $p['controla'] ? '—' : ($p['pendiente'] > 0 ? $num($p['pendiente']) : ($p['pendiente'] < 0 ? '+' . $num(abs($p['pendiente'])) . ' excedente' : '0')) ?>
                         </td>
                     <?php endif; ?>
                     <td class="num"><?= $mx($p['costo_esperado']) ?></td>
@@ -82,10 +88,10 @@ $estado = \App\OrdenesCompra::ESTADOS[$orden['estado']]['etiqueta'] ?? $orden['e
         <tfoot>
             <tr class="total">
                 <td colspan="2" class="num">Totales</td>
-                <td class="num"><?= (int) $totales['piezas_solicitadas'] ?></td>
+                <td class="num"><?= $num($totales['piezas_solicitadas']) ?></td>
                 <?php if ($cierre) : ?>
-                    <td class="num"><?= (int) $totales['piezas_recibidas'] ?></td>
-                    <td class="num"><?= (int) $totales['piezas_pendientes'] ?></td>
+                    <td class="num"><?= $num($totales['piezas_recibidas']) ?></td>
+                    <td class="num"><?= $num($totales['piezas_pendientes']) ?></td>
                 <?php endif; ?>
                 <td class="num"><?= $mx($totales['esperado']) ?></td>
                 <?php if ($cierre) : ?><td></td><td class="num"><?= $mx($totales['diferencia']) ?></td><?php endif; ?>
@@ -97,13 +103,13 @@ $estado = \App\OrdenesCompra::ESTADOS[$orden['estado']]['etiqueta'] ?? $orden['e
     <?php if ($cierre && $recepciones) : ?>
         <h2>Historial de recepciones</h2>
         <table>
-            <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Costo unitario</th><th>Registró</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Artículo</th><th>Cantidad</th><th>Costo unitario</th><th>Registró</th></tr></thead>
             <tbody>
                 <?php foreach ($recepciones as $r) : foreach ($r['renglones'] as $linea) : ?>
                     <tr>
                         <td class="centro"><?= escaparValores(date('d/m/Y', strtotime($r['fecha']))) ?></td>
-                        <td><?= escaparValores($linea['producto_nombre']) ?></td>
-                        <td class="num"><?= (int) $linea['cantidad_recibida'] ?></td>
+                        <td><?= escaparValores($linea['producto_nombre'] ?? $linea['material_nombre'] ?? '—') ?></td>
+                        <td class="num"><?= $num($linea['cantidad_recibida']) ?></td>
                         <td class="num"><?= $mx($linea['costo_unitario']) ?></td>
                         <td><?= escaparValores($r['usuario_nombre'] ?? '') ?></td>
                     </tr>

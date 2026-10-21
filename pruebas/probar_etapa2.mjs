@@ -32,8 +32,10 @@ function limpiar() {
   if (!pid) { return; }
   const ordenes = sql(`SELECT GROUP_CONCAT(DISTINCT orden_id) FROM orden_compra_partidas WHERE producto_id=${pid}`);
   sql(`DELETE FROM movimientos_inventario WHERE producto_id=${pid}`);
+  sql(`DELETE FROM movimientos_por_terminar WHERE producto_id=${pid}`);
   if (ordenes && ordenes !== 'NULL') {
     sql(`DELETE FROM movimientos_inventario WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN (${ordenes}))`);
+    sql(`DELETE FROM movimientos_por_terminar WHERE recepcion_id IN (SELECT id FROM recepciones WHERE orden_id IN (${ordenes}))`);
     sql(`DELETE FROM recepciones WHERE orden_id IN (${ordenes})`);
     sql(`DELETE FROM ordenes_compra WHERE id IN (${ordenes})`);
   }
@@ -81,47 +83,58 @@ try {
   await Promise.all([pagina.waitForNavigation(), pagina.click('button[type=submit]')]);
   verifica('SKU duplicado se rechaza con mensaje', (await pagina.content()).includes('ya pertenece a otro producto'));
 
-  console.log('Orden de compra con partidas dinámicas');
+  console.log('Compra de semiterminados con partidas dinámicas');
   await pagina.goto(BASE + '/admin/compras/crear');
+  const semi = pagina.locator('[data-bloque-tipo="semiterminado"]');
+  const insumo = pagina.locator('[data-bloque-tipo="insumo"]');
+  verifica('por defecto es semiterminado y el bloque de insumos está oculto', await semi.isVisible() && !(await insumo.isVisible()));
   await pagina.selectOption('#proveedor_id', { index: 1 });
-  await pagina.locator('select[name="producto_id[]"]').first().selectOption(pid);
-  await pagina.fill('input[name="cantidad[]"]', '5');
-  await pagina.fill('input[name="costo[]"]', '80');
-  await pagina.click('[data-agregar-partida]');
-  verifica('agregar producto crea otro renglón', (await pagina.locator('[data-partida]').count()) === 2);
-  const segundo = pagina.locator('[data-partida]').nth(1);
+  await semi.locator('select[name="producto_id[]"]').first().selectOption(pid);
+  await semi.locator('input[name="cantidad[]"]').fill('5');
+  await semi.locator('input[name="costo[]"]').fill('80');
+  await semi.locator('[data-agregar-partida]').click();
+  verifica('agregar producto crea otro renglón', (await semi.locator('[data-partida]').count()) === 2);
+  const segundo = semi.locator('[data-partida]').nth(1);
   await segundo.locator('select').selectOption({ index: 2 });
   await segundo.locator('[data-cantidad]').fill('3');
   await segundo.locator('[data-costo]').fill('10.50');
-  const total = (await pagina.locator('[data-total]').innerText()).replace(/\s/g, '');
-  verifica('total en vivo $431.50', total.includes('431.50'), total);
-  await pagina.click('[data-partida] >> nth=1 >> [data-quitar-partida]');
-  verifica('quitar renglón', (await pagina.locator('[data-partida]').count()) === 1);
-  await pagina.click('[data-agregar-partida]');
-  await pagina.locator('[data-partida]').nth(1).locator('select').selectOption({ index: 2 });
-  await pagina.locator('[data-partida]').nth(1).locator('[data-cantidad]').fill('3');
-  await pagina.locator('[data-partida]').nth(1).locator('[data-costo]').fill('10.50');
+  const total = (await semi.locator('[data-total]').innerText()).replace(/\s/g, '');
+  verifica('subtotal en vivo $431.50', total.includes('431.50'), total);
+  await semi.locator('[data-partida]').nth(1).locator('[data-quitar-partida]').click();
+  verifica('quitar renglón', (await semi.locator('[data-partida]').count()) === 1);
+  await semi.locator('[data-agregar-partida]').click();
+  await semi.locator('[data-partida]').nth(1).locator('select').selectOption({ index: 2 });
+  await semi.locator('[data-partida]').nth(1).locator('[data-cantidad]').fill('3');
+  await semi.locator('[data-partida]').nth(1).locator('[data-costo]').fill('10.50');
   await Promise.all([pagina.waitForURL('**/admin/compras/detalle?id=*'), pagina.click('button[type=submit]')]);
   const oid = sql('SELECT MAX(id) FROM ordenes_compra');
-  verifica('orden creada sin tocar inventario', sql(`SELECT stock FROM productos WHERE id=${pid}`) === '0');
+  verifica('compra creada sin tocar inventario', sql(`SELECT stock FROM productos WHERE id=${pid}`) === '0');
   verifica('total esperado 431.50', sql(`SELECT total_esperado FROM ordenes_compra WHERE id=${oid}`) === '431.50');
+  verifica('tipo semiterminado', sql(`SELECT tipo FROM ordenes_compra WHERE id=${oid}`) === 'semiterminado');
 
   console.log('Recepción parcial y cierre');
   await pagina.goto(BASE + '/admin/compras/recibir?id=' + oid);
   const cant = pagina.locator('input[name^="cantidad["]');
   await cant.nth(0).fill('5');
   await cant.nth(1).fill('1');
-  await Promise.all([pagina.waitForURL('**/admin/compras/detalle?id=*'), pagina.click('button[type=submit]')]);
-  verifica('stock suma solo lo recibido (5)', sql(`SELECT stock FROM productos WHERE id=${pid}`) === '5');
+  await pagina.click('button[type=submit]');
+  await pagina.waitForSelector('.modal button:has-text("Sí, confirmar recepción"), dialog button:has-text("Sí, confirmar recepción"), [role=dialog] button:has-text("Sí, confirmar recepción")', { timeout: 3000 }).catch(() => {});
+  verifica('la recepción pide confirmación y aún no mueve existencias',
+    (await pagina.locator('button:has-text("Sí, confirmar recepción")').count()) > 0
+    && sql(`SELECT stock_por_terminar FROM productos WHERE id=${pid}`) === '0');
+  await pagina.click('.modal button:has-text("Sí, confirmar recepción"), dialog button:has-text("Sí, confirmar recepción"), [role=dialog] button:has-text("Sí, confirmar recepción")');
+  await pagina.waitForURL('**/admin/compras/detalle?id=*');
+  verifica('lo recibido queda «por terminar» (5)', sql(`SELECT stock_por_terminar FROM productos WHERE id=${pid}`) === '5');
+  verifica('NO sube la existencia para venta', sql(`SELECT stock FROM productos WHERE id=${pid}`) === '0');
   verifica('estado recibida parcial', sql(`SELECT estado FROM ordenes_compra WHERE id=${oid}`) === 'parcial');
   verifica('detalle muestra el faltante', (await pagina.content()).includes('Recibida parcial'));
   await pagina.fill('#motivo_cierre', 'No surtió');
-  await pagina.click('form[action="/admin/compras/accion"] button:has-text("Cerrar orden")');
+  await pagina.click('form[action="/admin/compras/accion"] button:has-text("Cerrar compra")');
   await pagina.waitForSelector('.modal, dialog, [role=dialog]', { timeout: 3000 }).catch(() => {});
   verifica('cerrar pide confirmación modal (no confirm nativo)', (await pagina.locator('.modal, dialog, [role=dialog]').count()) > 0);
   await pagina.click('.modal button:has-text("Sí, cerrar"), dialog button:has-text("Sí, cerrar"), [role=dialog] button:has-text("Sí, cerrar")');
   await pagina.waitForLoadState();
-  verifica('orden cerrada', sql(`SELECT estado FROM ordenes_compra WHERE id=${oid}`) === 'cerrada');
+  verifica('compra cerrada', sql(`SELECT estado FROM ordenes_compra WHERE id=${oid}`) === 'cerrada');
 
   console.log('Alerta de mínimo y PDF de inventario');
   sql(`UPDATE productos SET stock=3 WHERE id=${pid}`);

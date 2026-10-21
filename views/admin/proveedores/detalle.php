@@ -2,8 +2,9 @@
 /**
  * views/admin/proveedores/detalle.php — Ficha de un proveedor.
  *
- * Muestra los datos de identidad y contacto, y las últimas entradas
- * (reportes fotográficos) que se le han registrado.
+ * Expediente del proveedor: datos de identidad y contacto, sus compras (con lo recibido, facturado, pagado y
+ * pendiente), las recepciones y los pagos. Las «entregas anteriores» (registro fotográfico antiguo) solo
+ * aparecen, como historial, si el proveedor las tiene.
  */
 
 soloAdmin();
@@ -15,6 +16,15 @@ if (!$proveedor) {
 }
 
 $totalEntradas = $proveedor->contarEntradas();
+
+/* --- Compras del proveedor (módulo unificado) -------------------------------------------------- */
+$idProveedor    = (int) $proveedor->id;
+$filtroCompras  = ['proveedor' => $idProveedor];
+$totCompras     = \App\OrdenesCompra::totalesFiltrados($filtroCompras);
+$comprasRecientes = \App\OrdenesCompra::listar($filtroCompras, 8, 0);
+$porRecibirProv = \App\OrdenesCompra::pendientesDeRecibir($idProveedor, 8);
+$facturasPend   = \App\OrdenesCompra::listar($filtroCompras + ['cfdi' => 'pendiente_cfdi', 'activas' => true], 8, 0);
+$pagosProv      = \App\PagosCompra::listar(['proveedor' => $idProveedor, 'estado' => ''], 8, 0);
 $entradas      = \App\ProveedorEntradas::mostrarTodos(['proveedor' => (int) $proveedor->id], 5, 0);
 
 /* --- Balance general -------------------------------------------------------
@@ -59,7 +69,7 @@ template('header', [
         . '<span>Editar</span></a>'
         . '<a class="btn btn--primario" href="/admin/compras/crear?proveedor=' . (int) $proveedor->id . '">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_shopping_cart</span>'
-        . '<span>Nueva orden de compra</span></a>',
+        . '<span>Nueva compra</span></a>',
 ]);
 template('tabsCompras', ['tab' => 'proveedores']);
 ?>
@@ -68,8 +78,8 @@ template('tabsCompras', ['tab' => 'proveedores']);
     <div>
         <p class="texto-secundario">
             <span class="badge badge--info badge--sin-punto"><?= escaparValores($proveedor->tipo_proveedor) ?></span>
-            &nbsp; <?= number_format($totalEntradas) ?>
-            <?= $totalEntradas === 1 ? 'entrega anterior registrada' : 'entregas anteriores registradas' ?>
+            <?php if ((int) $proveedor->activo !== 1) : ?><span class="badge badge--neutro badge--sin-punto">Inactivo</span><?php endif; ?>
+            &nbsp; <?= number_format($totCompras['compras']) ?> <?= $totCompras['compras'] === 1 ? 'compra' : 'compras' ?>
         </p>
     </div>
 </section>
@@ -90,61 +100,142 @@ template('tabsCompras', ['tab' => 'proveedores']);
                 <div class="ficha__fila"><dt>Teléfono</dt><dd class="cifra"><?= escaparValores($proveedor->telefono ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Ubicación</dt><dd><?= escaparValores($proveedor->ubicacion ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Tipo de proveedor</dt><dd><?= escaparValores($proveedor->tipo_proveedor) ?></dd></div>
-                <div class="ficha__fila"><dt>Entradas registradas</dt><dd class="cifra"><?= number_format($totalEntradas) ?></dd></div>
+                <div class="ficha__fila"><dt>Compras registradas</dt><dd class="cifra"><?= number_format($totCompras['compras']) ?></dd></div>
             </dl>
         </div>
     </section>
 
-    <!-- Últimas entradas -->
+    <!-- Contacto -->
     <section class="tarjeta">
         <header class="tarjeta__cabecera">
             <h2 class="tarjeta__titulo">
-                <span class="material-symbols-outlined" aria-hidden="true">assignment</span>
-                Últimas entradas
+                <span class="material-symbols-outlined" aria-hidden="true">contact_phone</span>
+                Contacto y notas
             </h2>
         </header>
-
         <div class="tarjeta__cuerpo">
-            <?php if (empty($entradas)) : ?>
-                <p class="texto-secundario">
-                    Sin entregas anteriores. Las compras nuevas se registran con una orden de compra.
-                </p>
-                <a class="btn btn--primario btn--sm" href="/admin/compras/crear?proveedor=<?= (int) $proveedor->id ?>">
-                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_shopping_cart</span>
-                    <span>Nueva orden de compra</span>
-                </a>
-            <?php else : ?>
-                <ul class="lista-simple">
-                    <?php foreach ($entradas as $entrada) : ?>
-                        <li class="lista-simple__elemento">
-                            <div class="tabla__producto-textos">
-                                <strong><?= escaparValores(
-                                    (int) $entrada->categoria > 0
-                                        ? \App\ProveedorEntradas::nombreCategoria((int) $entrada->categoria)
-                                        : 'Entrada de material'
-                                ) ?></strong>
-                                <span class="texto-xs texto-secundario texto-una-linea">
-                                    <?= date('d/m/Y', strtotime($entrada->fecha)) ?>
-                                    <?= $entrada->numero_pedido !== '' ? ' · Pedido ' . escaparValores($entrada->numero_pedido) : '' ?>
-                                </span>
-                            </div>
-                            <a class="btn btn--secundario btn--sm btn--icono"
-                               href="/admin/proveedores/entradas/detalle?id=<?= (int) $entrada->id ?>"
-                               title="Ver detalle" aria-label="Ver la entrada">
-                                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">visibility</span>
-                            </a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-
-                <a class="btn btn--texto btn--sm mt-md" href="/admin/proveedores/entradas?proveedor=<?= (int) $proveedor->id ?>">
-                    <span>Ver todas las entradas</span>
-                </a>
-            <?php endif; ?>
+            <dl class="ficha">
+                <div class="ficha__fila"><dt>Contacto</dt><dd><?= escaparValores($proveedor->contacto ?: '—') ?></dd></div>
+                <div class="ficha__fila"><dt>Correo</dt><dd><?= escaparValores($proveedor->email ?: '—') ?></dd></div>
+                <div class="ficha__fila"><dt>Observaciones</dt><dd><?= nl2br(escaparValores($proveedor->observaciones ?: '—')) ?></dd></div>
+                <div class="ficha__fila"><dt>Estado</dt><dd><?= (int) $proveedor->activo === 1
+                    ? '<span class="badge badge--aprobado">Activo</span>'
+                    : '<span class="badge badge--neutro">Inactivo</span> <span class="texto-xs texto-secundario">No aparece en compras nuevas; su historial se conserva.</span>' ?></dd></div>
+            </dl>
         </div>
     </section>
 </div>
 
+<section class="rejilla-stats mb-lg" aria-label="Importes del proveedor">
+    <article class="stat"><span class="stat__etiqueta">Comprado</span>
+        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['comprado']) ?></span><span class="stat__pie">Sin compras canceladas</span></article>
+    <article class="stat"><span class="stat__etiqueta">Facturado</span>
+        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['facturado']) ?></span>
+        <span class="stat__pie"><?= formatoMoneda($totCompras['pendiente_documentar']) ?> pendiente de documentar</span></article>
+    <article class="stat"><span class="stat__etiqueta">Pagado</span>
+        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['pagado']) ?></span><span class="stat__pie">Pagos vigentes</span></article>
+    <article class="stat"><span class="stat__etiqueta">Saldo pendiente</span>
+        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['saldo']) ?></span><span class="stat__pie">Comprado menos pagado</span></article>
+</section>
+
+<section class="tarjeta tarjeta--sin-relleno mb-lg" id="compras">
+    <h2 class="titulo-5" style="padding:1rem 1rem 0">Compras</h2>
+    <?php if (!$comprasRecientes) : ?>
+        <p class="texto-secundario" style="padding:1rem">Este proveedor aún no tiene compras. <a href="/admin/compras/crear?proveedor=<?= $idProveedor ?>">Registrar la primera</a>.</p>
+    <?php else : ?>
+        <div class="tabla-contenedor"><table class="tabla">
+            <caption class="solo-lectores">Compras del proveedor</caption>
+            <thead><tr><th scope="col">Compra</th><th scope="col">Tipo</th><th scope="col">Fecha</th><th scope="col" class="tabla--numerica">Total</th>
+                <th scope="col" class="tabla--numerica">Saldo</th><th scope="col" class="tabla--centro">Recepción</th>
+                <th scope="col" class="tabla--centro">Factura</th><th scope="col" class="tabla--centro">Pago</th></tr></thead>
+            <tbody>
+            <?php foreach ($comprasRecientes as $o) :
+                $est = \App\OrdenesCompra::ESTADOS[$o['estado']]; $cf = \App\CompraContable::ESTADOS_CFDI[$o['estado_cfdi']]; $pe = \App\PagosCompra::ESTADOS[$o['estado_pago']]; ?>
+                <tr>
+                    <td><a href="/admin/compras/detalle?id=<?= (int) $o['id'] ?>"><strong><?= escaparValores($o['folio']) ?></strong></a>
+                        <?= $o['referencia'] ? '<span class="texto-xs texto-secundario"><br>Ref. ' . escaparValores($o['referencia']) . '</span>' : '' ?></td>
+                    <td><?= $o['tipo'] === 'insumo' ? 'Insumo' : 'Semiterminado' ?></td>
+                    <td><?= escaparValores(date('d/m/Y', strtotime($o['fecha_solicitud']))) ?></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($o['total_compra']) ?></td>
+                    <td class="tabla--numerica cifra"><?= $o['estado'] === 'cancelada' ? '—' : formatoMoneda($o['saldo']) ?></td>
+                    <td class="tabla--centro"><span class="badge <?= $est['clase'] ?>"><?= escaparValores($est['etiqueta']) ?></span></td>
+                    <td class="tabla--centro"><span class="badge <?= $cf['clase'] ?>"><?= escaparValores($cf['etiqueta']) ?></span></td>
+                    <td class="tabla--centro"><?= $o['estado'] === 'cancelada' ? '—' : '<span class="badge ' . $pe['clase'] . '">' . escaparValores($pe['etiqueta']) . '</span>' ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <p style="padding:0 1rem 1rem"><a class="btn btn--texto btn--sm" href="/admin/compras/pedidos?proveedor=<?= $idProveedor ?>">Ver todas las compras de este proveedor</a></p>
+    <?php endif; ?>
+</section>
+
+<div class="rejilla-2 mb-lg">
+    <section class="tarjeta tarjeta--sin-relleno" id="recepciones">
+        <h2 class="titulo-5" style="padding:1rem 1rem 0">Pendiente de recibir</h2>
+        <?php if (!$porRecibirProv) : ?>
+            <p class="texto-secundario" style="padding:1rem">Nada pendiente de este proveedor.</p>
+        <?php else : ?>
+            <div class="tabla-contenedor"><table class="tabla">
+                <caption class="solo-lectores">Pendiente de recibir</caption>
+                <thead><tr><th scope="col">Compra</th><th scope="col">Artículo</th><th scope="col" class="tabla--numerica">Pendiente</th></tr></thead>
+                <tbody>
+                <?php foreach ($porRecibirProv as $f) : ?>
+                    <tr><td><a href="/admin/compras/recibir?id=<?= (int) $f['orden_id'] ?>"><strong><?= escaparValores($f['folio']) ?></strong></a></td>
+                        <td><?= escaparValores($f['descripcion'] ?: $f['nombre_mostrado']) ?></td>
+                        <td class="tabla--numerica cifra"><?= $f['pendiente'] ?> de <?= $f['solicitada'] ?></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table></div>
+        <?php endif; ?>
+        <p style="padding:0 1rem 1rem"><a class="btn btn--texto btn--sm" href="/admin/compras/recepciones?proveedor=<?= $idProveedor ?>">Ver recepciones</a></p>
+    </section>
+
+    <section class="tarjeta tarjeta--sin-relleno" id="facturas">
+        <h2 class="titulo-5" style="padding:1rem 1rem 0">Facturas pendientes</h2>
+        <?php if (!$facturasPend) : ?>
+            <p class="texto-secundario" style="padding:1rem">Sin facturas pendientes.</p>
+        <?php else : ?>
+            <div class="tabla-contenedor"><table class="tabla">
+                <caption class="solo-lectores">Compras pendientes de CFDI</caption>
+                <thead><tr><th scope="col">Compra</th><th scope="col">Fecha</th><th scope="col" class="tabla--numerica">Total</th></tr></thead>
+                <tbody>
+                <?php foreach ($facturasPend as $o) : ?>
+                    <tr><td><a href="/admin/compras/detalle?id=<?= (int) $o['id'] ?>#factura"><strong><?= escaparValores($o['folio']) ?></strong></a></td>
+                        <td><?= escaparValores(date('d/m/Y', strtotime($o['fecha_solicitud']))) ?></td>
+                        <td class="tabla--numerica cifra"><?= formatoMoneda($o['total_compra']) ?></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table></div>
+        <?php endif; ?>
+        <p style="padding:0 1rem 1rem"><a class="btn btn--texto btn--sm" href="/admin/compras/facturas?proveedor=<?= $idProveedor ?>">Ver facturas</a></p>
+    </section>
+</div>
+
+<section class="tarjeta tarjeta--sin-relleno mb-lg" id="pagos">
+    <h2 class="titulo-5" style="padding:1rem 1rem 0">Pagos</h2>
+    <?php if (!$pagosProv) : ?>
+        <p class="texto-secundario" style="padding:1rem">Aún no hay pagos a este proveedor.</p>
+    <?php else : ?>
+        <div class="tabla-contenedor"><table class="tabla">
+            <caption class="solo-lectores">Pagos al proveedor</caption>
+            <thead><tr><th scope="col">Fecha</th><th scope="col">Compra</th><th scope="col" class="tabla--numerica">Importe</th><th scope="col">Método</th><th scope="col">Estado</th></tr></thead>
+            <tbody>
+            <?php foreach ($pagosProv as $pg) : $vig = $pg['estado'] === 'vigente'; ?>
+                <tr<?= $vig ? '' : ' style="opacity:.6"' ?>>
+                    <td><?= escaparValores(date('d/m/Y', strtotime($pg['fecha']))) ?></td>
+                    <td><a href="/admin/compras/detalle?id=<?= (int) $pg['orden_id'] ?>#pagos"><strong><?= escaparValores($pg['folio']) ?></strong></a></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($pg['importe']) ?></td>
+                    <td><?= escaparValores((string) $pg['metodo']) ?></td>
+                    <td><?= $vig ? '<span class="badge badge--aprobado">Vigente</span>' : '<span class="badge badge--neutro">Cancelado</span>' ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
+    <p style="padding:0 1rem 1rem"><a class="btn btn--texto btn--sm" href="/admin/compras/pagos?proveedor=<?= $idProveedor ?>">Ver pagos</a></p>
+</section>
+
+<?php if ($totalEntradas > 0) : ?>
 <!-- ---------------------------------------------------------------------------
      Balance general: todos los pedidos del proveedor con su estado de pago.
      El verde marca "ya se pagó"; si ya está pagado, el mismo botón (en su
@@ -155,7 +246,7 @@ template('tabsCompras', ['tab' => 'proveedores']);
     <header class="tarjeta__cabecera">
         <h2 class="tarjeta__titulo" id="titulo-balance">
             <span class="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span>
-            Balance general
+            Entregas anteriores (historial)
         </h2>
 
         <?php if ($categoriaFiltro > 0) : ?>
@@ -335,5 +426,6 @@ template('tabsCompras', ['tab' => 'proveedores']);
         <?php endif; ?>
     </div>
 </section>
+<?php endif; ?>
 
 <?php template('footer'); ?>

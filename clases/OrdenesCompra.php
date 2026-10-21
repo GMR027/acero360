@@ -104,6 +104,38 @@ class OrdenesCompra
         return $lineas;
     }
 
+    /** Encabezado de la compra a partir del formulario (los mismos campos al crear y al editar). */
+    public static function encabezadoDePost(array $post): array
+    {
+        return [
+            'folio'           => trim((string) ($post['folio'] ?? '')),
+            'tipo'            => (string) ($post['tipo'] ?? 'semiterminado'),
+            'proveedor_id'    => (int) ($post['proveedor_id'] ?? 0),
+            'fecha_solicitud' => (string) ($post['fecha_solicitud'] ?? ''),
+            'referencia'      => trim((string) ($post['referencia'] ?? '')),
+            'categoria_id'    => (int) ($post['categoria_id'] ?? 0),
+            'empresa_id'      => (int) ($post['empresa_id'] ?? 0),
+            'estado_cfdi'     => (string) ($post['estado_cfdi'] ?? 'pendiente_cfdi'),
+            'iva'             => trim((string) ($post['iva'] ?? '')),
+            'observaciones'   => trim((string) ($post['observaciones'] ?? '')),
+        ];
+    }
+
+    /** Partidas guardadas, en la forma que usa el formulario (para editar). */
+    public static function lineasDeOrden(int $ordenId): array
+    {
+        return array_map(static fn ($p) => [
+            'producto_id'    => (int) $p['producto_id'],
+            'material_id'    => (int) $p['material_id'],
+            'material_nuevo' => (string) ($p['material_nombre'] ?? ''),
+            'cantidad'       => $p['solicitada'],
+            'costo'          => $p['costo_esperado'],
+            'descripcion'    => (string) $p['descripcion'],
+            'unidad'         => (string) ($p['unidad'] ?? ''),
+            'controla'       => (int) $p['controla'],
+        ], self::partidas($ordenId));
+    }
+
     /* --------------------------------------------------------------------
      * LECTURA
      * ------------------------------------------------------------------ */
@@ -238,9 +270,12 @@ class OrdenesCompra
         foreach ($partidas as $partida) {
             $esperado    += (int) round((float) $partida['importe_esperado'] * 100);
             $recibido    += (int) round((float) $partida['importe_recibido'] * 100);
-            $solicitadas += $partida['solicitada'];
-            $recibidas   += $partida['recibida'];
-            $pendientes  += max(0, $partida['pendiente']);
+            // Los consumibles no se recepcionan: no cuentan como piezas solicitadas, recibidas ni pendientes.
+            if ((int) ($partida['controla'] ?? 1) === 1) {
+                $solicitadas += $partida['solicitada'];
+                $recibidas   += $partida['recibida'];
+                $pendientes  += max(0, $partida['pendiente']);
+            }
         }
 
         return [
@@ -264,6 +299,7 @@ class OrdenesCompra
 
         $consulta = self::$db->prepare(
             'SELECT o.*, p.nombre AS proveedor_nombre, cat.nombre AS categoria_nombre,
+                    (SELECT COUNT(*) FROM documentos d WHERE d.entidad = \'gasto\' AND d.entidad_id = o.gasto_id AND d.activo = 1) AS documentos,
                     ' . self::TOTAL_SQL . ' AS total_compra, ' . self::PAGADO_SQL . " AS pagado
                FROM ordenes_compra o JOIN proveedores p ON p.id = o.proveedor_id
                LEFT JOIN categorias_proveedor cat ON cat.id = o.categoria_id
@@ -304,7 +340,7 @@ class OrdenesCompra
     /**
      * Totales de las compras que cumplen los filtros (para el resumen y los reportes), en pesos.
      *
-     * @return array{compras: int, comprado: float, facturado: float, pendiente_documentar: float, pagado: float, saldo: float}
+     * @return array{compras: int, comprado: float, facturado: float, pendiente_documentar: float, sin_factura: float, pagado: float, saldo: float}
      */
     public static function totalesFiltrados(array $filtros): array
     {
@@ -314,6 +350,7 @@ class OrdenesCompra
                     COALESCE(SUM(ROUND(" . self::TOTAL_SQL . " * 100)), 0) AS comprado,
                     COALESCE(SUM(IF(o.estado_cfdi = 'con_cfdi', ROUND(" . self::TOTAL_SQL . " * 100), 0)), 0) AS facturado,
                     COALESCE(SUM(IF(o.estado_cfdi = 'pendiente_cfdi', ROUND(" . self::TOTAL_SQL . " * 100), 0)), 0) AS por_documentar,
+                    COALESCE(SUM(IF(o.estado_cfdi = 'no_facturada', ROUND(" . self::TOTAL_SQL . " * 100), 0)), 0) AS sin_factura,
                     COALESCE(SUM(ROUND(" . self::PAGADO_SQL . " * 100)), 0) AS pagado
                FROM ordenes_compra o JOIN proveedores p ON p.id = o.proveedor_id
               WHERE $donde AND o.estado <> 'cancelada'"
@@ -330,6 +367,7 @@ class OrdenesCompra
             'comprado'             => (int) $f['comprado'] / 100,
             'facturado'            => (int) $f['facturado'] / 100,
             'pendiente_documentar' => (int) $f['por_documentar'] / 100,
+            'sin_factura'          => (int) $f['sin_factura'] / 100,
             'pagado'               => (int) $f['pagado'] / 100,
             'saldo'                => ((int) $f['comprado'] - (int) $f['pagado']) / 100,
         ];
@@ -385,6 +423,9 @@ class OrdenesCompra
             $tipos .= 's';
             $valores[] = $filtros['cfdi'];
         }
+        if (!empty($filtros['activas'])) {
+            $donde[] = "o.estado <> 'cancelada'";
+        }
         if (($filtros['recepcion'] ?? '') === 'pendiente') {
             $donde[] = "o.estado IN ('solicitada', 'parcial')";
         }
@@ -395,12 +436,91 @@ class OrdenesCompra
             case 'parcial':
                 $donde[] = self::PAGADO_SQL . ' > 0 AND ' . self::PAGADO_SQL . ' < ' . self::TOTAL_SQL;
                 break;
+            case 'con_saldo':
+                $donde[] = self::PAGADO_SQL . ' < ' . self::TOTAL_SQL . " AND o.estado <> 'cancelada'";
+                break;
             case 'pagada':
                 $donde[] = self::PAGADO_SQL . ' > 0 AND ' . self::PAGADO_SQL . ' >= ' . self::TOTAL_SQL;
                 break;
         }
 
         return [implode(' AND ', $donde), $tipos, $valores];
+    }
+
+    /**
+     * Indicadores del resumen de compras.
+     *
+     * @return array{por_recibir: int, piezas_por_terminar: int, sin_cfdi: int, importe_sin_cfdi: float, con_saldo: int, saldo: float, comprado_mes: float}
+     */
+    public static function indicadores(): array
+    {
+        $activas = ['activas' => true];
+        $totales = self::totalesFiltrados($activas);
+        $mes = self::totalesFiltrados($activas + ['desde' => date('Y-m-01'), 'hasta' => date('Y-m-t')]);
+        $piezas = (int) self::$db->query('SELECT COALESCE(SUM(stock_por_terminar), 0) FROM productos WHERE stock_por_terminar > 0')->fetch_row()[0];
+
+        return [
+            'por_recibir'         => self::contar($activas + ['recepcion' => 'pendiente']),
+            'piezas_por_terminar' => $piezas,
+            'sin_cfdi'            => self::contar($activas + ['cfdi' => 'pendiente_cfdi']),
+            'importe_sin_cfdi'    => $totales['pendiente_documentar'],
+            'con_saldo'           => self::contar($activas + ['pago' => 'con_saldo']),
+            'saldo'               => $totales['saldo'],
+            'comprado_mes'        => $mes['comprado'],
+        ];
+    }
+
+    /**
+     * Partidas con piezas pendientes de recibir, de compras abiertas (solicitada o parcial).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function pendientesDeRecibir(int $proveedorId = 0, int $limite = 100): array
+    {
+        $donde = $proveedorId > 0 ? 'AND o.proveedor_id = ' . $proveedorId : '';
+        $filas = self::$db->query(
+            "SELECT o.id AS orden_id, o.folio, o.tipo, o.fecha_solicitud, p.nombre AS proveedor_nombre,
+                    c.id AS partida_id, c.descripcion, c.producto_id, c.material_id, c.unidad, c.cantidad_solicitada,
+                    pr.nombre AS producto_nombre, mt.nombre AS material_nombre,
+                    COALESCE((SELECT SUM(rp.cantidad_recibida) FROM recepcion_partidas rp WHERE rp.partida_id = c.id), 0) AS recibida
+               FROM orden_compra_partidas c
+               JOIN ordenes_compra o ON o.id = c.orden_id
+               JOIN proveedores p ON p.id = o.proveedor_id
+               LEFT JOIN productos pr ON pr.id = c.producto_id
+               LEFT JOIN materiales mt ON mt.id = c.material_id
+              WHERE c.controla = 1 AND o.estado IN ('solicitada', 'parcial') $donde
+              HAVING recibida < c.cantidad_solicitada
+              ORDER BY o.fecha_solicitud, o.id, c.id LIMIT " . (int) $limite
+        )->fetch_all(MYSQLI_ASSOC);
+
+        foreach ($filas as &$f) {
+            $f['pendiente'] = self::num((float) $f['cantidad_solicitada'] - (float) $f['recibida']);
+            $f['solicitada'] = self::num($f['cantidad_solicitada']);
+            $f['recibida'] = self::num($f['recibida']);
+            $f['nombre_mostrado'] = $f['producto_nombre'] ?? $f['material_nombre'] ?? ($f['descripcion'] ?: 'Sin descripción');
+        }
+        unset($f);
+
+        return $filas;
+    }
+
+    /**
+     * Historial de recepciones de todas las compras (más recientes primero).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function historialRecepciones(int $proveedorId = 0, int $limite = 50): array
+    {
+        $donde = $proveedorId > 0 ? 'WHERE o.proveedor_id = ' . $proveedorId : '';
+        return self::$db->query(
+            "SELECT r.id, r.fecha, r.notas, o.id AS orden_id, o.folio, p.nombre AS proveedor_nombre,
+                    SUM(rp.cantidad_recibida) AS piezas, GROUP_CONCAT(DISTINCT rp.destino) AS destinos
+               FROM recepciones r
+               JOIN ordenes_compra o ON o.id = r.orden_id
+               JOIN proveedores p ON p.id = o.proveedor_id
+               JOIN recepcion_partidas rp ON rp.recepcion_id = r.id
+               $donde GROUP BY r.id ORDER BY r.fecha DESC, r.id DESC LIMIT " . (int) $limite
+        )->fetch_all(MYSQLI_ASSOC);
     }
 
     /**

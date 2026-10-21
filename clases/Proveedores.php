@@ -25,7 +25,7 @@ class Proveedores
     protected static $errores = [];
 
     /** Tipos de proveedor admitidos (select del formulario). */
-    public const TIPOS = ['Material', 'Producto', 'Servicio', 'Otro'];
+    public const TIPOS = ['Material', 'Producto', 'Servicio', 'Varios', 'Otro'];
 
     public $id;
     public $nombre;
@@ -169,6 +169,13 @@ class Proveedores
      */
     public function eliminar(): bool
     {
+        // Un proveedor con compras no se borra (perdería su historial): se desactiva.
+        if ($this->contarCompras() > 0) {
+            self::$errores[] = 'No se puede eliminar: «' . $this->nombre . '» tiene ' . $this->contarCompras()
+                . ' compra(s) registrada(s). Desactívalo en «Editar» para que no aparezca en compras nuevas y conservar su historial.';
+            return false;
+        }
+
         try {
             $consulta = self::$db->prepare('DELETE FROM proveedores WHERE id = ?');
             $id = (int) $this->id;
@@ -288,10 +295,15 @@ class Proveedores
      *
      * @return array<int, array{id: int, etiqueta: string}>
      */
-    public static function paraSelector(): array
+    /**
+     * Proveedores para un selector. Por defecto solo los activos (compras nuevas); con $incluirInactivos
+     * también los inactivos, marcados, para filtrar el historial (sus registros siguen disponibles).
+     */
+    public static function paraSelector(bool $incluirInactivos = false): array
     {
+        $donde = $incluirInactivos ? '' : 'WHERE activo = 1';
         $resultado = self::$db->query(
-            'SELECT id, nombre, rfc, tipo_proveedor FROM proveedores WHERE activo = 1 ORDER BY nombre ASC'
+            "SELECT id, nombre, rfc, tipo_proveedor, activo FROM proveedores $donde ORDER BY activo DESC, nombre ASC"
         );
 
         $lista = [];
@@ -299,12 +311,26 @@ class Proveedores
             $lista[] = [
                 'id'       => (int) $fila['id'],
                 'nombre'   => $fila['nombre'],
-                'etiqueta' => $fila['nombre'] . ($fila['rfc'] ? ' · ' . $fila['rfc'] : ''),
+                'activo'   => (int) $fila['activo'] === 1,
+                'etiqueta' => $fila['nombre'] . ($fila['rfc'] ? ' · ' . $fila['rfc'] : '') . ((int) $fila['activo'] === 1 ? '' : ' (inactivo)'),
             ];
         }
 
         $resultado->free();
         return $lista;
+    }
+
+    /** Número de compras (de cualquier tipo, canceladas incluidas) registradas con este proveedor. */
+    public function contarCompras(): int
+    {
+        $consulta = self::$db->prepare('SELECT COUNT(*) AS total FROM ordenes_compra WHERE proveedor_id = ?');
+        $id = (int) $this->id;
+        $consulta->bind_param('i', $id);
+        $consulta->execute();
+        $total = (int) $consulta->get_result()->fetch_assoc()['total'];
+        $consulta->close();
+
+        return $total;
     }
 
     /** Número de entradas registradas por este proveedor. */

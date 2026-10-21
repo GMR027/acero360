@@ -1,6 +1,6 @@
 <?php
 /**
- * views/admin/compras/editar.php — Edita una orden mientras no tenga recepciones.
+ * views/admin/compras/editar.php — Edita una compra mientras no tenga recepciones, pagos ni gasto vigentes.
  */
 
 soloAdmin();
@@ -11,34 +11,25 @@ $orden = \App\OrdenesCompra::buscarID($id);
 if (!$orden) {
     paginaNoEncontrada();
 }
-if ($orden['estado'] !== 'solicitada') {
-    redirigir('/admin/compras/detalle?id=' . $id, 'error', 'Solo se puede editar una orden solicitada sin recepciones.');
+if (!in_array($orden['estado'], ['solicitada', 'sin_recepcion'], true)) {
+    redirigir('/admin/compras/detalle?id=' . $id, 'error', 'Solo se puede editar una compra que aún no tenga recepciones.');
 }
 
 $errores = [];
-$lineas  = array_map(static fn ($p) => [
-    'producto_id' => (int) $p['producto_id'], 'cantidad' => (int) $p['solicitada'],
-    'costo' => $p['costo_esperado'], 'descripcion' => $p['descripcion'],
-], \App\OrdenesCompra::partidas($id));
+$lineas  = \App\OrdenesCompra::lineasDeOrden($id);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
-    $orden = [
-        'id'              => $id,
-        'folio'           => trim((string) ($_POST['folio'] ?? '')),
-        'proveedor_id'    => (int) ($_POST['proveedor_id'] ?? 0),
-        'fecha_solicitud' => (string) ($_POST['fecha_solicitud'] ?? ''),
-        'observaciones'   => trim($_POST['observaciones'] ?? ''),
-    ];
+    $orden  = ['id' => $id] + \App\OrdenesCompra::encabezadoDePost($_POST);
     $lineas = \App\OrdenesCompra::lineasDePost($_POST);
 
     if (\App\OrdenesCompra::actualizar($id, $orden, $lineas, (int) ($_SESSION['id'] ?? 0))) {
-        redirigir('/admin/compras/detalle?id=' . $id, 'exito', 'Orden actualizada.');
+        redirigir('/admin/compras/detalle?id=' . $id, 'exito', 'Compra actualizada.');
     }
     $errores = \App\OrdenesCompra::getErrores();
 }
 
-template('header', ['titulo' => 'Editar orden de compra', 'subtitulo' => 'Compras a proveedores']);
-template('tabsCompras', ['tab' => 'ordenes']);
+template('header', ['titulo' => 'Editar compra', 'subtitulo' => 'Compras y proveedores']);
+template('tabsCompras', ['tab' => 'pedidos']);
 ?>
 
 <section class="tarjeta">
@@ -47,6 +38,9 @@ template('tabsCompras', ['tab' => 'ordenes']);
             'orden' => $orden, 'lineas' => $lineas, 'errores' => $errores,
             'proveedores' => \App\Proveedores::paraSelector(),
             'catalogo' => \App\Productos::paraCotizador(),
+            'categorias' => \App\CategoriasProveedor::mapa(),
+            'empresas' => \App\Empresas::paraSelector(),
+            'materiales' => \App\Materiales::listar(),
         ]); ?>
     </form>
 </section>

@@ -145,10 +145,10 @@ class CategoriasProveedor
     }
 
     /**
-     * Cuántas entradas están usando esta categoría.
+     * Cuántos registros (compras y entregas anteriores) están usando esta categoría.
      *
      * Es la barrera que impide borrar una categoría en uso: sin esta
-     * comprobación, un borrado dejaría entradas apuntando a un id que ya no
+     * comprobación, un borrado dejaría registros apuntando a un id que ya no
      * existe y se leerían como "Sin categoría".
      */
     public static function enUso(int $id): int
@@ -158,9 +158,10 @@ class CategoriasProveedor
         }
 
         $consulta = self::$db->prepare(
-            'SELECT COUNT(*) AS total FROM proveedor_entradas WHERE categoria = ?'
+            'SELECT (SELECT COUNT(*) FROM proveedor_entradas WHERE categoria = ?)
+                  + (SELECT COUNT(*) FROM ordenes_compra WHERE categoria_id = ?) AS total'
         );
-        $consulta->bind_param('i', $id);
+        $consulta->bind_param('ii', $id, $id);
         $consulta->execute();
         $total = (int) $consulta->get_result()->fetch_assoc()['total'];
         $consulta->close();
@@ -204,8 +205,8 @@ class CategoriasProveedor
 
         $consulta = self::$db->prepare(
             "SELECT c.*,
-                    (SELECT COUNT(*) FROM proveedor_entradas e
-                      WHERE e.categoria = c.id) AS usos
+                    ((SELECT COUNT(*) FROM proveedor_entradas e WHERE e.categoria = c.id)
+                     + (SELECT COUNT(*) FROM ordenes_compra o WHERE o.categoria_id = c.id)) AS usos
                FROM categorias_proveedor c
               WHERE $donde
               ORDER BY c.nombre ASC

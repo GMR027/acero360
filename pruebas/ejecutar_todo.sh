@@ -42,7 +42,7 @@ for n in 2 3 4 5 6 7 9 10 11 12 14 15 16 17 18; do ejecutar "php etapa$n" php pr
 ejecutar "php descuentos en PDF" php pruebas/probar_descuento_pdf.php
 
 echo "==> Navegador (flujos completos)"
-for t in probar_etapa2 probar_etapa3 probar_etapa4 probar_etapa5 probar_etapa7 probar_etapa9 probar_etapa10 probar_etapa12 probar_campana probar_devoluciones probar_etapa13 probar_reportes probar_ronda probar_ronda2 probar_categorias probar_permisos; do
+for t in probar_etapa2 probar_etapa3 probar_etapa4 probar_etapa5 probar_etapa7 probar_etapa9 probar_etapa10 probar_etapa12 probar_campana probar_devoluciones probar_etapa13 probar_compras probar_reportes probar_ronda probar_ronda2 probar_categorias probar_permisos; do
     ejecutar "$t" node pruebas/$t.mjs
 done
 
