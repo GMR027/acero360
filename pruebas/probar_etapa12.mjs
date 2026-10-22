@@ -46,7 +46,7 @@ try {
   verifica('sin CFDI avisa que será confirmación manual', (await panel.innerText()).includes('No hay un CFDI adjunto'));
   await pagina.selectOption('#fv_estado', 'facturada');
   await pagina.click('#facturacion button[type=submit]');
-  verifica('sin confirmar no se factura', sql(`SELECT estado_facturacion FROM ingresos WHERE venta_id=${vIva}`) === 'sin_clasificar');
+  verifica('elegir «Facturada» sin CFDI queda como confirmación manual', sql(`SELECT CONCAT(estado_facturacion,'/',facturacion_manual) FROM ingresos WHERE venta_id=${vIva}`) === 'facturada/1');
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${vIva}`);
   await pagina.selectOption('#fv_estado', 'facturada');
   await pagina.check('#fv_manual');

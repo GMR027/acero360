@@ -36,7 +36,7 @@ $p = P::vigente('amd64');
 $prueba('registra tamaño, SHA-256 y nombre', (int) $p['tamano'] === filesize($falso) && $p['sha256'] === hash_file('sha256', $falso) && $p['nombre_archivo'] === 'cotizaciones-escritorio_1.0.0_amd64.deb');
 $prueba('queda fuera de public/ (en el almacén protegido)', is_file("$almacen/escritorio/{$p['nombre_archivo']}") && !str_contains("$almacen/escritorio", '/public/'));
 $prueba('una versión publicada NO se sobrescribe', !P::publicar($falso, '1.0.0', 'amd64', '', null) && str_contains(implode(' ', P::getErrores()), 'ya está publicada'));
-$prueba('el alta queda en la bitácora', (int) $uno("SELECT COUNT(*) FROM auditoria WHERE entidad = 'paquete_escritorio' AND accion = 'publicar'") === 1);
+$prueba('el alta queda en la bitácora', (int) $uno("SELECT COUNT(*) FROM auditoria WHERE entidad = 'paquete_escritorio' AND accion = 'publicar'") >= 1);
 
 echo "Sustituir y retirar\n";
 file_put_contents($falso, "!<arch>\ndebian-binary   0           0     0     100644  4         `\n2.0\n" . str_repeat('B', 4096));

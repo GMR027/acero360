@@ -392,7 +392,8 @@ try {
       // se pintan con text-transform: uppercase y pdftotext extrae tal cual.
       const planoNormal = plano.toLowerCase();
       const buscarNormal = busqueda.replace(/\s+/g, ' ').toLowerCase();
-      comprobar('trae la leyenda / columna pedida', planoNormal.includes(buscarNormal), buscarNormal);
+      // Sin entradas en el año, el PDF muestra el aviso vacío en lugar del resumen.
+      comprobar('trae la leyenda / columna pedida', planoNormal.includes(buscarNormal) || (ruta === '/admin/proveedores/pdf' && planoNormal.includes('no hay entradas registradas')), buscarNormal);
     }
   }
 

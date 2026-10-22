@@ -57,7 +57,7 @@ $limpiar = function () use ($db) {
 };
 $limpiar();
 
-$proveedor = 10;   // Agustín
+$proveedor = (int) $db->query("SELECT id FROM proveedores WHERE activo = 1 ORDER BY id LIMIT 1")->fetch_row()[0];
 $stock = fn (int $id) => (int) $uno("SELECT stock FROM productos WHERE id = $id");
 $porTerminar = fn (int $id) => (int) $uno("SELECT stock_por_terminar FROM productos WHERE id = $id");
 $gastosDe = fn (int $ordenId) => (int) $uno("SELECT COUNT(*) FROM gastos g JOIN ordenes_compra o ON o.gasto_id = g.id WHERE o.id = $ordenId AND g.estado = 'vigente'");

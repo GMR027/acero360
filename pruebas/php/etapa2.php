@@ -32,12 +32,13 @@ $db->query('DELETE FROM pagos_compra');
 $db->query('DELETE FROM recepciones');
 $db->query('DELETE FROM ordenes_compra');
 $db->query("UPDATE productos SET stock = 10, stock_por_terminar = 0 WHERE id IN (36, 37)");
+$proveedorId = (int) $db->query("SELECT id FROM proveedores WHERE activo = 1 ORDER BY id LIMIT 1")->fetch_row()[0];
 $hoy = date('Y-m-d');
 $token = fn () => bin2hex(random_bytes(16));
 
 echo "Órdenes de compra\n";
 $ok = OrdenesCompra::crear(
-    ['proveedor_id' => 10, 'fecha_solicitud' => $hoy, 'observaciones' => ''],
+    ['proveedor_id' => $proveedorId, 'fecha_solicitud' => $hoy, 'observaciones' => ''],
     [['producto_id' => 36, 'cantidad' => 5, 'costo' => '100.10'], ['producto_id' => 37, 'cantidad' => 5, 'costo' => '90.00']],
     $usuario
 );
@@ -49,7 +50,7 @@ $prueba('folio OC-AAAA-NNNN', (bool) preg_match('/^OC-\d{4}-\d{4}$/', $orden['fo
 $prueba('total esperado 950.50', $orden['total_esperado'] === '950.50', $orden['total_esperado']);
 
 $p = OrdenesCompra::partidas($id);
-$prueba('rechaza orden sin partidas', !OrdenesCompra::crear(['proveedor_id' => 10, 'fecha_solicitud' => $hoy], [], $usuario));
+$prueba('rechaza orden sin partidas', !OrdenesCompra::crear(['proveedor_id' => $proveedorId, 'fecha_solicitud' => $hoy], [], $usuario));
 OrdenesCompra::getErrores();
 
 // Recepción parcial: 5 del 36 (costo 105) y 2 del 37

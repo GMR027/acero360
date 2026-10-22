@@ -129,11 +129,12 @@ try {
   const ingresoId = sql(`SELECT i.id FROM ingresos i JOIN ventas v ON v.id=i.venta_id WHERE v.cliente_id=${c1}`);
   await pagina.goto(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}`);
   await pagina.selectOption('#estado_facturacion', 'facturada');
+  await pagina.click('form:has(#estado_facturacion) details summary');
   await pagina.fill('#factura_folio', 'A-77');
   await pagina.fill('#uuid_fiscal', uuid);
-  await pagina.check('#confirma_manual');
   await Promise.all([pagina.waitForNavigation(), pagina.click('form:has(#estado_facturacion) button[type=submit]')]);
   verifica('queda facturada con su UUID', sql(`SELECT CONCAT(estado_facturacion,'/',uuid_fiscal) FROM ingresos WHERE id=${ingresoId}`) === `facturada/${uuid}`);
+  await pagina.click('summary:has-text("Anotar un pago parcial")');
   await pagina.fill('#cobro-importe', '50');
   const tokenCobro = await pagina.locator('form:has(#cobro-importe) input[name=token]').inputValue();
   await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Anotar pago recibido")')]);
@@ -143,17 +144,16 @@ try {
 
   console.log('Documentos');
   await pagina.goto(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}`);
+  const guardarFactura = async () => Promise.all([pagina.waitForNavigation(), pagina.click('form:has(#estado_facturacion) button[type=submit]')]);
   await pagina.setInputFiles('#doc-archivo', pdf);
-  await pagina.selectOption('#doc-tipo', 'factura_pdf');
-  await pagina.click('button:has-text("Subir archivos")');
+  await guardarFactura();
   verifica('PDF adjuntado', sql(`SELECT COUNT(*) FROM documentos WHERE entidad='ingreso' AND entidad_id=${ingresoId} AND tipo='factura_pdf'`) === '1');
   await pagina.setInputFiles('#doc-archivo', xml);
-  await pagina.click('button:has-text("Subir archivos")');
+  await guardarFactura();
   verifica('XML CFDI adjuntado con su UUID', sql(`SELECT uuid_fiscal FROM documentos WHERE entidad='ingreso' AND tipo='xml'`) === uuid);
   verifica('se muestra la validación documental «sin verificar SAT»', (await pagina.content()).includes('sin verificar SAT'));
   await pagina.setInputFiles('#doc-archivo', malo);
-  await pagina.selectOption('#doc-tipo', 'factura_pdf');
-  await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Subir archivos")')]);
+  await guardarFactura();
   verifica('un archivo falso se rechaza con mensaje claro', (await pagina.content()).includes('no es un PDF válido') && sql(`SELECT COUNT(*) FROM documentos`) === '2');
 
   const doc = sql(`SELECT id FROM documentos WHERE tipo='xml'`);

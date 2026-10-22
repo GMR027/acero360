@@ -168,7 +168,7 @@ try {
   verifica('se registra sin relacionar con el catálogo', sql(`SELECT COUNT(*) FROM orden_compra_partidas WHERE orden_id=${idCanastilla} AND producto_id IS NULL`) === '1');
   verifica('el detalle lo marca «Sin relacionar»', (await pagina.content()).includes('Sin relacionar con el catálogo'));
   await pagina.goto(BASE + '/admin/compras/recibir?id=' + idCanastilla);
-  verifica('no deja recibir hasta relacionarlo', (await pagina.locator('input[name^="cantidad["]').count()) === 0);
+  verifica('permite recibir sin relacionar (solo registra cuánto llegó)', (await pagina.locator('input[name^="cantidad["]').count()) > 0);
   await pagina.goto(BASE + '/admin/compras/detalle?id=' + idCanastilla);
   await pagina.locator('select[name="producto_id"]').selectOption(prodId);
   await Promise.all([pagina.waitForLoadState(), pagina.click('form[action="/admin/compras/accion"] button:has-text("Relacionar")')]);
