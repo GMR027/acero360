@@ -1,0 +1,151 @@
+/* ==========================================================================
+   _herramientas.scss — Redactor, SheetFlow y Editor.
+
+   Las vistas se portaron de ProjectWeb y usan sus propias variables
+   (--surface, --text, --border…). Aquí se traducen a la paleta de Acero 360
+   dentro de .herr, para que las tres herramientas se vean como el resto de
+   la aplicación sin reescribir todo su CSS.
+   ========================================================================== */
+
+.herr {
+    /* Traducción del tema de ProjectWeb a las variables de Acero 360 */
+    --bg-secondary: var(--color-superficie-baja);
+    --bg-tertiary: var(--color-superficie);
+    --border: var(--color-borde);
+    --border-accent: var(--color-primario-borde);
+    --primary: var(--color-primario);
+    --primary-glow: var(--color-foco);
+    --secondary: var(--color-primario-texto);
+    --shadow: 0 8px 24px rgba(0, 0, 0, .18);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, .28);
+    --success: var(--color-exito);
+    --surface: var(--color-superficie);
+    --surface-hover: var(--color-superficie-baja);
+    --text: var(--color-texto);
+    --text-dim: var(--color-texto-secundario);
+    --text-muted: var(--color-texto-secundario);
+    --warning: var(--color-advertencia);
+    --danger: var(--color-error);
+
+    color: var(--color-texto);
+
+    /* ---------- Ayudantes de texto ---------- */
+    .text-muted { color: var(--color-texto-secundario); }
+    .text-sm { font-size: .8125rem; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .mt-2 { margin-top: 1rem; }
+    .en-linea { display: inline; }
+    .ico-tabla { font-size: 1.15rem; vertical-align: -0.2em; margin-right: .35rem; color: var(--color-primario-texto); }
+
+    /* ---------- Tarjetas ---------- */
+    .card {
+        background: var(--color-superficie);
+        border: 1px solid var(--color-borde);
+        border-radius: .75rem;
+        padding: 1rem 1.15rem;
+        box-shadow: var(--shadow);
+        margin-bottom: 1rem;
+    }
+    .card > h3:first-child { margin-top: 0; }
+
+    /* ---------- Botones (alias de las clases portadas) ---------- */
+    .btn-primary {
+        background: var(--color-primario);
+        border-color: var(--color-primario);
+        color: var(--color-texto-invertido);
+        &:hover { background: var(--color-primario-oscuro); border-color: var(--color-primario-oscuro); }
+    }
+    .btn-danger {
+        background: var(--color-error);
+        border-color: var(--color-error);
+        color: #fff;
+        &:hover { filter: brightness(.92); }
+    }
+    .btn-ghost {
+        background: transparent;
+        border-color: transparent;
+        color: var(--color-texto-secundario);
+        &:hover { background: var(--color-superficie-baja); color: var(--color-texto); }
+    }
+    .btn-sm { font-size: .78rem; padding: .28rem .6rem; gap: .2rem; }
+
+    /* ---------- Tablas ---------- */
+    .tabla-wrapper,
+    .tabla-contenedor { width: 100%; overflow-x: auto; }
+    .tabla td, .tabla th { vertical-align: middle; }
+
+    /* ---------- Encabezados y controles ---------- */
+    .encabezado-pagina { align-items: flex-start; gap: 1rem; }
+    .encabezado-pagina__acciones { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+    .page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+    .page-header h2 { display: flex; align-items: center; gap: .45rem; margin: 0 0 .25rem; font-size: 1.15rem; }
+    .la-controles { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+
+    /* ---------- Menú de descargas ---------- */
+    .gr-descargar { position: relative; display: inline-block; }
+    .gr-descargar > summary { list-style: none; cursor: pointer; }
+    .gr-descargar > summary::-webkit-details-marker { display: none; }
+    .gr-descargar-menu {
+        position: absolute;
+        right: 0;
+        z-index: 40;
+        min-width: 13rem;
+        margin-top: .3rem;
+        padding: .35rem;
+        background: var(--color-superficie);
+        border: 1px solid var(--color-borde);
+        border-radius: .55rem;
+        box-shadow: var(--shadow-lg);
+    }
+    .gr-descargar-menu a {
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        padding: .45rem .55rem;
+        border-radius: .4rem;
+        color: var(--color-texto);
+        text-decoration: none;
+        font-size: .85rem;
+        white-space: nowrap;
+    }
+    .gr-descargar-menu a:hover { background: var(--color-superficie-baja); }
+    .gr-descargar-menu .material-symbols-outlined { font-size: 1.05rem; color: var(--color-primario-texto); }
+
+    /* ---------- Formularios ---------- */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .8rem 1rem; }
+    .herr .campo label { font-size: .8rem; color: var(--color-texto-secundario); }
+    .herr .campo input, .herr .campo select, .herr .campo textarea {
+        width: 100%;
+        padding: .5rem .65rem;
+        background: var(--color-superficie-baja);
+        border: 1px solid var(--color-borde);
+        border-radius: .5rem;
+        color: var(--color-texto);
+        font-size: .9rem;
+    }
+    .herr .campo input:focus, .herr .campo select:focus, .herr .campo textarea:focus {
+        outline: 2px solid var(--color-foco);
+        outline-offset: 1px;
+        border-color: var(--color-primario);
+    }
+    .herramientas-pie-form { margin-top: 1.1rem; display: flex; justify-content: flex-end; }
+
+    /* ---------- Acciones del listado ---------- */
+    .herramientas-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; }
+    .carpeta-mover {
+        max-width: 9.5rem;
+        padding: .28rem .35rem;
+        font-size: .75rem;
+        background: var(--color-superficie-baja);
+        border: 1px solid var(--color-borde);
+        border-radius: .4rem;
+        color: var(--color-texto-secundario);
+    }
+
+    /* ---------- Iconos traducidos ---------- */
+    .ico-herr { font-size: 1.1em; vertical-align: -.18em; line-height: 1; }
+
+    /* ---------- Avisos ---------- */
+    .alerta { padding: .65rem .8rem; border-radius: .5rem; margin-bottom: .8rem; font-size: .88rem; }
+    .alerta--error { background: var(--color-error-claro); border: 1px solid var(--color-error-borde); color: var(--color-error-texto); }
+}

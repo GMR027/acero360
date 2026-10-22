@@ -89,6 +89,60 @@ $router->post('/admin/notas/editar', 'views/admin/notas/editar.php', 'soloAdmin'
 // Acciones sobre una nota ya creada: fijar, marcar hecha o eliminar (sólo POST).
 $router->post('/admin/notas/accion', 'views/admin/notas/accion.php', 'soloAdmin');
 
+// Herramientas personales — Redactor (documentos de texto).
+$router->get('/admin/redactor',                 'views/admin/redactor/index.php',    'soloAdmin');
+$router->get('/admin/redactor/crear',           'views/admin/redactor/crear.php',    'soloAdmin');
+$router->post('/admin/redactor/crear',          'views/admin/redactor/crear.php',    'soloAdmin');
+$router->get('/admin/redactor/abrir',           'views/admin/redactor/abrir.php',    'soloAdmin');
+$router->get('/admin/redactor/ver',             'views/admin/redactor/ver.php',      'soloAdmin');
+$router->get('/admin/redactor/descargar',       'views/admin/redactor/descargar.php', 'soloAdmin');
+$router->post('/admin/redactor/duplicar',       'views/admin/redactor/accion.php',   'soloAdmin');
+$router->post('/admin/redactor/eliminar',       'views/admin/redactor/accion.php',   'soloAdmin');
+$router->post('/admin/redactor/mover',          'views/admin/redactor/accion.php',   'soloAdmin');
+$router->post('/admin/redactor/renombrar',      'views/admin/redactor/accion.php',   'soloAdmin');
+$router->post('/admin/redactor/plantilla-eliminar', 'views/admin/redactor/plantilla-eliminar.php', 'soloAdmin');
+$router->post('/admin/redactor/api/guardar',    'views/admin/redactor/api/guardar.php',    'soloAdmin');
+$router->post('/admin/redactor/api/imagen',     'views/admin/redactor/api/imagen.php',     'soloAdmin');
+$router->post('/admin/redactor/api/palabra',    'views/admin/redactor/api/palabra.php',    'soloAdmin');
+$router->post('/admin/redactor/api/firma',      'views/admin/redactor/api/firma.php',      'soloAdmin');
+$router->post('/admin/redactor/api/firma-borrar', 'views/admin/redactor/api/firma-borrar.php', 'soloAdmin');
+$router->post('/admin/redactor/api/sellar',     'views/admin/redactor/api/sellar.php',     'soloAdmin');
+$router->post('/admin/redactor/api/plantilla',  'views/admin/redactor/api/plantilla.php',  'soloAdmin');
+$router->get('/admin/redactor/api/versiones',   'views/admin/redactor/api/versiones.php',  'soloAdmin');
+$router->post('/admin/redactor/api/version',    'views/admin/redactor/api/version.php',    'soloAdmin');
+$router->post('/admin/redactor/api/programa',   'views/admin/redactor/api/programa.php',   'soloAdmin');
+$router->post('/admin/redactor/api/hoja',       'views/admin/redactor/api/hoja.php',       'soloAdmin');
+$router->post('/admin/redactor/api/exportar-seleccion', 'views/admin/redactor/api/exportar-seleccion.php', 'soloAdmin');
+
+// Herramientas personales — Editor (documentos gráficos con Konva).
+$router->get('/admin/editor',               'views/admin/editor/index.php',    'soloAdmin');
+$router->get('/admin/editor/crear',         'views/admin/editor/crear.php',    'soloAdmin');
+$router->post('/admin/editor/crear',        'views/admin/editor/crear.php',    'soloAdmin');
+$router->get('/admin/editor/abrir',         'views/admin/editor/abrir.php',    'soloAdmin');
+$router->get('/admin/editor/ver',           'views/admin/editor/ver.php',      'soloAdmin');
+$router->get('/admin/editor/descargar',     'views/admin/editor/descargar.php', 'soloAdmin');
+$router->post('/admin/editor/duplicar',     'views/admin/editor/accion.php',   'soloAdmin');
+$router->post('/admin/editor/eliminar',     'views/admin/editor/accion.php',   'soloAdmin');
+$router->post('/admin/editor/api/guardar',  'views/admin/editor/api/guardar.php', 'soloAdmin');
+$router->post('/admin/editor/api/imagen',   'views/admin/editor/api/imagen.php',  'soloAdmin');
+$router->post('/admin/editor/api/pdf',      'views/admin/editor/api/pdf.php',     'soloAdmin');
+
+// Herramientas personales — SheetFlow (tablas compartidas).
+$router->get('/admin/sheetflow',            'views/admin/sheetflow/index.php',    'soloAdmin');
+$router->get('/admin/sheetflow/crear',      'views/admin/sheetflow/crear.php',    'soloAdmin');
+$router->post('/admin/sheetflow/crear',     'views/admin/sheetflow/crear.php',    'soloAdmin');
+$router->get('/admin/sheetflow/abrir',      'views/admin/sheetflow/abrir.php',    'soloAdmin');
+$router->get('/admin/sheetflow/ver',        'views/admin/sheetflow/ver.php',      'soloAdmin');
+$router->get('/admin/sheetflow/descargar',  'views/admin/sheetflow/descargar.php', 'soloAdmin');
+$router->post('/admin/sheetflow/duplicar',  'views/admin/sheetflow/accion.php',   'soloAdmin');
+$router->post('/admin/sheetflow/eliminar',  'views/admin/sheetflow/accion.php',   'soloAdmin');
+$router->post('/admin/sheetflow/mover',     'views/admin/sheetflow/accion.php',   'soloAdmin');
+$router->post('/admin/sheetflow/renombrar', 'views/admin/sheetflow/accion.php',   'soloAdmin');
+$router->post('/admin/sheetflow/api/guardar', 'views/admin/sheetflow/api/guardar.php', 'soloAdmin');
+$router->post('/admin/sheetflow/api/imagen',  'views/admin/sheetflow/api/imagen.php',  'soloAdmin');
+$router->get('/admin/sheetflow/api/version',  'views/admin/sheetflow/api/version.php', 'soloAdmin');
+$router->get('/admin/sheetflow/api/datos',    'views/admin/sheetflow/api/datos.php',   'soloAdmin');
+
 // CRUD de empresas / negocios (los dos negocios del proyecto).
 $router->get('/admin/empresas',        'views/admin/empresas/index.php',  'soloAdmin');
 $router->post('/admin/empresas',       'views/admin/empresas/index.php',  'soloAdmin');

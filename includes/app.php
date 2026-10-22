@@ -23,6 +23,7 @@ if (ini_get('date.timezone') === '' || ini_get('date.timezone') === 'UTC') {
 }
 
 require __DIR__ . '/funciones.php';
+require __DIR__ . '/herramientas.php';
 require __DIR__ . '/../config/database.php';
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -79,4 +80,11 @@ foreach ($clasesConectadas as $clase) {
     if (class_exists($clase)) {
         $clase::setDB($db);
     }
+}
+
+/* Herramientas portadas de ProjectWeb (Redactor, SheetFlow y Editor).
+ * Usan su propio ActiveRecord (Model\ActiveRecord) para no mezclarse con
+ * las clases App\*; basta con inyectarle la conexión una vez. */
+if (class_exists(Model\ActiveRecord::class)) {
+    Model\ActiveRecord::setDB($db);
 }

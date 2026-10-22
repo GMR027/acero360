@@ -32,6 +32,9 @@ spec:
             - sh
             - -c
             - |
+              mkdir -p /subidas/vplan /subidas/firmas
+              chown -R www-data:www-data /subidas
+              chmod 0775 /subidas /subidas/vplan /subidas/firmas
               if [ -z "$(ls -A /destino 2>/dev/null)" ]; then
                 echo "PVC vacío: precargando imágenes del repositorio..."
                 cp -a /var/www/html/public/image/. /destino/
@@ -42,6 +45,8 @@ spec:
           volumeMounts:
             - name: images
               mountPath: /destino
+            - name: uploads
+              mountPath: /subidas
         - name: migrar-base
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -135,12 +140,17 @@ spec:
           volumeMounts:
             - name: images
               mountPath: /var/www/html/public/image
+            - name: uploads
+              mountPath: /var/www/html/public/uploads
             - name: documentos
               mountPath: /var/www/html/storage/documentos
       volumes:
         - name: images
           persistentVolumeClaim:
             claimName: cotizaciones-images
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: cotizaciones-uploads
         - name: documentos
           persistentVolumeClaim:
             claimName: cotizaciones-documentos

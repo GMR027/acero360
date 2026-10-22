@@ -1,0 +1,18 @@
+# ===========================================================================
+# PVC para public/uploads — archivos de las herramientas personales:
+# imágenes de planos, miniaturas de Editor, firmas y sellos del Redactor.
+# Persiste entre upgrades; el initContainer prepara las carpetas y permisos.
+# ===========================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cotizaciones-uploads
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cotizaciones
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: microk8s-hostpath
+  resources:
+    requests:
+      storage: {{ .Values.persistence.uploads.size }}

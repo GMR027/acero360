@@ -19,3 +19,9 @@ public/image/recortes/
 /build-info.json
 /storage/documentos/
 /.liveproject/
+
+# Archivos subidos por las herramientas personales (no versionar)
+/public/uploads/vplan/*
+/public/uploads/firmas/*
+!/public/uploads/vplan/.gitkeep
+!/public/uploads/firmas/.gitkeep

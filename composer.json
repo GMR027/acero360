@@ -10,13 +10,17 @@
     ],
     "require": {
         "php": ">=8.1",
-        "intervention/image": "^3.11",
         "dompdf/dompdf": "^3.1",
-        "phpmailer/phpmailer": "^6.9"
+        "intervention/image": "^3.11",
+        "phpmailer/phpmailer": "^6.9",
+        "phpoffice/phpspreadsheet": "^5.10",
+        "phpoffice/phpword": "^1.4"
     },
     "autoload": {
         "psr-4": {
-            "App\\": "./clases"
+            "App\\": "./clases",
+            "Model\\": "./models",
+            "Classes\\": "./clases/herramientas"
         }
     },
     "config": {
