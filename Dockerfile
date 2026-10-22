@@ -13,6 +13,7 @@
 # Etapa 1: dependencias de Composer (sin dev, autoloader optimizado)
 # ---------------------------------------------------------------------------
 FROM composer:2 AS composer
+# ext-gd no existe en esta imagen de composer pero sí en el runtime (etapa 2); por eso se ignora aquí.
 
 WORKDIR /app
 COPY composer.json composer.lock ./
@@ -21,7 +22,8 @@ RUN composer install \
       --no-interaction \
       --no-scripts \
       --prefer-dist \
-      --optimize-autoloader
+      --optimize-autoloader \
+      --ignore-platform-req=ext-gd
 
 # ---------------------------------------------------------------------------
 # Etapa 2: runtime Apache + PHP
