@@ -590,7 +590,7 @@ function consumirToken(?string $token): bool
 }
 
 /**
- * Modo de la pantalla en el celular. «completo»: Inventario, Cotizaciones, Ventas, Entrega, Compras y proveedores, y Ajustes se usan
+ * Modo de la pantalla en el celular. «completo»: Inventario, Cotizaciones, Ventas, Entrega, Compras y proveedores, Ajustes y Calendario se usan
  * tal cual. «info»: el resto solo informa (el CSS oculta filtros, altas, ediciones y bajas; nada se quita de la vista).
  * Las pantallas de captura (crear, editar, recibir, devolución, PDF…) nunca se ocultan: dejarían la página vacía.
  */
@@ -601,7 +601,7 @@ function modoMovil(): string
     if (strpos($ruta, '/admin') !== 0 || $ruta === '/admin/fiscal/configuracion') {
         return 'completo';
     }
-    if (preg_match('#^/admin/(inventario|cotizaciones|ventas|entregas|compras|proveedores|ajustes|usuarios|perfil|empresas|escritorio|ayuda)(/|$)#', $ruta)) {
+    if (preg_match('#^/admin/(inventario|cotizaciones|ventas|entregas|compras|proveedores|ajustes|usuarios|perfil|empresas|escritorio|ayuda|calendario)(/|$)#', $ruta)) {
         return 'completo';
     }
     if (preg_match('#/(crear|editar|recibir|devolucion|cambio|pdf|exportar|subir|baja)$#', $ruta)) {

@@ -123,3 +123,27 @@ Salida de la cotización (correo y PDF)
     se confunda un registro con una entrega real.
   * El histórico es la lista de las cotizaciones de TODOS los clientes, con filtros por
     folio/cliente/alias/RFC, negocio, cliente, estado y rango de fechas, más estadísticas.
+
+---
+
+SECCION AÑADIDA (no estaba en la especificación original; grupo «Herramientas personales» del menú lateral)
+- herramienta «Calendario»: recordatorios y eventos
+  * calendario del MES ACTIVO con botones para navegar entre meses y entre años
+    (‹‹ año, ‹ mes, mes ›, año ››) y botón «Hoy» para regresar al mes en curso
+  * al hacer clic sobre un día, ese día queda seleccionado y se muestran SUS eventos
+    y el formulario para capturar uno nuevo (la fecha viene precargada con el día elegido)
+  * datos del recordatorio o evento: fecha (por defecto la del día seleccionado),
+    nombre del evento (obligatorio), descripción en textarea (opcional),
+    negocio (opcional, de las empresas del CRUD), nivel de importancia
+    (bajo / medio / alto) y hora del evento (opcional: vacía = todo el día)
+  * botón «Guardar»; cada evento se edita y se elimina (ésta, con ventana modal
+    de confirmación, nunca window.confirm)
+  * la rejilla marca el día de hoy, el día elegido y, con un punto de color,
+    los días que ya tienen eventos (el color = nivel más alto de ese día)
+  * resumen del mes (eventos, con hora, importancia alta) y agenda completa
+    agrupada por día, que lleva a cada fecha con un clic
+  * es COMPARTIDA como el resto de herramientas personales: `usuario_id` sólo
+    REGISTRA QUIÉN lo capturó; la relación con usuarios es `ON DELETE RESTRICT`
+  * tabla nueva `calendario_eventos` (migración 028); entrada en el menú lateral
+    junto a «Notas personales» y en el cajón del celular; en el celular se usa
+    completa (no en modo informativo), para poder capturar desde el teléfono

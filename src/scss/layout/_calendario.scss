@@ -1,0 +1,470 @@
+/* ==========================================================================
+   _calendario.scss — Herramienta «Calendario» (recordatorios y eventos).
+   Rejilla del mes activo con navegación por meses y años, panel del día
+   elegido (eventos + alta) y agenda completa del mes.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Reparto: calendario a la izquierda, día elegido a la derecha --------- */
+.calendario-cuerpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $espacio-lg;
+  align-items: start;
+
+  @include desde-desktop {
+    grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 1fr);
+  }
+}
+
+/* --- Cabecera del mes (título + botones de navegación) -------------------- */
+.calendario__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $espacio-md;
+  padding-bottom: $espacio-md;
+  border-bottom: 1px solid $color-borde;
+}
+
+.calendario__titulo {
+  display: flex;
+  align-items: baseline;
+  gap: $espacio-sm;
+  margin: 0;
+  font-family: $fuente-titulos;
+  font-size: $fuente-2xl;
+  font-weight: 700;
+  line-height: 1.2;
+  color: $color-texto;
+}
+
+.calendario__anio {
+  font-size: $fuente-lg;
+  font-weight: 600;
+  color: $color-primario-texto;
+}
+
+.calendario__navegacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-xs;
+}
+
+.calendario__periodo {
+  min-width: 9.5rem;
+  padding: 0 $espacio-xs;
+  text-align: center;
+  font-family: $fuente-titulos;
+  font-size: $fuente-sm;
+  font-weight: 700;
+  color: $color-texto;
+  white-space: nowrap;
+}
+
+/* --- Rejilla de 7 columnas: encabezado de semana + casillas -------------- */
+.calendario__rejilla {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: $espacio-xs;
+  padding-top: $espacio-md;
+}
+
+.calendario__semana {
+  padding-bottom: $espacio-xs;
+  text-align: center;
+  font-family: $fuente-cuerpo;
+  font-size: $fuente-xs;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $color-texto-secundario;
+}
+
+.calendario__dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1875rem;
+  min-height: 3.25rem;
+  padding: $espacio-xs;
+  background-color: $color-superficie-baja;
+  border: 1px solid transparent;
+  border-radius: $radio-md;
+  color: $color-texto;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color $transicion-rapida, border-color $transicion-rapida,
+              color $transicion-rapida;
+
+  &:hover {
+    background-color: $color-primario-claro;
+    border-color: $color-primario-borde;
+    color: $color-primario-texto;
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  /* Días de los meses contiguos: celda vacía de relleno. */
+  &--fuera {
+    background-color: transparent;
+    border-color: transparent;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  /* Casilla marcada con el cursor de la fecha de hoy. */
+  &--hoy {
+    border-color: $color-primario;
+    font-weight: 700;
+  }
+
+  /* Día elegido: relleno azul (la fecha queda visible en el panel). */
+  &--seleccionado {
+    background-color: $color-primario;
+    border-color: $color-primario;
+    color: $color-texto-invertido;
+    font-weight: 700;
+
+    &:hover {
+      background-color: $color-primario-oscuro;
+      border-color: $color-primario-oscuro;
+      color: $color-texto-invertido;
+    }
+
+    .calendario__punto {
+      background-color: $color-texto-invertido;
+    }
+  }
+}
+
+.calendario__numero {
+  font-size: $fuente-sm;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.calendario__puntos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1875rem;
+  min-height: 0.375rem;
+}
+
+/* Punto del día: color del nivel más alto registrado esa fecha. */
+.calendario__punto {
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  background-color: $color-texto-secundario;
+  border-radius: $radio-full;
+
+  &--bajo {
+    background-color: $color-exito;
+  }
+
+  &--medio {
+    background-color: $color-advertencia;
+  }
+
+  &--alto {
+    background-color: $color-error;
+  }
+}
+
+.calendario__leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-md;
+  padding-top: $espacio-md;
+  font-size: $fuente-xs;
+  color: $color-texto-secundario;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: $espacio-xs;
+  }
+
+  @include hasta-movil {
+    gap: $espacio-sm;
+  }
+}
+
+/* --- Panel del día seleccionado ------------------------------------------ */
+.calendario-panel {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-lg;
+  min-width: 0;
+}
+
+.calendario-dia {
+  gap: $espacio-md;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    padding-bottom: $espacio-sm;
+    border-bottom: 1px solid $color-borde;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 700;
+    color: $color-texto;
+  }
+
+  &__lista {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-sm;
+    min-width: 0;
+  }
+
+  &__vacio {
+    margin: 0;
+    font-size: $fuente-sm;
+  }
+}
+
+/* --- Tarjeta de un recordatorio o evento --------------------------------- */
+.evento-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-xs;
+  min-width: 0;
+  padding: $espacio-sm $espacio-md;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-left-width: 0.25rem;
+  border-radius: $radio-md;
+
+  /* Franja lateral con el nivel de importancia capturado. */
+  &--bajo {
+    border-left-color: $color-exito;
+  }
+
+  &--medio {
+    border-left-color: $color-advertencia;
+  }
+
+  &--alto {
+    border-left-color: $color-error;
+  }
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-xs;
+    min-width: 0;
+  }
+
+  &__hora,
+  &__negocio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: $fuente-xs;
+    font-weight: 600;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+
+  &__nombre {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-sm;
+    font-weight: 700;
+    line-height: 1.4;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__descripcion {
+    margin: 0;
+    font-size: $fuente-sm;
+    line-height: 1.6;
+    color: $color-texto-secundario;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-sm;
+    padding-top: $espacio-xs;
+  }
+}
+
+/* El evento y su botón de baja comparten la fila (misma tarjeta visual). */
+.calendario-dia__item,
+.agenda-dia__item {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: $espacio-xs;
+  min-width: 0;
+
+  .evento-tarjeta {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  form {
+    display: flex;
+    margin: 0;
+  }
+}
+
+/* --- Agenda completa del mes --------------------------------------------- */
+.calendario-agenda__cabecera {
+  padding: $espacio-lg $espacio-lg 0;
+
+  @include hasta-movil {
+    padding: $espacio-md $espacio-md 0;
+  }
+}
+
+.calendario-agenda {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $espacio-md;
+  padding: $espacio-md $espacio-lg $espacio-lg;
+
+  @include desde-desktop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  @include hasta-movil {
+    padding: $espacio-md;
+  }
+}
+
+.agenda-dia {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-sm;
+  min-width: 0;
+  padding: $espacio-md;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  box-shadow: $sombra-1;
+
+  /* Día de hoy: borde azul para ubicarlo de un vistazo. */
+  &--hoy {
+    border-color: $color-primario;
+  }
+
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    padding-bottom: $espacio-xs;
+    border-bottom: 1px solid $color-borde;
+  }
+
+  &__fecha {
+    display: inline-flex;
+    align-items: center;
+    gap: $espacio-sm;
+    min-width: 0;
+    color: $color-texto;
+    text-decoration: none;
+
+    &:hover {
+      color: $color-primario-texto;
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      @include anillo-foco;
+    }
+  }
+
+  &__numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    background-color: $color-primario-claro;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-md;
+    font-family: $fuente-titulos;
+    font-size: $fuente-sm;
+    font-weight: 700;
+    color: $color-primario-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__nombre {
+    min-width: 0;
+    font-size: $fuente-sm;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  &__eventos {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-sm;
+    min-width: 0;
+  }
+}
+
+/* --- Ajustes de pantalla pequeña ---------------------------------------- */
+@include hasta-movil {
+  .calendario__cabecera {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .calendario__titulo {
+    font-size: $fuente-xl;
+  }
+
+  .calendario__navegacion {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .calendario__periodo {
+    min-width: 8rem;
+  }
+
+  .calendario__dia {
+    min-height: 2.75rem;
+    padding: 0.1875rem;
+  }
+
+  .calendario__semana {
+    font-size: 0.6875rem;
+  }
+
+  .calendario__leyenda {
+    font-size: 0.6875rem;
+  }
+}

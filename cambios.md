@@ -1000,3 +1000,25 @@ Se corrige además el credencial obsoleto que `plan.md` seguía publicando.
 - **Ganancias del panel:** suman también las ventas directas.
 - **Correo eliminado** (cotizaciones y ventas): se borran `Correos.php`, `enviar.php`, la ruta y la sección del detalle.
 - **Migración:** `mysql/migracion_ventas_directas.sql` (respaldar antes).
+
+---
+
+## Ronda — Calendario: recordatorios y eventos (2026-10-23)
+
+Nueva herramienta del grupo «Herramientas personales»: un calendario mensual para anotar recordatorios y eventos sin salir del panel. Como Notas y el resto de herramientas, es **compartida** entre los administradores.
+
+- **Base de datos** (`mysql/migraciones/028_calendario.sql`, con su `028_reversion.sql`): tabla **`calendario_eventos`** con `fecha`, `hora` (NULL = todo el día), `nombre`, `descripcion`, `empresa_id` (negocio opcional, `ON DELETE SET NULL`), `importancia ENUM('bajo','medio','alto')` y `usuario_id` (`ON DELETE RESTRICT`: borrar a un autor nunca borra el calendario). Índice sobre `(fecha, hora)`.
+- **Modelo `clases/EventosCalendario.php`**: alta, edición, baja y validación (fecha real, nombre obligatorio ≤ 200, hora dentro de sus rangos, nivel válido), más las lecturas del módulo — `listarMes()`, `contarPorDia()` y `resumenMes()` — con `LEFT JOIN` a `empresas` y `usuarios` para traer negocio y autor. Registrado en `includes/app.php`. Detalle importante: **una hora vacía se guarda como NULL**; si se escribiera `''` MySQL la convertiría en `00:00:00` y el evento dejaría de ser «de todo el día» (detectado por la prueba).
+- **Rutas** (`index.php`, todas `soloAdmin`): `GET /admin/calendario` (tablero), `POST /admin/calendario/crear`, `GET|POST /admin/calendario/editar` y `POST /admin/calendario/accion` (baja, sólo POST y con confirmación modal).
+- **Vista `views/admin/calendario/index.php`:**
+  - rejilla del mes activo (lunes primero) con **botones para navegar entre meses y años** y «Hoy»;
+  - cada casilla es un enlace que selecciona el día y lleva su `aria-label` («lunes 12 de octubre, 2 eventos»); marca el día de hoy, el día elegido y un **punto de color** con el nivel más alto de ese día;
+  - panel derecho con los eventos del día elegido (hora, negocio, importancia y acciones) y, debajo, **el formulario de alta con la fecha ya puesta**;
+  - **agenda del mes** agrupada por día, con enlace a cada fecha;
+  - tres tarjetas de resumen: eventos del mes, con hora e importancia alta.
+- **Formulario `templates/formularioCalendario.php`** (compartido por alta y edición): fecha, hora (`input type="time"`), nombre, descripción (textarea opcional), negocio (`Empresas::paraSelector()`, opcional) e importancia (bajo/medio/alto), con el mismo patrón de errores `.campo--con-error` del resto de la app y botón «Guardar».
+- **Estilos:** `src/scss/layout/_calendario.scss` (registrado en `app.scss` y compilado con `npm run build`).
+- **Navegación:** enlace nuevo en el menú lateral, dentro de «Herramientas personales» y junto a «Notas personales»; marcado como activo también desde el cajón de la barra inferior del celular (`bottomnav.php`), y `modoMovil()` lo trata en **«completo»** para que en el teléfono se pueda capturar y no sólo informar.
+- **Ayuda:** entrada en `AYUDAS_POR_RUTA` (`src/js/modulos/ayudas.js`).
+- **Pruebas:** `pruebas/php/etapa27.php` (40 casos: migración, validaciones, altas con/sin negocio y con/sin hora, lecturas, edición, baja, menú y rutas) y `pruebas/probar_calendario.mjs` (31 casos de navegador: menú, calendario, navegación por mes y año, clic en un día, alta, validación, edición y baja con modal). Ambas quedaron en el listado de `pruebas/ejecutar_todo.sh`; **ambas en verde**.
+- **Despliegue (23 oct 2026):** imagen **`gmr27/cotizaciones:19`**, revisión de Helm **21**. El init `migrar-base` aplicó **`027_categorias_adicionales.sql`** y **`028_calendario.sql`** sólo con cambios de esquema/`INSERT IGNORE`: los datos existentes (usuarios, clientes, cotizaciones, ventas) quedaron intactos y MySQL **no se reinició**.

@@ -89,6 +89,14 @@ $router->post('/admin/notas/editar', 'views/admin/notas/editar.php', 'soloAdmin'
 // Acciones sobre una nota ya creada: fijar, marcar hecha o eliminar (sólo POST).
 $router->post('/admin/notas/accion', 'views/admin/notas/accion.php', 'soloAdmin');
 
+// Herramientas personales — Calendario (recordatorios y eventos por día).
+$router->get('/admin/calendario',         'views/admin/calendario/index.php',   'soloAdmin');
+$router->post('/admin/calendario/crear',  'views/admin/calendario/crear.php',   'soloAdmin');
+$router->get('/admin/calendario/editar',  'views/admin/calendario/editar.php',  'soloAdmin');
+$router->post('/admin/calendario/editar', 'views/admin/calendario/editar.php',  'soloAdmin');
+// Acciones sobre un evento ya creado: eliminar (sólo POST, con confirmación modal).
+$router->post('/admin/calendario/accion', 'views/admin/calendario/accion.php', 'soloAdmin');
+
 // Herramientas personales — Redactor (documentos de texto).
 $router->get('/admin/redactor',                 'views/admin/redactor/index.php',    'soloAdmin');
 $router->get('/admin/redactor/crear',           'views/admin/redactor/crear.php',    'soloAdmin');

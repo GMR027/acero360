@@ -39,6 +39,7 @@ $activoMas = (!$activoNueva && $coincide($rutaNav, '/admin/cotizaciones', '/admi
     || $coincide($rutaNav, '/admin/ventas', '/admin/ventas/')
     || $coincide($rutaNav, '/admin/clientes', '/admin/clientes/')
     || $coincide($rutaNav, '/admin/notas', '/admin/notas/')
+    || $coincide($rutaNav, '/admin/calendario', '/admin/calendario/')
     || $coincide($rutaNav, '/admin/productos', '/admin/productos/')
     || $coincide($rutaNav, '/admin/empresas', '/admin/empresas/')
     || $coincide($rutaNav, '/admin/escritorio', '/admin/escritorio/')

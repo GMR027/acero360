@@ -176,6 +176,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/calendario',
+        'icono'         => 'calendar_month',
+        'texto'         => 'Calendario',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/redactor',
         'icono'         => 'edit_document',
         'texto'         => 'Redactor',

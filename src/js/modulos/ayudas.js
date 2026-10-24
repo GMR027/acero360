@@ -16,6 +16,7 @@ const AYUDAS_POR_RUTA = {
   '/admin/clientes': 'Tu directorio de clientes: datos de contacto y cotizaciones de cada uno.',
   '/admin/productos': 'Catálogo de productos: precios, fotos y existencias.',
   '/admin/notas': 'Tus notas personales y recordatorios.',
+  '/admin/calendario': 'Calendario del mes: elige un día para ver sus eventos o crear un recordatorio.',
   '/admin/empresas': 'Tus negocios: nombre, RFC, logotipo y datos que salen en el PDF.',
   '/admin/escritorio': 'Descarga la aplicación para instalarla en tu computadora.',
   '/admin/usuarios': 'Tu perfil y tu contraseña.',

@@ -74,6 +74,7 @@ $clasesConectadas = [
     App\PagosCompra::class,
     App\CompraContable::class,
     App\ProductosProveedor::class,
+    App\EventosCalendario::class,
 ];
 
 foreach ($clasesConectadas as $clase) {
