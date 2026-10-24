@@ -5,7 +5,7 @@
  * locales, así que lo que ves es exactamente lo que hay en el servidor.
  *
  * Servicios que deben seguir disponibles en el servidor (no están en esta app):
- *   aplicación PHP + MySQL, almacén de documentos fiscales, generación de PDF/Excel y correo.
+ *   aplicación PHP + MySQL, almacén de documentos fiscales y generación de PDF/Excel.
  *
  * Dirección de la plataforma (en este orden):
  *   1. variable de entorno COTIZACIONES_URL

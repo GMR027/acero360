@@ -89,10 +89,6 @@ Una cotización es el precio que le das a un cliente antes de que compre.
 2. Agrega productos del catálogo con su cantidad (puedes cambiar el precio o poner descuento).
 3. Guarda. El PDF se descarga con el botón «PDF» del detalle y sale con el logotipo del negocio.
 
-### Enviarla
-
-- En el detalle de la cotización puedes mandarla por correo con el PDF adjunto.
-
 ### Cuando el cliente acepta
 
 1. Cambia su estado a «Vendido». Eso crea la venta, descuenta del inventario y registra el ingreso en Contabilidad.
@@ -424,9 +420,10 @@ Un calendario del mes que junta dos cosas: tus recordatorios y eventos del equip
 
 ### Recordatorios y eventos
 
-1. Bajo el resumen del día está el formulario «Nuevo recordatorio o evento»: nombre, fecha (ya cargada con el día elegido), hora opcional, descripción, negocio e importancia (Bajo, Medio o Alto).
-2. Los eventos del día se listan en su casilla con puntos de color según su importancia: verde Bajo, amarillo Medio, rojo Alto.
-3. Cada evento se puede editar o eliminar desde su tarjeta; la baja pide confirmación.
+1. Para crear uno, haz clic una SEGUNDA vez sobre la casilla del día que ya está seleccionada (la primera vez sólo la selecciona): se abre una ventana con el formulario. También puedes usar el botón «Nuevo recordatorio o evento» del panel del día.
+2. La ventana trae la fecha ya cargada con el día elegido: nombre, hora opcional, descripción, negocio e importancia (Bajo, Medio o Alto). Pulsa «Guardar»; si falta algo, la ventana se queda abierta y avisa debajo del campo.
+3. Los eventos del día se listan en su casilla con puntos de color según su importancia: verde Bajo, amarillo Medio, rojo Alto.
+4. Cada evento se puede editar o eliminar desde su tarjeta; la baja pide confirmación.
 
 ### La agenda del mes
 

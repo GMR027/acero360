@@ -114,13 +114,10 @@ Cotizador (formulario de cotizacion)
     siguiente folio sigue siendo correcto).
   * Condiciones de envío, condiciones de compra y un textarea de comentarios adicionales.
 
-Salida de la cotización (correo y PDF)
-  * "Exportar" genera el PDF con dompdf a partir de `templates/pdfCotizaciones.php`.
-  * "Enviar por correo" usa PHPMailer y adjunta ese MISMO PDF, para que ambos documentos sean
-    idénticos. La configuración vive en `.env` (plantilla: `.env.example`).
-  * En desarrollo se usa `CORREO_MODO=log`: el correo NO se envía, queda registrado en
-    `storage/correos.log` y la pantalla lo avisa con una alerta de advertencia, para que nunca
-    se confunda un registro con una entrega real.
+Salida de la cotización (PDF)
+  * "Exportar PDF" genera el archivo con dompdf a partir de `templates/pdfCotizaciones.php`.
+    (El envío por correo con PHPMailer existió en versiones anteriores y fue retirado: hoy la
+    única salida del documento es el PDF descargable.)
   * El histórico es la lista de las cotizaciones de TODOS los clientes, con filtros por
     folio/cliente/alias/RFC, negocio, cliente, estado y rango de fechas, más estadísticas.
 

@@ -57,7 +57,7 @@ sql("DELETE FROM usuarios WHERE email='prueba.rol2@cotizaciones.local'");
 console.log('Cabeceras y exposición');
 const inicio = await fetch(BASE + '/login');
 verifica('la pantalla de acceso responde', inicio.status === 200);
-for (const ruta of ['/.env', '/composer.json', '/mysql/cotizaciones.sql', '/clases/Archivos.php', '/storage/correos.log', '/config/database.php']) {
+for (const ruta of ['/.env', '/composer.json', '/mysql/cotizaciones.sql', '/clases/Archivos.php', '/storage/cache-version.json', '/config/database.php']) {
   const r = await fetch(BASE + ruta, { redirect: 'manual' });
   const cuerpo = r.status === 200 ? await r.text() : '';
   verifica(`${ruta} no se sirve como archivo`, r.status !== 200 || cuerpo.length === 0 || cuerpo.includes('<!DOCTYPE html>'), `status ${r.status}`);

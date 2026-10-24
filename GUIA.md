@@ -11,7 +11,7 @@ escritorio Linux (`.deb`). Una sola base de datos: web y escritorio ven siempre 
 
 | Módulo | Ruta | Qué hace |
 |---|---|---|
-| Cotizaciones | `/admin/cotizaciones` | Folio, precio especial por cliente (no altera el catálogo), descuentos por renglón y global, IVA, PDF y correo |
+| Cotizaciones | `/admin/cotizaciones` | Folio, precio especial por cliente (no altera el catálogo), descuentos por renglón y global, IVA y PDF |
 | Ventas | `/admin/ventas` | Una sola tabla de ventas: directas y cotizaciones vendidas (una cotización = una venta). Devoluciones |
 | Inventario | `/admin/inventario` | Existencias únicas compartidas, alertas de mínimo, historial de movimientos, fotografías mensuales, exportación PDF/Excel/CSV |
 | Órdenes de compra | `/admin/compras` | Orden → recepciones parciales (suman solo lo recibido) → cierre con faltantes → reporte antes del pago |
@@ -44,7 +44,6 @@ Las migraciones se registran en `schema_migraciones` y cada una corre **una sola
 | `REGISTRO_ABIERTO=1` | Permite registrar administradores nuevos (cerrado por defecto) | cerrado |
 | `DOCUMENTOS_PATH` | Dónde se guardan los documentos fiscales (**fuera de `public/`**) | `storage/documentos` |
 | `DOCUMENTOS_MAX_MB` | Tamaño máximo por documento | 10 |
-| `CORREO_*` | Envío de cotizaciones por correo (ver `.env.example`; `CORREO_MODO=log` no envía) | log |
 | `MIGRAR_REINTENTOS` | Intentos (cada 5 s) de `migrar.php` esperando a la base | 1 |
 
 **Primer arranque fiscal (una vez):** en *Fiscal → Catálogo de reglas* importa los tres archivos de `mysql/catalogo_fiscal/`

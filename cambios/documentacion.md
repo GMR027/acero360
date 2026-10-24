@@ -30,7 +30,7 @@
 8. [Roles, sesión y permisos](#8-roles-sesión-y-permisos)
 9. [Guía de módulos](#9-guía-de-módulos)
 10. [Reglas de negocio](#10-reglas-de-negocio)
-11. [Salidas: PDF y correo](#11-salidas-pdf-y-correo)
+11. [Salidas: PDF](#11-salidas-pdf)
 12. [Sistema de diseño](#12-sistema-de-diseño)
 13. [Accesibilidad y reglas de código](#13-accesibilidad-y-reglas-de-código)
 14. [JavaScript del cliente](#14-javascript-del-cliente)
@@ -58,7 +58,7 @@ No hay sitio público: la raíz `/` redirige al panel o a la pantalla de acceso.
 - **Cotizador** con catálogo visual, imagen y cantidad por producto.
 - **Precio de lista** por producto con **precio especial por cliente**.
 - Totales en vivo: descuentos (globales y por renglón) e **IVA del 16 %**.
-- Envío de la cotización **por correo** y **exportación a PDF**.
+- **Exportación de la cotización a PDF**.
 - Histórico de cotizaciones por cliente con filtros, estados y folio.
 - **Ventas** nacidas de una cotización, con descontado automático de stock.
 - **Inventario** con stock manual, bitácora de movimientos y PDF de cierre.
@@ -83,7 +83,6 @@ por usuario: las dos empresas conviven en el mismo catálogo y se separan por
 | Hojas de estilo | **Sass** (Dart Sass) compilado con **Gulp** | sass 1.84 · gulp 5 |
 | Lógica de cliente | JavaScript **vanilla** (sin frameworks) | Node 24 |
 | PDF | **dompdf** | ^3.1 |
-| Correo | **PHPMailer** | ^6.9 |
 | Imágenes | **Intervention Image** v3 | ^3.11 |
 | Autoload | Composer (PSR-4 `App\` → `clases/`) | — |
 | Pruebas de interfaz | **Playwright** (sólo desarrollo) | 1.56.1 (chromium 1194) |
@@ -138,7 +137,7 @@ mysql -u root cotizaciones -e "INSERT INTO usuarios (nombre, email, contrasena, 
 | Ruta | Contenido |
 |---|---|
 | `public/image/` | Fotos de productos, retratos, logos, fotos de entradas. |
-| `storage/` | `correos.log` (modo `CORREO_MODO=log`). |
+| `storage/` | Documentos fiscales, archivo mensual y respaldos (carpeta fuera de `public/`). |
 | `build/` | CSS y JS compilados. Se genera con `npm run build`. |
 
 ---
@@ -154,10 +153,7 @@ Archivo `.env` en la raíz (nunca se sube al repositorio). Lo carga
 | `DB_USER` / `DB_PASSWORD` | Credenciales. | `root` / vacío |
 | `DB_NAME` | Base de datos. | `cotizaciones` |
 | `REGISTRO_ABIERTO` | `1` = `/registro` abierto; `0` = sólo altas desde el panel. | `0` |
-| `CORREO_MODO` | `log` (no envía, guarda en `storage/correos.log`) o `smtp` (envía). | `log` |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SEGURO` | Servidor de correo (`tls`, `ssl`, `none`). | `smtp…` / `587` / `tls` |
-| `SMTP_USUARIO`, `SMTP_PASS` | Credenciales SMTP. | — |
-| `SMTP_DESDE`, `SMTP_DESDE_NOMBRE` | Remitente visible. | `cotizaciones@…` |
+| `MIGRAR_REINTENTOS` | Intentos de `migrar.php` esperando a la base (cada 5 s). | `1` |
 | `PDF_FUENTES` | Ruta absoluta opcional de fuentes para dompdf. | `/usr/share/fonts/…` |
 
 ---
@@ -194,7 +190,7 @@ cotizaciones/
 │   └── js/              app.js + 5 módulos → build/js/app.js
 ├── build/               Salida compilada (no se edita a mano)
 ├── public/image/        Medios subidos
-├── storage/             correos.log
+├── storage/             documentos fiscales, archivo y respaldos
 ├── mysql/               cotizaciones.sql, migraciones y datos de prueba
 ├── scripts/             Utilidades puntuales (imágenes y datos de prueba)
 ├── pruebas/             Suites de Playwright y auditorías (sección 15)
@@ -368,7 +364,6 @@ código (SKU).
 | `/editar?id=` | Mismo formulario precargado; conserva el folio. |
 | `/detalle?id=` | Ficha con folio, estado, fechas, renglones, resumen y acciones. |
 | `/duplicar` (POST) | Copia una cotización para reutilizarla. |
-| `/enviar` (POST) | Correo al cliente. |
 | `/estado` (POST) | Cambia pendiente / vendido / cancelado. |
 | `/pdf?id=` | Exporta el PDF. |
 | `/precios-cliente` (GET) | **Endpoint JSON**: precios especiales para el cotizador. |
@@ -450,7 +445,7 @@ balance agrupa por `numero_pedido`.
 
 ---
 
-## 11. Salidas: PDF y correo
+## 11. Salida: PDF
 
 ### 11.1 PDF (dompdf)
 | Plantilla | Ruta | Qué exporta |
@@ -464,10 +459,8 @@ Los estilos de estos PDF están **dentro de cada plantilla** (dompdf no lee el
 CSS de la app), así que una mejora de contraste o de medida debe replicarse
 ahí.
 
-### 11.2 Correo (PHPMailer)
-`clases/Correos.php`. Con `CORREO_MODO=log` no se envía nada: el mensaje queda
-en `storage/correos.log` y la interfaz avisa que es modo de prueba. Con `smtp`
-se envía de verdad con las llaves `SMTP_*`.
+> El envío por correo (PHPMailer) existió en versiones anteriores y fue
+> retirado: hoy la única salida del documento es el PDF descargable.
 
 ---
 
@@ -686,7 +679,7 @@ El proyecto ya trae todo montado para el clúster MicroK8s que sirve
 | `Dockerfile` | Imagen PHP 8.3 + Apache con `mysqli`, `gd`, `zip` y `exif`; Composer en una etapa aparte; genera `cotizaciones.ini` con `upload_max_filesize = 20M`, `post_max_size = 25M`, `memory_limit = 256M`, `max_execution_time = 120`. |
 | `.dockerignore` | Deja fuera `.env`, `vendor/`, `node_modules/`, `helm/`, `pruebas/`, `cambios/`, `*.md` y el dump SQL. |
 | `helm/cotizaciones/` | Chart con la app, MySQL, Ingress (`https://cotizaciones.iguzman.com.mx`, TLS con cert-manager), Secret, ConfigMap con el dump, los dos PVC y el Job que importa la base. |
-| `helm/cotizaciones/values.local.yaml` | Secretos reales (contraseñas DB y SMTP). **No va a git.** |
+| `helm/cotizaciones/values.local.yaml` | Secretos reales (contraseñas de base de datos). **No va a git.** |
 | `deploy.sh` | El proceso entero en un comando. |
 | `.deploy-tag` | Último tag publicado (el script lo auto-incrementa). |
 
@@ -729,11 +722,10 @@ kubectl exec -i deploy/mysql -n cotizaciones -- \
 
 1. **Código**: subir todo excepto `.env`, `node_modules/`, `design/` y
    `storage/*.log`.
-2. **`composer install --no-dev`** para obtener dompdf, PHPMailer e
-   Intervention.
+2. **`composer install --no-dev`** para obtener dompdf e Intervention.
 3. **`npm ci && npm run build`** (o subir `build/` ya compilado). **No** hace
    falta `node_modules` en el servidor.
-4. **`.env`** con `CORREO_MODO=smtp` y las credenciales reales.
+4. **`.env`** con la configuración de la base de datos.
 5. **Base de datos**: crearla e importar `mysql/cotizaciones.sql`; después, las
    migraciones pendientes de `mysql/migracion_*.sql`.
 6. **Permisos**: escritura en `public/image/` y `storage/`.

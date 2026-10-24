@@ -1228,3 +1228,34 @@ El Calendario sólo mostraba los recordatorios capturados a mano. Ahora cada cas
 - **Migración `031_indice_recepciones.sql`** (con su reversion): índice `idx_recepcion_fecha (fecha)` en `recepciones`, que no tenía índice de fecha y esa consulta la recorre el calendario.
 - **Manual:** sección «Calendario» nueva en `includes/manual.php`, regenerada con `scripts/generar_manual.php`.
 - **Pruebas:** `etapa27.php` suma 14 casos (los cinco marcadores, importes, día vacío, desaparición al cancelar/pagar/cobrar y catálogo); `probar_calendario.mjs` suma 7 (los cinco iconos y sus colores, `aria-label`, leyenda, panel del día, «sólo lectura» y que no entran en la lista editable). Regresión en verde.
+
+---
+
+## Ronda — Limpieza de los restos del envío por correo (2026-10-24)
+
+El envío de cotizaciones y ventas por correo ya se había **eliminado del código** en la ronda «Ventas directas y listado unificado (2026-10-17)» (se borraron `Correos.php`, `enviar.php`, la ruta y la sección del detalle), pero quedaban restos por todo el proyecto. Esta ronda los retira para que vuelva a ser coherente con lo que la aplicación hace hoy: **la única salida del documento es el PDF**.
+
+- **Dependencia:** `phpmailer/phpmailer` fuera de `composer.json` y `composer.lock` (`composer remove`).
+- **Despliegue (Helm):** bloque `correo:` fuera de `values.yaml` y `values.local.yaml`, las 7 llaves `SMTP_*` fuera de `secret.yaml` y las variables `CORREO_MODO` + `SMTP_*` fuera del `deployment.yaml`. El chart ya no inyecta nada de correo y `helm lint` pasa.
+- **Entorno:** bloque `CORREO_MODO` / `SMTP_*` fuera de `.env` (`.env.example` ya no tenía nada); comentario del `Dockerfile` que mencionaba el log de correos corregido.
+- **Archivos locales:** borrado `storage/correos.log`.
+- **Comentarios de vistas:** `cotizaciones/pdf.php` dejaba de decir que la plantilla era «la misma que adjunta el correo», y el aviso de la aplicación de escritorio ya no lista el correo entre los servicios que deben seguir disponibles en el servidor (`desktop/src/main.js` y `desktop/README.md`).
+- **Documentación:** paso «Enviarla» fuera del manual (`includes/manual.php` → `MANUAL_USUARIO.md` regenerado), «PDF y correo» → «PDF» y fila `CORREO_*` fuera de `GUIA.md`, y `cambios/documentacion.md` actualizada en 12 puntos (índice, características, tabla de tecnologías, carpetas, variables de entorno, árbol, rutas —se quitó `/enviar`—, título de la sección 11, borrado de la 11.2, secretos Helm y pasos de despliegue). En `OPENCODE.md` se actualizó la sección técnica «Salida de la cotización»; el **enunciado original** del proyecto se dejó intacto porque es el requerimiento de partida, no código.
+- **Pruebas:** `probar_permisos.mjs` ya no apunta a `/storage/correos.log` (archivo inexistente) sino a `/storage/cache-version.json`, igualmente protegida por `.htaccess`.
+- **Verificación:** `php -l` en 344 archivos correctos · `composer validate` · `helm lint` sin fallos · regresión en verde (permisos 10/10, gastos masivos 30/30 y el resto de suites `npm run pruebas`). `probar_facturas_reales.mjs` se mantiene fuera porque necesita facturas reales en `~/Descargas` (depende del equipo, no del código).
+- **No se tocó:** los campos de correo de clientes, usuarios, proveedores y empresas (son datos de contacto, no envío), ni el texto «por WhatsApp o correo electrónico» de las condiciones de compra, que es copy del negocio.
+
+---
+
+## Ronda — Calendario: el alta de eventos se abre en ventana modal (2026-10-24)
+
+El formulario «Nuevo recordatorio o evento» vivía fijo en el panel derecho y ocupaba la pantalla todo el mes aunque no se fuera a capturar nada. Ahora sólo aparece cuando se pide, en el modal de la aplicación.
+
+- **Cuándo se abre:** haciendo clic una **segunda vez sobre la casilla ya seleccionada** (la primera vez la selecciona y recarga su panel, como siempre), o con el botón **«Nuevo recordatorio o evento»** del panel del día. El modal **no recarga la página**.
+- **Se mueve, no se copia:** el formulario sigue servidor-renderizado en la página pero dentro de un contenedor oculto (`[data-alta-calendario-contenedor]`). Al abrir, `calendario.js` lo **mueve** al cuerpo del modal y al cerrar lo devuelve a su lugar. Así los `id` de los campos (`fecha`, `nombre`, `hora`…) siguen siendo únicos y la validación en cliente, que trabaja por `id`, no cambia.
+- **Una sola pareja de botones:** dentro del modal se ocultan los `.formulario__acciones` propios del formulario, porque el pie ya trae Cancelar y Guardar.
+- **Guarda con validación:** el botón Guardar del modal llama a `requestSubmit()`, que dispara el envío normal (con su token CSRF). Si la validación en cliente falla, **el modal se queda abierto** para corregir. Para eso se agregó el botón a mano en vez de usar `alConfirmar` del módulo `modal.js`: ese botón **cierra siempre**, y romperlo habría afectado a todos los diálogos de la aplicación.
+- **Título con el día:** «Nuevo recordatorio o evento · sábado, 24 de octubre de 2026».
+- **Pantalla:** el panel del día queda más limpio (resumen del negocio, eventos y el botón de alta).
+- **Módulo nuevo:** `src/js/modulos/calendario.js` (se concatena con el resto en `build/js/app.js`). Sin migraciones: no cambia la base de datos.
+- **Pruebas:** `probar_calendario.mjs` pasa de 38 a **47 casos**: formulario fuera del panel, botón presente, modal sin recarga, fecha y título correctos, botones propios ocultos, guardado desde el modal, modal que se queda abierto con error y formulario que regresa a su contenedor. `etapa27.php` sin cambios (sólo prueba rutas). Regresión completa en verde.

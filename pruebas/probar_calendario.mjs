@@ -4,9 +4,11 @@
  *   node pruebas/probar_calendario.mjs
  *
  * Recorre con el navegador: enlace en el menú, calendario del mes con botones
- * de navegación (mes y año), clic sobre un día, alta de un evento con todos
- * sus datos, validación en cliente, edición, baja con confirmación modal y
- * redirección de una página sin sesión.
+ * de navegación (mes y año), clic sobre un día, alta de un evento en VENTANA
+ * MODAL (el segundo clic sobre la casilla ya elegida, o el botón del panel),
+ * validación en cliente —el modal se queda abierto si hay un error—, edición,
+ * baja con confirmación modal, los marcadores del negocio y redirección de una
+ * página sin sesión.
  */
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
@@ -125,22 +127,40 @@ try {
     prueba('al hacer clic sobre un día se selecciona', urlDia.searchParams.get('dia') === '15', page.url());
     prueba('el panel muestra la fecha elegida',
         /15 de/.test(await page.locator('.calendario-dia__titulo').textContent()));
-    const fechaCampo = await page.locator('#fecha').inputValue();
+    prueba('el formulario de alta ya no vive en el panel',
+        await page.locator('.calendario-dia [data-formulario-alta]').count() === 0);
+    prueba('el panel ofrece el botón de alta', await page.locator('[data-alta-calendario]').count() === 1);
+
+    /* -------------------------------------------- alta en ventana modal -- */
+    console.log('\nAlta de un evento (ventana modal)');
+    // El primer clic selecciona el día; el segundo, sobre esa misma casilla,
+    // abre el modal sin recargar la página.
+    const urlAntesAlta = page.url();
+    await page.locator('.calendario__dia[aria-current="date"][data-fecha]').click();
+    await page.waitForSelector('#modal-principal:not([hidden])', { timeout: 8000 });
+    prueba('el segundo clic sobre la casilla elegida abre el modal', true);
+    prueba('y lo hace sin recargar la página', page.url() === urlAntesAlta, page.url());
+    const fechaCampo = await page.locator('#modal-cuerpo #fecha').inputValue();
     prueba(`la fecha del formulario viene precargada (${fechaCampo})`,
         fechaCampo === `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-15`, fechaCampo);
+    const tituloModal = await page.locator('#modal-titulo').textContent();
+    prueba('el título del modal nombra el día elegido', /15 de octubre/.test(tituloModal), tituloModal.trim());
+    prueba('los botones propios del formulario se ocultan: los da el modal',
+        !(await page.locator('#modal-cuerpo .formulario__acciones').isVisible()));
+    await page.screenshot({ path: '/tmp/opencode/calendario-modal.png' });
 
     /* ------------------------------------------------ alta --------------- */
     console.log('\nAlta de un evento');
-    await page.fill('#nombre', 'T Calendario Visita con cliente');
-    await page.fill('#descripcion', 'Llevar muestras de perfil.');
-    await page.fill('#hora', '10:30');
-    await page.selectOption('#importancia', 'alto');
-    const negocio = await page.locator('#empresa_id option:nth-child(2)').getAttribute('value');
-    if (negocio) { await page.selectOption('#empresa_id', negocio); }
+    await page.fill('#modal-cuerpo #nombre', 'T Calendario Visita con cliente');
+    await page.fill('#modal-cuerpo #descripcion', 'Llevar muestras de perfil.');
+    await page.fill('#modal-cuerpo #hora', '10:30');
+    await page.selectOption('#modal-cuerpo #importancia', 'alto');
+    const negocio = await page.locator('#modal-cuerpo #empresa_id option:nth-child(2)').getAttribute('value');
+    if (negocio) { await page.selectOption('#modal-cuerpo #empresa_id', negocio); }
     // Se espera la carga completa (POST → 302 → GET) antes de leer la alerta:
     // si no, la lectura puede llegar cuando el navegador aún está navegando.
     const navegacionAlta = page.waitForNavigation({ waitUntil: 'load', timeout: 15000 }).catch(() => null);
-    await page.click('.calendario-alta button[type="submit"]');
+    await page.click('#modal-pie button.btn--primario');
     await navegacionAlta;
     await page.waitForTimeout(300);
     const avisoAlta = (await page.locator('.alerta').allTextContents().catch(() => [])).join(' | ');
@@ -165,10 +185,19 @@ try {
     console.log('\nValidación');
     await page.locator('.calendario__dia:not(.calendario__dia--fuera) .calendario__numero:text-is("16")').first().click();
     await page.waitForLoadState('networkidle');
-    await page.click('.calendario-alta button[type="submit"]');
-    await page.waitForTimeout(500);
-    const errorCampo = await page.locator('.campo--con-error .campo__error').count();
-    prueba('el nombre vacío no se envía y avisa bajo el campo', errorCampo >= 1 && /\/admin\/calendario/.test(page.url()), `errores=${errorCampo}`);
+    // Segundo clic sobre el día 16 para abrir el modal y enviarlo vacío.
+    await page.locator('.calendario__dia[aria-current="date"][data-fecha]').click();
+    await page.waitForSelector('#modal-principal:not([hidden])', { timeout: 8000 });
+    await page.click('#modal-pie button.btn--primario');
+    await page.waitForTimeout(600);
+    const errorCampo = await page.locator('#modal-cuerpo .campo--con-error .campo__error').count();
+    prueba('el nombre vacío no se envía y avisa bajo el campo', errorCampo >= 1, `errores=${errorCampo}`);
+    prueba('el modal sigue abierto para corregir', !(await page.locator('#modal-principal').isHidden()));
+    prueba('y no se fue la página', /\/admin\/calendario/.test(page.url()), page.url());
+    await page.click('#modal-pie button[data-cerrar-modal]');
+    await page.waitForTimeout(300);
+    prueba('el formulario regresa a su contenedor al cerrar',
+        await page.locator('[data-alta-calendario-contenedor] [data-formulario-alta]').count() === 1);
 
     /* ------------------------------------------------ edición ------------ */
     console.log('\nEdición');

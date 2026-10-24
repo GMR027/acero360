@@ -85,43 +85,6 @@ spec:
                   key: DB_PASSWORD
             - name: REGISTRO_ABIERTO
               value: {{ .Values.app.registroAbierto | quote }}
-            - name: CORREO_MODO
-              value: {{ .Values.correo.modo | quote }}
-            - name: SMTP_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: cotizaciones
-                  key: SMTP_HOST
-            - name: SMTP_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: cotizaciones
-                  key: SMTP_PORT
-            - name: SMTP_SEGURO
-              valueFrom:
-                secretKeyRef:
-                  name: cotizaciones
-                  key: SMTP_SEGURO
-            - name: SMTP_USUARIO
-              valueFrom:
-                secretKeyRef:
-                  name: cotizaciones
-                  key: SMTP_USUARIO
-            - name: SMTP_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: cotizaciones
-                  key: SMTP_PASS
-            - name: SMTP_DESDE
-              valueFrom:
-                secretKeyRef:
-                  name: cotizaciones
-                  key: SMTP_DESDE
-            - name: SMTP_DESDE_NOMBRE
-              valueFrom:
-                secretKeyRef:
-                  name: cotizaciones
-                  key: SMTP_DESDE_NOMBRE
           ports:
             - containerPort: 80
           resources:

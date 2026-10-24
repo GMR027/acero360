@@ -18,7 +18,7 @@ template('tabsAjustes', ['tab' => 'escritorio']);
 <p class="nota nota--advertencia mb-lg" role="note">
     <span class="material-symbols-outlined nota__icono" aria-hidden="true">desktop_windows</span>
     <span>La aplicación de escritorio es una <strong>ventana segura hacia esta misma plataforma</strong>: usa los mismos datos y la misma sesión que la web.
-        No guarda una base de datos propia, así que el servidor (aplicación, base de datos, documentos fiscales, PDF y correo) debe seguir disponible.</span>
+        No guarda una base de datos propia, así que el servidor (aplicación, base de datos, documentos fiscales y PDF) debe seguir disponible.</span>
 </p>
 
 <section class="tarjeta mb-lg">

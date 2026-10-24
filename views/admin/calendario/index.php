@@ -340,6 +340,7 @@ template('header', [
                 ?>
                 <a class="<?= $clases ?>"
                    href="/admin/calendario?anio=<?= $anio ?>&mes=<?= $mes ?>&dia=<?= $numeroDia ?>"
+                   data-fecha="<?= $fechaCelda ?>"
                    aria-label="<?= escaparValores($etiquetaDia) ?>"
                    <?= $esSeleccion ? 'aria-current="date"' : '' ?>>
                     <span class="calendario__numero"><?= $numeroDia ?></span>
@@ -442,22 +443,18 @@ template('header', [
                         No hay nada registrado este día. Captura abajo el primer recordatorio o evento.
                     </p>
                 <?php endif; ?>
+
+                <!-- El alta ya no vive en el panel: se abre en ventana modal
+                     (haciendo clic otra vez sobre el día elegido o con este botón). -->
+                <div class="formulario__acciones calendario-dia__acciones">
+                    <button type="button" class="btn btn--primario" data-alta-calendario
+                            data-fecha="<?= escaparValores($fechaSeleccionada) ?>">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span>
+                        <span>Nuevo recordatorio o evento</span>
+                    </button>
+                </div>
             </section>
 
-            <section class="tarjeta calendario-alta" aria-label="Nuevo recordatorio o evento">
-                <h2 class="titulo-5 mb-md">Nuevo recordatorio o evento</h2>
-                <form class="formulario" action="/admin/calendario/crear" method="post" data-validar novalidate>
-                    <input type="hidden" name="anio" value="<?= $anio ?>">
-                    <input type="hidden" name="mes" value="<?= $mes ?>">
-                    <input type="hidden" name="dia" value="<?= $dia ?>">
-                    <?php template('formularioCalendario', [
-                        'evento'       => $eventoNuevo,
-                        'errores'      => [],
-                        'rutaCancelar' => '/admin/calendario?anio=' . $anio . '&mes=' . $mes,
-                        'idMensaje'    => 'errores-calendario-alta',
-                    ]); ?>
-                </form>
-            </section>
         <?php endif; ?>
     </aside>
 </div>
@@ -507,5 +504,24 @@ template('header', [
         </div>
     <?php endif; ?>
 </section>
+
+<!-- Formulario de alta: vive OCULTO en la página y el módulo del calendario lo
+     mueve al modal cuando se pide crear un evento (clic sobre el día ya
+     elegido o el botón del panel). Se mueve y no se copia para que los id de
+     los campos sigan siendo únicos y la validación en cliente siga igual. -->
+<div data-alta-calendario-contenedor hidden>
+    <form class="formulario" action="/admin/calendario/crear" method="post" data-validar novalidate
+          data-formulario-alta>
+        <input type="hidden" name="anio" value="<?= $anio ?>">
+        <input type="hidden" name="mes" value="<?= $mes ?>">
+        <input type="hidden" name="dia" value="<?= $dia ?>">
+        <?php template('formularioCalendario', [
+            'evento'       => $eventoNuevo,
+            'errores'      => [],
+            'rutaCancelar' => '/admin/calendario?anio=' . $anio . '&mes=' . $mes,
+            'idMensaje'    => 'errores-calendario-alta',
+        ]); ?>
+    </form>
+</div>
 
 <?php template('footer'); ?>

@@ -4,8 +4,7 @@
  *
  * Ruta protegida por el middleware "soloAdmin".
  * Se abre en una pestaña nueva desde el detalle; el PDF se genera con dompdf
- * a partir de templates/pdfCotizaciones.php (la misma plantilla que adjunta
- * el correo, para que ambos documentos sean idénticos).
+ * a partir de templates/pdfCotizaciones.php.
  */
 
 soloAdmin();

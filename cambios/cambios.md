@@ -30,7 +30,7 @@
 12. [Precio especial por cliente](#12-precio-especial-por-cliente)
 13. [Notas: bitácora compartida](#13-notas-bitácora-compartida)
 14. [Imágenes con Intervention Image](#14-imágenes-con-intervention-image)
-15. [Salida: PDF y correo](#15-salida-pdf-y-correo)
+15. [Salida: PDF](#15-salida-pdf)
 16. [Panel de ganancias](#16-panel-de-ganancias)
 17. [Funciones de ayuda del backend](#17-funciones-de-ayuda-del-backend)
 18. [JavaScript modular](#18-javascript-modular)
@@ -71,7 +71,7 @@ La **forma** del proyecto, no el negocio:
 | **Precio** | `productos` sin precio; el costo vivía en el pedido | `productos.precio` = **precio de lista fijo**, y `precios_cliente` = precio acordado por cliente |
 | **Cálculo** | `costoSinIva` / `costoConIva` escritos a mano en el pedido | **`Cotizaciones::calcular()`**: subtotal → descuentos → base → IVA 16 % → total, con redondeo en cada paso |
 | **Identificador** | `numeroPedido` entero | **Folio `FOL-<año>-<NNNN>`** asignado dentro de la transacción que guarda |
-| **Documentos** | No generaba PDF ni correo | **dompdf** + **PHPMailer**, con **el mismo HTML** de origen; exportan inventario, catálogo de productos y balance anual de proveedores |
+| **Documentos** | No generaba PDF | **dompdf**, desde el mismo HTML; exportan inventario, catálogo de productos y balance anual de proveedores |
 | **Inventario** | No había | `productos.stock` + bitácora `movimientos_inventario` |
 | **Estados** | `estatus` entero en pedido | `ENUM('pendiente','vendido','cancelado')` con transiciones validadas |
 | **Ventas** | No existía | Tabla `ventas` **1:1 con la cotización** (`UNIQUE`), con foto de entrega y ubicación |
@@ -79,8 +79,8 @@ La **forma** del proyecto, no el negocio:
 | **Notas** | No existía | Bitácora compartida por todos los administradores |
 | **Estadísticas** | No existía | Panel de ganancias por negocio con filtros mes/semestre/año |
 | **Feedback JS** | `var` y lógica suelta | Módulos con `let`/`const`, **sin `alert`/`confirm`/`prompt`** ni `innerHTML` |
-| **Dependencias** | `intervention/image` | + `dompdf/dompdf`, `phpmailer/phpmailer`, PHP ≥ 8.1 |
-| **Configuración** | valores fijos | **`.env`** (BD, registro, correo `CORREO_MODO=log`, fuentes PDF) |
+| **Dependencias** | `intervention/image` | + `dompdf/dompdf`, PHP ≥ 8.1 |
+| **Configuración** | valores fijos | **`.env`** (BD, registro, fuentes PDF) |
 
 ### 1.3 Por qué se hizo cada cambio (la idea de fondo)
 
@@ -849,21 +849,19 @@ calculado desde el nombre original del archivo trae espacios, acentos y colision
 
 ---
 
-## 15. Salida: PDF y correo
+## 15. Salida: PDF
 
 ```
 Documentos::html($cotizacion, $detalles)  → string
 Documentos::pdf($cotizacion, $detalles)   → ?string   (dompdf)
-Correos::enviarCotizacion(...)            → PHPMailer con ESE mismo PDF adjunto
 ```
 
-- **El PDF y el correo nacen del mismo HTML** (`templates/pdfCotizaciones.php`).
-  **Por qué:** dos generadores distintos = dos documentos que no coinciden; el cliente
-  reclama por uno y ustedes responden con el otro.
-- **`CORREO_MODO=log`** en `.env`: no envía, escribe en `storage/correos.log` y la
-  pantalla lo avisa con una alerta de **advertencia**.
-  **Por qué:** en desarrollo, un "correo enviado" exitoso que no llegó a ninguna parte
-  es la peor mentira que puede mostrar el sistema.
+- **El PDF sale del HTML de la plantilla** (`templates/pdfCotizaciones.php`).
+  **Por qué:** el documento de la pantalla y el descargado tienen que ser el mismo; dos
+  generadores distintos dan dos documentos que no coinciden.
+
+  > El envío por correo con PHPMailer existió (adjuntaba ese mismo PDF) y fue retirado:
+  > hoy la única salida del documento es el PDF descargable.
 - **404 si falta el registro** al abrir detalle/editar con `?id=` inexistente, en vez
   de un error de BD.
 - **`Documentos::descargarInventario()`** produce **un solo PDF con una tabla por
@@ -1163,7 +1161,7 @@ Resultado actual: **0 hallazgos** en las tres auditorías.
 ## 21. Checklist: proyecto desde cero
 
 **Fase 0 — Esqueleto**
-1. `composer init` con `App\` → `clases/`; `composer require intervention/image dompdf/dompdf phpmailer/phpmailer`.
+1. `composer init` con `App\` → `clases/`; `composer require intervention/image dompdf/dompdf`.
 2. `Router.php` con `get/post/comprobarRutas` + 404 + middleware.
 3. `includes/app.php` con `__DIR__` y la lista `$clasesConectadas`.
 4. `.env` + `.env.example` + `config/database.php`.
@@ -1185,35 +1183,34 @@ Resultado actual: **0 hallazgos** en las tres auditorías.
 
 **Fase 3 — Salidas**
 16. `templates/pdfCotizaciones.php` → `Documentos::pdf()`.
-17. `Correos::enviarCotizacion()` con `CORREO_MODO=log` **por defecto**.
-18. Histórico con filtros + `paginacion()` preservando la query.
-19. `Productos::paraPdf()` + `templates/pdfCatalogo.php` (catálogo: una tabla **y una
+17. Histórico con filtros + `paginacion()` preservando la query.
+18. `Productos::paraPdf()` + `templates/pdfCatalogo.php` (catálogo: una tabla **y una
     leyenda** por empresa, sin suma de costos).
 
 **Fase 4 — Operación**
-20. `productos.stock` + `movimientos_inventario` + `Inventario`.
-21. Transición a `vendido` **en transacción** con descuento de stock.
-22. `ventas` (`UNIQUE cotizacion_id`, `estado_previo`) y su reversión.
-23. `proveedores` + `proveedor_entradas` como reporte fotográfico.
-24. `monto` + `pagado` en las entradas **antes** del Balance general.
-25. `ProveedorEntradas::balance()` / `alternarPagado()` y su vista POST.
-26. `categoria` como `TINYINT` + tabla `categorias_proveedor` sembrada con los ids
+19. `productos.stock` + `movimientos_inventario` + `Inventario`.
+20. Transición a `vendido` **en transacción** con descuento de stock.
+21. `ventas` (`UNIQUE cotizacion_id`, `estado_previo`) y su reversión.
+22. `proveedores` + `proveedor_entradas` como reporte fotográfico.
+23. `monto` + `pagado` en las entradas **antes** del Balance general.
+24. `ProveedorEntradas::balance()` / `alternarPagado()` y su vista POST.
+25. `categoria` como `TINYINT` + tabla `categorias_proveedor` sembrada con los ids
     1–6 **explícitos** + `mysql/migracion_entradas_categoria.sql` **antes** de
     cualquier filtro (todo lo demás lee del catálogo).
-27. **CRUD de categorías** (`clases/CategoriasProveedor.php` + 7 rutas +
+26. **CRUD de categorías** (`clases/CategoriasProveedor.php` + 7 rutas +
     `/admin/proveedores/categorias`): `mapa()` con caché, `enUso()` como barrera de
     borrado y el botón «Crear Categorías» **primero** en la cabecera de Proveedores.
     Se hace **después** del `TINYINT` y **antes** del filtro, porque el filtro es el
     que necesita que el catálogo ya se pueda tocar sin recompilar.
-28. Filtro por categoría del Balance general: **el mismo mapa** que alimenta la
+27. Filtro por categoría del Balance general: **el mismo mapa** que alimenta la
     tabla y `balance()`, para que los indicadores y los renglones concuerden.
-29. `ProveedorEntradas::paraPdf($anio)` + `templates/pdfProveedores.php`.
-30. Panel de ganancias.
+28. `ProveedorEntradas::paraPdf($anio)` + `templates/pdfProveedores.php`.
+29. Panel de ganancias.
 
 **Fase 5 — Cierre**
-31. `npx gulp build` + `php -l` en todo el árbol.
-32. Suite Playwright con limpieza en `finally` **y cuenta de prueba propia**.
-33. Revisar móvil a 390 px **en cada pantalla nueva**.
+30. `npx gulp build` + `php -l` en todo el árbol.
+31. Suite Playwright con limpieza en `finally` **y cuenta de prueba propia**.
+32. Revisar móvil a 390 px **en cada pantalla nueva**.
 
 **Orden que no se debe alterar:** la base de datos antes que las pantallas, y
 `calcular()` antes que cualquier total visible. Si se pinta un total que luego se

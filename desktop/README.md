@@ -6,7 +6,7 @@ Ventana de escritorio segura hacia la plataforma web. **No tiene base de datos n
 mismos datos y la misma sesión que la web, así que web y escritorio nunca divergen.
 
 ## Qué debe seguir disponible en el servidor
-Aplicación PHP + MySQL, almacén de documentos fiscales (`storage/documentos`), generación de PDF/Excel/ZIP y correo.
+Aplicación PHP + MySQL, almacén de documentos fiscales (`storage/documentos`) y generación de PDF/Excel/ZIP.
 Electron no convierte el backend en una aplicación local: sin servidor no hay datos.
 
 ## Seguridad

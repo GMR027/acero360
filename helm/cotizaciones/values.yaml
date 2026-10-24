@@ -31,16 +31,6 @@ secrets:
   dbPassword: CAMBIAR-EN-VALUES-LOCAL
   mysqlRootPassword: CAMBIAR-EN-VALUES-LOCAL
 
-correo:
-  modo: smtp             # smtp = envío real | log = guarda en storage/correos.log
-  host: ""               # values.local.yaml
-  port: "587"
-  seguro: tls            # tls (587) | ssl (465) | none
-  usuario: ""            # values.local.yaml
-  password: ""           # values.local.yaml
-  desde: ""              # values.local.yaml
-  desdeNombre: Cotizaciones
-
 persistence:
   images:
     size: 1Gi            # public/image (fotos de productos, perfiles, logos)

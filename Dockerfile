@@ -79,7 +79,7 @@ ARG ACERO_FECHA=
 RUN printf '{"version":"%s","imagen":"%s","tag":"%s","commit":"%s","compilado":"%s"}\n' \
       "$ACERO_VERSION" "$ACERO_IMAGEN" "$ACERO_TAG" "$ACERO_COMMIT" "$ACERO_FECHA" > /var/www/html/build-info.json
 
-# Carpetas escribibles por Apache: imágenes subidas y log de correos.
+# Carpetas escribibles por Apache: imágenes subidas.
 # NOTA: public/image se monta como volumen persistente en Kubernetes;
 # este chown sólo aplica a la imagen base (precarga del initContainer).
 RUN chown -R www-data:www-data /var/www/html/public/image /var/www/html/storage \

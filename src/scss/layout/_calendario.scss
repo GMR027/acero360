@@ -288,6 +288,14 @@
     margin: 0;
     font-size: $fuente-sm;
   }
+
+  /* Botón de alta del día: el formulario ya no vive en el panel. */
+  &__acciones {
+    display: flex;
+    justify-content: flex-start;
+    padding-top: $espacio-sm;
+    border-top: 1px solid $color-borde;
+  }
 }
 
 /* --- «Lo que pasó ese día»: el negocio reflejado en la casilla ------------
@@ -357,6 +365,13 @@
   &--azul     { color: $color-azul; }
   &--amarillo { color: $color-advertencia; }
   &--naranja  { color: $color-naranja; }
+}
+
+/* El formulario de alta trae sus propios botones para servir también en la
+   página de edición. Dentro del modal se ocultan: el pie ya trae Cancelar y
+   Guardar, y duplicarlos confunde. */
+.modal__cuerpo [data-formulario-alta] .formulario__acciones {
+  display: none;
 }
 
 /* --- Tarjeta de un recordatorio o evento --------------------------------- */
