@@ -1203,3 +1203,28 @@ Se revisó la hoja real **`~/Descargas/FISCAL 2026.xlsx`** (hoja `FISCAL` + una 
 - **Archivos adjuntos:** XML, PDF y fotos son sólo respaldo documental (consulta y descarga); no modifican importes ni el cálculo.
 - **Textos corregidos** que prometían filtros inexistentes: avisos `gastos_sin_comprobante` y `gastos_por_validar` de `CierrePeriodo`, «¿Cómo se calcula?» de `fiscal/resumen.php`, notas de `fiscal/movimientos.php`, aviso de `fiscal/exportar.php`, guías del PDF fiscal, aviso de gastos sin factura de `contabilidad/index.php`, ayuda de `formularioGasto.php`, manual (`includes/manual.php` → `MANUAL_USUARIO.md`) y `GUIA.md`.
 - **Pruebas:** `pruebas/php/etapa30.php` suma un bloque con factura al **0 %** (base completa, IVA 0), gastos **PPD** y **«por definir»** pendientes que quedan fuera, el PPD que entra al pagarse, la comprobación de las fórmulas, el detalle/totales con el método y los **tres métodos lado a lado**: PUE descuenta desde su registro, PPD al liquidarse y «por definir» sólo al marcarse pagado (el método explica, manda el pago). Sin migraciones.
+
+---
+
+## Ronda — Calendario: marcadores del negocio en cada casilla (2026-10-24)
+
+El Calendario sólo mostraba los recordatorios capturados a mano. Ahora cada casilla marca, con un icono de color, lo que pasó ese día en los negocios: sirve para abrir el mes y ver de un vistazo dónde hubo movimiento y qué está pendiente.
+
+- **Cinco marcadores**, en este orden y color:
+
+  | Icono | Color | Qué marca | Fuente |
+  |---|---|---|---|
+  | `trending_up` | Verde | Venta | `ventas` con estado `registrada` |
+  | `receipt_long` | Rojo | Gasto | `gastos` vigentes |
+  | `inventory_2` | Azul | Recepción de proveedor | `recepciones` (por orden de compra) + `proveedor_entradas` |
+  | `schedule` | Amarillo | Factura por pagar | `gastos` con `estado_pago = 'pendiente'` |
+  | `request_quote` | Naranja | Factura por cobrar | `ingresos` facturados cuyo cobro no cubre el total |
+
+  El criterio de «por cobrar» es el mismo que usa la estimación de impuestos, así que el calendario y Fiscal se ven consistentes. Un gasto deja de estar amarillo en cuanto se marca pagado y una factura deja de estar naranja en cuanto se cobra por completo.
+- **`EventosCalendario::marcadoresNegocio()`** (clase `EventosCalendario`): cinco consultas con **rango de fechas** (`fecha >= inicio AND fecha < mes+1`) y no `YEAR()/MONTH()`, para que usen los índices existentes. Filtra por `contribuyente_id`; para ventas se llega por `empresas` y para recepciones por `ordenes_compra`. Los proveedores no tienen contribuyente (son de la aplicación entera), así que por ese lado sólo se filtra por fecha. Trae cantidad e importe por día, con **caché por mes** (`olvidarMarcadores()` la limpia en pruebas y procesos largos).
+- **Sólo lectura:** no se guarda nada nuevo ni se puede editar ni borrar desde el calendario. Las dos fuentes de recepción que coinciden en un día se **suman**, no se pisan.
+- **Pantalla:** iconos en la casilla junto al número (cada tipo es UN icono; la cantidad va en el tooltip), `aria-label` con el resumen legible («Viernes 23 de octubre, 1 venta, 1 gasto, sin eventos»), leyenda nueva con los cinco, y panel **«Lo que pasó ese día»** con cifras por tipo. Se distinguen de la importancia por la **forma** (icono vs punto), no sólo por el color, para que no se confundan con los puntos verde/amarillo/rojo de bajo/medio/alto.
+- **Estilos:** `--color-naranja` y `--color-azul-marcador` en `_tema.scss` (los dos colores que faltaban), variables en `_variables.scss`, e iconos en `_calendario.scss`. Detalle resuelto: la hoja de Google Fonts trae `.material-symbols-outlined { font-size: 24px }` y **anula** la herencia, así que el tamaño va directo en el icono — por eso los cinco se salían de la casilla. Las casillas quedan de **altura uniforme** (en móvil `4rem`, antes `2.75rem`) para que la fila no se despareje cuando un día trae los cinco.
+- **Migración `031_indice_recepciones.sql`** (con su reversion): índice `idx_recepcion_fecha (fecha)` en `recepciones`, que no tenía índice de fecha y esa consulta la recorre el calendario.
+- **Manual:** sección «Calendario» nueva en `includes/manual.php`, regenerada con `scripts/generar_manual.php`.
+- **Pruebas:** `etapa27.php` suma 14 casos (los cinco marcadores, importes, día vacío, desaparición al cancelar/pagar/cobrar y catálogo); `probar_calendario.mjs` suma 7 (los cinco iconos y sus colores, `aria-label`, leyenda, panel del día, «sólo lectura» y que no entran en la lista editable). Regresión en verde.

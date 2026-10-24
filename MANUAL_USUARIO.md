@@ -16,16 +16,17 @@
 10. Impuestos (solo informativo)
 11. Estadísticas
 12. Notas personales
-13. Redactor
-14. SheetFlow
-15. Editor
-16. Archivo
-17. Aplicación de escritorio
-18. Almacenamiento y respaldos
-19. Cuidados con tu información
-20. Centro de seguimiento
-21. Acerca de Acero 360
-22. Palabras que verás
+13. Calendario
+14. Redactor
+15. SheetFlow
+16. Editor
+17. Archivo
+18. Aplicación de escritorio
+19. Almacenamiento y respaldos
+20. Cuidados con tu información
+21. Centro de seguimiento
+22. Acerca de Acero 360
+23. Palabras que verás
 
 ---
 
@@ -401,7 +402,45 @@ La libreta del equipo: recordatorios, pendientes por cotizar, cambios y revision
 
 ---
 
-## 13. Redactor
+## 13. Calendario
+
+Un calendario del mes que junta dos cosas: tus recordatorios y eventos del equipo, y lo que pasó en los negocios cada día.
+
+### Moverte por el mes
+
+1. Menú → «Calendario». Arriba están los botones ‹ › para cambiar de mes y «« »» para cambiar de año, más el botón «Hoy» para regresar al día de hoy.
+2. El día de hoy viene marcado con un borde azul; el día elegido se pinta de azul y su fecha aparece en el panel de la derecha.
+
+### Los marcadores del negocio
+
+1. En cada casilla aparecen iconos de color con lo que pasó ese día: en VERDE una venta, en ROJO un gasto, en AZUL una recepción de proveedor, en AMARILLO una factura de proveedor por pagar y en NARANJA una factura de venta por cobrar.
+2. Pon el cursor sobre el icono para ver cuántas operaciones de ese tipo hay. Debajo del calendario está la leyenda con los cinco colores.
+3. Son de SÓLO LECTURA: no se pueden editar ni borrar, porque son el reflejo de las operaciones ya registradas en Ventas, Gastos, Compras y Contabilidad.
+
+### Ver el detalle de un día
+
+1. Haz clic en cualquier casilla. A la derecha aparece «Lo que pasó ese día», con cuántas ventas hubo y por cuánto, los gastos, las recepciones, lo que queda por pagar y lo que queda por cobrar.
+2. Un gasto de proveedor deja de aparecer en amarillo en cuanto lo marcas como pagado, y una factura de venta deja de estar en naranja en cuanto se cobra por completo.
+
+### Recordatorios y eventos
+
+1. Bajo el resumen del día está el formulario «Nuevo recordatorio o evento»: nombre, fecha (ya cargada con el día elegido), hora opcional, descripción, negocio e importancia (Bajo, Medio o Alto).
+2. Los eventos del día se listan en su casilla con puntos de color según su importancia: verde Bajo, amarillo Medio, rojo Alto.
+3. Cada evento se puede editar o eliminar desde su tarjeta; la baja pide confirmación.
+
+### La agenda del mes
+
+- Abajo de todo está la «Agenda»: todos los días del mes que tienen eventos, en orden, con sus tarjetas.
+
+> **Consejos**
+> - Lo que se vende, se gasta o se recibe se marca solo: no hay que capturarlo dos veces en el calendario.
+> - Los recordatorios son del equipo: lo que registra uno lo leen todos los administradores.
+> - El calendario no manda correos ni avisos: es una pantalla para consultar.
+> - Si un evento no aparece en el calendario, revisa que su fecha sea del mes que estás viendo.
+
+---
+
+## 14. Redactor
 
 El procesador de textos de la plataforma: cartas, oficios, memorias, actas y procedimientos con formato profesional.
 
@@ -434,7 +473,7 @@ El procesador de textos de la plataforma: cartas, oficios, memorias, actas y pro
 
 ---
 
-## 14. SheetFlow
+## 15. SheetFlow
 
 La hoja de cálculo en línea para controles, presupuestos y listados que después puedes meter en un documento.
 
@@ -466,7 +505,7 @@ La hoja de cálculo en línea para controles, presupuestos y listados que despu�
 
 ---
 
-## 15. Editor
+## 16. Editor
 
 El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas técnicas.
 
@@ -493,7 +532,7 @@ El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas 
 
 ---
 
-## 16. Archivo
+## 17. Archivo
 
 El cajón de la oficina: carpetas virtuales para guardar y organizar los archivos de trabajo.
 
@@ -521,7 +560,7 @@ El cajón de la oficina: carpetas virtuales para guardar y organizar los archivo
 
 ---
 
-## 17. Aplicación de escritorio
+## 18. Aplicación de escritorio
 
 La misma plataforma en una ventana propia, sin abrir el navegador.
 
@@ -536,7 +575,7 @@ La misma plataforma en una ventana propia, sin abrir el navegador.
 
 ---
 
-## 18. Almacenamiento y respaldos
+## 19. Almacenamiento y respaldos
 
 Cuánto ocupa tu información y cómo guardar una copia de seguridad desde la propia plataforma.
 
@@ -570,7 +609,7 @@ Cuánto ocupa tu información y cómo guardar una copia de seguridad desde la pr
 
 ---
 
-## 19. Cuidados con tu información
+## 20. Cuidados con tu información
 
 Tu información importa.
 
@@ -583,7 +622,7 @@ Tu información importa.
 
 ---
 
-## 20. Centro de seguimiento
+## 21. Centro de seguimiento
 
 Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, gastos, compras, proveedores, entregas, inventario y novedades de la plataforma.
 
@@ -617,7 +656,7 @@ Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, ga
 
 ---
 
-## 21. Acerca de Acero 360
+## 22. Acerca de Acero 360
 
 Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.
 
@@ -639,7 +678,7 @@ Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de
 
 ---
 
-## 22. Palabras que verás
+## 23. Palabras que verás
 
 Qué significan, en pocas palabras.
 

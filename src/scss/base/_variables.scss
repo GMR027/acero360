@@ -54,6 +54,12 @@ $color-error-claro: var(--color-error-claro);
 $color-error-texto: var(--color-error-texto);
 $color-error-borde: var(--color-error-borde);
 
+/* Marcadores del negocio en el Calendario (verde/rojo/amarillo heredan de arriba) */
+$color-naranja:       var(--color-naranja);        // factura por cobrar
+$color-naranja-texto: var(--color-naranja-texto);
+$color-azul:          var(--color-azul-marcador);  // recepción de proveedor (azul del marcador, distinto al azul de enlaces)
+$color-azul-texto:    var(--color-azul-marcador-texto);
+
 /* COLOR — AUXILIARES DE TEMA (definidos en _tema.scss) */
 $color-exito-borde:        var(--color-exito-borde);
 $color-advertencia-borde:  var(--color-advertencia-borde);

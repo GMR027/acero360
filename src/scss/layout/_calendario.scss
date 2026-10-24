@@ -91,6 +91,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.1875rem;
+  min-width: 0;
   min-height: 3.25rem;
   padding: $espacio-xs;
   background-color: $color-superficie-baja;
@@ -159,6 +160,51 @@
   justify-content: center;
   gap: 0.1875rem;
   min-height: 0.375rem;
+}
+
+/* --- Marcadores del negocio (sólo lectura: ventas, gastos, recepciones...) --
+   Van como ICONOS de color junto al número. Se distinguen de los puntos de
+   importancia por la forma (icono vs punto), no sólo por el color. */
+.calendario__iconos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Los cinco caben en una línea: cada tipo es UN icono. Si aun así no
+     entraran (casilla muy angosta), saltan a la segunda en vez de salirse. */
+  flex-wrap: wrap;
+  gap: 0.0625rem;
+  max-width: 100%;
+  min-height: 1rem;
+  line-height: 0;
+}
+
+.calendario__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+
+  /* El font-size va en el icono y no en el contenedor: la hoja de Google
+     Fonts trae `.material-symbols-outlined { font-size: 24px }` y anula
+     cualquier herencia (por eso el resto del proyecto lo pone aquí). */
+  .material-symbols-outlined {
+    font-size: 0.75rem;
+  }
+
+  &--verde    { color: $color-exito; }
+  &--rojo     { color: $color-error; }
+  &--azul     { color: $color-azul; }
+  &--amarillo { color: $color-advertencia; }
+  &--naranja  { color: $color-naranja; }
+}
+
+/* Cuando la casilla está seleccionada (fondo azul) los iconos ganan una píldora
+   clara: sin ella el azul del marcador se pierde sobre el azul de la casilla.
+   Sin margen: el glifo de Material ya trae su aire, y así los cinco siguen
+   cabiendo en una línea. */
+.calendario__dia--seleccionado .calendario__icono {
+  background-color: rgba(255, 255, 255, 0.88);
+  border-radius: 0.1875rem;
 }
 
 /* Punto del día: color del nivel más alto registrado esa fecha. */
@@ -242,6 +288,75 @@
     margin: 0;
     font-size: $fuente-sm;
   }
+}
+
+/* --- «Lo que pasó ese día»: el negocio reflejado en la casilla ------------
+   Sección distinta de la de eventos (clase propia) porque es de SÓLO
+   LECTURA: no se puede editar ni borrar desde el calendario. */
+.calendario-negocio {
+  gap: $espacio-md;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    padding-bottom: $espacio-sm;
+    border-bottom: 1px solid $color-borde;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 700;
+    color: $color-texto;
+  }
+
+  &__resumen {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-xs;
+    margin: 0;
+  }
+
+  &__fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    font-size: $fuente-sm;
+    min-width: 0;
+  }
+
+  &__concepto {
+    display: inline-flex;
+    align-items: center;
+    gap: $espacio-xs;
+    min-width: 0;
+    color: $color-texto;
+
+    .material-symbols-outlined {
+      flex: none;
+    }
+  }
+
+  &__cifra {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: $color-texto;
+  }
+}
+
+/* Los iconos del resumen del día toman el color de su marcador. */
+.resumen-dia__icono {
+  &--verde    { color: $color-exito; }
+  &--rojo     { color: $color-error; }
+  &--azul     { color: $color-azul; }
+  &--amarillo { color: $color-advertencia; }
+  &--naranja  { color: $color-naranja; }
 }
 
 /* --- Tarjeta de un recordatorio o evento --------------------------------- */
@@ -456,7 +571,10 @@
   }
 
   .calendario__dia {
-    min-height: 2.75rem;
+    /* En el celular la casilla es angosta: un día con los cinco marcadores
+       pasa a dos líneas. Todas toman esa altura para que las filas del
+       calendario queden parejas (antes: 2.75rem). */
+    min-height: 4rem;
     padding: 0.1875rem;
   }
 

@@ -10,6 +10,10 @@
  *   · alta con y sin negocio y con y sin hora (todo el día);
  *   · lecturas del módulo: eventos del mes, conteo por día y resumen;
  *   · edición, cambio de día y baja;
+ *   · los MARCADORES DEL NEGOCIO (sólo lectura): cada casilla marca ventas
+ *     (verde), gastos (rojo), recepciones de proveedor (azul), facturas por
+ *     pagar (amarillo) y facturas por cobrar (naranja), y deja de marcar al
+ *     cancelarse, pagarse o cobrarse la operación;
  *   · que un negocio inexistente NO guarda (clave foránea);
  *   · enlace en el menú lateral, en el cajón del celular y rutas registradas.
  *
@@ -148,6 +152,110 @@ $prueba('conserva el nivel de importancia', $rereleo !== null && $rereleo->impor
 $prueba('elimina el evento', EventosCalendario::buscarID($conHora->id)->eliminar());
 $prueba('ya no está en la BD', (int) $uno('SELECT COUNT(*) FROM calendario_eventos WHERE id=' . (int) $conHora->id) === 0);
 $prueba('relee un id inexistente como null', EventosCalendario::buscarID(99999999) === null);
+
+echo "Marcadores del negocio (sólo lectura)\n";
+
+/**
+ * Los marcadores se calculan desde las operaciones reales: se siembra una de
+ * cada tipo en un día y se comprueba que aparece, y que desaparece al
+ * cancelarse, pagarse o cobrarse. Nada de esto se guarda en calendario_eventos.
+ */
+$contribuyente = (int) $uno('SELECT MIN(id) FROM contribuyentes WHERE activo = 1');
+$empresaMarc   = (int) $uno("SELECT MIN(id) FROM empresas WHERE contribuyente_id = $contribuyente");
+$clienteMarc   = (int) $uno('SELECT MIN(id) FROM clientes');
+$proveedorMarc = (int) $uno('SELECT MIN(id) FROM proveedores');
+
+$db->query("INSERT INTO proveedores (nombre, activo) VALUES ('T27 Proveedor marcadores', 1)");
+$proveedorMarc = (int) $db->insert_id;
+$db->query("INSERT INTO clientes (nombre) VALUES ('T27 Cliente marcadores')");
+$clienteMarc = (int) $db->insert_id;
+
+$diaMarc = min(20, (int) date('t'));
+$fechaMarc = $base . sprintf('%02d', $diaMarc);
+$fechaVacia = $base . sprintf('%02d', min(25, (int) date('t')));
+
+// Venta registrada ese día.
+$db->query("INSERT INTO ventas (empresa_id, cliente_id, usuario_id, fecha, folio, estado, subtotal, total)
+            VALUES ($empresaMarc, $clienteMarc, $usuario, '$fechaMarc', 'T27-M', 'registrada', 500, 500)");
+$ventaMarc = (int) $db->insert_id;
+
+// Gasto pagado y gasto por pagar, ambos ese día.
+$db->query("INSERT INTO gastos (contribuyente_id, empresa_id, fecha, beneficiario, concepto, subtotal, total,
+                                estado_pago, fecha_pago, estado, usuario_id)
+            VALUES ($contribuyente, $empresaMarc, '$fechaMarc', 'T27 Proveedor marcadores', 'T27 gasto pagado',
+                    300, 300, 'pagado', '$fechaMarc', 'vigente', $usuario)");
+$gastoPagado = (int) $db->insert_id;
+$db->query("INSERT INTO gastos (contribuyente_id, empresa_id, fecha, beneficiario, concepto, subtotal, total,
+                                estado_pago, estado, usuario_id)
+            VALUES ($contribuyente, $empresaMarc, '$fechaMarc', 'T27 Proveedor marcadores', 'T27 gasto por pagar',
+                    200, 200, 'pendiente', 'vigente', $usuario)");
+$gastoPendiente = (int) $db->insert_id;
+
+// Recepción de proveedor: la de una orden de compra y la entrada directa.
+$db->query("INSERT INTO ordenes_compra (folio, proveedor_id, fecha_solicitud, contribuyente_id, empresa_id, estado, usuario_id)
+            VALUES ('T27-M', $proveedorMarc, '$fechaMarc', $contribuyente, $empresaMarc, 'completa', $usuario)");
+$ordenMarc = (int) $db->insert_id;
+$db->query("INSERT INTO recepciones (orden_id, fecha, token, usuario_id)
+            VALUES ($ordenMarc, '$fechaMarc', MD5('T27-recepcion-marca'), $usuario)");
+$recepcionMarc = (int) $db->insert_id;
+$db->query("INSERT INTO proveedor_entradas (proveedor_id, fecha, monto, usuario_id)
+            VALUES ($proveedorMarc, '$fechaMarc', 150, $usuario)");
+$entradaMarc = (int) $db->insert_id;
+
+// Factura de venta emitida, todavía sin cobrar.
+$db->query("INSERT INTO ingresos (contribuyente_id, empresa_id, cliente_id, fecha, folio, concepto,
+                                  subtotal, total, estado, estado_facturacion)
+            VALUES ($contribuyente, $empresaMarc, $clienteMarc, '$fechaMarc', 'T27-M', 'T27 factura por cobrar',
+                    1000, 1160, 'vigente', 'facturada')");
+$ingresoMarc = (int) $db->insert_id;
+
+$marcadores = EventosCalendario::marcadoresDia($fechaMarc);
+$conteo = static fn (string $t): int => (int) ($marcadores[$t]['n'] ?? 0);
+
+$prueba('marca la venta del día (verde)', $conteo('venta') === 1, $conteo('venta'));
+$prueba('marca los dos gastos: el pagado y el por pagar (rojo)', $conteo('gasto') === 2, $conteo('gasto'));
+$prueba('marca las dos recepciones: la de la orden y la entrada directa (azul)', $conteo('recepcion') === 2, $conteo('recepcion'));
+$prueba('marca sólo el gasto sin pagar en «por pagar» (amarillo)', $conteo('por_pagar') === 1, $conteo('por_pagar'));
+$prueba('marca la factura sin cobrar en «por cobrar» (naranja)', $conteo('por_cobrar') === 1, $conteo('por_cobrar'));
+$prueba('un día sin operaciones no trae marcadores', EventosCalendario::marcadoresDia($fechaVacia) === []);
+
+$prueba('el importe de la venta es la suma del día',
+    abs((float) ($marcadores['venta']['importe'] ?? -1) - 500.0) < 0.005, (string) ($marcadores['venta']['importe'] ?? 'falta'));
+$prueba('el «por cobrar» muestra lo que falta por cobrar (1,160)',
+    abs((float) ($marcadores['por_cobrar']['importe'] ?? -1) - 1160.0) < 0.005, (string) ($marcadores['por_cobrar']['importe'] ?? 'falta'));
+$prueba('los cinco tipos están en el catálogo, en el orden de la leyenda',
+    array_keys(EventosCalendario::TIPOS_NEGOCIO) === ['venta', 'gasto', 'recepcion', 'por_pagar', 'por_cobrar']);
+
+echo "  Marcadores al cambiar el estado de la operación\n";
+$db->query("UPDATE gastos SET estado_pago = 'pagado', fecha_pago = '$fechaMarc' WHERE id = $gastoPendiente");
+$db->query("INSERT INTO cobros (ingreso_id, fecha, importe, metodo, estado, usuario_id)
+            VALUES ($ingresoMarc, '$fechaMarc', 1160, 'Efectivo', 'vigente', $usuario)");
+EventosCalendario::olvidarMarcadores();
+$marcadores = EventosCalendario::marcadoresDia($fechaMarc);
+$prueba('al pagarse el gasto deja de estar «por pagar»', (int) ($marcadores['por_pagar']['n'] ?? 0) === 0, (string) ($marcadores['por_pagar']['n'] ?? 0));
+$prueba('pero sigue contando como gasto del día', (int) ($marcadores['gasto']['n'] ?? 0) === 2, (string) ($marcadores['gasto']['n'] ?? 0));
+$prueba('al cobrarse la factura deja de estar «por cobrar»', (int) ($marcadores['por_cobrar']['n'] ?? 0) === 0, (string) ($marcadores['por_cobrar']['n'] ?? 0));
+
+$db->query("UPDATE ventas SET estado = 'cancelada' WHERE id = $ventaMarc");
+EventosCalendario::olvidarMarcadores();
+$prueba('una venta cancelada deja de marcar (verde)', (int) (EventosCalendario::marcadoresDia($fechaMarc)['venta']['n'] ?? 0) === 0);
+
+$db->query("UPDATE gastos SET estado = 'cancelado' WHERE id = $gastoPagado");
+$db->query("DELETE FROM cobros WHERE ingreso_id = $ingresoMarc");
+EventosCalendario::olvidarMarcadores();
+$marcadores = EventosCalendario::marcadoresDia($fechaMarc);
+$prueba('un gasto cancelado deja de marcar (rojo)', (int) ($marcadores['gasto']['n'] ?? 0) === 1, (string) ($marcadores['gasto']['n'] ?? 0));
+
+// Limpieza de todo lo sembrado para esta sección.
+$db->query("DELETE FROM recepciones WHERE id = $recepcionMarc");
+$db->query("DELETE FROM ordenes_compra WHERE id = $ordenMarc");
+$db->query("DELETE FROM proveedor_entradas WHERE id = $entradaMarc");
+$db->query("DELETE FROM ingresos WHERE id = $ingresoMarc");
+$db->query("DELETE FROM gastos WHERE id IN ($gastoPagado, $gastoPendiente)");
+$db->query("DELETE FROM ventas WHERE id = $ventaMarc");
+$db->query("DELETE FROM proveedores WHERE id = $proveedorMarc");
+$db->query("DELETE FROM clientes WHERE id = $clienteMarc");
+EventosCalendario::olvidarMarcadores();
 
 echo "Integración\n";
 $menu = file_get_contents(__DIR__ . '/../../templates/sidebar.php');

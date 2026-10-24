@@ -7,6 +7,12 @@
  * selecciona: a la derecha aparecen sus recordatorios y eventos y el
  * formulario para crear uno nuevo (fecha precargada con el día elegido).
  *
+ * Además de los recordatorios, cada casilla marca con un icono de color lo que
+ * pasó en los negocios ese día (EventosCalendario::marcadoresNegocio): venta
+ * (verde), gasto (rojo), recepción de proveedor (azul), factura por pagar
+ * (amarillo) y factura por cobrar (naranja). Son de SÓLO LECTURA: no se
+ * guardan en calendario_eventos, se calculan al vuelo y no se pueden editar.
+ *
  * El alta se envía a /admin/calendario/crear (sólo POST); aquí sólo se lee.
  * Ruta protegida por el middleware "soloAdmin".
  */
@@ -52,6 +58,57 @@ foreach ($eventosMes as $eventoMes) {
 
 /** Cifras del resumen mensual. */
 $resumen = \App\EventosCalendario::resumenMes($anio, $mes);
+
+/**
+ * Marcadores del negocio por día (ventas, gastos, recepciones, por pagar y
+ * por cobrar). Son de sólo lectura: se calculan al vuelo desde cada tabla y
+ * no se pueden editar ni borrar desde aquí.
+ */
+$marcadoresPorDia = \App\EventosCalendario::marcadoresNegocio($anio, $mes);
+
+/**
+ * Iconos de una casilla, en el orden de la leyenda.
+ *
+ * Cada tipo de marcador es UN solo icono (aunque ese día haya varias
+ * operaciones: la cantidad va en el tooltip), así que siempre caben los cinco.
+ *
+ * @param array<string, array{n: int, importe: float|null}> $marcadores
+ */
+$iconosCelda = static function (array $marcadores): string {
+    if ($marcadores === []) {
+        return '';
+    }
+
+    $html = '<span class="calendario__iconos">';
+
+    foreach (\App\EventosCalendario::TIPOS_NEGOCIO as $tipo => $datos) {
+        if (empty($marcadores[$tipo])) {
+            continue;
+        }
+        $n = (int) $marcadores[$tipo]['n'];
+
+        $titulo = $datos['titulo'] . ': ' . $n . ($n === 1 ? '' : ' ' . $datos['plural']);
+
+        $html .= '<span class="calendario__icono calendario__icono--' . $datos['color'] . '"'
+            . ' title="' . escaparValores($titulo) . '" aria-hidden="true">'
+            . '<span class="material-symbols-outlined">' . $datos['icono'] . '</span></span>';
+    }
+
+    return $html . '</span>';
+};
+
+/** Texto legible de los marcadores del día (para el aria-label de la casilla). */
+$marcadoresTexto = static function (array $marcadores): string {
+    $partes = [];
+    foreach (\App\EventosCalendario::TIPOS_NEGOCIO as $tipo => $datos) {
+        if (empty($marcadores[$tipo])) {
+            continue;
+        }
+        $n = (int) $marcadores[$tipo]['n'];
+        $partes[] = $n . ' ' . ($n === 1 ? $datos['etiqueta'] : $datos['plural']);
+    }
+    return implode(', ', $partes);
+};
 
 /** Navegación entre meses y años (siempre desde el día 1 del mes destino). */
 $urlMes = static function (int $nuevoAnio, int $nuevoMes): string {
@@ -264,6 +321,7 @@ template('header', [
 
                 $fechaCelda  = sprintf('%04d-%02d-%02d', $anio, $mes, $numeroDia);
                 $cantidad    = $conteoPorDia[$fechaCelda] ?? 0;
+                $negocio     = $marcadoresPorDia[$fechaCelda] ?? [];
                 $esHoy       = $fechaCelda === $hoy->format('Y-m-d');
                 $esSeleccion = $fechaCelda === $fechaSeleccionada;
 
@@ -272,16 +330,20 @@ template('header', [
                 $clases .= $esSeleccion ? ' calendario__dia--seleccionado' : '';
                 $clases .= $cantidad > 0 ? ' calendario__dia--con-eventos' : '';
 
-                $etiquetaDia = $fechaAmable($fechaCelda)
-                    . ($cantidad > 0
-                        ? ', ' . $cantidad . ($cantidad === 1 ? ' evento' : ' eventos')
-                        : ', sin eventos');
+                $etiquetaDia = $fechaAmable($fechaCelda);
+                if ($negocio !== []) {
+                    $etiquetaDia .= ', ' . $marcadoresTexto($negocio);
+                }
+                $etiquetaDia .= $cantidad > 0
+                    ? ', ' . $cantidad . ($cantidad === 1 ? ' evento' : ' eventos')
+                    : ', sin eventos';
                 ?>
                 <a class="<?= $clases ?>"
                    href="/admin/calendario?anio=<?= $anio ?>&mes=<?= $mes ?>&dia=<?= $numeroDia ?>"
                    aria-label="<?= escaparValores($etiquetaDia) ?>"
                    <?= $esSeleccion ? 'aria-current="date"' : '' ?>>
                     <span class="calendario__numero"><?= $numeroDia ?></span>
+                    <?= $iconosCelda($negocio) ?>
                     <?php if ($cantidad > 0) : ?>
                         <span class="calendario__puntos" aria-hidden="true">
                             <?= str_repeat(
@@ -300,6 +362,18 @@ template('header', [
             <span><span class="calendario__punto calendario__punto--alto" aria-hidden="true"></span> Alto</span>
             <span class="texto-secundario">El punto del día marca el nivel más alto que tiene.</span>
         </footer>
+
+        <footer class="calendario__leyenda" aria-label="Marcadores del negocio">
+            <?php foreach (\App\EventosCalendario::TIPOS_NEGOCIO as $datos) : ?>
+                <span title="<?= escaparValores($datos['titulo']) ?>">
+                    <span class="calendario__icono calendario__icono--<?= $datos['color'] ?>" aria-hidden="true">
+                        <span class="material-symbols-outlined"><?= $datos['icono'] ?></span>
+                    </span>
+                    <?= escaparValores($datos['etiqueta']) ?>
+                </span>
+            <?php endforeach; ?>
+            <span class="texto-secundario">Lo que pasó en tus negocios ese día. No se pueden editar ni borrar.</span>
+        </footer>
     </section>
 
     <!-- Día seleccionado: sus eventos y el alta del nuevo -->
@@ -313,6 +387,39 @@ template('header', [
                 </div>
             </div>
         <?php else : ?>
+            <?php $negocioDia = $marcadoresPorDia[$fechaSeleccionada] ?? []; ?>
+
+            <?php if ($negocioDia !== []) : ?>
+                <!-- Lo que pasó ese día en los negocios (sólo lectura) -->
+                <section class="tarjeta calendario-negocio" aria-label="Negocio del <?= escaparValores($fechaAmable($fechaSeleccionada)) ?>">
+                    <header class="calendario-negocio__cabecera">
+                        <h2 class="calendario-negocio__titulo">Lo que pasó ese día</h2>
+                        <span class="badge badge--neutro badge--sin-punto">Sólo lectura</span>
+                    </header>
+
+                    <div class="calendario-negocio__resumen">
+                        <?php foreach (\App\EventosCalendario::TIPOS_NEGOCIO as $tipo => $datos) :
+                            if (empty($negocioDia[$tipo])) {
+                                continue;
+                            }
+                            $n       = (int) $negocioDia[$tipo]['n'];
+                            $importe = $negocioDia[$tipo]['importe'];
+                            ?>
+                            <div class="calendario-negocio__fila">
+                                <span class="calendario-negocio__concepto">
+                                    <span class="material-symbols-outlined resumen-dia__icono--<?= $datos['color'] ?>"
+                                          aria-hidden="true"><?= $datos['icono'] ?></span>
+                                    <?= $n ?> <?= $n === 1 ? $datos['etiqueta'] : $datos['plural'] ?>
+                                </span>
+                                <?php if ($importe !== null) : ?>
+                                    <span class="calendario-negocio__cifra"><?= formatoMoneda($importe) ?></span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+            <?php endif; ?>
+
             <section class="tarjeta calendario-dia" aria-label="Eventos del <?= escaparValores($fechaAmable($fechaSeleccionada)) ?>">
                 <header class="calendario-dia__cabecera">
                     <h2 class="calendario-dia__titulo"><?= escaparValores($fechaAmable($fechaSeleccionada, true)) ?></h2>

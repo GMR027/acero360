@@ -206,6 +206,80 @@ try {
     prueba('no quedan registros de la prueba',
         Number(consulta("SELECT COUNT(*) FROM calendario_eventos WHERE nombre LIKE 'T Calendario %'")) === 0);
 
+    /* ------------------------------------------- marcadores del negocio -- */
+    // Se siembra una operación de cada tipo HOY para ver los iconos de color
+    // en la casilla del día. Son de sólo lectura: no se pueden editar ni borrar.
+    console.log('\nMarcadores del negocio');
+    const contrib = Number(consulta('SELECT MIN(id) FROM contribuyentes WHERE activo = 1'));
+    const empresaMarc = Number(consulta(`SELECT MIN(id) FROM empresas WHERE contribuyente_id = ${contrib}`));
+    const usuarioMarc = Number(consulta(`SELECT id FROM usuarios WHERE email = '${EMAIL}'`));
+    consulta("INSERT INTO proveedores (nombre, activo) VALUES ('T Calendario Proveedor', 1)");
+    const provMarc = Number(consulta("SELECT MAX(id) FROM proveedores"));
+    consulta("INSERT INTO clientes (nombre) VALUES ('T Calendario Cliente')");
+    const cliMarc = Number(consulta("SELECT MAX(id) FROM clientes"));
+    consulta(`INSERT INTO ventas (empresa_id, cliente_id, usuario_id, fecha, folio, estado, subtotal, total)
+              VALUES (${empresaMarc}, ${cliMarc}, ${usuarioMarc}, '${hoyISO}', 'T CAL-M', 'registrada', 750, 750)`);
+    const ventaMarc = Number(consulta("SELECT MAX(id) FROM ventas"));
+    consulta(`INSERT INTO gastos (contribuyente_id, empresa_id, fecha, beneficiario, concepto, subtotal, total,
+                                  estado_pago, estado, usuario_id)
+              VALUES (${contrib}, ${empresaMarc}, '${hoyISO}', 'T Calendario Proveedor', 'T Calendario gasto por pagar',
+                      400, 400, 'pendiente', 'vigente', ${usuarioMarc})`);
+    const gastoMarc = Number(consulta("SELECT MAX(id) FROM gastos"));
+    consulta(`INSERT INTO ordenes_compra (folio, proveedor_id, fecha_solicitud, contribuyente_id, empresa_id, estado, usuario_id)
+              VALUES ('T CAL-M', ${provMarc}, '${hoyISO}', ${contrib}, ${empresaMarc}, 'completa', ${usuarioMarc})`);
+    const ordenMarc = Number(consulta("SELECT MAX(id) FROM ordenes_compra"));
+    consulta(`INSERT INTO recepciones (orden_id, fecha, token, usuario_id)
+              VALUES (${ordenMarc}, '${hoyISO}', MD5('T CAL marcador'), ${usuarioMarc})`);
+    const recepMarc = Number(consulta("SELECT MAX(id) FROM recepciones"));
+    consulta(`INSERT INTO ingresos (contribuyente_id, empresa_id, cliente_id, fecha, folio, concepto,
+                                    subtotal, total, estado, estado_facturacion)
+              VALUES (${contrib}, ${empresaMarc}, ${cliMarc}, '${hoyISO}', 'T CAL-M', 'T Calendario factura por cobrar',
+                      1000, 1160, 'vigente', 'facturada')`);
+    const ingresoMarc = Number(consulta("SELECT MAX(id) FROM ingresos"));
+
+    await page.goto(`${BASE}/admin/calendario`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(400);
+
+    const casillaHoy = page.locator('.calendario__dia--hoy');
+    const iconosHoy = casillaHoy.locator('.calendario__iconos .calendario__icono');
+    prueba('la casilla de hoy trae los 5 iconos de color', await iconosHoy.count() === 5, String(await iconosHoy.count()));
+    const colores = await casillaHoy.locator('.calendario__icono').evaluateAll(
+        (els) => els.map((e) => (e.className.match(/--(verde|rojo|azul|amarillo|naranja)/) || [])[1] || ''));
+    prueba('con los colores verde, rojo, azul, amarillo y naranja',
+        ['verde', 'rojo', 'azul', 'amarillo', 'naranja'].every((c) => colores.includes(c)), colores.join(','));
+    prueba('el aria-label del día cuenta lo que pasó',
+        /venta/i.test(await casillaHoy.getAttribute('aria-label') || '')
+        && /gasto/i.test(await casillaHoy.getAttribute('aria-label') || '')
+        && /por cobrar/i.test(await casillaHoy.getAttribute('aria-label') || ''),
+        await casillaHoy.getAttribute('aria-label'));
+
+    const leyenda = await page.locator('.calendario__leyenda').last().textContent();
+    prueba('la leyenda explica los 5 marcadores',
+        ['Venta', 'Gasto', 'Recepción de proveedor', 'Factura por pagar', 'Factura por cobrar']
+            .every((t) => leyenda.includes(t)), leyenda.trim().slice(0, 120));
+
+    await casillaHoy.click();
+    // Se espera la NAVEGACIÓN, no un tiempo fijo: al volver a cargar el día
+    // elegido se pinta el panel del negocio.
+    await page.waitForURL(`**dia=${String(hoy.getDate()).padStart(2, '0')}**`, { timeout: 10000 }).catch(() => null);
+    await page.waitForSelector('.calendario-negocio__resumen', { timeout: 10000 });
+    const panel = await page.locator('.calendario-negocio').textContent().catch(() => '');
+    prueba('el panel del día resume lo que pasó', /Lo que pasó ese día/.test(panel) && /\$/.test(panel), panel.trim().replace(/\s+/g, ' ').slice(0, 120));
+    prueba('el panel marca que es de sólo lectura', /Sólo lectura/i.test(panel));
+
+    // Nada de esto es un evento: no debe aparecer en la lista editable del día.
+    prueba('los marcadores NO entran en la lista de eventos editable',
+        await page.locator('.calendario-dia__lista .evento-tarjeta').count() === 0);
+
+    // Limpieza de lo sembrado para esta sección.
+    consulta(`DELETE FROM recepciones WHERE id = ${recepMarc}`);
+    consulta(`DELETE FROM ordenes_compra WHERE id = ${ordenMarc}`);
+    consulta(`DELETE FROM ingresos WHERE id = ${ingresoMarc}`);
+    consulta(`DELETE FROM gastos WHERE id = ${gastoMarc}`);
+    consulta(`DELETE FROM ventas WHERE id = ${ventaMarc}`);
+    consulta(`DELETE FROM proveedores WHERE id = ${provMarc}`);
+    consulta(`DELETE FROM clientes WHERE id = ${cliMarc}`);
+
     await page.screenshot({ path: '/tmp/opencode/calendario-final.png' });
     await ctx.close();
 

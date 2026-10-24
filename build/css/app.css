@@ -44,6 +44,12 @@
   --color-error-claro: #fff1f2;
   --color-error-texto: #9f1239;
   --color-error-borde: #fecdd3;
+  --color-naranja: #ea580c;
+  --color-naranja-texto: #9a3412;
+  --color-naranja-borde: #fed7aa;
+  --color-azul-marcador: #2563eb;
+  --color-azul-marcador-texto: #1e40af;
+  --color-azul-marcador-borde: #bfdbfe;
   --color-codigo: #c0261b;
   --color-rust: #b46424;
   --color-rust-texto: #9a5220;
@@ -88,6 +94,12 @@
     --color-error-claro: #34161e;
     --color-error-texto: #fda4af;
     --color-error-borde: #6b2433;
+    --color-naranja: #fb923c;
+    --color-naranja-texto: #fdba74;
+    --color-naranja-borde: #7c4413;
+    --color-azul-marcador: #60a5fa;
+    --color-azul-marcador-texto: #93c5fd;
+    --color-azul-marcador-borde: #1e4976;
     --color-codigo: #ff6b5e;
     --color-rust: #d98a4a;
     --color-rust-texto: #f0b27d;
@@ -129,6 +141,12 @@
   --color-error-claro: #34161e;
   --color-error-texto: #fda4af;
   --color-error-borde: #6b2433;
+  --color-naranja: #fb923c;
+  --color-naranja-texto: #fdba74;
+  --color-naranja-borde: #7c4413;
+  --color-azul-marcador: #60a5fa;
+  --color-azul-marcador-texto: #93c5fd;
+  --color-azul-marcador-borde: #1e4976;
   --color-codigo: #ff6b5e;
   --color-rust: #d98a4a;
   --color-rust-texto: #f0b27d;
@@ -169,6 +187,7 @@
 /* COLOR — SUPERFICIES Y TEXTO */
 /* COLOR — BORDES */
 /* COLOR — SEMÁNTICOS */
+/* Marcadores del negocio en el Calendario (verde/rojo/amarillo heredan de arriba) */
 /* COLOR — AUXILIARES DE TEMA (definidos en _tema.scss) */
 /* COLOR — ACENTO VIP / ESPECIAL (rust del diseño) */
 /* --------------------------------------------------------------------------
@@ -8592,6 +8611,7 @@ body:has(.ed-pagina) .principal,
   align-items: center;
   justify-content: center;
   gap: 0.1875rem;
+  min-width: 0;
   min-height: 3.25rem;
   padding: 0.25rem;
   background-color: var(--color-superficie-baja);
@@ -8660,6 +8680,59 @@ body:has(.ed-pagina) .principal,
   justify-content: center;
   gap: 0.1875rem;
   min-height: 0.375rem;
+}
+
+/* --- Marcadores del negocio (sólo lectura: ventas, gastos, recepciones...) --
+   Van como ICONOS de color junto al número. Se distinguen de los puntos de
+   importancia por la forma (icono vs punto), no sólo por el color. */
+.calendario__iconos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Los cinco caben en una línea: cada tipo es UN icono. Si aun así no
+     entraran (casilla muy angosta), saltan a la segunda en vez de salirse. */
+  flex-wrap: wrap;
+  gap: 0.0625rem;
+  max-width: 100%;
+  min-height: 1rem;
+  line-height: 0;
+}
+
+.calendario__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  /* El font-size va en el icono y no en el contenedor: la hoja de Google
+     Fonts trae `.material-symbols-outlined { font-size: 24px }` y anula
+     cualquier herencia (por eso el resto del proyecto lo pone aquí). */
+}
+.calendario__icono .material-symbols-outlined {
+  font-size: 0.75rem;
+}
+.calendario__icono--verde {
+  color: var(--color-exito);
+}
+.calendario__icono--rojo {
+  color: var(--color-error);
+}
+.calendario__icono--azul {
+  color: var(--color-azul-marcador);
+}
+.calendario__icono--amarillo {
+  color: var(--color-advertencia);
+}
+.calendario__icono--naranja {
+  color: var(--color-naranja);
+}
+
+/* Cuando la casilla está seleccionada (fondo azul) los iconos ganan una píldora
+   clara: sin ella el azul del marcador se pierde sobre el azul de la casilla.
+   Sin margen: el glifo de Material ya trae su aire, y así los cinco siguen
+   cabiendo en una línea. */
+.calendario__dia--seleccionado .calendario__icono {
+  background-color: rgba(255, 255, 255, 0.88);
+  border-radius: 0.1875rem;
 }
 
 /* Punto del día: color del nivel más alto registrado esa fecha. */
@@ -8736,6 +8809,76 @@ body:has(.ed-pagina) .principal,
 .calendario-dia__vacio {
   margin: 0;
   font-size: 0.875rem;
+}
+
+/* --- «Lo que pasó ese día»: el negocio reflejado en la casilla ------------
+   Sección distinta de la de eventos (clase propia) porque es de SÓLO
+   LECTURA: no se puede editar ni borrar desde el calendario. */
+.calendario-negocio {
+  gap: 1rem;
+}
+.calendario-negocio__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-borde);
+}
+.calendario-negocio__titulo {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-texto);
+}
+.calendario-negocio__resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+}
+.calendario-negocio__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  min-width: 0;
+}
+.calendario-negocio__concepto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  color: var(--color-texto);
+}
+.calendario-negocio__concepto .material-symbols-outlined {
+  flex: none;
+}
+.calendario-negocio__cifra {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-texto);
+}
+
+/* Los iconos del resumen del día toman el color de su marcador. */
+.resumen-dia__icono--verde {
+  color: var(--color-exito);
+}
+.resumen-dia__icono--rojo {
+  color: var(--color-error);
+}
+.resumen-dia__icono--azul {
+  color: var(--color-azul-marcador);
+}
+.resumen-dia__icono--amarillo {
+  color: var(--color-advertencia);
+}
+.resumen-dia__icono--naranja {
+  color: var(--color-naranja);
 }
 
 /* --- Tarjeta de un recordatorio o evento --------------------------------- */
@@ -8934,7 +9077,10 @@ body:has(.ed-pagina) .principal,
     min-width: 8rem;
   }
   .calendario__dia {
-    min-height: 2.75rem;
+    /* En el celular la casilla es angosta: un día con los cinco marcadores
+       pasa a dos líneas. Todas toman esa altura para que las filas del
+       calendario queden parejas (antes: 2.75rem). */
+    min-height: 4rem;
     padding: 0.1875rem;
   }
   .calendario__semana {

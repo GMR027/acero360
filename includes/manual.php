@@ -126,6 +126,17 @@ return [
      ],
      'consejos' => ['Las notas son del equipo: lo que escribe uno lo leen todos los administradores.', 'El título puede tener hasta 200 caracteres y el texto de recordatorio 80; es un recordatorio escrito, la plataforma no manda correos.']],
 
+    ['id' => 'calendario', 'titulo' => 'Calendario', 'icono' => 'calendar_month',
+     'intro' => 'Un calendario del mes que junta dos cosas: tus recordatorios y eventos del equipo, y lo que pasó en los negocios cada día.',
+     'pasos' => [
+        ['Moverte por el mes', ['Menú → «Calendario». Arriba están los botones ‹ › para cambiar de mes y «« »» para cambiar de año, más el botón «Hoy» para regresar al día de hoy.', 'El día de hoy viene marcado con un borde azul; el día elegido se pinta de azul y su fecha aparece en el panel de la derecha.']],
+        ['Los marcadores del negocio', ['En cada casilla aparecen iconos de color con lo que pasó ese día: en VERDE una venta, en ROJO un gasto, en AZUL una recepción de proveedor, en AMARILLO una factura de proveedor por pagar y en NARANJA una factura de venta por cobrar.', 'Pon el cursor sobre el icono para ver cuántas operaciones de ese tipo hay. Debajo del calendario está la leyenda con los cinco colores.', 'Son de SÓLO LECTURA: no se pueden editar ni borrar, porque son el reflejo de las operaciones ya registradas en Ventas, Gastos, Compras y Contabilidad.']],
+        ['Ver el detalle de un día', ['Haz clic en cualquier casilla. A la derecha aparece «Lo que pasó ese día», con cuántas ventas hubo y por cuánto, los gastos, las recepciones, lo que queda por pagar y lo que queda por cobrar.', 'Un gasto de proveedor deja de aparecer en amarillo en cuanto lo marcas como pagado, y una factura de venta deja de estar en naranja en cuanto se cobra por completo.']],
+        ['Recordatorios y eventos', ['Bajo el resumen del día está el formulario «Nuevo recordatorio o evento»: nombre, fecha (ya cargada con el día elegido), hora opcional, descripción, negocio e importancia (Bajo, Medio o Alto).', 'Los eventos del día se listan en su casilla con puntos de color según su importancia: verde Bajo, amarillo Medio, rojo Alto.', 'Cada evento se puede editar o eliminar desde su tarjeta; la baja pide confirmación.']],
+        ['La agenda del mes', ['Abajo de todo está la «Agenda»: todos los días del mes que tienen eventos, en orden, con sus tarjetas.']],
+     ],
+     'consejos' => ['Lo que se vende, se gasta o se recibe se marca solo: no hay que capturarlo dos veces en el calendario.', 'Los recordatorios son del equipo: lo que registra uno lo leen todos los administradores.', 'El calendario no manda correos ni avisos: es una pantalla para consultar.', 'Si un evento no aparece en el calendario, revisa que su fecha sea del mes que estás viendo.']],
+
     ['id' => 'redactor', 'titulo' => 'Redactor', 'icono' => 'edit_document',
      'intro' => 'El procesador de textos de la plataforma: cartas, oficios, memorias, actas y procedimientos con formato profesional.',
      'pasos' => [
