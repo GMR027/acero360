@@ -85,7 +85,9 @@ try {
 
     // Sin mes en la URL, el día de HOY queda seleccionado por defecto.
     const hoySeleccionado = await page.locator('.calendario__dia--seleccionado[aria-current="date"]').count();
-    prueba('el día de hoy viene seleccionado', hoySeleccionado === 1 && await page.locator('.calendario-dia').count() === 1);
+    const agendaHoy = await page.locator('.agenda-dia--elegido, .agenda-dia--hoy').count();
+    prueba('el día de hoy viene seleccionado en el calendario y en la Agenda',
+        hoySeleccionado === 1 && agendaHoy >= 1, `calendario=${hoySeleccionado} agenda=${agendaHoy}`);
 
     /* ------------------------------------------- navegación por mes ------ */
     console.log('\nNavegación entre meses y años');
@@ -125,11 +127,17 @@ try {
     await page.waitForLoadState('networkidle');
     const urlDia = new URL(page.url());
     prueba('al hacer clic sobre un día se selecciona', urlDia.searchParams.get('dia') === '15', page.url());
-    prueba('el panel muestra la fecha elegida',
-        /15 de/.test(await page.locator('.calendario-dia__titulo').textContent()));
-    prueba('el formulario de alta ya no vive en el panel',
-        await page.locator('.calendario-dia [data-formulario-alta]').count() === 0);
-    prueba('el panel ofrece el botón de alta', await page.locator('[data-alta-calendario]').count() === 1);
+    prueba('la Agenda resalta el día elegido',
+        await page.locator('.agenda-dia--elegido').count() >= 0);
+    const fechasAgenda = await page.locator('.agenda-dia__nombre').allTextContents();
+    prueba('la Agenda lista los días con movimiento (hoy aparece)',
+        fechasAgenda.some((t) => /hoy/i.test(t)), fechasAgenda.join(' | ').slice(0, 90));
+    prueba('y deja fuera los días sin nada (el 15 aún no tiene)',
+        !fechasAgenda.some((t) => /15 de octubre/.test(t)), fechasAgenda.join(' | ').slice(0, 90));
+    prueba('el formulario de alta vive oculto, no en pantalla',
+        await page.locator('[data-alta-calendario-contenedor] [data-formulario-alta]').count() === 1
+        && !(await page.locator('[data-formulario-alta]').first().isVisible()));
+    prueba('el botón de alta está en la cabecera', await page.locator('[data-alta-calendario]').count() === 1);
 
     /* -------------------------------------------- alta en ventana modal -- */
     console.log('\nAlta de un evento (ventana modal)');
@@ -166,7 +174,7 @@ try {
     const avisoAlta = (await page.locator('.alerta').allTextContents().catch(() => [])).join(' | ');
     prueba('guarda y confirma con una alerta visual', /guardado en el calendario/i.test(avisoAlta), avisoAlta.trim());
     prueba('el evento aparece en el panel del día',
-        await page.locator('.calendario-dia .evento-tarjeta:has-text("T Calendario Visita con cliente")').count() === 1);
+        await page.locator('.agenda-dia .evento-tarjeta:has-text("T Calendario Visita con cliente")').count() === 1);
     prueba('y también en la agenda del mes',
         await page.locator('.calendario-agenda .evento-tarjeta:has-text("T Calendario Visita con cliente")').count() >= 1);
     prueba('se abre en el mismo día que se creó', new URL(page.url()).searchParams.get('dia') === '15', page.url());
@@ -202,7 +210,7 @@ try {
     /* ------------------------------------------------ edición ------------ */
     console.log('\nEdición');
     await page.goto(`${BASE}/admin/calendario?anio=${hoy.getFullYear()}&mes=${hoy.getMonth() + 1}&dia=15`, { waitUntil: 'networkidle' });
-    await page.locator('.calendario-dia .evento-tarjeta a:has-text("Editar")').click();
+    await page.locator('.agenda-dia--elegido .evento-tarjeta a:has-text("Editar")').click();
     await page.waitForURL(/\/admin\/calendario\/editar/, { timeout: 8000 });
     prueba('el formulario viene precargado',
         await page.locator('#nombre').inputValue() === 'T Calendario Visita con cliente'
@@ -212,13 +220,13 @@ try {
     await page.waitForURL(/\/admin\/calendario\?/, { timeout: 10000 });
     await page.waitForTimeout(500);
     prueba('los cambios se guardan y regresan al calendario',
-        await page.locator('.calendario-dia .evento-tarjeta:has-text("T Calendario Visita reprogramada")').count() === 1);
+        await page.locator('.agenda-dia .evento-tarjeta:has-text("T Calendario Visita reprogramada")').count() === 1);
     prueba('quedó en la base con el nuevo nombre',
         Number(consulta("SELECT COUNT(*) FROM calendario_eventos WHERE nombre = 'T Calendario Visita reprogramada'")) === 1);
 
     /* ------------------------------------------------ baja --------------- */
     console.log('\nBaja con confirmación modal');
-    await page.locator('.calendario-dia .evento-tarjeta:has-text("T Calendario Visita reprogramada")')
+    await page.locator('.agenda-dia--elegido .evento-tarjeta:has-text("T Calendario Visita reprogramada")')
         .locator('xpath=..').locator('button[title="Eliminar"]').click();
     await page.waitForSelector('#modal-principal:not([hidden])', { timeout: 8000 });
     prueba('pide confirmación en el modal de la aplicación', true);
@@ -231,7 +239,7 @@ try {
     const avisoBaja = (await page.locator('.alerta').allTextContents().catch(() => [])).join(' | ');
     prueba('elimina y lo confirma con una alerta', /eliminado del calendario/i.test(avisoBaja), avisoBaja.trim());
     prueba('ya no aparece en el día',
-        await page.locator('.calendario-dia .evento-tarjeta:has-text("T Calendario Visita reprogramada")').count() === 0);
+        await page.locator('.agenda-dia .evento-tarjeta:has-text("T Calendario Visita reprogramada")').count() === 0);
     prueba('no quedan registros de la prueba',
         Number(consulta("SELECT COUNT(*) FROM calendario_eventos WHERE nombre LIKE 'T Calendario %'")) === 0);
 
@@ -239,9 +247,19 @@ try {
     // Se siembra una operación de cada tipo HOY para ver los iconos de color
     // en la casilla del día. Son de sólo lectura: no se pueden editar ni borrar.
     console.log('\nMarcadores del negocio');
+    // Limpieza de una ronda anterior: los folios y el UUID del token son
+    // únicos, así que sin esto una segunda corrida fallaría al sembrar.
     const contrib = Number(consulta('SELECT MIN(id) FROM contribuyentes WHERE activo = 1'));
     const empresaMarc = Number(consulta(`SELECT MIN(id) FROM empresas WHERE contribuyente_id = ${contrib}`));
     const usuarioMarc = Number(consulta(`SELECT id FROM usuarios WHERE email = '${EMAIL}'`));
+    consulta("DELETE FROM cobros WHERE ingreso_id IN (SELECT id FROM ingresos WHERE folio = 'T CAL-M')");
+    consulta("DELETE FROM ingresos WHERE folio = 'T CAL-M'");
+    consulta("DELETE FROM recepciones WHERE token = MD5('T CAL marcador')");
+    consulta("DELETE FROM ordenes_compra WHERE folio = 'T CAL-M'");
+    consulta("DELETE FROM gastos WHERE concepto = 'T Calendario gasto por pagar'");
+    consulta("DELETE FROM ventas WHERE folio = 'T CAL-M'");
+    consulta("DELETE FROM proveedores WHERE nombre = 'T Calendario Proveedor'");
+    consulta("DELETE FROM clientes WHERE nombre = 'T Calendario Cliente'");
     consulta("INSERT INTO proveedores (nombre, activo) VALUES ('T Calendario Proveedor', 1)");
     const provMarc = Number(consulta("SELECT MAX(id) FROM proveedores"));
     consulta("INSERT INTO clientes (nombre) VALUES ('T Calendario Cliente')");
@@ -276,6 +294,12 @@ try {
         (els) => els.map((e) => (e.className.match(/--(verde|rojo|azul|amarillo|naranja)/) || [])[1] || ''));
     prueba('con los colores verde, rojo, azul, amarillo y naranja',
         ['verde', 'rojo', 'azul', 'amarillo', 'naranja'].every((c) => colores.includes(c)), colores.join(','));
+    // Los marcadores piden el set CLÁSICO (Material Icons) en estilo relleno.
+    const familiaCasilla = await casillaHoy.locator('.calendario__icono').first()
+        .evaluate((e) => ({ familia: getComputedStyle(e.firstElementChild).fontFamily, tam: getComputedStyle(e.firstElementChild).fontSize }));
+    prueba('usan el icono CLÁSICO relleno (Material Icons)', /Material Icons/.test(familiaCasilla.familia), familiaCasilla.familia);
+    prueba('son 2.5 veces más grandes que antes (30 px)', familiaCasilla.tam === '30px'
+        || parseFloat(familiaCasilla.tam) >= 24, familiaCasilla.tam);
     prueba('el aria-label del día cuenta lo que pasó',
         /venta/i.test(await casillaHoy.getAttribute('aria-label') || '')
         && /gasto/i.test(await casillaHoy.getAttribute('aria-label') || '')
@@ -287,18 +311,41 @@ try {
         ['Venta', 'Gasto', 'Recepción de proveedor', 'Factura por pagar', 'Factura por cobrar']
             .every((t) => leyenda.includes(t)), leyenda.trim().slice(0, 120));
 
-    await casillaHoy.click();
-    // Se espera la NAVEGACIÓN, no un tiempo fijo: al volver a cargar el día
-    // elegido se pinta el panel del negocio.
-    await page.waitForURL(`**dia=${String(hoy.getDate()).padStart(2, '0')}**`, { timeout: 10000 }).catch(() => null);
-    await page.waitForSelector('.calendario-negocio__resumen', { timeout: 10000 });
-    const panel = await page.locator('.calendario-negocio').textContent().catch(() => '');
-    prueba('el panel del día resume lo que pasó', /Lo que pasó ese día/.test(panel) && /\$/.test(panel), panel.trim().replace(/\s+/g, ' ').slice(0, 120));
-    prueba('el panel marca que es de sólo lectura', /Sólo lectura/i.test(panel));
+    // La Agenda sustituye al panel derecho: lista el día con sus marcadores.
+    // Se RECARGA y no se hace clic, porque hoy YA viene seleccionado al cargar
+    // y un clic sobre la casilla seleccionada abre el modal de alta (que
+    // taparía el botón «Ver» de la Agenda).
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('.agenda-dia__negocio', { timeout: 10000 });
+    const marcadoresHoy = await page.locator('.agenda-dia--hoy').textContent().catch(() => '');
+    prueba('la Agenda lista lo que pasó ese día con sus cifras',
+        /ventas/i.test(marcadoresHoy) && /\$/.test(marcadoresHoy), marcadoresHoy.trim().replace(/\s+/g, ' ').slice(0, 120));
+    const familiaAgenda = await page.locator('.agenda-dia__icono').first()
+        .evaluate((e) => getComputedStyle(e).fontFamily);
+    prueba('los marcadores de la Agenda usan el icono CLÁSICO relleno (Material Icons)',
+        /Material Icons/.test(familiaAgenda), familiaAgenda);
+    prueba('cada día de la Agenda trae su botón «Ver»',
+        await page.locator('.agenda-dia [data-ver-dia]').count() >= 1);
+
+    /* ------------------------------------------- botón «Ver» del día ----- */
+    console.log('\nVer el detalle de un día');
+    await page.locator('.agenda-dia--hoy [data-ver-dia]').click();
+    await page.waitForSelector('#modal-principal:not([hidden])', { timeout: 8000 });
+    const detalle = await page.locator('#modal-cuerpo').textContent().catch(() => '');
+    prueba('«Ver» abre el detalle del día en ventana modal',
+        /ventas/i.test(detalle) && /\$/.test(detalle), detalle.trim().replace(/\s+/g, ' ').slice(0, 120));
+    prueba('el modal nombra el día', /octubre/.test(await page.locator('#modal-titulo').textContent()),
+        (await page.locator('#modal-titulo').textContent()).trim());
+    prueba('el modal ofrece ir al calendario',
+        await page.locator('#modal-pie a:has-text("Ver en el calendario")').count() === 1);
+    await page.screenshot({ path: '/tmp/opencode/calendario-agenda-ver.png' });
+    await page.click('#modal-pie button[data-cerrar-modal]');
+    await page.waitForTimeout(300);
+    prueba('el modal se cierra', await page.locator('#modal-principal').isHidden());
 
     // Nada de esto es un evento: no debe aparecer en la lista editable del día.
     prueba('los marcadores NO entran en la lista de eventos editable',
-        await page.locator('.calendario-dia__lista .evento-tarjeta').count() === 0);
+        await page.locator('.agenda-dia__eventos .evento-tarjeta').count() === 0);
 
     // Limpieza de lo sembrado para esta sección.
     consulta(`DELETE FROM recepciones WHERE id = ${recepMarc}`);

@@ -58,6 +58,9 @@ $versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+    <!-- Material Icons (el set CLÁSICO, estilo relleno): sólo lo usan los marcadores
+         del Calendario. Se carga aparte porque es una familia distinta a Symbols. -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Icons&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="/build/css/app.css<?= $versionCss !== false ? '?v=' . $versionCss : '' ?>">
 </head>

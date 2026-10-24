@@ -8526,17 +8526,14 @@ body:has(.ed-pagina) .principal,
    Rejilla del mes activo con navegación por meses y años, panel del día
    elegido (eventos + alta) y agenda completa del mes.
    ========================================================================== */
-/* --- Reparto: calendario a la izquierda, día elegido a la derecha --------- */
+/* --- Reparto: el calendario ocupa todo el ancho ---------------------------
+   El panel derecho desapareció: «Lo que pasó ese día» y los recordatorios
+   viven ahora en la Agenda de abajo, que lista el mes completo. */
 .calendario-cuerpo {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
-}
-@media (min-width: 1200px) {
-  .calendario-cuerpo {
-    grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 1fr);
-  }
 }
 
 /* --- Cabecera del mes (título + botones de navegación) -------------------- */
@@ -8612,7 +8609,9 @@ body:has(.ed-pagina) .principal,
   justify-content: center;
   gap: 0.1875rem;
   min-width: 0;
-  min-height: 3.25rem;
+  /* Altura para que un día con los cinco marcadores (dos líneas de iconos)
+     no quede más alto que el resto: todas las casillas se igualan. */
+  min-height: 6.125rem;
   padding: 0.25rem;
   background-color: var(--color-superficie-baja);
   border: 1px solid transparent;
@@ -8684,7 +8683,9 @@ body:has(.ed-pagina) .principal,
 
 /* --- Marcadores del negocio (sólo lectura: ventas, gastos, recepciones...) --
    Van como ICONOS de color junto al número. Se distinguen de los puntos de
-   importancia por la forma (icono vs punto), no sólo por el color. */
+   importancia por la forma (icono vs punto), no sólo por el color.
+   Usan Material Icons (el set CLÁSICO, estilo relleno): se pide que se vean
+   macizos y grandes, y esa familia va cargada aparte en templates/header.php. */
 .calendario__iconos {
   display: flex;
   align-items: center;
@@ -8692,7 +8693,7 @@ body:has(.ed-pagina) .principal,
   /* Los cinco caben en una línea: cada tipo es UN icono. Si aun así no
      entraran (casilla muy angosta), saltan a la segunda en vez de salirse. */
   flex-wrap: wrap;
-  gap: 0.0625rem;
+  gap: 0.125rem;
   max-width: 100%;
   min-height: 1rem;
   line-height: 0;
@@ -8704,11 +8705,13 @@ body:has(.ed-pagina) .principal,
   justify-content: center;
   line-height: 1;
   /* El font-size va en el icono y no en el contenedor: la hoja de Google
-     Fonts trae `.material-symbols-outlined { font-size: 24px }` y anula
-     cualquier herencia (por eso el resto del proyecto lo pone aquí). */
+     Fonts trae un tamaño por defecto de 24 px y anula cualquier herencia
+     (por eso el resto del proyecto lo pone aquí). 30 px = 2.5 veces los
+     12 px anteriores. */
 }
-.calendario__icono .material-symbols-outlined {
-  font-size: 0.75rem;
+.calendario__icono .material-icons {
+  font-size: 1.875rem;
+  font-variation-settings: "FILL" 1;
 }
 .calendario__icono--verde {
   color: var(--color-exito);
@@ -8774,122 +8777,10 @@ body:has(.ed-pagina) .principal,
 }
 
 /* --- Panel del día seleccionado ------------------------------------------ */
-.calendario-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  min-width: 0;
-}
-
-.calendario-dia {
-  gap: 1rem;
-}
-.calendario-dia__cabecera {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-borde);
-}
-.calendario-dia__titulo {
-  margin: 0;
-  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--color-texto);
-}
-.calendario-dia__lista {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 0;
-}
-.calendario-dia__vacio {
-  margin: 0;
-  font-size: 0.875rem;
-}
-.calendario-dia {
-  /* Botón de alta del día: el formulario ya no vive en el panel. */
-}
-.calendario-dia__acciones {
-  display: flex;
-  justify-content: flex-start;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--color-borde);
-}
-
 /* --- «Lo que pasó ese día»: el negocio reflejado en la casilla ------------
    Sección distinta de la de eventos (clase propia) porque es de SÓLO
    LECTURA: no se puede editar ni borrar desde el calendario. */
-.calendario-negocio {
-  gap: 1rem;
-}
-.calendario-negocio__cabecera {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-borde);
-}
-.calendario-negocio__titulo {
-  margin: 0;
-  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--color-texto);
-}
-.calendario-negocio__resumen {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin: 0;
-}
-.calendario-negocio__fila {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  min-width: 0;
-}
-.calendario-negocio__concepto {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-width: 0;
-  color: var(--color-texto);
-}
-.calendario-negocio__concepto .material-symbols-outlined {
-  flex: none;
-}
-.calendario-negocio__cifra {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--color-texto);
-}
-
 /* Los iconos del resumen del día toman el color de su marcador. */
-.resumen-dia__icono--verde {
-  color: var(--color-exito);
-}
-.resumen-dia__icono--rojo {
-  color: var(--color-error);
-}
-.resumen-dia__icono--azul {
-  color: var(--color-azul-marcador);
-}
-.resumen-dia__icono--amarillo {
-  color: var(--color-advertencia);
-}
-.resumen-dia__icono--naranja {
-  color: var(--color-naranja);
-}
-
 /* El formulario de alta trae sus propios botones para servir también en la
    página de edición. Dentro del modal se ocultan: el pie ya trae Cancelar y
    Guardar, y duplicarlos confunde. */
@@ -8961,7 +8852,6 @@ body:has(.ed-pagina) .principal,
 }
 
 /* El evento y su botón de baja comparten la fila (misma tarjeta visual). */
-.calendario-dia__item,
 .agenda-dia__item {
   display: flex;
   flex-direction: row;
@@ -8969,12 +8859,10 @@ body:has(.ed-pagina) .principal,
   gap: 0.25rem;
   min-width: 0;
 }
-.calendario-dia__item .evento-tarjeta,
 .agenda-dia__item .evento-tarjeta {
   flex: 1 1 auto;
   min-width: 0;
 }
-.calendario-dia__item form,
 .agenda-dia__item form {
   display: flex;
   margin: 0;
@@ -9023,6 +8911,13 @@ body:has(.ed-pagina) .principal,
 .agenda-dia--hoy {
   border-color: var(--color-primario);
 }
+.agenda-dia {
+  /* Día elegido en el calendario, o al que se acaba de bajar con «Ver». */
+}
+.agenda-dia--elegido, .agenda-dia--rastreado {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 0 2px var(--color-primario-claro);
+}
 .agenda-dia__cabecera {
   display: flex;
   align-items: center;
@@ -9037,16 +8932,6 @@ body:has(.ed-pagina) .principal,
   gap: 0.5rem;
   min-width: 0;
   color: var(--color-texto);
-  text-decoration: none;
-}
-.agenda-dia__fecha:hover {
-  color: var(--color-primario-texto);
-  text-decoration: none;
-}
-.agenda-dia__fecha:focus-visible {
-  outline: 1px solid var(--color-primario);
-  outline-offset: 1px;
-  box-shadow: 0 0 0 2px var(--color-foco);
 }
 .agenda-dia__numero {
   display: inline-flex;
@@ -9075,8 +8960,109 @@ body:has(.ed-pagina) .principal,
   gap: 0.5rem;
   min-width: 0;
 }
+.agenda-dia {
+  /* Lo que pasó ese día en los negocios: un marcador por tipo presente. */
+}
+.agenda-dia__negocio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.agenda-dia__marcador {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.agenda-dia {
+  /* Icono CLÁSICO relleno (Material Icons), del mismo color que en el
+     calendario y del mismo tamaño para que se reconozca igual. */
+}
+.agenda-dia__icono {
+  flex: none;
+  font-size: 1.875rem;
+  font-variation-settings: "FILL" 1;
+  line-height: 1;
+}
+.agenda-dia__icono--verde {
+  color: var(--color-exito);
+}
+.agenda-dia__icono--rojo {
+  color: var(--color-error);
+}
+.agenda-dia__icono--azul {
+  color: var(--color-azul-marcador);
+}
+.agenda-dia__icono--amarillo {
+  color: var(--color-advertencia);
+}
+.agenda-dia__icono--naranja {
+  color: var(--color-naranja);
+}
+.agenda-dia__cifra {
+  min-width: 0;
+  font-size: 0.875rem;
+  color: var(--color-texto);
+}
+.agenda-dia__cifra strong {
+  font-variant-numeric: tabular-nums;
+}
+.agenda-dia__importe {
+  margin-left: 0.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-texto-secundario);
+}
+
+/* --- Detalle de un día (contenido del modal «Ver») ---------------------- */
+.agenda-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.agenda-detalle__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--color-borde);
+  font-size: 0.875rem;
+}
+.agenda-detalle__concepto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--color-texto);
+}
+.agenda-detalle__concepto .material-icons {
+  flex: none;
+}
+.agenda-detalle__cifra {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-texto);
+}
+.agenda-detalle__pie {
+  margin: 0.25rem 0 0;
+}
 
 /* --- Ajustes de pantalla pequeña ---------------------------------------- */
+/* Los iconos de 30 px sólo caben en pantallas anchas: en tablet y celular se
+   reducen para que el calendario siga siendo navegable, y las casillas toman
+   la altura que les corresponde (siempre parejas entre sí). */
+@media (max-width: 1199px) {
+  .calendario__dia {
+    min-height: 5.375rem;
+  }
+  .calendario__icono .material-icons,
+  .agenda-dia__icono {
+    font-size: 1.5rem;
+  }
+}
 @media (max-width: 767px) {
   .calendario__cabecera {
     justify-content: center;
@@ -9093,11 +9079,18 @@ body:has(.ed-pagina) .principal,
     min-width: 8rem;
   }
   .calendario__dia {
-    /* En el celular la casilla es angosta: un día con los cinco marcadores
-       pasa a dos líneas. Todas toman esa altura para que las filas del
-       calendario queden parejas (antes: 2.75rem). */
-    min-height: 4rem;
+    /* En el celular la casilla es muy angosta: los cinco marcadores pasan a
+       tres líneas. Todas toman esa altura para que las filas queden parejas
+       (antes: 2.75rem). */
+    min-height: 5.375rem;
     padding: 0.1875rem;
+  }
+  .calendario__icono .material-icons,
+  .agenda-dia__icono {
+    font-size: 1rem;
+  }
+  .calendario__dia--seleccionado .calendario__icono {
+    border-radius: 0.125rem;
   }
   .calendario__semana {
     font-size: 0.6875rem;

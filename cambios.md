@@ -1259,3 +1259,17 @@ El formulario «Nuevo recordatorio o evento» vivía fijo en el panel derecho y 
 - **Pantalla:** el panel del día queda más limpio (resumen del negocio, eventos y el botón de alta).
 - **Módulo nuevo:** `src/js/modulos/calendario.js` (se concatena con el resto en `build/js/app.js`). Sin migraciones: no cambia la base de datos.
 - **Pruebas:** `probar_calendario.mjs` pasa de 38 a **47 casos**: formulario fuera del panel, botón presente, modal sin recarga, fecha y título correctos, botones propios ocultos, guardado desde el modal, modal que se queda abierto con error y formulario que regresa a su contenedor. `etapa27.php` sin cambios (sólo prueba rutas). Regresión completa en verde.
+
+---
+
+## Ronda — Calendario: iconos clásicos macizos y la Agenda sustituye al panel (2026-10-24)
+
+Tres cambios de presentación pedidos juntos: iconos más grandes y rellenos, la Agenda convertida en el listado del mes y un botón «Ver» por día.
+
+- **Iconos clásicos macizos.** Los cinco marcadores pasan a **Material Icons** (el set **clásico**, estilo **relleno**) en vez de Material Symbols Outlined: se piden macizos. La familia va cargada aparte en `templates/header.php` (`family=Material+Icons`), porque es distinta a Symbols y sólo la usan estos marcadores. Verifiqué antes que los cinco nombres existen en ese set, que está congelado desde 2022: `trending_up`, `receipt_long`, `inventory_2`, `schedule`, `request_quote`.
+- **2.5 veces más grandes:** de 12 px a **30 px** en escritorio. Como una celda no cabe tanto, se escalan por ancho para que el calendario siga siendo usable: **30 px** desde 1200 px, **24 px** en tablet y **16 px** en celular. En todos los anchos las casillas quedan de **altura uniforme** (98 / 86 / 86 px).
+- **El panel derecho desaparece.** Se quitaron las tarjetas «Lo que pasó ese día» y los eventos del día; el calendario ocupa **todo el ancho**, que además da más espacio a los iconos grandes. Se borraron del SCSS las clases muertas `calendario-panel`, `calendario-dia`, `calendario-negocio` y `resumen-dia__icono`. El botón de alta pasó a la cabecera de la página.
+- **La Agenda lista el mes completo.** Une en un solo recorrido los días con operaciones del negocio y los que tienen recordatorios (antes sólo los segundos), en orden. Cada tarjeta trae la fecha, los marcadores con **cantidad e importe** (los mismos iconos clásicos y del mismo color) y los eventos capturados con su edición y baja. Los días sin nada no aparecen.
+- **Botón «Ver» por día:** un botón con icono de ojo, **sin texto** (con `aria-label`), que abre el detalle de ese día en **ventana modal**: los marcadores con sus cifras y el conteo de recordatorios, más un botón «Ver en el calendario». Los datos viajan en el atributo `data-agenda-dia` de la propia tarjeta y el modal se construye con `createElement`, sin `innerHTML`, como mantiene el resto de la aplicación.
+- **Sincronización:** al cargar con un día elegido, la página baja hasta su tarjeta de la Agenda y la resalta (sólo si no se ve completa, para no mover la pantalla debajo del usuario). El día elegido queda con `agenda-dia--elegido`.
+- **Pruebas:** `probar_calendario.mjs` pasa de 47 a **56 casos** (icono clásico, tamaño, Agenda que lista y excluye días, botón «Ver», modal de detalle). Se corrigieron los selectores que aún apuntaban al panel eliminado y se hizo **idempotente**: la sección de marcadores limpiaba a medias, y al volver a correr chocaba con el índice único de folio y token. `etapa27.php` sin cambios. Regresión completa en verde. Sin migraciones.

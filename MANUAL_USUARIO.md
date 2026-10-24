@@ -400,40 +400,40 @@ La libreta del equipo: recordatorios, pendientes por cotizar, cambios y revision
 
 ## 13. Calendario
 
-Un calendario del mes que junta dos cosas: tus recordatorios y eventos del equipo, y lo que pasó en los negocios cada día.
+Un calendario del mes que junta dos cosas: lo que pasó en tus negocios cada día y los recordatorios y eventos del equipo.
 
 ### Moverte por el mes
 
 1. Menú → «Calendario». Arriba están los botones ‹ › para cambiar de mes y «« »» para cambiar de año, más el botón «Hoy» para regresar al día de hoy.
-2. El día de hoy viene marcado con un borde azul; el día elegido se pinta de azul y su fecha aparece en el panel de la derecha.
+2. El día de hoy viene marcado con un borde azul.
 
 ### Los marcadores del negocio
 
-1. En cada casilla aparecen iconos de color con lo que pasó ese día: en VERDE una venta, en ROJO un gasto, en AZUL una recepción de proveedor, en AMARILLO una factura de proveedor por pagar y en NARANJA una factura de venta por cobrar.
+1. En cada casilla aparecen iconos grandes y macizos con lo que pasó ese día: en VERDE una venta, en ROJO un gasto, en AZUL una recepción de proveedor, en AMARILLO una factura de proveedor por pagar y en NARANJA una factura de venta por cobrar.
 2. Pon el cursor sobre el icono para ver cuántas operaciones de ese tipo hay. Debajo del calendario está la leyenda con los cinco colores.
-3. Son de SÓLO LECTURA: no se pueden editar ni borrar, porque son el reflejo de las operaciones ya registradas en Ventas, Gastos, Compras y Contabilidad.
+3. Son de SÓLO LECTURA: no se pueden editar ni borrar, porque son el reflejo de las operaciones ya registradas en Ventas, Gastos, Compras y Contabilidad. Un gasto deja de estar amarillo en cuanto lo marcas pagado, y una factura deja de estar naranja en cuanto se cobra por completo.
+
+### La Agenda del mes
+
+1. Debajo del calendario está la «Agenda»: un listado, día por día y en orden, de todos los días con movimiento. En cada tarjeta ves la fecha, los marcadores con sus cifras (cuántas ventas y por cuánto, los gastos, las recepciones, lo que queda por pagar y por cobrar) y los recordatorios capturados ese día.
+2. El botón con forma de ojo («Ver») abre en una ventana el detalle completo de ese día.
+3. Sólo aparecen los días que tienen algo: operaciones o recordatorios.
 
 ### Ver el detalle de un día
 
-1. Haz clic en cualquier casilla. A la derecha aparece «Lo que pasó ese día», con cuántas ventas hubo y por cuánto, los gastos, las recepciones, lo que queda por pagar y lo que queda por cobrar.
-2. Un gasto de proveedor deja de aparecer en amarillo en cuanto lo marcas como pagado, y una factura de venta deja de estar en naranja en cuanto se cobra por completo.
+- Haz clic en el botón «Ver» de la tarjeta de ese día en la Agenda. Se abre una ventana con la fecha, cada tipo de marcador con su cantidad y su importe, y cuántos recordatorios hay. El botón «Ver en el calendario» te lleva a esa fecha.
 
 ### Recordatorios y eventos
 
-1. Para crear uno, haz clic una SEGUNDA vez sobre la casilla del día que ya está seleccionada (la primera vez sólo la selecciona): se abre una ventana con el formulario. También puedes usar el botón «Nuevo recordatorio o evento» del panel del día.
+1. Para crear uno, haz clic una SEGUNDA vez sobre la casilla del día que ya está seleccionada (la primera vez sólo la selecciona): se abre una ventana con el formulario. También puedes usar el botón «Nuevo recordatorio o evento» de arriba.
 2. La ventana trae la fecha ya cargada con el día elegido: nombre, hora opcional, descripción, negocio e importancia (Bajo, Medio o Alto). Pulsa «Guardar»; si falta algo, la ventana se queda abierta y avisa debajo del campo.
-3. Los eventos del día se listan en su casilla con puntos de color según su importancia: verde Bajo, amarillo Medio, rojo Alto.
-4. Cada evento se puede editar o eliminar desde su tarjeta; la baja pide confirmación.
-
-### La agenda del mes
-
-- Abajo de todo está la «Agenda»: todos los días del mes que tienen eventos, en orden, con sus tarjetas.
+3. Los eventos se listan en su tarjeta de la Agenda con puntos de color según su importancia: verde Bajo, amarillo Medio, rojo Alto. Cada uno se puede editar o eliminar; la baja pide confirmación.
 
 > **Consejos**
 > - Lo que se vende, se gasta o se recibe se marca solo: no hay que capturarlo dos veces en el calendario.
 > - Los recordatorios son del equipo: lo que registra uno lo leen todos los administradores.
 > - El calendario no manda correos ni avisos: es una pantalla para consultar.
-> - Si un evento no aparece en el calendario, revisa que su fecha sea del mes que estás viendo.
+> - Los archivos que subes a ventas y gastos son sólo respaldo: no cambian las cifras que ves aquí.
 
 ---
 
