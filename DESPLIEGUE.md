@@ -229,11 +229,12 @@ DESPLIEGUE.md               este fichero
 | | |
 |---|---|
 | Fecha | 23 de octubre de 2026 |
-| Tag | **19** (`gmr27/cotizaciones:19`) |
-| Revisión de Helm | 21 |
-| Pod de la app | `cotizaciones-7486fb8f4b-7wxpp` |
+| Tag | **20** (`gmr27/cotizaciones:20`) |
+| Revisión de Helm | 22 |
+| Pod de la app | `cotizaciones-78d84b9bc4-whn6m` |
 | MySQL | **no reiniciado** (mismo pod, 17 días) |
-| Migraciones aplicadas por `migrar-base` | `027_categorias_adicionales.sql`, `028_calendario.sql` |
+| Migraciones | «Migraciones al día» (28 aplicadas: hasta `028_calendario.sql`) |
+| App de escritorio | **1.1.0** publicada (`cotizaciones-escritorio_1.1.0_amd64.deb`, 94.9 MB, SHA-256 `60afbd84…`) |
 | URL | https://cotizaciones.iguzman.com.mx |
 
 Comprobar el estado real en cualquier momento con los comandos de la

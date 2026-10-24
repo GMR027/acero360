@@ -1,7 +1,7 @@
 {
   "name": "cotizaciones-escritorio",
   "productName": "Cotizaciones",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Aplicación de escritorio de Acero 360: ventana segura hacia la plataforma web (los datos viven en el servidor).",
   "main": "src/main.js",
   "author": {
