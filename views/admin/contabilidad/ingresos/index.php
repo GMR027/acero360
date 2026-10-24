@@ -107,7 +107,7 @@ template('resumenReporte', [
         <div class="tabla-contenedor">
             <table class="tabla">
                 <caption class="solo-lectores">Ingresos por ventas</caption>
-                <thead><tr><th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Negocio</th>
+                <thead><tr><th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Alias</th><th scope="col">Negocio</th>
                     <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th>
                     <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Facturación</th>
                     <th scope="col" class="tabla--centro">Cobro</th><th scope="col" class="tabla--numerica">Saldo</th>
@@ -121,6 +121,7 @@ template('resumenReporte', [
                             <td><?= date('d/m/Y', strtotime($i['fecha'])) ?></td>
                             <td><strong><?= escaparValores($i['folio']) ?></strong></td>
                             <td><?= escaparValores($i['cliente_empresa'] ?: $i['cliente_nombre']) ?></td>
+                            <td><?= escaparValores(trim((string) $i['cliente_alias']) !== '' ? $i['cliente_alias'] : '—') ?></td>
                             <td><?= escaparValores($i['empresa_nombre']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda((float) $i['subtotal'] - (float) $i['descuento']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($i['iva']) ?></td>
@@ -145,7 +146,7 @@ template('resumenReporte', [
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
-                <tfoot><tr><td colspan="4"><strong>Total de los <?= number_format($tot['n']) ?> ingresos filtrados</strong></td>
+                <tfoot><tr><td colspan="5"><strong>Total de los <?= number_format($tot['n']) ?> ingresos filtrados</strong></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda($tot['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($tot['iva']) ?></td>
                     <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="2"></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda($tot['saldo']) ?></td><td colspan="2"></td></tr></tfoot>

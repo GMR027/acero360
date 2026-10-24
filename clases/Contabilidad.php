@@ -715,7 +715,7 @@ class Contabilidad
         [$donde, $tipos, $valores] = self::condicionesIngresos($filtros);
 
         $consulta = self::$db->prepare(
-            "SELECT i.*, e.nombre AS empresa_nombre, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+            "SELECT i.*, e.nombre AS empresa_nombre, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa, cl.alias AS cliente_alias,
                     (SELECT COALESCE(SUM(ROUND(c.importe * 100)), 0) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente') AS cobrado_centavos,
                     (SELECT COUNT(*) FROM documentos d WHERE d.entidad = 'ingreso' AND d.entidad_id = i.id AND d.activo = 1) AS documentos
                FROM ingresos i
