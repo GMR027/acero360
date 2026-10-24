@@ -16,7 +16,10 @@
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# El entorno (Docker, cron, pruebas) manda sobre .env: sólo se completa lo que no venga definido.
+PREVIAS="$(env | grep -E '^(DB_HOST|DB_USER|DB_PASSWORD|DB_NAME)=' || true)"
 [[ -f "$RAIZ/.env" ]] && set -a && source <(grep -E '^(DB_HOST|DB_USER|DB_PASSWORD|DB_NAME)=' "$RAIZ/.env") && set +a
+while IFS= read -r linea; do [[ -n "$linea" ]] && export "$linea"; done <<< "$PREVIAS"
 
 DB_HOST="${DB_HOST:-localhost}"; DB_USER="${DB_USER:-root}"; DB_NAME="${DB_NAME:-cotizaciones}"
 export MYSQL_PWD="${DB_PASSWORD:-}"

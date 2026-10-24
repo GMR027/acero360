@@ -15,6 +15,9 @@ foreach (\Model\RedactorDocumento::todos() as $d) {
 }
 $carpetas = array_values(array_diff(array_keys($porDepto), [\Classes\Carpetas::SIN]));
 
+// Confirmaciones, carpetas e iconos de las herramientas portadas (modal estilizado).
+$GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
+
 template('header', [
     'titulo'    => 'Redactor',
     'subtitulo' => 'Herramientas personales',

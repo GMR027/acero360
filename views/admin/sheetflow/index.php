@@ -21,6 +21,9 @@ foreach ($todas as $h) {
 }
 $carpetas = array_values(array_diff(array_keys($porDepto), [\Classes\Carpetas::SIN]));
 
+// Confirmaciones, carpetas e iconos de las herramientas portadas (modal estilizado).
+$GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
+
 template('header', [
     'titulo'    => 'SheetFlow',
     'subtitulo' => 'Herramientas personales',

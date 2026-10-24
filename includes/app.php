@@ -69,11 +69,13 @@ $clasesConectadas = [
     App\Lecturas::class,
     App\InfoVersion::class,
     App\Papelera::class,
+    App\Almacenamiento::class,
     App\Materiales::class,
     App\PorTerminar::class,
     App\PagosCompra::class,
     App\CompraContable::class,
     App\ProductosProveedor::class,
+    App\CoincidenciasFactura::class,
     App\EventosCalendario::class,
 ];
 

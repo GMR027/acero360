@@ -53,6 +53,9 @@ $departamentos = \Model\RedactorDocumento::departamentos();
 $incluidas = \Classes\RedactorPlantillas::incluidas();
 $propias = \Classes\RedactorPlantillas::todas();
 
+// Data-confirm de «Eliminar plantilla» → modal estilizado (herramientas.js).
+$GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
+
 template('header', [
     'titulo'    => 'Nuevo documento · Redactor',
     'subtitulo' => 'Herramientas personales',
@@ -74,6 +77,13 @@ template('header', [
         <?php foreach (($alertas['error'] ?? []) as $e) : ?>
             <div class="alerta alerta--error"><?= s($e) ?></div>
         <?php endforeach; ?>
+
+        <!-- Formulario propio de borrado de plantillas. Va FUERA del form
+             principal: un <form> anidado lo descartaría el navegador. Su
+             botón lo referencia con form="rd-form-plantilla-eliminar". -->
+        <form method="POST" action="/admin/redactor/plantilla-eliminar" class="en-linea"
+              id="rd-form-plantilla-eliminar" formnovalidate
+              data-confirm="¿Eliminar la plantilla seleccionada?|Se quitará de la lista de plantillas. Esta acción no se puede deshacer.|Eliminar"></form>
 
         <form method="POST" action="/admin/redactor/crear" class="formulario">
             <input type="hidden" name="tabla" value="<?= (int) ($_GET['tabla'] ?? 0) ?>">
@@ -144,9 +154,8 @@ template('header', [
                             <strong><?= s($pl['nombre']) ?></strong>
                             <small><?= s($pl['descripcion'] !== '' ? $pl['descripcion'] : 'Plantilla guardada') ?></small></span>
                         <button type="submit" class="btn btn--peligro btn--sm"
-                                formaction="/admin/redactor/plantilla-eliminar" formnovalidate
+                                form="rd-form-plantilla-eliminar" formnovalidate
                                 name="eliminar_plantilla" value="<?= (int) $pl['id'] ?>"
-                                onclick="return confirm('¿Eliminar la plantilla «<?= s($pl['nombre']) ?>»?');"
                                 title="Eliminar plantilla">
                             <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                         </button>

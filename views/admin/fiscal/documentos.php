@@ -48,7 +48,7 @@ template('selectorPeriodo', ['accion' => '/admin/fiscal/documentos', 'periodo' =
                             <td><?= escaparValores(trim((string) $f['uuid_fiscal'] . ' ' . (string) $f['factura_folio'])) ?: '—' ?></td>
                             <td class="tabla--numerica cifra"><strong><?= formatoMoneda($f['total']) ?></strong></td>
                             <td><?= escaparValores($f['nota']) ?></td>
-                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">Ver</a></td></tr>
+                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'documentos')) ?>">Ver</a></td></tr>
                     <?php endforeach; ?>
                 </tbody>
                 <tfoot><tr><td colspan="5"><strong>Total</strong></td>

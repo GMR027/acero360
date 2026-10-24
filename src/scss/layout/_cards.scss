@@ -132,6 +132,64 @@
   &--alerta &__valor {
     color: $color-primario;
   }
+
+  &--sin-existencias &__valor {
+    color: $color-error;   // rojo: ya no queda nada (agotado) o la existencia es negativa
+  }
+
+  &--pocas-existencias &__valor {
+    color: $color-advertencia;   // naranja: quedan pocas (en o debajo de la cantidad mínima)
+  }
+
+  &--producto {
+    /* Tarjeta de producto del panel (más vendidos y existencias bajas):
+       miniatura cuadrada + código (SKU) + nombre, con la cifra debajo. */
+    gap: $espacio-sm;
+  }
+
+  &__producto {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    min-width: 0;
+  }
+
+  &__imagen {
+    flex-shrink: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+    object-fit: cover;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio;
+
+    &--vacia {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: $color-texto-secundario;
+    }
+  }
+
+  &__titulos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  &__codigo {
+    font-size: $fuente-xs;
+    font-weight: 600;
+    color: $color-primario-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__nombre {
+    font-weight: 600;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* Listado corto de actividad del panel. */

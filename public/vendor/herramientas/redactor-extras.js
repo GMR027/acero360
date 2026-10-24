@@ -866,7 +866,20 @@
         cv.addEventListener('pointerdown', function (e) {
             var p = pos(e), o = opciones();
             if (herr === 'borrar') { for (var i = formas.length - 1; i >= 0; i--) if (cerca(formas[i], p)) { formas.splice(i, 1); break; } redibujar(); return; }
-            if (herr === 'texto') { var t = prompt('Texto'); if (t) { o.t = 'texto'; o.a = p; o.txt = t; formas.push(o); redibujar(); } return; }
+            if (herr === 'texto') {
+                // Diálogo con campo (modal estilizado; nunca prompt()).
+                pedirTexto({
+                    sobreTitulo: 'Dibujo',
+                    titulo: 'Texto sobre el dibujo',
+                    etiqueta: 'Texto',
+                    placeholder: 'Escribe aquí…',
+                    maximo: 120,
+                    textoConfirmar: 'Insertar'
+                }).then(function (t) {
+                    if (t && t.trim()) { o.t = 'texto'; o.a = p; o.txt = t.trim(); formas.push(o); redibujar(); }
+                });
+                return;
+            }
             cv.setPointerCapture(e.pointerId); o.t = herr; o.a = p; o.b = p; if (herr === 'lapiz') o.pts = [p]; actual = o;
         });
         cv.addEventListener('pointermove', function (e) {

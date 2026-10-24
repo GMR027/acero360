@@ -152,6 +152,93 @@
     font-size: $fuente-xs;
     color: $color-texto-secundario;
   }
+
+  /* --- Menú plegado (escritorio): sólo queda el botón flotante --- */
+  &--plegado {
+    width: 0;
+    min-width: 0;
+    border-right-color: transparent;
+
+    &__marca,
+    &__bloque,
+    &__pie {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity $transicion-rapida, visibility $transicion-rapida;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Botón flotante de plegado (escritorio).
+   Vive fuera del <aside> y se ancla al borde derecho del menú con una
+   variable CSS: así, al plegarse, el botón se queda en el borde del panel y
+   sirve de asa para volver a desplegarlo.
+   -------------------------------------------------------------------------- */
+.sidebar__toggle {
+  position: fixed;
+  // Centrado en el alto del topbar, sobre el borde del menú: es el sitio
+  // natural de un botón de menú y no invade los rótulos de navegación.
+  top: calc(#{$alto-topbar} / 2);
+  left: var(--ancho-menu, #{$ancho-sidebar});
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid $color-borde;
+  border-radius: 50%;
+  background-color: $color-superficie;
+  color: $color-texto-secundario;
+  box-shadow: $sombra-2;
+  cursor: pointer;
+  transition: left $transicion, color $transicion-rapida,
+              background-color $transicion-rapida, border-color $transicion-rapida;
+
+  &:hover {
+    color: $color-texto-invertido;
+    background-color: $color-primario;
+    border-color: $color-primario;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-primario;
+    outline-offset: 2px;
+  }
+
+  /* Un icono u otro según el estado del menú. */
+  &-ico {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  &-ico--cerrado {
+    display: none;
+  }
+
+  /* Menú plegado: asomado en el borde izquierdo del panel y con el icono
+     de «abrir». Como queda medio fuera de la pantalla, se recoloca a 0. */
+  &--plegado {
+    left: 0;
+    transform: translate(-35%, -50%);
+
+    .sidebar__toggle-ico--abierto {
+      display: none;
+    }
+
+    .sidebar__toggle-ico--cerrado {
+      display: inline;
+    }
+  }
+
+  /* Tablet y móvil: no participa (allí ya están el riel y el cajón). */
+  @include hasta-tablet {
+    display: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------

@@ -62,6 +62,21 @@ template('resumenReporte', [
     ],
     'etiquetaComparativa' => 'vs. ' . nombreMes($mesAnt) . ' ' . $anioAnt,
     'exportar' => '/admin/fiscal/exportar?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'tipo' => 'movimientos']),
+    'accionesExtra' => [
+        [
+            'destino' => 'venta',
+            'texto'   => 'Registro Venta Inteligente',
+            'icono'   => 'receipt_long',
+            'ayuda'   => 'Sube la factura (XML, PDF o foto) que emitiste y el formulario de venta se llena solo con el cliente, las fechas y los renglones que sí se reconocen',
+        ],
+        [
+            'destino' => 'gasto',
+            'texto'   => 'Registro compra inteligente',
+            'icono'   => 'shopping_cart',
+            'ayuda'   => 'Sube la factura (XML, PDF o foto) que te dieron y el formulario de gasto se llena solo con el proveedor, el total, el folio fiscal y los renglones',
+        ],
+    ],
+    'ocrDisponible' => \App\LectorDocumental::ocrDisponible(),
 ]);
 ?>
 

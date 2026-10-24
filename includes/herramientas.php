@@ -36,6 +36,12 @@ function formatear_fecha($fecha, string $formato = 'd/m/Y'): string
     return $ts === false ? $fecha : date($formato, $ts);
 }
 
+/** Tamaño en bytes convertido a texto legible (1,4 MB / 312 KB / 98 B). */
+function formatear_tamano($bytes): string
+{
+    return \Classes\ArchivoAlmacen::legible((int) $bytes);
+}
+
 /** Nombre de archivo seguro para las descargas. */
 function slug_archivo(string $texto): string
 {

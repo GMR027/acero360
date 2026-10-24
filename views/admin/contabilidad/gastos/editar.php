@@ -40,6 +40,7 @@ template('header', ['titulo' => 'Editar gasto', 'subtitulo' => 'Contabilidad', '
             'gasto' => $gasto, 'errores' => $errores, 'proveedores' => \App\Proveedores::paraSelector(),
             'categorias' => \App\Gastos::categorias(), 'empresas' => \App\Empresas::mostrarTodos(100, 0),
             'cancelar' => '/admin/contabilidad/gastos/detalle?id=' . $id,
+            'reglasCategoria' => \App\CoincidenciasFactura::REGLAS_CATEGORIA,
         ]); ?>
     </form>
 </section>

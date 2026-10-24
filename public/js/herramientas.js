@@ -4,7 +4,8 @@
    · Añade el token CSRF a los fetch POST (la aplicación lo exige).
    · Traduce los iconos de Font Awesome que usan las vistas portadas a
      Material Symbols, para no cargar dos familias de iconos.
-   · Implementa confirmarModal() con el confirm() del navegador.
+   · Implementa confirmarModal() con el modal estilizado de la aplicación
+     (nunca con window.confirm) y ofrece pedirTexto() en lugar de prompt().
    · Maneja los formularios con data-confirm y el cambio de carpeta.
    ========================================================================== */
 (function () {
@@ -29,18 +30,47 @@
         };
     }
 
-    // ---------- confirmación ----------
+    // ---------- confirmación y peticiones de texto (modal estilizado) ----------
+    // confirmarModal() y pedirTexto() viven en modulos/modal.js (app.js), que se
+    // carga después que este archivo: sólo se usan dentro de manejadores de
+    // eventos, cuando app.js ya está ejecutado.
+
     window.confirmarModal = function (opciones) {
-        var texto = [opciones.titulo || '', opciones.mensaje || ''].filter(Boolean).join('\n\n');
-        return Promise.resolve(window.confirm(texto));
+        var o = opciones || {};
+        return new Promise(function (resolver) {
+            confirmarAccion({
+                sobreTitulo: o.sobreTitulo || 'Confirmación',
+                titulo: o.titulo || '¿Continuar?',
+                mensaje: o.mensaje || '',
+                textoConfirmar: o.aceptar || o.textoConfirmar || 'Sí, continuar',
+                alConfirmar: function () { resolver(true); },
+                alCerrar: function () { resolver(false); }
+            });
+        });
     };
 
-    document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (form.dataset.confirmado) return;
-            var partes = String(form.dataset.confirm || '').split('|').filter(Boolean);
-            if (!window.confirm(partes.join('\n\n'))) e.preventDefault();
-            else form.dataset.confirmado = '1';
+    /* Se registra al terminar la carga (y no al parsear): así el manejador de
+       validación de app.js ya está colocado y, si rechaza el envío, este
+       escuchador lo ve con e.defaultPrevented y no llega a preguntar. */
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                if (form.dataset.confirmado) return;
+                // Si app.js ya rechazó el envío (campos sin validar), no se pregunta.
+                if (e.defaultPrevented) return;
+                e.preventDefault();
+                var partes = String(form.dataset.confirm || '').split('|');
+                confirmarAccion({
+                    sobreTitulo: 'Confirmación',
+                    titulo: partes[0] || '¿Continuar?',
+                    mensaje: partes[1] || 'Esta acción no se puede deshacer.',
+                    textoConfirmar: partes[2] || 'Sí, continuar',
+                    alConfirmar: function () {
+                        form.dataset.confirmado = '1';
+                        form.submit();   // submit() nativo: no vuelve a disparar el evento
+                    }
+                });
+            });
         });
     });
 
@@ -50,8 +80,18 @@
             if (!sel.value) return;
             var carpeta = sel.value;
             if (carpeta === '__nueva') {
-                carpeta = window.prompt('Nombre de la carpeta nueva:') || '';
-                if (!carpeta.trim()) { sel.value = ''; return; }
+                sel.value = '';
+                pedirTexto({
+                    titulo: 'Carpeta nueva',
+                    mensaje: 'Se creará al mover el elemento dentro de ella.',
+                    etiqueta: 'Nombre de la carpeta',
+                    textoConfirmar: 'Crear y mover'
+                }).then(function (nombre) {
+                    nombre = (nombre || '').trim();
+                    if (!nombre) return;
+                    enviar('/admin/' + sel.dataset.herramienta + '/mover', { id: sel.dataset.id, carpeta: nombre });
+                });
+                return;
             }
             enviar('/admin/' + sel.dataset.herramienta + '/mover', { id: sel.dataset.id, carpeta: carpeta });
         });
@@ -60,9 +100,17 @@
     document.querySelectorAll('[data-carpeta-renombrar]').forEach(function (boton) {
         boton.addEventListener('click', function () {
             var anterior = boton.dataset.carpetaRenombrar || '';
-            var nueva = window.prompt('Nuevo nombre de la carpeta «' + anterior + '»:', anterior);
-            if (nueva === null || !nueva.trim() || nueva === anterior) return;
-            enviar('/admin/' + boton.dataset.herramienta + '/renombrar', { de: anterior, a: nueva });
+            pedirTexto({
+                titulo: 'Renombrar carpeta',
+                mensaje: 'Si otra carpeta usa el mismo nombre, se unirán en una sola.',
+                etiqueta: 'Nombre de la carpeta',
+                predeterminado: anterior,
+                textoConfirmar: 'Guardar'
+            }).then(function (nueva) {
+                nueva = (nueva || '').trim();
+                if (!nueva || nueva === anterior) return;
+                enviar('/admin/' + boton.dataset.herramienta + '/renombrar', { de: anterior, a: nueva });
+            });
         });
     });
 
@@ -74,10 +122,13 @@
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         }).then(function (r) { return r.json().catch(function () { return { success: r.ok }; }); })
           .then(function (d) {
-              if (d && d.success === false) { window.alert(d.error || 'No se pudo completar la acción'); return; }
+              if (d && d.success === false) {
+                  crearAlerta('error', d.error || 'No se pudo completar la acción', 'No se pudo completar');
+                  return;
+              }
               window.location.reload();
           })
-          .catch(function () { window.alert('No se pudo completar la acción'); });
+          .catch(function () { crearAlerta('error', 'No se pudo completar la acción', 'Sin respuesta'); });
     }
 
     // ---------- iconos Font Awesome → Material Symbols ----------

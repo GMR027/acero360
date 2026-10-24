@@ -8,6 +8,46 @@ soloAdmin();
 $errores = [];
 $gasto   = ['fecha' => date('Y-m-d'), 'iva_tasa' => '16', 'naturaleza' => 'gasto', 'estado_pago' => 'pendiente'];
 
+/* Factura cargada con el botón «Registro compra inteligente» (Contabilidad):
+ * se precarga lo que el motor documental leyó y pudo cotejar. Nada se guarda
+ * hasta que la persona revisa los campos y envía el formulario. */
+$propuesta      = null;
+$lecturaId     = (int) ($_REQUEST['lectura'] ?? 0);
+$lecturaArchivo = $lecturaId > 0 ? \App\Lecturas::buscarID($lecturaId) : null;
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null) {
+    $propuesta = \App\Lecturas::propuesta($lecturaId, 'gasto');
+
+    if ($propuesta === null) {
+        agregarAlerta('advertencia', 'No se encontró la lectura #' . $lecturaId . ': captura el gasto a mano.');
+    } else {
+        $formaSata = ['01' => 'Efectivo', '02' => 'Cheque', '03' => 'Transferencia', '04' => 'Tarjeta', '05' => 'Tarjeta', '06' => 'Tarjeta'];
+
+        $proveedorId = $propuesta['proveedor'] ? (int) $propuesta['proveedor']['id'] : 0;
+        $concepto = trim((string) ($propuesta['campos']['emisor_nombre']['valor'] ?? ''));
+        if ($concepto === '' && $propuesta['sin_equivalente']) {
+            $concepto = (string) $propuesta['sin_equivalente'][0]['descripcion'];
+        }
+
+        $gasto = array_merge($gasto, [
+            'fecha'              => $propuesta['fecha'],
+            'concepto'           => mb_substr($concepto !== '' ? 'Factura de ' . $concepto : '', 0, 255),
+            'beneficiario_tipo'  => $proveedorId > 0 ? 'proveedor' : 'otro',
+            'proveedor_id'       => $proveedorId,
+            'beneficiario'       => $proveedorId > 0 ? '' : mb_substr((string) ($propuesta['campos']['emisor_nombre']['valor'] ?? ''), 0, 150),
+            'categoria_id'       => $propuesta['categoria'] ? (int) $propuesta['categoria']['id'] : 0,
+            'total'              => $propuesta['total'] > 0 ? number_format($propuesta['total'], 2, '.', '') : '',
+            'iva_tasa'           => (string) (int) $propuesta['iva_tasa'],
+            'comprobante_fiscal' => '1',
+            'uuid_fiscal'        => $propuesta['uuid'],
+            'metodo_pago'        => $formaSata[substr($propuesta['forma_pago'], 0, 2)] ?? '',
+            'naturaleza'         => 'compra',
+            'revision_fiscal'    => 'por_validar',
+            'empresa_id'         => $propuesta['empresa'] ? (int) $propuesta['empresa']['id'] : 0,
+        ]);
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     $gasto = $_POST;
     $gasto['reparto'] = array_map(static fn ($e, $p) => ['empresa_id' => (int) $e, 'porcentaje' => (float) $p],
@@ -50,6 +90,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
         $nuevoId = \App\Gastos::$ultimoId;
         $subidos = 0;
         $fallos  = [];
+
+        // El documento leído con el botón inteligente se adjunta solo al gasto
+        // (queda en `documentos` con su CFDI, sin volver a pedirlo).
+        if ($lecturaArchivo !== null) {
+            $rutaLectura = \App\Archivos::base() . '/' . $lecturaArchivo['archivo'];
+            if (is_readable($rutaLectura)) {
+                $adjunto = [
+                    'name'     => (string) $lecturaArchivo['nombre_original'],
+                    'type'     => (string) $lecturaArchivo['mime'],
+                    'tmp_name' => $rutaLectura,
+                    'error'    => UPLOAD_ERR_OK,
+                    'size'     => (int) filesize($rutaLectura),
+                ];
+                if (\App\Archivos::subir('gasto', $nuevoId, $adjunto, 'auto', (int) ($_SESSION['id'] ?? 0), null, '', false)) {
+                    $subidos++;
+                } else {
+                    $fallos[] = $lecturaArchivo['nombre_original'] . ': ' . (\App\Archivos::getErrores()[0] ?? 'no se pudo adjuntar');
+                }
+            }
+        }
+
         foreach (\App\Archivos::listaDeSubidas($_FILES['archivo'] ?? null) as $archivo) {
             if (\App\Archivos::subir('gasto', $nuevoId, $archivo, 'auto', (int) ($_SESSION['id'] ?? 0))) {
                 $subidos++;
@@ -69,12 +130,24 @@ template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'r
 ?>
 
 <section class="tarjeta">
-    <form class="formulario" action="/admin/contabilidad/gastos/crear" method="post" enctype="multipart/form-data" novalidate>
+    <?php if ($propuesta && !empty($propuesta['duplicados'])) : ?>
+        <!-- Coincidencias que ya existen: las consume src/js/modulos/inteligente.js
+             para abrir el aviso con su botón de «Ver gasto» / «Ver venta». -->
+        <div hidden
+             data-coincidencias="<?= escaparValores(json_encode($propuesta['duplicados'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"
+             data-ruta="/admin/contabilidad/gastos/crear?lectura=<?= (int) $lecturaId ?>"
+             data-origen="Registro compra inteligente"></div>
+    <?php endif; ?>
+    <?php if ($propuesta) : ?>
+        <?php template('avisoLectura', ['propuesta' => $propuesta, 'nombreDoc' => 'gasto']); ?>
+    <?php endif; ?>
+    <form class="formulario" action="/admin/contabilidad/gastos/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
         <?php template('formularioGasto', [
             'gasto' => $gasto, 'errores' => $errores, 'proveedores' => \App\Proveedores::paraSelector(),
             'categorias' => \App\Gastos::categorias(), 'empresas' => \App\Empresas::mostrarTodos(100, 0),
             'cancelar' => '/admin/contabilidad/gastos', 'permiteArchivos' => true,
+            'reglasCategoria' => \App\CoincidenciasFactura::REGLAS_CATEGORIA,
         ]); ?>
     </form>
 </section>

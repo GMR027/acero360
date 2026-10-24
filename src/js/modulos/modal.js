@@ -20,6 +20,13 @@ let elementoFocoAnterior = null;
 let accionConfirmada = null;
 
 /**
+ * Acción pendiente al cerrar el modal (diálogos con valor: pedirTexto).
+ * Se invoca SIEMPRE que el modal se cierra, de la forma que sea, y sólo una
+ * vez, para resolver la promesa pendiente aunque el usuario pulse Escape.
+ */
+let accionAlCerrar = null;
+
+/**
  * Devuelve el nodo raíz del modal o null si la plantilla no está en la página.
  *
  * @returns {HTMLElement|null}
@@ -42,6 +49,8 @@ function obtenerNodoModal() {
  * @param {Function} [opciones.alConfirmar] Se invoca al pulsar la acción principal.
  * @param {string}   [opciones.textoConfirmar] Texto del botón principal.
  * @param {boolean}  [opciones.confirmacion] Estilo de diálogo de confirmación.
+ * @param {Function} [opciones.alCerrar] Se invoca UNA vez al cerrar, sea como sea
+ *                                       (confirmar, cancelar, Escape o clic fuera).
  */
 function abrirModal(opciones) {
   const modal = obtenerNodoModal();
@@ -77,6 +86,7 @@ function abrirModal(opciones) {
   // --- Pie de acciones ----------------------------------------------------
   const nodoPie = modal.querySelector('#modal-pie');
   accionConfirmada = typeof opciones.alConfirmar === 'function' ? opciones.alConfirmar : null;
+  accionAlCerrar = typeof opciones.alCerrar === 'function' ? opciones.alCerrar : null;
 
   if (nodoPie) {
     vaciarNodo(nodoPie);
@@ -115,7 +125,7 @@ function abrirModal(opciones) {
   }
 }
 
-/** Cierra el modal y devuelve el foco al elemento que lo abrió. */
+/** Cierra el modal, devuelve el foco al elemento que lo abrió y avisa a alCerrar. */
 function cerrarModal() {
   const modal = obtenerNodoModal();
   if (!modal || modal.hidden) {
@@ -130,6 +140,13 @@ function cerrarModal() {
     elementoFocoAnterior.focus();
   }
   elementoFocoAnterior = null;
+
+  // Se toma antes de limpiar: la acción puede abrir otro diálogo.
+  const alCerrar = accionAlCerrar;
+  accionAlCerrar = null;
+  if (typeof alCerrar === 'function') {
+    alCerrar();
+  }
 }
 
 /**
@@ -162,7 +179,10 @@ function confirmarAccion(opciones) {
   const cuerpo = document.createElement('div');
   cuerpo.className = 'columna';
   cuerpo.appendChild(parrafo);
-  cuerpo.appendChild(nota);
+  // Si el mensaje ya avisa de ello (formularios con data-confirm), no se repite.
+  if (!/no se puede deshacer/i.test(opciones.mensaje || '')) {
+    cuerpo.appendChild(nota);
+  }
 
   abrirModal({
     sobreTitulo: opciones.sobreTitulo || 'Confirmación',
@@ -171,6 +191,95 @@ function confirmarAccion(opciones) {
     confirmacion: true,
     textoConfirmar: opciones.textoConfirmar || 'Sí, continuar',
     alConfirmar: opciones.alConfirmar,
+  });
+}
+
+/**
+ * Diálogo para pedir un texto al usuario (sustituye a window.prompt).
+ *
+ * Devuelve una promesa con el texto escrito o null si cancela (botón, clic
+ * fuera o tecla Escape). El campo se autocompleta con $predeterminado.
+ *
+ * @param {Object}  opciones
+ * @param {string}  opciones.titulo
+ * @param {string}  [opciones.mensaje]    Explicación breve sobre el campo.
+ * @param {string}  [opciones.etiqueta]   Rótulo del campo.
+ * @param {string}  [opciones.predeterminado] Valor inicial del campo.
+ * @param {string}  [opciones.placeholder] Ejemplo mostrado dentro del campo.
+ * @param {number}  [opciones.maximo]     Longitud máxima (carácteres).
+ * @param {string}  [opciones.textoConfirmar] Texto del botón principal.
+ * @returns {Promise<string|null>}
+ */
+function pedirTexto(opciones) {
+  const opcionesTexto = opciones || {};
+
+  return new Promise(function (resolver) {
+    let resuelta = false;
+    const responder = function (valor) {
+      if (resuelta) {
+        return;
+      }
+      resuelta = true;
+      resolver(valor);
+    };
+
+    const campo = document.createElement('input');
+    campo.type = 'text';
+    campo.className = 'control';
+    campo.value = opcionesTexto.predeterminado || '';
+    if (opcionesTexto.placeholder) {
+      campo.placeholder = opcionesTexto.placeholder;
+    }
+    if (opcionesTexto.maximo) {
+      campo.maxLength = opcionesTexto.maximo;
+    }
+
+    const etiqueta = document.createElement('label');
+    etiqueta.className = 'campo';
+    const rotulo = document.createElement('span');
+    rotulo.className = 'campo__etiqueta';
+    rotulo.textContent = opcionesTexto.etiqueta || 'Nombre';
+    etiqueta.appendChild(rotulo);
+    etiqueta.appendChild(campo);
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'columna';
+    if (opcionesTexto.mensaje) {
+      const parrafo = document.createElement('p');
+      parrafo.className = 'texto-base texto-secundario';
+      parrafo.textContent = opcionesTexto.mensaje;
+      cuerpo.appendChild(parrafo);
+    }
+    cuerpo.appendChild(etiqueta);
+
+    // Intro en el campo = aceptar (el campo no está dentro de un <form>).
+    campo.addEventListener('keydown', function (evento) {
+      if (evento.key !== 'Enter') {
+        return;
+      }
+      evento.preventDefault();
+      responder(campo.value);   // antes de cerrar: si no, alCerrar resolvería null
+      cerrarModal();
+    });
+
+    abrirModal({
+      sobreTitulo: opcionesTexto.sobreTitulo || '',
+      titulo: opcionesTexto.titulo || 'Escribe un valor',
+      cuerpo: cuerpo,
+      textoConfirmar: opcionesTexto.textoConfirmar || 'Aceptar',
+      alConfirmar: function () {
+        const valor = campo.value;
+        // cerrarModal() dispara alCerrar, que responde(null); al llegar aquí
+        // la promesa ya está resuelta y este valor no la pisa (resuelta=true).
+        responder(valor);
+      },
+      alCerrar: function () {
+        responder(null);
+      },
+    });
+
+    campo.focus();
+    campo.select();
   });
 }
 
@@ -235,10 +344,13 @@ function manejarInteraccionModal(evento) {
 
   if (destino.closest('[data-confirmar-modal]')) {
     evento.preventDefault();
+    // La acción ANTES de cerrar: así los diálogos con valor (pedirTexto)
+    // resuelven con lo escrito y no con el null del cierre.
     const accion = accionConfirmada;
-    cerrarModal();
+    accionConfirmada = null;
     if (typeof accion === 'function') {
       accion();
     }
+    cerrarModal();
   }
 }

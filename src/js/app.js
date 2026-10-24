@@ -61,6 +61,35 @@ function cerrarSidebar() {
   document.body.style.overflow = '';
 }
 
+/**
+ * Pliega o despliega el menú lateral en ESCRITORIO (botón flotante).
+ * No toca el cajón de móvil: ése lo gobierna alternarSidebar().
+ * La preferencia se guarda en localStorage y la aplica el guion inline de
+ * templates/sidebar.php, para que no haya parpadeo al recargar.
+ */
+function alternarMenuEscritorio() {
+  const sidebar = document.getElementById('sidebar');
+  const boton = document.getElementById('sidebar-toggle');
+
+  if (!sidebar || !boton) {
+    return;
+  }
+
+  const plegado = sidebar.classList.toggle('sidebar--plegado');
+  boton.classList.toggle('sidebar__toggle--plegado', plegado);
+  boton.setAttribute('aria-expanded', plegado ? 'false' : 'true');
+
+  const etiqueta = plegado ? 'Mostrar el menú lateral' : 'Ocultar el menú lateral';
+  boton.setAttribute('aria-label', etiqueta);
+  boton.setAttribute('title', etiqueta);
+
+  try {
+    window.localStorage.setItem('a360_menu_plegado', plegado ? '1' : '0');
+  } catch (e) {
+    /* Almacenamiento no disponible: el estado vale sólo para esta sesión. */
+  }
+}
+
 /** Abre o cierra la hoja "Nueva venta / Nueva cotización" de la barra inferior. */
 function alternarHojaNuevo(forzarAbierta) {
   const hoja = document.getElementById('hoja-nuevo');
@@ -170,6 +199,14 @@ function inicializarAplicacion() {
   if (fondoSidebar) {
     fondoSidebar.addEventListener('click', function () {
       cerrarSidebar();
+    });
+  }
+
+  // Botón flotante de escritorio: pliega/despliega el menú para ganar espacio.
+  const botonToggleMenu = document.getElementById('sidebar-toggle');
+  if (botonToggleMenu) {
+    botonToggleMenu.addEventListener('click', function () {
+      alternarMenuEscritorio();
     });
   }
 

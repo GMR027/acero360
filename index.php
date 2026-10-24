@@ -151,6 +151,16 @@ $router->post('/admin/sheetflow/api/imagen',  'views/admin/sheetflow/api/imagen.
 $router->get('/admin/sheetflow/api/version',  'views/admin/sheetflow/api/version.php', 'soloAdmin');
 $router->get('/admin/sheetflow/api/datos',    'views/admin/sheetflow/api/datos.php',   'soloAdmin');
 
+// Herramientas personales — Archivo (carpetas virtuales con documentos subidos).
+$router->get('/admin/archivo',                 'views/admin/archivo/index.php',     'soloAdmin');
+$router->post('/admin/archivo/subir',          'views/admin/archivo/subir.php',     'soloAdmin');
+$router->post('/admin/archivo/crear-carpeta',  'views/admin/archivo/accion.php',    'soloAdmin');
+$router->post('/admin/archivo/renombrar-carpeta', 'views/admin/archivo/accion.php', 'soloAdmin');
+$router->post('/admin/archivo/eliminar-carpeta',  'views/admin/archivo/accion.php', 'soloAdmin');
+$router->post('/admin/archivo/mover',          'views/admin/archivo/accion.php',    'soloAdmin');
+$router->post('/admin/archivo/eliminar-archivo',  'views/admin/archivo/accion.php', 'soloAdmin');
+$router->get('/admin/archivo/descargar',       'views/admin/archivo/descargar.php', 'soloAdmin');
+
 // CRUD de empresas / negocios (los dos negocios del proyecto).
 $router->get('/admin/empresas',        'views/admin/empresas/index.php',  'soloAdmin');
 $router->post('/admin/empresas',       'views/admin/empresas/index.php',  'soloAdmin');
@@ -241,6 +251,7 @@ $router->post('/admin/contabilidad/gastos/accion',          'views/admin/contabi
 $router->get('/admin/contabilidad/gastos/exportar',        'views/admin/contabilidad/gastos/exportar.php',      'soloAdmin');
 $router->get('/admin/contabilidad/lectura',               'views/admin/contabilidad/lectura/index.php',        'soloAdmin');
 $router->post('/admin/contabilidad/lectura',              'views/admin/contabilidad/lectura/index.php',        'soloAdmin');
+$router->post('/admin/contabilidad/lectura/inteligente',   'views/admin/contabilidad/lectura/inteligente.php',   'soloAdmin');
 $router->get('/admin/contabilidad/lectura/revisar',       'views/admin/contabilidad/lectura/revisar.php',      'soloAdmin');
 $router->post('/admin/contabilidad/lectura/revisar',      'views/admin/contabilidad/lectura/revisar.php',      'soloAdmin');
 $router->get('/admin/contabilidad/documentos',              'views/admin/contabilidad/documentos/index.php',     'soloAdmin');
@@ -262,6 +273,9 @@ $router->post('/admin/ajustes/tema', 'views/admin/ajustes-tema.php', 'soloAdmin'
 // Papelera: ventas y cotizaciones eliminadas (se restauran durante 90 días).
 $router->get('/admin/ajustes/papelera',  'views/admin/ajustes-papelera.php', 'soloAdmin');
 $router->post('/admin/ajustes/papelera', 'views/admin/ajustes-papelera.php', 'soloAdmin');
+// Almacenamiento: espacio ocupado y copias de seguridad (respaldo automático diario y restauración).
+$router->get('/admin/ajustes/almacenamiento',  'views/admin/ajustes-almacenamiento.php', 'soloAdmin');
+$router->post('/admin/ajustes/almacenamiento', 'views/admin/ajustes-almacenamiento.php', 'soloAdmin');
 $router->get('/admin/estadisticas',          'views/admin/estadisticas/index.php',    'soloAdmin');
 $router->get('/admin/estadisticas/exportar', 'views/admin/estadisticas/exportar.php', 'soloAdmin');
 

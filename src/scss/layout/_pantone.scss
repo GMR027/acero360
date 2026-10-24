@@ -1,0 +1,44 @@
+/* ==========================================================================
+   _pantone.scss — Paleta de colores Pantone (selector de public/js/pantone.js).
+
+   El JavaScript inyecta casi todos los estilos junto al popover para poder
+   convivir con las tres herramientas; aquí queda sólo el botón que se coloca
+   junto a cada input[type="color"] de Redactor, SheetFlow y Editor.
+   ========================================================================== */
+
+.ptn-disparador {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .2rem;
+    flex: 0 0 auto;
+    vertical-align: middle;
+    margin-left: .25rem;
+    padding: 0 .3rem;
+    min-width: 1.9rem;
+    height: 1.85rem;
+    border: 1px solid var(--border, #d8dee9);
+    border-radius: .45rem;
+    background: var(--bg-secondary, #f8fafc);
+    color: var(--text-muted, #64748b);
+    cursor: pointer;
+    line-height: 1;
+    transition: background .15s, border-color .15s, color .15s;
+
+    &:hover {
+        border-color: var(--primary, #2563eb);
+        color: var(--primary, #2563eb);
+        background: var(--surface, #fff);
+    }
+
+    &[aria-expanded="true"] {
+        border-color: var(--primary, #2563eb);
+        color: #fff;
+        background: var(--primary, #2563eb);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--primary, #2563eb);
+        outline-offset: 1px;
+    }
+}

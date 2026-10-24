@@ -264,6 +264,22 @@ class Contabilidad
         return $fila ? self::buscarIngreso((int) $fila['id']) : null;
     }
 
+    /**
+     * Ruta interna del detalle de un ingreso: todo lo que se puede indicar (facturación, CFDI y
+     * cobros) vive en el detalle de su venta, así que ahí es donde se abre. El detalle del ingreso
+     * sólo queda para los registros legados sin venta asociada (y de ahí redirige).
+     *
+     * @param string $ancla  Ancla opcional (#facturacion, #cobros, #documentos).
+     */
+    public static function rutaDetalle(array $ingreso, string $ancla = ''): string
+    {
+        $ruta = !empty($ingreso['venta_id'])
+            ? '/admin/ventas/detalle?id=' . (int) $ingreso['venta_id']
+            : '/admin/contabilidad/ingresos/detalle?id=' . (int) $ingreso['id'];
+
+        return $ruta . ($ancla !== '' ? '#' . $ancla : '');
+    }
+
     /** ¿La venta lleva IVA? (casilla de IVA activada o IVA con importe). */
     public static function llevaIva(array $venta): bool
     {

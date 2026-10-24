@@ -34,9 +34,19 @@ template('alertas');
 template('modal');
 ?>
 
-<?php foreach (($GLOBALS['scriptsPagina'] ?? []) as $scriptPagina) : ?>
+<?php foreach (($GLOBALS['scriptsPagina'] ?? []) as $scriptPagina) :
+    // Auto-versionado: los ficheros locales sin ?v= reciben su filemtime, para
+    // que una caché (CDN o navegador) nunca sirva la compilación anterior.
+    if (strpos($scriptPagina, '?') === false && str_starts_with($scriptPagina, '/')) {
+        $ficheroVersion = __DIR__ . '/..' . $scriptPagina;
+        if (is_file($ficheroVersion)) {
+            $scriptPagina .= '?v=' . filemtime($ficheroVersion);
+        }
+    }
+?>
 <script src="<?= escaparValores($scriptPagina) ?>"></script>
 <?php endforeach; ?>
-<script src="/build/js/app.js"></script>
+<?php $versionApp = @filemtime(__DIR__ . '/../build/js/app.js'); ?>
+<script src="/build/js/app.js<?= $versionApp !== false ? '?v=' . $versionApp : '' ?>"></script>
 </body>
 </html>

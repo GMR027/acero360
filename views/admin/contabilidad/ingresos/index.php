@@ -140,8 +140,8 @@ template('resumenReporte', [
                                         $pagada ? 'Sí, sin pagar' : 'Sí, pagada');
                                 endif; ?></div></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($i['saldo']) ?></td>
-                            <td class="tabla--centro"><a href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $i['id'] ?>#documentos" aria-label="Ver los documentos de la venta <?= escaparValores($i['folio']) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : '<span class="badge badge--neutro badge--sin-punto">Sin documentos</span>' ?></a></td>
-                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $i['id'] ?>">Abrir</a></td>
+                            <td class="tabla--centro"><a href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i, 'documentos')) ?>" aria-label="Ver los documentos de la venta <?= escaparValores($i['folio']) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : '<span class="badge badge--neutro badge--sin-punto">Sin documentos</span>' ?></a></td>
+                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i)) ?>">Abrir</a></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

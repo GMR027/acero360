@@ -61,6 +61,35 @@ function cerrarSidebar() {
   document.body.style.overflow = '';
 }
 
+/**
+ * Pliega o despliega el menú lateral en ESCRITORIO (botón flotante).
+ * No toca el cajón de móvil: ése lo gobierna alternarSidebar().
+ * La preferencia se guarda en localStorage y la aplica el guion inline de
+ * templates/sidebar.php, para que no haya parpadeo al recargar.
+ */
+function alternarMenuEscritorio() {
+  const sidebar = document.getElementById('sidebar');
+  const boton = document.getElementById('sidebar-toggle');
+
+  if (!sidebar || !boton) {
+    return;
+  }
+
+  const plegado = sidebar.classList.toggle('sidebar--plegado');
+  boton.classList.toggle('sidebar__toggle--plegado', plegado);
+  boton.setAttribute('aria-expanded', plegado ? 'false' : 'true');
+
+  const etiqueta = plegado ? 'Mostrar el menú lateral' : 'Ocultar el menú lateral';
+  boton.setAttribute('aria-label', etiqueta);
+  boton.setAttribute('title', etiqueta);
+
+  try {
+    window.localStorage.setItem('a360_menu_plegado', plegado ? '1' : '0');
+  } catch (e) {
+    /* Almacenamiento no disponible: el estado vale sólo para esta sesión. */
+  }
+}
+
 /** Abre o cierra la hoja "Nueva venta / Nueva cotización" de la barra inferior. */
 function alternarHojaNuevo(forzarAbierta) {
   const hoja = document.getElementById('hoja-nuevo');
@@ -170,6 +199,14 @@ function inicializarAplicacion() {
   if (fondoSidebar) {
     fondoSidebar.addEventListener('click', function () {
       cerrarSidebar();
+    });
+  }
+
+  // Botón flotante de escritorio: pliega/despliega el menú para ganar espacio.
+  const botonToggleMenu = document.getElementById('sidebar-toggle');
+  if (botonToggleMenu) {
+    botonToggleMenu.addEventListener('click', function () {
+      alternarMenuEscritorio();
     });
   }
 
@@ -431,6 +468,7 @@ const AYUDAS_POR_RUTA = {
   '/admin/clientes': 'Tu directorio de clientes: datos de contacto y cotizaciones de cada uno.',
   '/admin/productos': 'Catálogo de productos: precios, fotos y existencias.',
   '/admin/notas': 'Tus notas personales y recordatorios.',
+  '/admin/calendario': 'Calendario del mes: elige un día para ver sus eventos o crear un recordatorio.',
   '/admin/empresas': 'Tus negocios: nombre, RFC, logotipo y datos que salen en el PDF.',
   '/admin/escritorio': 'Descarga la aplicación para instalarla en tu computadora.',
   '/admin/usuarios': 'Tu perfil y tu contraseña.',
@@ -2041,6 +2079,309 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 /**
+ * modulos/inteligente.js
+ * ---------------------------------------------------------------------------
+ * «Registro Venta Inteligente» y «Registro compra inteligente».
+ *
+ * Suben una factura (XML, PDF o foto) al servidor, donde el motor documental
+ * la lee y devuelve la ruta del formulario correspondiente con los datos ya
+ * precargados. Aquí sólo se pide el archivo, se espera la lectura y se navega:
+ * nada se guarda como venta ni como gasto hasta que la persona revisa y envía
+ * ese formulario.
+ *
+ * Reglas del proyecto: createElement en lugar de innerHTML, ni alert, ni
+ * confirm, ni prompt.
+ */
+
+/** Textos de cada destino, para no repetirlos en la plantilla. */
+let inteligenteTextos = {
+  venta: {
+    titulo: 'Registro Venta Inteligente',
+    sobreTitulo: 'Factura que emití',
+    ayuda: 'Sube el XML del CFDI (trae los datos exactos), el PDF o una foto de la factura. El formulario de venta se llena con el cliente, la fecha y los renglones que se reconozcan; lo demás lo completas tú.',
+  },
+  gasto: {
+    titulo: 'Registro compra inteligente',
+    sobreTitulo: 'Factura que me dieron',
+    ayuda: 'Sube el XML del CFDI (trae los datos exactos), el PDF o una foto de la factura. El formulario de gasto se llena con el proveedor, el total, el folio fiscal y los renglones que se reconozcan; lo demás lo completas tú.',
+  },
+};
+
+/** Crea un elemento con su clase y su texto. */
+function nodoInteligente(etiqueta, clase, texto) {
+  const elemento = document.createElement(etiqueta);
+  if (clase) {
+    elemento.className = clase;
+  }
+  if (texto !== undefined && texto !== null) {
+    elemento.textContent = texto;
+  }
+  return elemento;
+}
+
+/**
+ * Cuerpo del diálogo: el archivo a leer y cómo se va a usar.
+ *
+ * @param {string} destino  venta | gasto
+ * @param {boolean} ocr     si el servidor puede leer fotos y PDFs escaneados
+ * @param {string} aviso    error de la última tentativa, si la hubo
+ * @returns {DocumentFragment}
+ */
+function cuerpoInteligente(destino, ocr, aviso) {
+  const textos = inteligenteTextos[destino] || inteligenteTextos.gasto;
+  const fragmento = document.createDocumentFragment();
+
+  if (aviso) {
+    fragmento.appendChild(nodoInteligente('p', 'nota nota--error mb-md', aviso));
+  }
+
+  const nota = nodoInteligente('p', 'campo__ayuda mb-md', textos.ayuda);
+  fragmento.appendChild(nota);
+
+  const campo = nodoInteligente('div', 'campo campo--completo');
+  const etiqueta = document.createElement('label');
+  etiqueta.className = 'campo__etiqueta campo__etiqueta--obligatorio';
+  etiqueta.setAttribute('for', 'inteligente-archivo');
+  etiqueta.textContent = 'Factura o comprobante';
+
+  const archivo = document.createElement('input');
+  archivo.className = 'control';
+  archivo.type = 'file';
+  archivo.id = 'inteligente-archivo';
+  archivo.name = 'archivo[]';
+  archivo.multiple = true;
+  archivo.required = true;
+  archivo.accept = '.xml,.pdf,.jpg,.jpeg,.png,.webp';
+
+  campo.appendChild(etiqueta);
+  campo.appendChild(archivo);
+  campo.appendChild(
+    nodoInteligente(
+      'span',
+      'campo__ayuda',
+      ocr
+        ? 'Puedes subir varios archivos a la vez (por ejemplo el XML y el PDF de la misma factura). Si solo tienes una foto, se lee con OCR y conviene revisar cada dato.'
+        : 'Puedes subir varios archivos a la vez (por ejemplo el XML y el PDF de la misma factura). Este servidor no tiene OCR: una foto o un PDF escaneado no se pueden leer, se capturan a mano.'
+    )
+  );
+  fragmento.appendChild(campo);
+
+  return fragmento;
+}
+
+/**
+ * Envía el archivo y devuelve la respuesta del servidor: la ruta del formulario
+ * con lo leído precargado y, si la factura ya existe, las coincidencias.
+ *
+ * @param {string} destino  venta | gasto
+ * @param {string} token    token de un solo uso del formulario
+ * @returns {Promise<{ruta: string, duplicado?: boolean, coincidencias?: Array}>}
+ */
+function enviarInteligente(destino, token) {
+  const campo = document.getElementById('inteligente-archivo');
+  const meta = document.querySelector('meta[name="csrf"]');
+
+  const datos = new FormData();
+  datos.append('destino', destino);
+  datos.append('token', token);
+
+  const archivos = campo && campo.files ? campo.files : [];
+  for (let i = 0; i < archivos.length; i += 1) {
+    datos.append('archivo[]', archivos[i]);
+  }
+
+  return fetch('/admin/contabilidad/lectura/inteligente', {
+    method: 'POST',
+    body: datos,
+    credentials: 'same-origin',
+    headers: { 'X-CSRF-Token': meta ? meta.content : '' },
+  }).then(function (respuesta) {
+    return respuesta.json().catch(function () {
+      return { ok: false, error: 'El servidor no respondió como se esperaba (' + respuesta.status + ').' };
+    }).then(function (cuerpo) {
+      if (!respuesta.ok || !cuerpo.ok) {
+        throw new Error(cuerpo.error || 'No fue posible leer el documento.');
+      }
+      return cuerpo;
+    });
+  });
+}
+
+/**
+ * Aviso de que esta factura ya tiene un registro: diálogo con cada coincidencia
+ * (folio, fecha, importe y por qué se considera duplicado) y un botón para
+ * abrirla desde ahí, además de la salida para registrar de todos modos.
+ *
+ * @param {Array}  coincidencias [{tipo, id, ruta, etiqueta, folio, fecha, total, detalle, criterio}]
+ * @param {string} ruta          formulario al que se iría si la persona continúa
+ * @param {string} origen        contexto del diálogo, p. ej. «Registro compra inteligente»
+ */
+function avisarDuplicado(coincidencias, ruta, origen) {
+  const cuerpo = document.createDocumentFragment();
+
+  cuerpo.appendChild(nodoInteligente(
+    'p',
+    'nota nota--advertencia mb-md',
+    'Este documento ya tiene un registro con la misma información. Mira el que existe antes de guardar otro: si es el mismo, ábrelo y no lo dupliques.'
+  ));
+
+  const lista = document.createElement('ul');
+  lista.className = 'lista-simple';
+  coincidencias.forEach(function (coincidencia) {
+    const item = document.createElement('li');
+    const titulo = coincidencia.etiqueta + (coincidencia.folio ? ' · ' + coincidencia.folio : '');
+    item.appendChild(nodoInteligente('strong', '', titulo));
+
+    const detalle = [
+      coincidencia.fecha || '',
+      monedaCotizador(coincidencia.total || 0),
+      coincidencia.detalle || '',
+    ].filter(Boolean).join(' · ');
+    if (detalle) {
+      item.appendChild(document.createTextNode(' — ' + detalle));
+    }
+    if (coincidencia.criterio) {
+      // Sin paréntesis exteriores: el criterio puede traer los suyos («folio fiscal (UUID)»).
+      item.appendChild(document.createTextNode(' · ' + coincidencia.criterio));
+    }
+    lista.appendChild(item);
+  });
+  cuerpo.appendChild(lista);
+
+  // Un botón por tipo de registro encontrado: el pedido es poder abrir la venta
+  // directamente desde este aviso (o el gasto, si el duplicado es de gasto).
+  const acciones = [];
+  ['venta', 'gasto'].forEach(function (tipo) {
+    const coincidencia = coincidencias.find(function (elemento) { return elemento.tipo === tipo; });
+    if (!coincidencia) {
+      return;
+    }
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'btn btn--secundario';
+    boton.textContent = (tipo === 'venta' ? 'Ver la venta' : 'Ver el gasto') + ' ' + coincidencia.id;
+    boton.setAttribute('data-ver-registro', coincidencia.ruta);
+    boton.addEventListener('click', function () {
+      window.location.assign(coincidencia.ruta);
+    });
+    acciones.push(boton);
+  });
+
+  abrirModal({
+    sobreTitulo: origen,
+    titulo: 'Ya hay un registro con esta factura',
+    cuerpo: cuerpo,
+    acciones: acciones,
+    textoConfirmar: 'Registrar de todos modos',
+    alConfirmar: function () {
+      window.location.assign(ruta);
+    },
+  });
+}
+
+/**
+ * Abre el diálogo de carga de un botón.
+ *
+ * @param {HTMLElement} boton
+ * @param {string} aviso  mensaje de error a mostrar (opcional)
+ */
+function abrirInteligente(boton, aviso) {
+  const destino = boton.getAttribute('data-inteligente') || 'gasto';
+  const textos = inteligenteTextos[destino] || inteligenteTextos.gasto;
+  const nodoOcr = document.querySelector('[data-ocr]');
+  const ocr = !nodoOcr || nodoOcr.getAttribute('data-ocr') === '1';
+  const tokenNodo = document.querySelector('[data-inteligente-token]');
+  const token = tokenNodo ? tokenNodo.value : '';
+
+  abrirModal({
+    sobreTitulo: textos.sobreTitulo,
+    titulo: textos.titulo,
+    cuerpo: cuerpoInteligente(destino, ocr, aviso || ''),
+    textoConfirmar: 'Leer documento',
+    alConfirmar: function () {
+      const campo = document.getElementById('inteligente-archivo');
+      if (!campo || !campo.files || campo.files.length === 0) {
+        abrirInteligente(boton, 'Elige al menos un archivo (XML, PDF o foto de la factura).');
+        return;
+      }
+
+      crearAlerta('info', 'Leyendo el documento… se abre el formulario en cuanto esté listo.', 'Registro inteligente');
+
+      enviarInteligente(destino, token)
+        .then(function (cuerpo) {
+          const hayDuplicados = cuerpo.duplicado && cuerpo.coincidencias && cuerpo.coincidencias.length > 0;
+          if (hayDuplicados) {
+            // El diálogo de carga ya se cerró: se abre el de duplicados con las
+            // coincidencias y sus enlaces, y la persona decide si sigue.
+            avisarDuplicado(cuerpo.coincidencias, cuerpo.ruta, textos.titulo);
+            return;
+          }
+          crearAlerta('exito', 'Documento leído. Revisa lo que quedó cargado antes de guardar.', 'Registro inteligente');
+          window.location.assign(cuerpo.ruta);
+        })
+        .catch(function (error) {
+          crearAlerta('error', error.message || 'No fue posible leer el documento.', 'Registro inteligente');
+        });
+    },
+  });
+}
+
+/** Llena el buscador del catálogo con la descripción de un concepto sin equivalente. */
+function buscarEnCatalogo(descripcion) {
+  const campo = document.getElementById('buscar-producto');
+  if (!campo) {
+    crearAlerta('advertencia', 'Esta pantalla no tiene buscador de productos.');
+    return;
+  }
+
+  campo.value = descripcion;
+  campo.dispatchEvent(new Event('input', { bubbles: true }));
+  campo.scrollIntoView({ block: 'center' });
+  campo.focus();
+  crearAlerta('info', 'Buscador lleno con la descripción del documento: elige el producto que corresponda.');
+}
+
+/** Abre el diálogo de carga desde cualquiera de los botones [data-inteligente]. */
+document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('click', function (evento) {
+    if (!(evento.target instanceof Element)) {
+      return;
+    }
+
+    const boton = evento.target.closest('[data-inteligente]');
+    if (boton) {
+      evento.preventDefault();
+      abrirInteligente(boton);
+      return;
+    }
+
+    const buscador = evento.target.closest('[data-cargar-busqueda]');
+    if (buscador) {
+      evento.preventDefault();
+      buscarEnCatalogo(buscador.getAttribute('data-cargar-busqueda') || '');
+    }
+  });
+
+  /* Llegada directa al formulario con ?lectura=… : si esa factura ya existe, se
+   * muestra el mismo aviso que al subirla desde Contabilidad (lo pone la vista). */
+  const coincidenciasNodo = document.querySelector('[data-coincidencias]');
+  if (coincidenciasNodo) {
+    try {
+      const coincidencias = JSON.parse(coincidenciasNodo.getAttribute('data-coincidencias') || '[]');
+      if (Array.isArray(coincidencias) && coincidencias.length) {
+        avisarDuplicado(
+          coincidencias,
+          coincidenciasNodo.getAttribute('data-ruta') || '',
+          coincidenciasNodo.getAttribute('data-origen') || 'Registro inteligente'
+        );
+      }
+    } catch (error) {
+      // Con el JSON ilegible no se abre nada: el formulario sigue siendo usable.
+    }
+  }
+});
+
+/**
  * modulos/miniaturas.js
  * ---------------------------------------------------------------------------
  * Miniaturas de producto en tablas (Inventario):
@@ -2132,6 +2473,13 @@ let elementoFocoAnterior = null;
 let accionConfirmada = null;
 
 /**
+ * Acción pendiente al cerrar el modal (diálogos con valor: pedirTexto).
+ * Se invoca SIEMPRE que el modal se cierra, de la forma que sea, y sólo una
+ * vez, para resolver la promesa pendiente aunque el usuario pulse Escape.
+ */
+let accionAlCerrar = null;
+
+/**
  * Devuelve el nodo raíz del modal o null si la plantilla no está en la página.
  *
  * @returns {HTMLElement|null}
@@ -2154,6 +2502,8 @@ function obtenerNodoModal() {
  * @param {Function} [opciones.alConfirmar] Se invoca al pulsar la acción principal.
  * @param {string}   [opciones.textoConfirmar] Texto del botón principal.
  * @param {boolean}  [opciones.confirmacion] Estilo de diálogo de confirmación.
+ * @param {Function} [opciones.alCerrar] Se invoca UNA vez al cerrar, sea como sea
+ *                                       (confirmar, cancelar, Escape o clic fuera).
  */
 function abrirModal(opciones) {
   const modal = obtenerNodoModal();
@@ -2189,6 +2539,7 @@ function abrirModal(opciones) {
   // --- Pie de acciones ----------------------------------------------------
   const nodoPie = modal.querySelector('#modal-pie');
   accionConfirmada = typeof opciones.alConfirmar === 'function' ? opciones.alConfirmar : null;
+  accionAlCerrar = typeof opciones.alCerrar === 'function' ? opciones.alCerrar : null;
 
   if (nodoPie) {
     vaciarNodo(nodoPie);
@@ -2227,7 +2578,7 @@ function abrirModal(opciones) {
   }
 }
 
-/** Cierra el modal y devuelve el foco al elemento que lo abrió. */
+/** Cierra el modal, devuelve el foco al elemento que lo abrió y avisa a alCerrar. */
 function cerrarModal() {
   const modal = obtenerNodoModal();
   if (!modal || modal.hidden) {
@@ -2242,6 +2593,13 @@ function cerrarModal() {
     elementoFocoAnterior.focus();
   }
   elementoFocoAnterior = null;
+
+  // Se toma antes de limpiar: la acción puede abrir otro diálogo.
+  const alCerrar = accionAlCerrar;
+  accionAlCerrar = null;
+  if (typeof alCerrar === 'function') {
+    alCerrar();
+  }
 }
 
 /**
@@ -2274,7 +2632,10 @@ function confirmarAccion(opciones) {
   const cuerpo = document.createElement('div');
   cuerpo.className = 'columna';
   cuerpo.appendChild(parrafo);
-  cuerpo.appendChild(nota);
+  // Si el mensaje ya avisa de ello (formularios con data-confirm), no se repite.
+  if (!/no se puede deshacer/i.test(opciones.mensaje || '')) {
+    cuerpo.appendChild(nota);
+  }
 
   abrirModal({
     sobreTitulo: opciones.sobreTitulo || 'Confirmación',
@@ -2283,6 +2644,95 @@ function confirmarAccion(opciones) {
     confirmacion: true,
     textoConfirmar: opciones.textoConfirmar || 'Sí, continuar',
     alConfirmar: opciones.alConfirmar,
+  });
+}
+
+/**
+ * Diálogo para pedir un texto al usuario (sustituye a window.prompt).
+ *
+ * Devuelve una promesa con el texto escrito o null si cancela (botón, clic
+ * fuera o tecla Escape). El campo se autocompleta con $predeterminado.
+ *
+ * @param {Object}  opciones
+ * @param {string}  opciones.titulo
+ * @param {string}  [opciones.mensaje]    Explicación breve sobre el campo.
+ * @param {string}  [opciones.etiqueta]   Rótulo del campo.
+ * @param {string}  [opciones.predeterminado] Valor inicial del campo.
+ * @param {string}  [opciones.placeholder] Ejemplo mostrado dentro del campo.
+ * @param {number}  [opciones.maximo]     Longitud máxima (carácteres).
+ * @param {string}  [opciones.textoConfirmar] Texto del botón principal.
+ * @returns {Promise<string|null>}
+ */
+function pedirTexto(opciones) {
+  const opcionesTexto = opciones || {};
+
+  return new Promise(function (resolver) {
+    let resuelta = false;
+    const responder = function (valor) {
+      if (resuelta) {
+        return;
+      }
+      resuelta = true;
+      resolver(valor);
+    };
+
+    const campo = document.createElement('input');
+    campo.type = 'text';
+    campo.className = 'control';
+    campo.value = opcionesTexto.predeterminado || '';
+    if (opcionesTexto.placeholder) {
+      campo.placeholder = opcionesTexto.placeholder;
+    }
+    if (opcionesTexto.maximo) {
+      campo.maxLength = opcionesTexto.maximo;
+    }
+
+    const etiqueta = document.createElement('label');
+    etiqueta.className = 'campo';
+    const rotulo = document.createElement('span');
+    rotulo.className = 'campo__etiqueta';
+    rotulo.textContent = opcionesTexto.etiqueta || 'Nombre';
+    etiqueta.appendChild(rotulo);
+    etiqueta.appendChild(campo);
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'columna';
+    if (opcionesTexto.mensaje) {
+      const parrafo = document.createElement('p');
+      parrafo.className = 'texto-base texto-secundario';
+      parrafo.textContent = opcionesTexto.mensaje;
+      cuerpo.appendChild(parrafo);
+    }
+    cuerpo.appendChild(etiqueta);
+
+    // Intro en el campo = aceptar (el campo no está dentro de un <form>).
+    campo.addEventListener('keydown', function (evento) {
+      if (evento.key !== 'Enter') {
+        return;
+      }
+      evento.preventDefault();
+      responder(campo.value);   // antes de cerrar: si no, alCerrar resolvería null
+      cerrarModal();
+    });
+
+    abrirModal({
+      sobreTitulo: opcionesTexto.sobreTitulo || '',
+      titulo: opcionesTexto.titulo || 'Escribe un valor',
+      cuerpo: cuerpo,
+      textoConfirmar: opcionesTexto.textoConfirmar || 'Aceptar',
+      alConfirmar: function () {
+        const valor = campo.value;
+        // cerrarModal() dispara alCerrar, que responde(null); al llegar aquí
+        // la promesa ya está resuelta y este valor no la pisa (resuelta=true).
+        responder(valor);
+      },
+      alCerrar: function () {
+        responder(null);
+      },
+    });
+
+    campo.focus();
+    campo.select();
   });
 }
 
@@ -2347,11 +2797,14 @@ function manejarInteraccionModal(evento) {
 
   if (destino.closest('[data-confirmar-modal]')) {
     evento.preventDefault();
+    // La acción ANTES de cerrar: así los diálogos con valor (pedirTexto)
+    // resuelven con lo escrito y no con el null del cierre.
     const accion = accionConfirmada;
-    cerrarModal();
+    accionConfirmada = null;
     if (typeof accion === 'function') {
       accion();
     }
+    cerrarModal();
   }
 }
 

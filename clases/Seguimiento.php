@@ -5,21 +5,26 @@ namespace App;
 /**
  * Seguimiento — Centro de seguimiento (notificaciones de Acero 360).
  *
- * Los avisos NO se guardan: se calculan en vivo desde la operación (ingresos, gastos, entregas, inventario)
+ * Los avisos NO se guardan: se calculan en vivo desde la operación (ingresos, gastos, compras, entregas, inventario)
  * y cada uno apunta a su registro de origen. Lo único que se escribe es la tabla seguimiento_lecturas
  * (qué avisos leyó cada usuario), de modo que leer un aviso jamás modifica ventas, cobros ni facturas.
  *
- * Cada aviso: clave (tipo:id), categoria, prioridad (alta|media|baja), titulo, detalle, fecha (de la
+ * Cada aviso: clave (tipo:id), categoria, prioridad (urgente|alta|normal|informativa), titulo, detalle, fecha (de la
  * operación, o null), dias (antigüedad), enlace y huella (estado actual; si cambia, el aviso vuelve a ser nuevo).
  *
+ * Estados independientes: nunca se deduce uno del otro, solo se muestran los dos. Así, facturación y cobro de una
+ * venta son avisos aparte; y una compra ya enviada a contabilidad genera «Gasto por pagar» y «Compra por pagar»
+ * (deducir uno del otro dejaría la deuda sin aviso si se paga el gasto desde Contabilidad sin registrar el pago
+ * en Compras, donde vive el saldo real de la compra).
+ *
  * Prioridad (4 niveles) calculada SOLO con fechas y estados reales; si no hay fecha de vencimiento no se inventa:
- *   urgente      producto sin existencias
+ *   urgente      producto o material sin existencias
  *   alta         cotización con vigencia vencida o que vence en ≤ 2 días (fecha + vigencia_dias);
  *                venta ya cobrada por completo y aún pendiente de facturar
- *   normal       lo demás: cobros, facturas, gastos y entregas pendientes (la plataforma no registra
- *                fecha de vencimiento de cobros ni de entregas; se muestra su antigüedad, no un vencimiento)
+ *   normal       lo demás: cobros, facturas, gastos, compras, entregas y entradas a proveedor pendientes
+ *                (la plataforma no registra fecha de vencimiento de cobros, entregas ni compras;
+ *                se muestra su antigüedad, no un vencimiento)
  *   informativa  novedades y mejoras de la plataforma
- * Facturación y cobro son estados independientes: nunca se deduce uno del otro (solo se muestran ambos).
  */
 class Seguimiento
 {
@@ -31,6 +36,7 @@ class Seguimiento
         'cobro'      => ['Por cobrar', 'payments'],
         'factura'    => ['Facturas por definir', 'receipt_long'],
         'gasto'      => ['Gastos', 'request_quote'],
+        'compra'     => ['Compras', 'shopping_cart'],
         'entrega'    => ['Entregas', 'package_2'],
         'inventario' => ['Inventario', 'warehouse'],
         'novedad'    => ['Novedades', 'campaign'],
@@ -51,6 +57,8 @@ class Seguimiento
 
     /** Novedades de la plataforma: [clave/versión, fecha, título, texto, enlace]. */
     public const NOVEDADES = [
+        ['1.3.0', '2026-10-23', 'Seguimiento de compras, proveedores y materiales',
+         'El centro de seguimiento ahora también vigila el lado de las compras: órdenes por recibir, facturas de proveedor pendientes, saldos por pagar, entradas sin pagar y materias primas por debajo de su mínimo.', '/admin/compras'],
         ['1.2.3', '2026-10-21', 'Conmutadores de facturación y cobro en Ingresos',
          'En la lista de ingresos, un interruptor junto a Facturación pasa la venta de Pendiente de facturar a Facturada, y otro junto a Cobro de Sin pagar a Pagada (y de regreso). Piden confirmación; marcar como pagada registra el cobro del saldo y revertirlo cancela los cobros.', '/admin/contabilidad/ingresos'],
         ['1.2.2', '2026-10-21', 'Reporte fiscal con proveedores',
@@ -73,7 +81,10 @@ class Seguimiento
     {
         return [
             'cotizacion' => 'Abrir cotización', 'cobro' => 'Abrir venta', 'factura' => 'Abrir venta para facturar',
-            'gasto_pago' => 'Abrir gasto', 'gasto_comp' => 'Abrir gasto', 'entrega' => 'Ver entrega pendiente', 'cambio' => 'Entregar cambio',
+            'gasto_pago' => 'Abrir gasto', 'gasto_comp' => 'Abrir gasto',
+            'compra_recibir' => 'Ver compra por recibir', 'compra_cfdi' => 'Abrir compra para facturar', 'compra_saldo' => 'Abrir compra',
+            'entrada' => 'Abrir entrada', 'material' => 'Ver material',
+            'entrega' => 'Ver entrega pendiente', 'cambio' => 'Entregar cambio',
             'stock' => 'Abrir producto', 'novedad' => 'Ver novedad',
         ][explode(':', $clave)[0]] ?? 'Abrir registro';
     }
@@ -131,7 +142,7 @@ class Seguimiento
 
         // Cobros pendientes: ventas vigentes cuyo total supera lo cobrado (incluye pagos parciales).
         $ingresos = self::$db->query(
-            "SELECT i.id, i.folio, i.fecha, i.total, i.iva, i.estado_facturacion, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+            "SELECT i.id, i.venta_id, i.folio, i.fecha, i.total, i.iva, i.estado_facturacion, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     COALESCE(k.cobrado, 0) AS cobrado
                FROM ingresos i
                JOIN clientes cl ON cl.id = i.cliente_id
@@ -147,7 +158,7 @@ class Seguimiento
                 'clave' => 'cobro:' . $f['id'], 'categoria' => 'cobro', 'prioridad' => 'normal',
                 'titulo' => ($parcial ? 'Pago parcial' : 'Venta sin cobrar') . ' · ' . $f['folio'],
                 'detalle' => self::nombreCliente($f) . ' · falta cobrar ' . $moneda($saldoC / 100) . ' · venta ' . self::antiguedad($dias),
-                'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => '/admin/contabilidad/ingresos/detalle?id=' . (int) $f['id'],
+                'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => Contabilidad::rutaDetalle($f),
                 'huella' => 'saldo' . $saldoC, 'saldo' => $saldoC / 100,
                 'metodo' => Contabilidad::metodoSugerido($f),
             ];
@@ -170,7 +181,7 @@ class Seguimiento
                 'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · venta ' . self::antiguedad($dias)
                     . ' · cobro: ' . ($cobradaTodo ? 'ya cobrada por completo' : ((int) $f['cobrado'] > 0 ? 'pago parcial' : 'sin cobrar')) . '.',
                 'fecha' => $f['fecha'], 'dias' => $dias,
-                'enlace' => $f['venta_id'] ? '/admin/ventas/detalle?id=' . (int) $f['venta_id'] : '/admin/contabilidad/ingresos/detalle?id=' . (int) $f['id'],
+                'enlace' => Contabilidad::rutaDetalle($f),
                 'huella' => 'sin_clasificar' . ($cobradaTodo ? ':cobrada' : ''),
             ];
         }
@@ -202,6 +213,105 @@ class Seguimiento
             }
         }
 
+        // Compras por recibir: órdenes abiertas cuyas partidas controladas no se han recibido completo.
+        $compras = self::$db->query(
+            "SELECT o.id, o.folio, o.fecha_solicitud, p.nombre AS proveedor_nombre,
+                    COALESCE(SUM(c.cantidad_solicitada), 0) AS solicitado,
+                    COALESCE((SELECT SUM(rp.cantidad_recibida) FROM recepcion_partidas rp
+                                JOIN orden_compra_partidas c2 ON c2.id = rp.partida_id
+                               WHERE c2.orden_id = o.id AND c2.controla = 1), 0) AS recibido
+               FROM ordenes_compra o
+               JOIN proveedores p ON p.id = o.proveedor_id
+               LEFT JOIN orden_compra_partidas c ON c.orden_id = o.id AND c.controla = 1
+              WHERE o.estado IN ('solicitada', 'parcial')
+              GROUP BY o.id, o.folio, o.fecha_solicitud, p.nombre
+              ORDER BY o.fecha_solicitud, o.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($compras as $f) {
+            $solicitado = (float) $f['solicitado'];
+            $recibido = (float) $f['recibido'];
+            if ($recibido >= $solicitado) {
+                continue;   // la orden no controla existencias (servicios): nada que recibir
+            }
+            $faltan = Materiales::numero($solicitado - $recibido);
+            $dias = self::dias($f['fecha_solicitud']);
+            $avisos[] = [
+                'clave' => 'compra_recibir:' . $f['id'], 'categoria' => 'compra', 'prioridad' => 'normal',
+                'titulo' => 'Compra por recibir · ' . $f['folio'],
+                'detalle' => $f['proveedor_nombre'] . ' · faltan ' . $faltan . ' de ' . Materiales::numero($solicitado)
+                    . ' · solicitada ' . self::antiguedad($dias),
+                'fecha' => $f['fecha_solicitud'], 'dias' => $dias, 'enlace' => '/admin/compras/detalle?id=' . (int) $f['id'],
+                'huella' => 'faltan' . $faltan,
+            ];
+        }
+
+        // Facturas de proveedor pendientes: compras que aún no tienen su CFDI del proveedor.
+        $sinCfdi = self::$db->query(
+            "SELECT o.id, o.folio, o.fecha_solicitud, o.total_esperado, o.iva, p.nombre AS proveedor_nombre
+               FROM ordenes_compra o JOIN proveedores p ON p.id = o.proveedor_id
+              WHERE o.estado <> 'cancelada' AND o.estado_cfdi = 'pendiente_cfdi'
+              ORDER BY o.fecha_solicitud, o.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($sinCfdi as $f) {
+            $dias = self::dias($f['fecha_solicitud']);
+            $avisos[] = [
+                'clave' => 'compra_cfdi:' . $f['id'], 'categoria' => 'compra', 'prioridad' => 'normal',
+                'titulo' => 'Compra pendiente de factura · ' . $f['folio'],
+                'detalle' => $f['proveedor_nombre'] . ' · ' . $moneda((float) $f['total_esperado'] + (float) $f['iva'])
+                    . ' · sin el XML no se deduce ni se acredita el IVA · solicitada ' . self::antiguedad($dias),
+                'fecha' => $f['fecha_solicitud'], 'dias' => $dias,
+                'enlace' => '/admin/compras/detalle?id=' . (int) $f['id'] . '#factura',
+                'huella' => 'pendiente_cfdi',
+            ];
+        }
+
+        // Saldos por pagar a proveedores: el total de la compra supera sus pagos vigentes.
+        $porPagar = self::$db->query(
+            "SELECT o.id, o.folio, o.fecha_solicitud, p.nombre AS proveedor_nombre,
+                    ROUND((o.total_esperado + COALESCE(o.iva, 0)) * 100) AS total,
+                    COALESCE((SELECT SUM(ROUND(pc.importe * 100)) FROM pagos_compra pc
+                               WHERE pc.orden_id = o.id AND pc.estado = 'vigente'), 0) AS pagado,
+                    (SELECT pc.metodo FROM pagos_compra pc WHERE pc.orden_id = o.id AND pc.estado = 'vigente'
+                      ORDER BY pc.id DESC LIMIT 1) AS metodo
+               FROM ordenes_compra o JOIN proveedores p ON p.id = o.proveedor_id
+              WHERE o.estado <> 'cancelada'
+                AND ROUND((o.total_esperado + COALESCE(o.iva, 0)) * 100) > COALESCE((SELECT SUM(ROUND(pc.importe * 100)) FROM pagos_compra pc
+                     WHERE pc.orden_id = o.id AND pc.estado = 'vigente'), 0)
+              ORDER BY o.fecha_solicitud, o.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($porPagar as $f) {
+            $saldo = (int) $f['total'] - (int) $f['pagado'];
+            $dias = self::dias($f['fecha_solicitud']);
+            $parcial = (int) $f['pagado'] > 0;
+            $avisos[] = [
+                'clave' => 'compra_saldo:' . $f['id'], 'categoria' => 'compra', 'prioridad' => 'normal',
+                'titulo' => ($parcial ? 'Pago parcial a proveedor' : 'Compra por pagar') . ' · ' . $f['folio'],
+                'detalle' => $f['proveedor_nombre'] . ' · falta pagar ' . $moneda($saldo / 100) . ' · compra ' . self::antiguedad($dias),
+                'fecha' => $f['fecha_solicitud'], 'dias' => $dias,
+                'enlace' => '/admin/compras/detalle?id=' . (int) $f['id'] . '#pagos',
+                'huella' => 'saldo' . $saldo, 'saldo' => $saldo / 100,
+                'metodo' => in_array((string) $f['metodo'], Contabilidad::METODOS_PAGO, true) ? (string) $f['metodo'] : null,
+            ];
+        }
+
+        // Entradas a proveedor (pedidos directos, sin orden de compra) que siguen sin pagar.
+        $entradas = self::$db->query(
+            "SELECT e.id, e.fecha, e.numero_pedido, e.monto, p.nombre AS proveedor_nombre
+               FROM proveedor_entradas e JOIN proveedores p ON p.id = e.proveedor_id
+              WHERE e.pagado = 0
+              ORDER BY e.fecha, e.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($entradas as $f) {
+            $dias = self::dias($f['fecha']);
+            $avisos[] = [
+                'clave' => 'entrada:' . $f['id'], 'categoria' => 'compra', 'prioridad' => 'normal',
+                'titulo' => 'Entrada a proveedor por pagar · ' . trim((string) ($f['numero_pedido'] ?: $f['proveedor_nombre'])),
+                'detalle' => $f['proveedor_nombre'] . ' · ' . $moneda((float) $f['monto']) . ' · entrada ' . self::antiguedad($dias),
+                'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => '/admin/proveedores/entradas/detalle?id=' . (int) $f['id'],
+                'huella' => 'pendiente',
+            ];
+        }
+
         // Entregas pendientes (ventas registradas con piezas por entregar y entrega no cerrada).
         foreach (Entregas::ventasPendientes([], $lim, 0) as $v) {
             $faltan = (int) $v['piezas'] - (int) $v['entregadas'];
@@ -227,18 +337,40 @@ class Seguimiento
             ];
         }
 
-        // Productos en o por debajo de su stock mínimo.
+        // Existencias en alerta: negativas o agotadas, y las que llegan a su mínimo.
+        // El criterio es el mismo que Panel::productosStockBajo: un producto sin mínimo definido
+        // pero ya agotado (o en negativo) también es urgente, porque no tiene red de seguridad.
         $productos = self::$db->query(
             "SELECT id, nombre, stock, stock_minimo FROM productos
-              WHERE activo = 1 AND stock_minimo IS NOT NULL AND stock <= stock_minimo ORDER BY stock, id LIMIT $lim"
+              WHERE activo = 1 AND (stock <= 0 OR (stock_minimo IS NOT NULL AND stock <= stock_minimo))
+              ORDER BY (stock < 0) DESC, (stock = 0) DESC, stock, id LIMIT $lim"
         )->fetch_all(MYSQLI_ASSOC);
         foreach ($productos as $p) {
             $avisos[] = [
                 'clave' => 'stock:' . $p['id'], 'categoria' => 'inventario', 'prioridad' => (int) $p['stock'] <= 0 ? 'urgente' : 'normal',
                 'titulo' => 'Stock bajo · ' . $p['nombre'],
-                'detalle' => 'Hay ' . (int) $p['stock'] . ' y el mínimo es ' . (int) $p['stock_minimo'] . '.',
+                'detalle' => $p['stock_minimo'] === null
+                    ? 'Quedan ' . (int) $p['stock'] . ' y no tiene mínimo definido.'
+                    : 'Hay ' . (int) $p['stock'] . ' y el mínimo es ' . (int) $p['stock_minimo'] . '.',
                 'fecha' => null, 'dias' => null, 'enlace' => '/admin/productos/editar?id=' . (int) $p['id'],
                 'huella' => 'stock' . (int) $p['stock'],
+            ];
+        }
+
+        // Materias primas por debajo de su mínimo (existencias en materiales, separadas del catálogo de venta).
+        $materiales = self::$db->query(
+            "SELECT id, nombre, existencia, minimo, unidad FROM materiales
+              WHERE activo = 1 AND minimo IS NOT NULL AND existencia <= minimo
+              ORDER BY (existencia <= 0) DESC, existencia, id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($materiales as $m) {
+            $avisos[] = [
+                'clave' => 'material:' . $m['id'], 'categoria' => 'inventario', 'prioridad' => (float) $m['existencia'] <= 0 ? 'urgente' : 'normal',
+                'titulo' => 'Material bajo el mínimo · ' . $m['nombre'],
+                'detalle' => 'Hay ' . Materiales::numero($m['existencia']) . ' ' . $m['unidad']
+                    . ' y el mínimo es ' . Materiales::numero($m['minimo']) . '.',
+                'fecha' => null, 'dias' => null, 'enlace' => '/admin/compras/recepciones#materiales',
+                'huella' => 'existencia' . rtrim(rtrim(number_format((float) $m['existencia'], 3, '.', ''), '0'), '.'),
             ];
         }
 

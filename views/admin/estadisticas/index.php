@@ -175,6 +175,24 @@ template('header', [
                     </table>
                 </div>
             </div>
+
+            <?php foreach (\App\Estadisticas::agruparPorNegocio($r['productos']) as $grupoProductos) : ?>
+                <div class="tarjeta tarjeta--sin-relleno mt-md">
+                    <div class="tabla-contenedor">
+                        <table class="tabla">
+                            <caption>Ventas por negocio · productos de <?= escaparValores($grupoProductos['negocio']) ?> · <?= escaparValores($etiquetaPeriodo) ?></caption>
+                            <thead><tr><th scope="col">Código</th><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Piezas</th><th scope="col" class="tabla--numerica">Importe (sin IVA)</th><th scope="col" class="tabla--numerica">Ventas</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($grupoProductos['filas'] as $x) : ?>
+                                    <tr><td><strong><?= escaparValores($x['sku'] !== '' ? $x['sku'] : '—') ?></strong></td><td><?= escaparValores($x['nombre']) ?></td>
+                                        <td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td><td class="tabla--numerica cifra"><?= number_format($x['operaciones']) ?></td></tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+            <?php if ($r['productos']) : ?><p class="campo__ayuda">Los productos con más importe de cada negocio en el periodo, con su código (SKU).</p><?php endif; ?>
         <?php endif; ?>
 
         <?php if ($clave === 'productos') : ?>
@@ -217,14 +235,14 @@ template('header', [
         <h2 class="titulo-5" style="padding:1rem 1rem 0">Productos más vendidos · <?= escaparValores($etiquetaPeriodo) ?></h2>
         <div class="tabla-contenedor">
             <table class="tabla">
-                <caption class="solo-lectores">Productos más vendidos</caption>
-                <thead><tr><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Piezas</th><th scope="col" class="tabla--numerica">Importe (sin IVA)</th><th scope="col" class="tabla--numerica">Ventas</th></tr></thead>
+                <caption class="solo-lectores">Productos más vendidos, separados por negocio</caption>
+                <thead><tr><th scope="col">Negocio</th><th scope="col">Código</th><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Piezas</th><th scope="col" class="tabla--numerica">Importe (sin IVA)</th><th scope="col" class="tabla--numerica">Ventas</th></tr></thead>
                 <tbody>
                     <?php foreach ($r['productos'] as $x) : ?>
-                        <tr><td><strong><?= escaparValores($x['nombre']) ?></strong><span class="texto-xs texto-secundario"><br><?= escaparValores($x['sku']) ?></span></td>
+                        <tr><td><?= escaparValores($x['negocio']) ?></td><td><strong><?= escaparValores($x['sku'] !== '' ? $x['sku'] : '—') ?></strong></td><td><?= escaparValores($x['nombre']) ?></td>
                             <td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td><td class="tabla--numerica cifra"><?= number_format($x['operaciones']) ?></td></tr>
                     <?php endforeach; ?>
-                    <?php if (!$r['productos']) : ?><tr><td colspan="4" class="tabla--centro texto-secundario">Sin ventas en el periodo.</td></tr><?php endif; ?>
+                    <?php if (!$r['productos']) : ?><tr><td colspan="6" class="tabla--centro texto-secundario">Sin ventas en el periodo.</td></tr><?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -233,14 +251,14 @@ template('header', [
         <h2 class="titulo-5" style="padding:1rem 1rem 0">Clientes con mayor volumen · <?= escaparValores($etiquetaPeriodo) ?></h2>
         <div class="tabla-contenedor">
             <table class="tabla">
-                <caption class="solo-lectores">Clientes con mayor volumen de compra</caption>
-                <thead><tr><th scope="col">Cliente</th><th scope="col" class="tabla--numerica">Importe</th><th scope="col" class="tabla--numerica">Ventas</th><th scope="col" class="tabla--numerica">Piezas</th></tr></thead>
+                <caption class="solo-lectores">Clientes con mayor volumen de compra, separados por negocio</caption>
+                <thead><tr><th scope="col">Negocio</th><th scope="col">Cliente</th><th scope="col" class="tabla--numerica">Importe</th><th scope="col" class="tabla--numerica">Ventas</th><th scope="col" class="tabla--numerica">Piezas</th></tr></thead>
                 <tbody>
                     <?php foreach ($r['clientes'] as $x) : ?>
-                        <tr><td><strong><?= escaparValores($x['nombre']) ?></strong></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td>
+                        <tr><td><?= escaparValores($x['negocio']) ?></td><td><strong><?= escaparValores($x['nombre']) ?></strong></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td>
                             <td class="tabla--numerica cifra"><?= number_format($x['operaciones']) ?></td><td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td></tr>
                     <?php endforeach; ?>
-                    <?php if (!$r['clientes']) : ?><tr><td colspan="4" class="tabla--centro texto-secundario">Sin ventas en el periodo.</td></tr><?php endif; ?>
+                    <?php if (!$r['clientes']) : ?><tr><td colspan="5" class="tabla--centro texto-secundario">Sin ventas en el periodo.</td></tr><?php endif; ?>
                 </tbody>
             </table>
         </div>

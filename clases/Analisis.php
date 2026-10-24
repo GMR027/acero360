@@ -253,9 +253,10 @@ class Analisis
     }
 
     /**
-     * Productos con menor movimiento (con ventas, de menos a más piezas).
+     * Productos con menor movimiento (con ventas, de menos a más piezas), SEPARADOS por negocio:
+     * cada negocio trae sus `$limite` productos con menos piezas vendidas, con su código (SKU).
      *
-     * @return array<int, array{nombre: string, sku: string, unidades: int, importe: int}>
+     * @return array<int, array{empresa_id: int, negocio: string, nombre: string, sku: string, unidades: int, importe: int}>
      */
     public static function menorMovimiento(string $desde, string $hasta, array $f = [], int $limite = 10): array
     {
@@ -266,12 +267,20 @@ class Analisis
         if ((int) ($f['cliente'] ?? 0) > 0) { $donde[] = 'v.cliente_id = ?'; $tipos .= 'i'; $valores[] = (int) $f['cliente']; }
         $tipos .= 'i';
         $valores[] = max(1, $limite);
-        $c = self::$db->prepare('SELECT p.nombre, COALESCE(p.sku, "") AS sku, SUM(vd.cantidad) AS unidades, SUM(ROUND(vd.subtotal * 100)) AS importe
-                                   FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
-                                  WHERE ' . implode(' AND ', $donde) . ' GROUP BY p.id, p.nombre, p.sku ORDER BY unidades ASC, importe ASC LIMIT ?');
+        $c = self::$db->prepare('SELECT t.* FROM (
+                    SELECT v.empresa_id, e.nombre AS negocio, p.nombre, COALESCE(p.sku, "") AS sku,
+                           SUM(vd.cantidad) AS unidades, SUM(ROUND(vd.subtotal * 100)) AS importe,
+                           ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY SUM(vd.cantidad) ASC, SUM(ROUND(vd.subtotal * 100)) ASC, p.nombre ASC) AS posicion
+                      FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
+                           JOIN empresas e ON e.id = v.empresa_id
+                     WHERE ' . implode(' AND ', $donde) . '
+                     GROUP BY v.empresa_id, e.nombre, p.id, p.nombre, p.sku) t
+                 WHERE t.posicion <= ? ORDER BY t.empresa_id ASC, t.posicion ASC');
         $c->bind_param($tipos, ...$valores);
         $c->execute();
-        $filas = array_map(static fn ($x) => ['nombre' => (string) $x['nombre'], 'sku' => (string) $x['sku'], 'unidades' => (int) $x['unidades'], 'importe' => (int) $x['importe']], $c->get_result()->fetch_all(MYSQLI_ASSOC));
+        $filas = array_map(static fn ($x) => ['empresa_id' => (int) $x['empresa_id'], 'negocio' => (string) $x['negocio'],
+            'nombre' => (string) $x['nombre'], 'sku' => (string) $x['sku'], 'unidades' => (int) $x['unidades'], 'importe' => (int) $x['importe']],
+            $c->get_result()->fetch_all(MYSQLI_ASSOC));
         $c->close();
 
         return $filas;
@@ -339,6 +348,14 @@ class Analisis
             'semestre' => $indice === 2 ? [7, 12] : [1, 6],
             default => null,
         };
+    }
+
+    /** Etiqueta de un producto en una gráfica o tabla: primero el código (SKU), después el nombre. */
+    private static function etiquetaProducto(array $x): string
+    {
+        $sku = (string) ($x['sku'] ?? '');
+
+        return $sku !== '' ? $sku . ' · ' . (string) $x['nombre'] : (string) $x['nombre'];
     }
 
     /**
@@ -504,21 +521,38 @@ class Analisis
         }
 
         // ---- Productos ---------------------------------------------------
-        if ($r['productos']) {
-            $g[] = ['id' => 'productos-top', 'seccion' => 'productos', 'titulo' => 'Productos con mayor movimiento', 'subtitulo' => 'Importe de renglones sin IVA · ' . Estadisticas::etiquetaPeriodo($p['tipo'], $anio, $p['indice']),
-                'tipo' => 'barras-h', 'formato' => 'moneda', 'categorias' => array_column($r['productos'], 'nombre'),
-                'series' => [['nombre' => 'Importe', 'datos' => array_map(static fn ($x) => round($x['importe'] / 100, 2), $r['productos']), 'color' => self::COLOR['ventas']]],
-                'extra' => ['Piezas' => array_column($r['productos'], 'unidades')]];
+        // Una gráfica por negocio; el código (SKU) encabeza la etiqueta de cada producto.
+        $etiquetaPeriodo = Estadisticas::etiquetaPeriodo($p['tipo'], $anio, $p['indice']);
+        $gruposTop = Estadisticas::agruparPorNegocio($r['productos']);
+        $porNegocio = count($gruposTop) > 1;
+        foreach ($gruposTop as $grupo) {
+            $g[] = ['id' => 'productos-top' . ($porNegocio ? '-' . $grupo['empresa_id'] : ''), 'seccion' => 'productos',
+                'titulo' => 'Productos con mayor movimiento' . ($porNegocio ? ' · ' . $grupo['negocio'] : ''),
+                'subtitulo' => 'Importe de renglones sin IVA · ' . $etiquetaPeriodo,
+                'tipo' => 'barras-h', 'formato' => 'moneda', 'categorias' => array_map(static fn ($x) => self::etiquetaProducto($x), $grupo['filas']),
+                'series' => [['nombre' => 'Importe', 'datos' => array_map(static fn ($x) => round($x['importe'] / 100, 2), $grupo['filas']), 'color' => self::COLOR['ventas']]],
+                'extra' => ['Piezas' => array_column($grupo['filas'], 'unidades')],
+                'hoja' => 'Productos top' . ($porNegocio ? ' · ' . $grupo['negocio'] : '')];
         }
-        if ($d['menor_movimiento']) {
-            $g[] = ['id' => 'productos-menor', 'seccion' => 'productos', 'titulo' => 'Productos con menor movimiento', 'subtitulo' => 'Productos que sí se vendieron, de menos a más piezas · piezas vendidas',
-                'tipo' => 'barras-h', 'formato' => 'entero', 'categorias' => array_column($d['menor_movimiento'], 'nombre'),
-                'series' => [['nombre' => 'Piezas', 'datos' => array_column($d['menor_movimiento'], 'unidades'), 'color' => self::COLOR['no_fact']]]];
+        $gruposMenor = Estadisticas::agruparPorNegocio($d['menor_movimiento']);
+        $porNegocio = count($gruposMenor) > 1;
+        foreach ($gruposMenor as $grupo) {
+            $g[] = ['id' => 'productos-menor' . ($porNegocio ? '-' . $grupo['empresa_id'] : ''), 'seccion' => 'productos',
+                'titulo' => 'Productos con menor movimiento' . ($porNegocio ? ' · ' . $grupo['negocio'] : ''),
+                'subtitulo' => 'Productos que sí se vendieron, de menos a más piezas · piezas vendidas',
+                'tipo' => 'barras-h', 'formato' => 'entero', 'categorias' => array_map(static fn ($x) => self::etiquetaProducto($x), $grupo['filas']),
+                'series' => [['nombre' => 'Piezas', 'datos' => array_column($grupo['filas'], 'unidades'), 'color' => self::COLOR['no_fact']]],
+                'hoja' => 'Prod. menor mov.' . ($porNegocio ? ' · ' . $grupo['negocio'] : '')];
         }
-        if ($r['clientes']) {
-            $g[] = ['id' => 'clientes-top', 'seccion' => 'negocios', 'titulo' => 'Clientes con mayor volumen', 'subtitulo' => 'Ventas realizadas' . $sinIva . ' · ' . Estadisticas::etiquetaPeriodo($p['tipo'], $anio, $p['indice']),
-                'tipo' => 'barras-h', 'formato' => 'moneda', 'categorias' => array_column($r['clientes'], 'nombre'),
-                'series' => [['nombre' => 'Importe', 'datos' => array_map(static fn ($x) => round($x['importe'] / 100, 2), $r['clientes']), 'color' => self::COLOR['ventas']]]];
+        $gruposClientes = Estadisticas::agruparPorNegocio($r['clientes']);
+        $porNegocio = count($gruposClientes) > 1;
+        foreach ($gruposClientes as $grupo) {
+            $g[] = ['id' => 'clientes-top' . ($porNegocio ? '-' . $grupo['empresa_id'] : ''), 'seccion' => 'negocios',
+                'titulo' => 'Clientes con mayor volumen' . ($porNegocio ? ' · ' . $grupo['negocio'] : ''),
+                'subtitulo' => 'Ventas realizadas' . $sinIva . ' · ' . $etiquetaPeriodo,
+                'tipo' => 'barras-h', 'formato' => 'moneda', 'categorias' => array_column($grupo['filas'], 'nombre'),
+                'series' => [['nombre' => 'Importe', 'datos' => array_map(static fn ($x) => round($x['importe'] / 100, 2), $grupo['filas']), 'color' => self::COLOR['ventas']]],
+                'hoja' => 'Clientes top' . ($porNegocio ? ' · ' . $grupo['negocio'] : '')];
         }
 
         // Con producto elegido solo se miden renglones: las gráficas que no se pueden repartir por producto salen vacías.

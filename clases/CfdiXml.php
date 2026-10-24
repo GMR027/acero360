@@ -46,6 +46,15 @@ class CfdiXml
         $atributo = static fn (?\DOMNode $nodo, string $nombre): string =>
             $nodo instanceof \DOMElement ? trim($nodo->getAttribute($nombre)) : '';
 
+        /* Nunca «?:» con el resultado de $atributo: en PHP «0» es falso, así que un
+         * comprobante con SubTotal="0" o Descuento="0" (los CFDI de pagos y las
+         * facturas sin descuento) se leería como si no viniera el dato. */
+        $primero = static fn (string ...$valores): string => array_reduce(
+            $valores,
+            static fn (string $acumulado, string $valor): string => $acumulado !== '' ? $acumulado : $valor,
+            ''
+        );
+
         $emisor   = $xpath->query('//*[local-name()="Emisor"]')->item(0);
         $receptor = $xpath->query('//*[local-name()="Receptor"]')->item(0);
         $timbre   = $xpath->query('//*[local-name()="TimbreFiscalDigital"]')->item(0);
@@ -56,21 +65,22 @@ class CfdiXml
         }
 
         $datos = [
-            'version'         => $atributo($comprobante, 'Version') ?: $atributo($comprobante, 'version'),
-            'fecha'           => $atributo($comprobante, 'Fecha') ?: $atributo($comprobante, 'fecha'),
-            'tipo'            => $atributo($comprobante, 'TipoDeComprobante') ?: $atributo($comprobante, 'tipoDeComprobante'),
-            'moneda'          => $atributo($comprobante, 'Moneda') ?: 'MXN',
-            'subtotal'        => $atributo($comprobante, 'SubTotal') ?: $atributo($comprobante, 'subTotal'),
-            'total'           => $atributo($comprobante, 'Total') ?: $atributo($comprobante, 'total'),
+            'version'         => $primero($atributo($comprobante, 'Version'), $atributo($comprobante, 'version')),
+            'fecha'           => $primero($atributo($comprobante, 'Fecha'), $atributo($comprobante, 'fecha')),
+            'tipo'            => $primero($atributo($comprobante, 'TipoDeComprobante'), $atributo($comprobante, 'tipoDeComprobante')),
+            'moneda'          => $primero($atributo($comprobante, 'Moneda'), 'MXN'),
+            'subtotal'        => $primero($atributo($comprobante, 'SubTotal'), $atributo($comprobante, 'subTotal')),
+            'total'           => $primero($atributo($comprobante, 'Total'), $atributo($comprobante, 'total')),
             'serie'           => $atributo($comprobante, 'Serie'),
             'folio'           => $atributo($comprobante, 'Folio'),
-            'emisor_rfc'      => strtoupper($atributo($emisor, 'Rfc') ?: $atributo($emisor, 'rfc')),
-            'emisor_nombre'   => $atributo($emisor, 'Nombre') ?: $atributo($emisor, 'nombre'),
-            'receptor_rfc'    => strtoupper($atributo($receptor, 'Rfc') ?: $atributo($receptor, 'rfc')),
-            'receptor_nombre' => $atributo($receptor, 'Nombre') ?: $atributo($receptor, 'nombre'),
+            'emisor_rfc'      => strtoupper($primero($atributo($emisor, 'Rfc'), $atributo($emisor, 'rfc'))),
+            'emisor_nombre'   => $primero($atributo($emisor, 'Nombre'), $atributo($emisor, 'nombre')),
+            'receptor_rfc'    => strtoupper($primero($atributo($receptor, 'Rfc'), $atributo($receptor, 'rfc'))),
+            'receptor_nombre' => $primero($atributo($receptor, 'Nombre'), $atributo($receptor, 'nombre')),
             'uuid'            => $uuid,
-            'forma_pago'      => $atributo($comprobante, 'FormaPago') ?: $atributo($comprobante, 'formaDePago'),
-            'metodo_pago'     => $atributo($comprobante, 'MetodoPago') ?: $atributo($comprobante, 'metodoDePago'),
+            'forma_pago'      => $primero($atributo($comprobante, 'FormaPago'), $atributo($comprobante, 'formaDePago')),
+            'metodo_pago'     => $primero($atributo($comprobante, 'MetodoPago'), $atributo($comprobante, 'metodoDePago')),
+            'descuento'       => $primero($atributo($comprobante, 'Descuento'), $atributo($comprobante, 'descuento')),
             'iva'             => self::iva($xpath, $atributo),
             'conceptos'       => self::conceptos($xpath, $atributo),
         ];
@@ -107,16 +117,18 @@ class CfdiXml
         return number_format($suma, 2, '.', '');
     }
 
-    /** @return array<int, array{descripcion: string, cantidad: string, valor_unitario: string, importe: string}> */
+    /** @return array<int, array{descripcion: string, sku: string, cantidad: string, valor_unitario: string, importe: string, descuento: string}> */
     private static function conceptos(\DOMXPath $xpath, callable $atributo): array
     {
         $lista = [];
         foreach ($xpath->query('/*/*[local-name()="Conceptos"]/*[local-name()="Concepto"]') as $c) {
             $lista[] = [
                 'descripcion'    => $atributo($c, 'Descripcion'),
+                'sku'            => $atributo($c, 'NoIdentificacion') ?: $atributo($c, 'noIdentificacion'),
                 'cantidad'       => $atributo($c, 'Cantidad'),
                 'valor_unitario' => $atributo($c, 'ValorUnitario'),
                 'importe'        => $atributo($c, 'Importe'),
+                'descuento'      => $atributo($c, 'Descuento'),
             ];
             if (count($lista) >= 100) {
                 break;

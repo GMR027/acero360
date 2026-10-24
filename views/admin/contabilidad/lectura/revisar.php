@@ -25,7 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (\App\Lecturas::confirmar($id, $_POST, $usuario)) {
         $nuevo = \App\Lecturas::$ultimoId;
-        redirigir($destino === 'gasto' ? '/admin/contabilidad/gastos/detalle?id=' . $nuevo : '/admin/contabilidad/ingresos/detalle?id=' . $nuevo,
+        // La facturación y los cobros viven en el detalle de la venta: se apunta ahí desde el principio.
+        $ingresoNuevo = $destino === 'gasto' ? null : \App\Contabilidad::buscarIngreso($nuevo);
+        redirigir($destino === 'gasto'
+                ? '/admin/contabilidad/gastos/detalle?id=' . $nuevo
+                : \App\Contabilidad::rutaDetalle($ingresoNuevo ?: ['id' => $nuevo], 'facturacion'),
             'exito', 'Datos confirmados y documento asociado. Quedó registrado quién lo confirmó y cuándo.');
     }
     // Con errores se vuelve a mostrar lo que la persona había escrito.

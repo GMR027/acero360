@@ -4,18 +4,20 @@
  * lista (con validación documental), subida, sustitución y baja.
  *
  * Variables: $entidad ('ingreso'|'gasto'), $entidadId, $retorno (URL a la que volver),
- *            $bloqueado (bool: periodo cerrado)
+ *            $bloqueado (bool: periodo cerrado), $interna (bool: se pega dentro de otra tarjeta)
  */
 $documentos = \App\Archivos::deOperacion($entidad, $entidadId);
 $bloqueado  = $bloqueado ?? false;
 $sinSubida  = $sinSubida ?? false;
+$interna    = $interna ?? false;
 $maxMb      = \App\Archivos::maxBytes() / 1048576;
+$relleno    = $interna ? '' : ' style="padding:1rem"';
 ?>
-<section class="tarjeta tarjeta--sin-relleno mt-lg" id="documentos">
-    <h2 class="titulo-5" style="padding:1rem 1rem 0">Facturas y comprobantes</h2>
+<?php if ($interna) : ?><div id="documentos"><?php else : ?><section class="tarjeta tarjeta--sin-relleno mt-lg" id="documentos"><?php endif; ?>
+    <<?= $interna ? 'h3 class="titulo-5 mb-md"' : 'h2 class="titulo-5" style="padding:1rem 1rem 0"' ?>>Facturas y comprobantes</<?= $interna ? 'h3' : 'h2' ?>>
 
     <?php if (!$documentos) : ?>
-        <p class="texto-secundario" style="padding:1rem">Aún no has subido nada.</p>
+        <p class="texto-secundario"<?= $relleno ?>>Aún no has subido nada.</p>
     <?php else : ?>
         <div class="tabla-contenedor">
             <table class="tabla">
@@ -78,7 +80,7 @@ $maxMb      = \App\Archivos::maxBytes() / 1048576;
 
     <?php if ($sinSubida) : ?>
     <?php elseif (!$bloqueado) : ?>
-        <form class="formulario" style="padding:1rem" action="/admin/contabilidad/documentos/subir" method="post" enctype="multipart/form-data">
+        <form class="formulario"<?= $interna ? '' : ' style="padding:1rem"' ?> action="/admin/contabilidad/documentos/subir" method="post" enctype="multipart/form-data">
             <input type="hidden" name="entidad" value="<?= escaparValores($entidad) ?>">
             <input type="hidden" name="entidad_id" value="<?= $entidadId ?>">
             <input type="hidden" name="retorno" value="<?= escaparValores($retorno) ?>">
@@ -103,8 +105,9 @@ $maxMb      = \App\Archivos::maxBytes() / 1048576;
             <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Subir archivos</button></div>
         </form>
     <?php else : ?>
-        <p class="nota nota--advertencia" style="margin:1rem" role="status">
+        <p class="nota nota--advertencia"<?= $interna ? ' style="margin-top:1rem"' : ' style="margin:1rem"' ?> role="status">
             <span class="material-symbols-outlined nota__icono" aria-hidden="true">lock</span>
             <span>El periodo está cerrado: no se pueden agregar ni cambiar documentos hasta reabrirlo.</span></p>
     <?php endif; ?>
-</section>
+
+<?php if ($interna) : ?></div><?php else : ?></section><?php endif; ?>

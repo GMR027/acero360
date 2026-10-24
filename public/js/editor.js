@@ -53,6 +53,7 @@
     var contadorGrupo = 0;
     var contadorGuia = 0;
     var paneo = null;
+    var ctxBloqueado = false, ctxTimer = null;
 
     var GRID_PASO = 20;
     var CUADRICULA = true;
@@ -332,19 +333,27 @@
         }
         if (op === 'borrar') {
             if (capas().length <= 1) { estado('Debe quedar al menos una capa', true); return; }
-            if (!window.confirm('¿Eliminar la capa «' + c.getAttr('nombre') + '» y todo su contenido?')) return;
-            antes();
-            var eraActiva = c.getAttr('capaId') === capaActivaId;
-            c.destroy();
-            if (eraActiva) {
-                var cs = capas();
-                capaActivaId = cs[cs.length - 1].getAttr('capaId');
-            }
-            tr.nodes([]);
-            selNodos = [];
-            pintarCapas();
-            capaContenido.batchDraw();
-            marcar();
+            confirmarAccion({
+                sobreTitulo: 'Capas',
+                titulo: 'Eliminar la capa «' + c.getAttr('nombre') + '»',
+                mensaje: 'Se borrará la capa y todo su contenido.',
+                textoConfirmar: 'Eliminar capa',
+                alConfirmar: function () {
+                    antes();
+                    var eraActiva = c.getAttr('capaId') === capaActivaId;
+                    c.destroy();
+                    if (eraActiva) {
+                        var cs = capas();
+                        capaActivaId = cs[cs.length - 1].getAttr('capaId');
+                    }
+                    tr.nodes([]);
+                    selNodos = [];
+                    pintarCapas();
+                    capaContenido.batchDraw();
+                    marcar();
+                }
+            });
+            return;
         }
     }
 
@@ -712,7 +721,20 @@
                         return true;
                     }
                     if (x.j.conflicto && manual) {
-                        if (window.confirm(x.j.error + '\n\n¿Guardar de todos modos y reemplazar esa versión?')) {
+                        // Confirmación en el modal estilizado (nunca window.confirm):
+                        // la promesa se resuelve con true si el usuario fuerza el guardado.
+                        return new Promise(function (confirmar) {
+                            confirmarAccion({
+                                sobreTitulo: 'Guardar',
+                                titulo: 'Hay otra versión más reciente',
+                                mensaje: (x.j.error || 'El documento cambió desde otra pestaña.')
+                                    + '\n\n¿Guardar de todos modos y reemplazar esa versión?',
+                                textoConfirmar: 'Reemplazar la versión',
+                                alConfirmar: function () { confirmar(true); },
+                                alCerrar: function () { confirmar(false); }
+                            });
+                        }).then(function (forzar) {
+                            if (!forzar) return false;
                             var fd2 = new FormData();
                             fd2.append('datos', JSON.stringify(payload()));
                             fd2.append('forzar', '1');
@@ -730,8 +752,7 @@
                                     estado(j2.error || 'No se pudo guardar', true);
                                     return false;
                                 });
-                        }
-                        return false;
+                        });
                     }
                     estado(x.j.error || 'No se pudo guardar', true);
                     return false;
@@ -1214,16 +1235,27 @@
     }
 
     function editarNumero(n) {
-        var v = window.prompt('Número del marcador:', n.getAttr('numero') || 1);
-        if (v === null) return;
-        var numero = parseInt(v, 10);
-        if (!isFinite(numero) || numero < 1) return;
-        antes();
-        n.setAttr('numero', numero);
-        dibujarPin(n);
-        capaContenido.batchDraw();
-        marcar();
-        actualizarProps();
+        pedirTexto({
+            sobreTitulo: 'Marcador',
+            titulo: 'Número del marcador',
+            etiqueta: 'Número',
+            predeterminado: String(n.getAttr('numero') || 1),
+            placeholder: '1',
+            textoConfirmar: 'Aceptar'
+        }).then(function (v) {
+            if (v === null) return;
+            var numero = parseInt(v, 10);
+            if (!isFinite(numero) || numero < 1) {
+                if (String(v).trim() !== '') { estado('El número del marcador no es válido', true); }
+                return;
+            }
+            antes();
+            n.setAttr('numero', numero);
+            dibujarPin(n);
+            capaContenido.batchDraw();
+            marcar();
+            actualizarProps();
+        });
     }
 
     function medidaTexto(px, unidad) {
@@ -1316,6 +1348,12 @@
     };
     Object.keys(FORMAS).forEach(function (k) { DIBUJO[k] = 1; });
 
+    function restaurarCursor() {
+        var esPaneo = herramienta === 'paneo';
+        var dibujando = !esPaneo && herramienta !== 'select' && herramienta !== 'multi';
+        stage.container().style.cursor = esPaneo ? 'grab' : dibujando ? 'crosshair' : 'default';
+    }
+
     function activar(nombreHerramienta) {
         herramienta = nombreHerramienta;
         var esPaneo = herramienta === 'paneo';
@@ -1330,8 +1368,7 @@
         // En modo mano el lienzo no debe seleccionar ni mover objetos.
         capaContenido.listening(!esPaneo);
         capaUI.listening(!esPaneo);
-        var dibujando = !esPaneo && herramienta !== 'select' && herramienta !== 'multi';
-        stage.container().style.cursor = esPaneo ? 'grab' : dibujando ? 'crosshair' : 'default';
+        restaurarCursor();
         todosObjetos().forEach(function (n) {
             var c = capaDe(n);
             n.draggable((herramienta === 'select' || herramienta === 'multi') && c && !c.getAttr('locked'));
@@ -2332,46 +2369,85 @@
     }
 
     lienzo.addEventListener('wheel', function (e) {
-        var ctrl = e.ctrlKey || e.metaKey;
-        if (herramienta === 'paneo' && !ctrl) {
-            // En modo mano, la rueda desplaza el lienzo.
-            var d = deltaRueda(e);
-            e.preventDefault();
-            scroll.scrollLeft += d.x;
-            scroll.scrollTop += d.y;
-            return;
-        }
-        if (!ctrl && e.shiftKey) {
+        if (e.shiftKey) {
             // Mayús + rueda: desplazamiento horizontal rápido.
             e.preventDefault();
-            scroll.scrollLeft += (e.deltaY || e.deltaX);
+            var d = deltaRueda(e);
+            scroll.scrollLeft += Math.abs(d.y) > Math.abs(d.x) ? d.y : d.x;
             return;
         }
-        // Fuera del modo mano (o con Ctrl en modo mano) la rueda acerca.
+        // La rueda siempre acerca/aleja en el cursor, con cualquier herramienta.
         e.preventDefault();
         zoomEnPunto(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
     }, { passive: false });
 
-    /* Arrastrar con el botón izquierdo en modo mano desplaza el lienzo. */
+    /* Arrastrar con el botón central o el derecho desplaza el lienzo, con
+       cualquier herramienta activa. También con el izquierdo en modo mano. */
     scroll.addEventListener('pointerdown', function (e) {
-        if (herramienta !== 'paneo' || e.button !== 0) return;
-        if (e.pointerType === 'mouse' && e.buttons !== 1) return;
+        var izqPaneo = herramienta === 'paneo' && e.button === 0;
+        var centralDerecho = e.button === 1 || e.button === 2;
+        if (!izqPaneo && !centralDerecho) return;
+        // OJO: e.buttons NO coloca el botón en su propio bit (izq=bit0/1,
+        // der=bit1/2, central=bit2/4). Con «1 << e.button» el central y el
+        // derecho no cuadraban y el arrastre se abortaba sin empezar.
+        var mascaraBoton = e.button === 0 ? 1 : (e.button === 1 ? 4 : 2);
+        if (e.pointerType === 'mouse' && !(e.buttons & mascaraBoton)) return;
         e.preventDefault();
         e.stopPropagation();
-        paneo = { x: e.clientX, y: e.clientY, left: scroll.scrollLeft, top: scroll.scrollTop };
+        paneo = { x: e.clientX, y: e.clientY, left: scroll.scrollLeft, top: scroll.scrollTop, movido: false, btn: e.button };
         scroll.classList.add('paneando');
+        stage.container().style.cursor = 'grabbing';
+        // Botón derecho sobre el lienzo: el navegador emite 'contextmenu' casi
+        // al pulsar (1 ms después, ANTES de cualquier movimiento), así que no
+        // da tiempo a saber si habrá arrastre. Se cancela aquí mismo y el
+        // derecho queda reservado para el paneo; fuera del lienzo el menú
+        // contextual del navegador sigue funcionando con normalidad.
+        if (e.button === 2) {
+            ctxBloqueado = true;
+            clearTimeout(ctxTimer);
+        }
         try { scroll.setPointerCapture(e.pointerId); } catch (err) { /* sin captura */ }
+    }, true);
+    // El navegador entra en «paneo automático» al pulsar la rueda (mousedown del
+    // botón central): se cancela para que mande el arrastre del editor.
+    scroll.addEventListener('mousedown', function (e) {
+        if (e.button === 1 || e.button === 2) e.preventDefault();
     }, true);
     window.addEventListener('pointermove', function (e) {
         if (!paneo) return;
         e.preventDefault();
+        if (!paneo.movido && Math.abs(e.clientX - paneo.x) + Math.abs(e.clientY - paneo.y) > 2) {
+            paneo.movido = true;
+            // Arrastre real con el derecho → no debe abrirse el menú contextual.
+            if (paneo.btn === 2) ctxBloqueado = true;
+        }
         scroll.scrollLeft = paneo.left - (e.clientX - paneo.x);
         scroll.scrollTop = paneo.top - (e.clientY - paneo.y);
     }, { passive: false });
-    window.addEventListener('pointerup pointercancel', function () {
+    /* Al soltar (o si el navegador cancela el puntero) se termina el paneo.
+       OJO: addEventListener NO admite varios tipos separados por espacios en
+       este navegador — «'pointerup pointercancel'» no se registraba para nada
+       y el estado (clase «paneando» y paneo) se quedaba colgado tras soltar. */
+    function soltarPaneo() {
         if (!paneo) return;
+        // El 'contextmenu' del botón derecho llega enseguida: se mantiene la
+        // marca unos ms para poder cancelarlo (si no hubo arrastre, no se puso).
+        if (ctxBloqueado) {
+            clearTimeout(ctxTimer);
+            ctxTimer = setTimeout(function () { ctxBloqueado = false; }, 400);
+        }
         paneo = null;
         scroll.classList.remove('paneando');
+        restaurarCursor();
+    }
+    window.addEventListener('pointerup', soltarPaneo);
+    window.addEventListener('pointercancel', soltarPaneo);
+    // El menú contextual se suprime sólo cuando el derecho se pulsó sobre el
+    // lienzo (flag del pointerdown); en el resto de la página no se toca.
+    window.addEventListener('contextmenu', function (e) {
+        if (!ctxBloqueado) return;
+        e.preventDefault();
+        ctxBloqueado = false;
     });
 
     scroll.addEventListener('scroll', function () { pintarGuias(); dibujarReglas(); });
@@ -2416,8 +2492,16 @@
                 + '<span class="ed-pagina-nom">' + esc(p.nombre || ('Lámina ' + (i + 1))) + '</span>';
             b.addEventListener('click', function () { irPagina(i); });
             b.addEventListener('dblclick', function () {
-                var n = window.prompt('Nombre de la lámina:', p.nombre || ('Lámina ' + (i + 1)));
-                if (n && n.trim()) { p.nombre = n.trim().slice(0, 60); pintarPaginas(); marcar(); }
+                pedirTexto({
+                    sobreTitulo: 'Lámina',
+                    titulo: 'Nombre de la lámina',
+                    etiqueta: 'Nombre',
+                    predeterminado: p.nombre || ('Lámina ' + (i + 1)),
+                    maximo: 60,
+                    textoConfirmar: 'Guardar'
+                }).then(function (n) {
+                    if (n && n.trim()) { p.nombre = n.trim().slice(0, 60); pintarPaginas(); marcar(); }
+                });
             });
             lista.appendChild(b);
         });
@@ -2467,12 +2551,24 @@
     }
 
     $('ed-pagina-borrar').addEventListener('click', function () {
-        if (paginas.length <= 1) { window.alert('El documento debe tener al menos una lámina.'); return; }
-        if (!window.confirm('¿Eliminar la lámina ' + (actual + 1) + '?')) return;
-        paginas.splice(actual, 1);
-        if (actual >= paginas.length) actual = paginas.length - 1;
-        capaActivaId = null;
-        cargarCapa(paginas[actual].json).then(function () { pintarPaginas(); marcar(); });
+        if (paginas.length <= 1) {
+            // Aviso con toast (nunca window.alert).
+            crearAlerta('advertencia', 'El documento debe tener al menos una lámina.', 'Lámina obligatoria');
+            estado('El documento debe tener al menos una lámina', true);
+            return;
+        }
+        confirmarAccion({
+            sobreTitulo: 'Láminas',
+            titulo: '¿Eliminar la lámina ' + (actual + 1) + '?',
+            mensaje: 'Se quitará del documento y no se puede deshacer.',
+            textoConfirmar: 'Eliminar lámina',
+            alConfirmar: function () {
+                paginas.splice(actual, 1);
+                if (actual >= paginas.length) actual = paginas.length - 1;
+                capaActivaId = null;
+                cargarCapa(paginas[actual].json).then(function () { pintarPaginas(); marcar(); });
+            }
+        });
     });
 
     // ------------------------------------------------------------------
@@ -2668,12 +2764,20 @@
         var li = n.closest('.ed-capa-item');
         var c = capaPorId(li.dataset.id);
         if (!c) return;
-        var v = window.prompt('Nombre de la capa:', c.getAttr('nombre'));
-        if (v && v.trim()) {
-            antes();
-            c.setAttr('nombre', v.trim().slice(0, 60));
-            pintarCapas(); marcar(); actualizarProps();
-        }
+        pedirTexto({
+            sobreTitulo: 'Capas',
+            titulo: 'Nombre de la capa',
+            etiqueta: 'Nombre',
+            predeterminado: c.getAttr('nombre'),
+            maximo: 60,
+            textoConfirmar: 'Guardar'
+        }).then(function (v) {
+            if (v && v.trim()) {
+                antes();
+                c.setAttr('nombre', v.trim().slice(0, 60));
+                pintarCapas(); marcar(); actualizarProps();
+            }
+        });
     });
     $('ed-capa-nueva').addEventListener('click', function () {
         antes();

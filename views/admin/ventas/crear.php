@@ -82,16 +82,64 @@ if ($esEnvio) {
     // Primera carga: negocio por defecto, condiciones precargadas y fecha de hoy.
     $primera = $empresas[0] ?? null;
 
+    /* Factura cargada con el botón «Registro Venta Inteligente» (Contabilidad):
+     * se precarga lo que el motor documental leyó y pudo cotejar. Nada se guarda
+     * hasta que la persona revisa los campos y envía el formulario. */
+    $propuesta = null;
+    $lecturaId = (int) ($_GET['lectura'] ?? 0);
+    if ($lecturaId > 0) {
+        $propuesta = \App\Lecturas::propuesta($lecturaId, 'venta');
+        if ($propuesta === null) {
+            agregarAlerta('advertencia', 'No se encontró la lectura #' . $lecturaId . ': captura la venta a mano.');
+        }
+    }
+
+    // Negocio: el que emitió la factura; si no se identificó, el primero de la lista.
+    $empresaPrecargada = 0;
+    foreach ($empresas as $candidata) {
+        if ($propuesta && $propuesta['empresa'] && (int) $candidata->id === (int) $propuesta['empresa']['id']) {
+            $empresaPrecargada = (int) $candidata->id;
+            break;
+        }
+    }
+    if ($empresaPrecargada === 0) {
+        $empresaPrecargada = $primera ? (int) $primera->id : 0;
+    }
+    $empresaElegida = null;
+    foreach ($empresas as $candidata) {
+        if ((int) $candidata->id === $empresaPrecargada) {
+            $empresaElegida = $candidata;
+            break;
+        }
+    }
+
+    // Cliente: el RECEPTOR de la factura, cuando ya existe en la ficha.
+    $clientePrecargado = 0;
+    if ($propuesta && $propuesta['cliente']) {
+        foreach ($clientes as $candidato) {
+            if ((int) $candidato->id === (int) $propuesta['cliente']['id']) {
+                $clientePrecargado = (int) $candidato->id;
+                break;
+            }
+        }
+    }
+
+    // El descuento del documento se pasa a descuento global del cotizador.
+    $descuentoGlobal = 0.0;
+    if ($propuesta && $propuesta['subtotal'] > 0 && $propuesta['descuento'] > 0) {
+        $descuentoGlobal = min(100.0, max(0.0, round($propuesta['descuento'] / $propuesta['subtotal'] * 100, 2)));
+    }
+
     $cotizacion = new \App\Ventas([
-        'empresa_id'         => $primera ? (int) $primera->id : 0,
-        'fecha'              => date('Y-m-d'),
-        'aplica_iva'         => 1,
-        'condiciones_envio'  => $primera ? (string) $primera->condiciones_envio : '',
-        'condiciones_compra' => $primera ? (string) $primera->condiciones_compra : '',
+        'empresa_id'         => $empresaPrecargada,
+        'cliente_id'         => $clientePrecargado,
+        'fecha'              => $propuesta ? $propuesta['fecha'] : date('Y-m-d'),
+        'aplica_iva'         => $propuesta ? ($propuesta['iva'] > 0 ? 1 : 0) : 1,
+        'condiciones_envio'  => $empresaElegida ? (string) $empresaElegida->condiciones_envio : '',
+        'condiciones_compra' => $empresaElegida ? (string) $empresaElegida->condiciones_compra : '',
     ]);
 
-    $descuentoGlobal = 0.0;
-    $lineasIniciales = [];
+    $lineasIniciales = $propuesta ? $propuesta['lineas'] : [];
 }
 
 template('header', [
@@ -113,6 +161,18 @@ template('header', [
         </p>
     </div>
 </section>
+
+<?php if ($propuesta) : ?>
+    <?php if (!empty($propuesta['duplicados'])) : ?>
+        <!-- Coincidencias que ya existen: las consume src/js/modulos/inteligente.js
+             para abrir el aviso con su botón de «Ver venta» / «Ver gasto». -->
+        <div hidden
+             data-coincidencias="<?= escaparValores(json_encode($propuesta['duplicados'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"
+             data-ruta="/admin/ventas/crear?lectura=<?= (int) $lecturaId ?>"
+             data-origen="Registro Venta Inteligente"></div>
+    <?php endif; ?>
+    <?php template('avisoLectura', ['propuesta' => $propuesta, 'nombreDoc' => 'venta']); ?>
+<?php endif; ?>
 
 <section class="tarjeta tarjeta--sin-relleno">
     <form class="formulario cotizador" action="/admin/ventas/crear" method="post"

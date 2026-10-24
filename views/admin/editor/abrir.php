@@ -55,6 +55,7 @@ $config = [
 ];
 
 $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
+$GLOBALS['scriptsPagina'][] = '/public/js/pantone.js?v=' . filemtime(__DIR__ . '/../../../public/js/pantone.js');
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/konva.min.js';
 $GLOBALS['scriptsPagina'][] = '/public/js/editor.js?v=' . filemtime(__DIR__ . '/../../../public/js/editor.js');
 
@@ -154,7 +155,7 @@ $formas = [
             <button type="button" class="ed-herr" data-herr="select" title="Seleccionar / mover (V). Mayús o Ctrl + clic suma objetos; arrastra en vacío para seleccionar varios" aria-label="Seleccionar">
                 <span class="material-symbols-outlined">near_me</span>
             </button>
-            <button type="button" class="ed-herr" data-herr="paneo" title="Mover el lienzo (H). Arrastra para desplazarte; rueda: desplazar; Ctrl+rueda: acercar" aria-label="Mover el lienzo">
+            <button type="button" class="ed-herr" data-herr="paneo" title="Mover el lienzo (H). Arrastra para desplazarte; también con botón central o derecho en cualquier herramienta" aria-label="Mover el lienzo">
                 <span class="material-symbols-outlined">pan_tool</span>
             </button>
             <button type="button" class="ed-herr" data-herr="multi" title="Selección múltiple: arrastra un recuadro" aria-label="Selección múltiple">
@@ -309,7 +310,8 @@ $formas = [
                         <p class="text-sm text-muted ed-atajos">
                             V seleccionar · H mover lienzo · T texto · R rectángulo · O elipse · L línea · F flecha · P lápiz · I imagen<br>
                             Supr borrar · Ctrl+Z/Y · Ctrl+S guardar · Ctrl+D duplicar · Ctrl+G agrupar<br>
-                            Rueda acerca · Ctrl+rueda acerca en el cursor · En modo mano la rueda desplaza<br>
+                            Rueda acerca/aleja en el cursor · Mayús+rueda desplaza en horizontal<br>
+                            Botón central o derecho: arrastra para paneo (en cualquier herramienta)
                             Flechas mueven 1 px (Mayús: 10 px) · F8 ortogonal · Esc cancela
                         </p>
                     </div>

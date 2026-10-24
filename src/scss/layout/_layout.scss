@@ -12,6 +12,17 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
+  // Ancho actual del menú: lo usa el botón flotante de plegado para
+  // situarse en su borde. Se actualiza en cada breakpoint.
+  --ancho-menu: #{$ancho-sidebar};
+
+  @include hasta-tablet {
+    --ancho-menu: #{$ancho-sidebar-rail};
+  }
+
+  @include hasta-movil {
+    --ancho-menu: 0rem;
+  }
 }
 
 /* Panel derecho: contiene topbar, contenido y pie. */

@@ -208,6 +208,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/archivo',
+        'icono'         => 'folder',
+        'texto'         => 'Archivo',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/ajustes',
         'icono'         => 'settings',
         'texto'         => 'Ajustes',
@@ -246,8 +254,10 @@ $estaActivo = function (array $enlace, string $ruta): bool {
 };
 ?>
 <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
-    <a class="sidebar__marca" href="/admin" title="Acero 360 · Inicio" aria-label="Acero 360, ir al inicio">
-        <img class="sidebar__logo" src="/public/brand/acero360-marca.svg" alt="" width="32" height="32">
+    <!-- El title va en el logo (no en el <a>) para que el botón flotante de
+         plegado, que se apoya en el borde del enlace, no dispare su tooltip. -->
+    <a class="sidebar__marca" href="/admin" aria-label="Acero 360, ir al inicio">
+        <img class="sidebar__logo" src="/public/brand/acero360-marca.svg" alt="" width="32" height="32" title="Acero 360 · Inicio">
         <span class="sidebar__nombre">
             <strong>Acero <em>360</em></strong>
             <span>Gestión comercial y contable</span>
@@ -285,6 +295,35 @@ $estaActivo = function (array $enlace, string $ruta): bool {
         <span class="sidebar__version">Acero 360 · v<?= escaparValores(ACERO360_VERSION) ?></span>
     </div>
 </aside>
+
+<!-- Escritorio: botón flotante que pliega/despliega el menú para ganar espacio.
+     Vive FUERA del <aside> para que, al plegarse (width:0), no lo recorte su
+     desbordamiento. En tablet y móvil no se ve: allí ya están el riel y el cajón. -->
+<button type="button" class="sidebar__toggle" id="sidebar-toggle"
+        aria-controls="sidebar" aria-expanded="true"
+        aria-label="Ocultar el menú lateral" title="Ocultar el menú lateral" hidden>
+    <span class="material-symbols-outlined sidebar__toggle-ico sidebar__toggle-ico--abierto" aria-hidden="true">menu_open</span>
+    <span class="material-symbols-outlined sidebar__toggle-ico sidebar__toggle-ico--cerrado" aria-hidden="true">menu</span>
+</button>
+<script>
+/* Plegado recordado (localStorage): se aplica aquí, durante el parseo, para que
+   la página no parpadee con el menú desplegado y luego plegado. */
+(function () {
+  var aside = document.getElementById('sidebar');
+  var boton = document.getElementById('sidebar-toggle');
+  if (!aside || !boton) { return; }
+  var plegado = false;
+  try { plegado = window.localStorage.getItem('a360_menu_plegado') === '1'; } catch (e) { /* sin almacenamiento */ }
+  if (plegado) {
+    aside.classList.add('sidebar--plegado');
+    boton.classList.add('sidebar__toggle--plegado');
+    boton.setAttribute('aria-expanded', 'false');
+    boton.setAttribute('aria-label', 'Mostrar el menú lateral');
+    boton.setAttribute('title', 'Mostrar el menú lateral');
+  }
+  boton.hidden = false;
+})();
+</script>
 
 <!-- Fondo desenfocado para cerrar el menú en móvil. -->
 <div class="fondo-desenfocado" id="fondo-sidebar" hidden></div>

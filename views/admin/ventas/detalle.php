@@ -5,7 +5,10 @@
  * Ruta protegida por el middleware "soloAdmin".
  * Documento de sólo lectura: negocio emisor, cliente, renglones, términos
  * comerciales y logísticos y Resumen de liquidación (el mismo que usan las
- * cotizaciones). Desde acá se edita, se exporta el PDF o se elimina.
+ * cotizaciones). Arriba vive la única sección de Facturación y cobro
+ * (estado de facturación, CFDI y cobros de su ingreso); el detalle del
+ * ingreso en Contabilidad redirige a esta pantalla. Desde acá se edita,
+ * se exporta el PDF o se elimina.
  */
 
 soloAdmin();
@@ -110,28 +113,18 @@ template('header', [
     </p>
 <?php endif; ?>
 
-<?php template('devolucionesVenta', ['ventaId' => $id, 'registrada' => $cotizacion->estado === 'registrada']); ?>
-
 <?php
+/**
+ * Facturación y cobro: la única sección de la venta para decir si ya se facturó, adjuntar el CFDI
+ * y registrar si ya se pagó. El detalle del ingreso (Contabilidad) redirige aquí.
+ */
 $ingresoVenta = \App\Contabilidad::ingresoDeVenta($id);
 if ($ingresoVenta) {
-    $cobroVenta = \App\Contabilidad::etiquetaCobro($ingresoVenta['estado_cobro']);
-    ?>
-    <section class="tarjeta mb-lg" id="cobro">
-        <div style="display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap">
-            <div>
-                <h2 class="titulo-5">Cobro <span class="badge <?= $cobroVenta['clase'] ?>"><?= escaparValores($cobroVenta['etiqueta']) ?></span></h2>
-                <p class="campo__ayuda">Cobrado <?= formatoMoneda($ingresoVenta['cobrado']) ?> de <?= formatoMoneda($ingresoVenta['total']) ?> · Saldo pendiente <strong><?= formatoMoneda($ingresoVenta['saldo']) ?></strong></p>
-            </div>
-            <?php if ($ingresoVenta['estado'] === 'vigente') : ?>
-                <a class="btn btn--primario btn--sm" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $ingresoVenta['id'] ?>#cobros">Anotar pago recibido</a>
-            <?php endif; ?>
-        </div>
-    </section>
-    <?php
     template('facturacionVenta', ['ingreso' => $ingresoVenta, 'volver' => '/admin/ventas/detalle?id=' . $id]);
 }
 ?>
+
+<?php template('devolucionesVenta', ['ventaId' => $id, 'registrada' => $cotizacion->estado === 'registrada']); ?>
 
 <div class="cotizador-detalle">
     <!-- Documento -->

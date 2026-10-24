@@ -18,6 +18,8 @@ public/image/recortes/
 /storage/cache-version.json
 /build-info.json
 /storage/documentos/
+/storage/restauracion-*/
+/respaldos/
 /.liveproject/
 
 # Archivos subidos por las herramientas personales (no versionar)

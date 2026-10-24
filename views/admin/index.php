@@ -95,6 +95,37 @@ $nConvertidas  = \App\Panel::contarConvertidasSinFactura();
 $entregas      = \App\Panel::entregasPendientes();
 $devoluciones  = \App\Panel::devolucionesRecientes();
 
+/* ---------------------------------------------------------------------------
+ * PRODUCTOS MÁS VENDIDOS DEL MES Y EXISTENCIAS EN ALERTA
+ *
+ * El mes sale del filtro (mes + año); si no se eligió mes, se usa el mes en
+ * curso. El mes en curso sólo cuenta los días que ya pasaron.
+ * ------------------------------------------------------------------------- */
+$mesTop      = $mesFiltro > 0 && $anioFiltro > 0 ? $mesFiltro : (int) date('n');
+$anioTop     = $mesFiltro > 0 && $anioFiltro > 0 ? $anioFiltro : (int) date('Y');
+$desdeTop    = sprintf('%04d-%02d-01', $anioTop, $mesTop);
+$hastaTop    = min(date('Y-m-t', strtotime($desdeTop)), date('Y-m-d'));
+$etiquetaMes = nombreMes($mesTop) . ' ' . $anioTop;
+$masVendidos = \App\Panel::productosMasVendidos($desdeTop, $hastaTop, 4);
+$stockBajo   = \App\Panel::productosStockBajo(8);
+$stockTotal  = \App\Panel::contarStockBajo();
+
+/** Miniatura cuadrada de un producto (o su marcador cuando no hay imagen). */
+$miniatura = static function (array $p): string {
+    if (!empty($p['imagen'])) {
+        return '<img class="stat__imagen" src="' . escaparValores(\App\Imagenes::urlMiniatura($p['imagen'])) . '" alt="" width="56" height="56" loading="lazy" decoding="async">';
+    }
+
+    return '<span class="stat__imagen stat__imagen--vacia" role="img" aria-label="Sin imagen de ' . escaparValores($p['nombre']) . '">'
+        . '<span class="material-symbols-outlined" aria-hidden="true">image_not_supported</span></span>';
+};
+
+/** Cantidad con plural bien escrito («1 pieza», «3 piezas»). */
+$plural = static fn (int $n, string $uno, string $muchos): string => number_format($n) . ' ' . ($n === 1 ? $uno : $muchos);
+
+/** Código (SKU) de una tarjeta de producto; los productos sin SKU se marcan. */
+$codigo = static fn (array $p): string => $p['sku'] !== '' ? $p['sku'] : 'Sin código';
+
 template('header', [
     'titulo'     => 'Resumen general',
     'subtitulo'  => 'Panel de administración',
@@ -176,6 +207,73 @@ $vacio = static function (string $texto): string {
     return '<p class="texto-secundario">' . $texto . '</p>';
 };
 ?>
+
+<section class="mb-lg" aria-labelledby="titulo-mas-vendidos">
+    <div class="flex-entre fila--envuelto mb-md">
+        <h2 class="titulo-4" id="titulo-mas-vendidos">Productos más vendidos · <?= escaparValores($etiquetaMes) ?></h2>
+        <a class="btn btn--texto btn--sm" href="/admin/estadisticas?tipo=mes&indice=<?= $mesTop ?>&anio=<?= $anioTop ?>">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">monitoring</span>
+            <span>Ver en estadísticas</span>
+        </a>
+    </div>
+
+    <?php if (!$masVendidos) : ?>
+        <?= $vacio('No hay ventas de productos registradas en ' . escaparValores($etiquetaMes) . '.') ?>
+    <?php else : ?>
+        <div class="rejilla-stats">
+            <?php foreach ($masVendidos as $p) : ?>
+                <a class="stat stat--enlace stat--producto" href="/admin/productos/editar?id=<?= (int) $p['producto_id'] ?>">
+                    <span class="stat__producto">
+                        <?= $miniatura($p) ?>
+                        <span class="stat__titulos">
+                            <span class="stat__codigo cifra"><?= escaparValores($codigo($p)) ?></span>
+                            <span class="stat__nombre"><?= escaparValores($p['nombre']) ?></span>
+                        </span>
+                    </span>
+                    <span class="stat__valor cifra"><?= formatoMoneda($p['importe']) ?></span>
+                    <span class="stat__pie"><?= $plural($p['piezas'], 'pieza', 'piezas') ?> en <?= $plural($p['ventas'], 'venta', 'ventas') ?> · importe de renglones sin IVA</span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+</section>
+
+<section class="mb-lg" aria-labelledby="titulo-stock-bajo">
+    <div class="flex-entre fila--envuelto mb-md">
+        <h2 class="titulo-4" id="titulo-stock-bajo">Productos con existencias bajas</h2>
+        <a class="btn btn--texto btn--sm" href="/admin/inventario">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">warehouse</span>
+            <span>Ver inventario<?= $stockTotal > 0 ? ' (' . number_format($stockTotal) . ')' : '' ?></span>
+        </a>
+    </div>
+
+    <?php if (!$stockBajo) : ?>
+        <?= $vacio('Ningún producto está agotado, con existencia negativa ni por debajo de su cantidad mínima.') ?>
+    <?php else : ?>
+        <div class="rejilla-stats">
+            <?php foreach ($stockBajo as $p) :
+                $textoEstado = ['negativo' => 'Existencia negativa', 'agotado' => 'Agotado', 'bajo' => 'Bajo el mínimo'][$p['estado']] ?? '';
+                $buscar = $p['sku'] !== '' ? $p['sku'] : $p['nombre']; ?>
+                <a class="stat stat--enlace stat--producto<?= $p['estado'] === 'bajo' ? ' stat--pocas-existencias' : ' stat--sin-existencias' ?>"
+                   href="/admin/inventario?q=<?= escaparValores(urlencode($buscar)) ?>">
+                    <span class="stat__producto">
+                        <?= $miniatura($p) ?>
+                        <span class="stat__titulos">
+                            <span class="stat__codigo cifra"><?= escaparValores($codigo($p)) ?></span>
+                            <span class="stat__nombre"><?= escaparValores($p['nombre']) ?></span>
+                        </span>
+                    </span>
+                    <span class="stat__valor cifra"><?= number_format($p['stock']) ?></span>
+                    <span class="stat__pie"><?= escaparValores($textoEstado) ?><?= $p['stock_minimo'] !== null ? ' · mínimo ' . number_format($p['stock_minimo']) : '' ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+        <?php if ($stockTotal > count($stockBajo)) : ?>
+            <p class="texto-secundario mt-md">Se muestran <?= count($stockBajo) ?> de <?= number_format($stockTotal) ?> productos en alerta (los más urgentes: primero los de existencia negativa, luego los agotados).</p>
+        <?php endif; ?>
+    <?php endif; ?>
+</section>
+
 <section class="mb-lg" aria-labelledby="titulo-actividad">
     <h2 class="titulo-4 mb-md" id="titulo-actividad">Actividad</h2>
 
@@ -226,7 +324,7 @@ $vacio = static function (string $texto): string {
             <?php if (!$porCobrar) : ?><?= $vacio('No hay ventas por cobrar.') ?><?php else : ?>
                 <ul class="actividad">
                     <?php foreach ($porCobrar as $f) : ?>
-                        <li><a class="actividad__fila" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">
+                        <li><a class="actividad__fila" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'cobros')) ?>">
                             <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
                                 <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · venta del <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?></span></span>
                             <span class="actividad__importe"><?= formatoMoneda((float) $f['saldo']) ?></span>
@@ -244,7 +342,7 @@ $vacio = static function (string $texto): string {
             <?php if (!$porFacturar) : ?><?= $vacio('No hay ventas por definir en facturación.') ?><?php else : ?>
                 <ul class="actividad">
                     <?php foreach ($porFacturar as $f) : ?>
-                        <li><a class="actividad__fila" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">
+                        <li><a class="actividad__fila" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'facturacion')) ?>">
                             <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
                                 <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · venta del <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?></span></span>
                             <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>
@@ -263,7 +361,7 @@ $vacio = static function (string $texto): string {
                 <ul class="actividad">
                     <?php foreach ($convertidas as $f) :
                         $fact = \App\Contabilidad::FACTURACION[$f['estado_facturacion']] ?? ['etiqueta' => $f['estado_facturacion'], 'clase' => 'badge--neutro']; ?>
-                        <li><a class="actividad__fila" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">
+                        <li><a class="actividad__fila" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'facturacion')) ?>">
                             <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
                                 <span class="actividad__detalle"><?= escaparValores($f['cliente']) ?> · <span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span></span></span>
                             <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>

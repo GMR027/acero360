@@ -14,7 +14,10 @@
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# El entorno (Docker, cron, pruebas) manda sobre .env: sólo se completa lo que no venga definido.
+PREVIAS="$(env | grep -E '^(DB_HOST|DB_USER|DB_PASSWORD)=' || true)"
 [[ -f "$RAIZ/.env" ]] && set -a && source <(grep -E '^(DB_HOST|DB_USER|DB_PASSWORD)=' "$RAIZ/.env") && set +a
+while IFS= read -r linea; do [[ -n "$linea" ]] && export "$linea"; done <<< "$PREVIAS"
 
 [[ $# -ge 2 ]] || { sed -n '2,13p' "${BASH_SOURCE[0]}" >&2; exit 2; }
 RESPALDO="$1"; BASE="$2"

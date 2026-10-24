@@ -21,6 +21,9 @@ foreach ($documentos as $d) {
     ];
 }
 
+// Confirmaciones, carpetas e iconos de las herramientas portadas (modal estilizado).
+$GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
+
 template('header', [
     'titulo'    => 'Editor',
     'subtitulo' => 'Herramientas personales',

@@ -10,6 +10,8 @@
  *   5. Contador de "Pendiente por pagar" en Entradas.
  *   6. Campo "Monto" en el formulario de entrada.
  *   7. Ninguna pantalla con desbordamiento horizontal (1440 y 390 px).
+ *   10. Panel: tarjetas con los productos más vendidos del mes (código, nombre, imagen e
+ *       importe de venta) y con las existencias bajas (negativas, agotadas o bajo el mínimo).
  *
  * Uso: node pruebas/probar_ronda.mjs
  */
@@ -475,6 +477,65 @@ try {
   for (const ruta of pantallas) {
     await sinDesborde(page, ruta, 1440);
     await sinDesborde(page, ruta, 390);
+  }
+
+  /* ------------------------------------------------------------- 10. Panel */
+  console.log('\n10. Panel: productos más vendidos y existencias bajas');
+  await page.goto(BASE + '/admin');
+  const seccionTop = page.locator('section[aria-labelledby="titulo-mas-vendidos"]');
+  comprobar(
+    'el panel anuncia los productos más vendidos del mes',
+    /Productos más vendidos/.test(await seccionTop.locator('h2').innerText())
+  );
+  const tarjetasTop = seccionTop.locator('.stat--producto');
+  const nTop = await tarjetasTop.count();
+  if (nTop > 0) {
+    const textoTop = (await tarjetasTop.first().innerText()).replace(/\s+/g, ' ');
+    comprobar('salen hasta 4 tarjetas de productos más vendidos', nTop >= 1 && nTop <= 4, `${nTop}`);
+    comprobar('la tarjeta trae el importe de venta y las piezas', textoTop.includes('$') && /pieza/.test(textoTop), textoTop);
+    comprobar('la tarjeta abre el producto', (await tarjetasTop.first().getAttribute('href') || '').includes('/admin/productos/editar?id='));
+  } else {
+    comprobar('sin ventas del mes se muestra el estado vacío', (await seccionTop.innerText()).includes('No hay ventas de productos'));
+  }
+
+  const seccionStock = page.locator('section[aria-labelledby="titulo-stock-bajo"]');
+  const tarjetasStock = seccionStock.locator('.stat--producto');
+  const nStock = await tarjetasStock.count();
+  const cifrasEnlace = (await seccionStock.locator('a.btn--texto').innerText()).replace(/\D+/g, '');
+  const totalStock = cifrasEnlace === '' ? 0 : Number(cifrasEnlace);
+  comprobar(
+    'las tarjetas de existencias bajas muestran todas las que caben',
+    nStock === Math.min(8, totalStock),
+    `${nStock} de ${totalStock}`
+  );
+  if (nStock > 0) {
+    const textoStock = (await tarjetasStock.first().innerText()).replace(/\s+/g, ' ');
+    comprobar('la tarjeta de stock dice por qué está en alerta', /Agotado|negativa|mínimo/.test(textoStock), textoStock);
+    comprobar('la tarjeta de stock lleva al inventario a buscarlo', (await tarjetasStock.first().getAttribute('href') || '').includes('/admin/inventario?q='));
+    // El número va en rojo cuando ya no hay existencias y en naranja cuando quedan pocas.
+    const cifras = await tarjetasStock.evaluateAll((tarjetas) => {
+      const rgb = (valor) => {
+        const t = valor.trim();
+        if (!t.startsWith('#')) { return t; }
+        const h = t.length === 3 ? t.split('').map((c) => c + c).join('') : t.slice(1);
+        const n = parseInt(h, 16);
+        return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+      };
+      const tema = getComputedStyle(document.documentElement);
+      return tarjetas.map((t) => ({
+        rojo: rgb(tema.getPropertyValue('--color-error')),
+        naranja: rgb(tema.getPropertyValue('--color-advertencia')),
+        cifra: getComputedStyle(t.querySelector('.stat__valor')).color,
+        pie: t.querySelector('.stat__pie').textContent,
+      }));
+    });
+    comprobar(
+      'la cifra sale en rojo sin existencias y en naranja con pocas',
+      cifras.every((c) => (/Agotado|negativa/.test(c.pie) ? c.cifra === c.rojo : c.cifra === c.naranja)),
+      JSON.stringify(cifras)
+    );
+  } else {
+    comprobar('sin productos en alerta se avisa', (await seccionStock.innerText()).includes('Ningún producto'));
   }
 } catch (error) {
   fallos++;

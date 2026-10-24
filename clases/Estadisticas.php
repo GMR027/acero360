@@ -276,9 +276,11 @@ class Estadisticas
      * ------------------------------------------------------------------ */
 
     /**
-     * Productos más vendidos del rango (por importe de renglones sin IVA).
+     * Productos más vendidos del rango (por importe de renglones sin IVA), SEPARADOS por negocio:
+     * cada negocio trae sus `$limite` productos con más importe, con su código (SKU).
+     * El negocio es el emisor de la venta (`v.empresa_id`), el mismo que usa «Ventas por negocio».
      *
-     * @return array<int, array{producto_id: int, sku: string, nombre: string, imagen: ?string, unidades: int, importe: int, operaciones: int}>
+     * @return array<int, array{producto_id: int, empresa_id: int, negocio: string, sku: string, nombre: string, imagen: ?string, unidades: int, importe: int, operaciones: int}>
      */
     public static function topProductos(string $desde, string $hasta, array $f = [], int $limite = 10): array
     {
@@ -291,11 +293,15 @@ class Estadisticas
         $valores[] = max(1, $limite);
 
         $consulta = self::$db->prepare(
-            'SELECT p.id AS producto_id, p.sku, p.nombre, p.imagen, SUM(vd.cantidad) AS unidades,
-                    SUM(ROUND(vd.subtotal * 100)) AS importe, COUNT(DISTINCT v.id) AS operaciones
-               FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
-              WHERE ' . implode(' AND ', $donde) . ' GROUP BY p.id, p.sku, p.nombre, p.imagen
-              ORDER BY importe DESC, unidades DESC LIMIT ?'
+            'SELECT t.* FROM (
+                SELECT p.id AS producto_id, v.empresa_id, e.nombre AS negocio, p.sku, p.nombre, p.imagen,
+                       SUM(vd.cantidad) AS unidades, SUM(ROUND(vd.subtotal * 100)) AS importe, COUNT(DISTINCT v.id) AS operaciones,
+                       ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY SUM(ROUND(vd.subtotal * 100)) DESC, SUM(vd.cantidad) DESC, p.nombre ASC) AS posicion
+                  FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
+                       JOIN empresas e ON e.id = v.empresa_id
+                 WHERE ' . implode(' AND ', $donde) . '
+                 GROUP BY p.id, v.empresa_id, e.nombre, p.sku, p.nombre, p.imagen) t
+             WHERE t.posicion <= ? ORDER BY t.empresa_id ASC, t.posicion ASC'
         );
         $consulta->bind_param($tipos, ...$valores);
         $consulta->execute();
@@ -303,15 +309,17 @@ class Estadisticas
         $consulta->close();
 
         return array_map(static fn ($x) => [
-            'producto_id' => (int) $x['producto_id'], 'sku' => (string) $x['sku'], 'nombre' => $x['nombre'], 'imagen' => $x['imagen'],
+            'producto_id' => (int) $x['producto_id'], 'empresa_id' => (int) $x['empresa_id'], 'negocio' => (string) $x['negocio'],
+            'sku' => (string) $x['sku'], 'nombre' => $x['nombre'], 'imagen' => $x['imagen'],
             'unidades' => (int) $x['unidades'], 'importe' => (int) $x['importe'], 'operaciones' => (int) $x['operaciones'],
         ], $filas);
     }
 
     /**
-     * Clientes con mayor volumen de compra.
+     * Clientes con mayor volumen de compra, SEPARADOS por negocio: cada negocio trae sus
+     * `$limite` clientes con más importe (un cliente que compra en los dos sale en los dos).
      *
-     * @return array<int, array{cliente_id: int, nombre: string, importe: int, operaciones: int, unidades: int}>
+     * @return array<int, array{cliente_id: int, empresa_id: int, negocio: string, nombre: string, importe: int, operaciones: int, unidades: int}>
      */
     public static function topClientes(string $desde, string $hasta, array $f = [], string $base = 'total', int $limite = 10): array
     {
@@ -324,11 +332,15 @@ class Estadisticas
         $valores[] = max(1, $limite);
 
         $consulta = self::$db->prepare(
-            "SELECT cl.id AS cliente_id, COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre) AS nombre,
-                    SUM(ROUND($expresion * 100)) AS importe, COUNT(*) AS operaciones,
-                    COALESCE(SUM((SELECT SUM(vd.cantidad) FROM venta_detalles vd WHERE vd.venta_id = v.id)), 0) AS unidades
-               FROM ventas v JOIN clientes cl ON cl.id = v.cliente_id
-              WHERE " . implode(' AND ', $donde) . ' GROUP BY cl.id, nombre ORDER BY importe DESC, operaciones DESC LIMIT ?'
+            "SELECT t.* FROM (
+                SELECT cl.id AS cliente_id, v.empresa_id, e.nombre AS negocio, COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre) AS nombre,
+                       SUM(ROUND($expresion * 100)) AS importe, COUNT(*) AS operaciones,
+                       COALESCE(SUM((SELECT SUM(vd.cantidad) FROM venta_detalles vd WHERE vd.venta_id = v.id)), 0) AS unidades,
+                       ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY SUM(ROUND($expresion * 100)) DESC, COUNT(*) DESC, COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre) ASC) AS posicion
+                  FROM ventas v JOIN clientes cl ON cl.id = v.cliente_id JOIN empresas e ON e.id = v.empresa_id
+                 WHERE " . implode(' AND ', $donde) . '
+                 GROUP BY cl.id, v.empresa_id, e.nombre, nombre) t
+             WHERE t.posicion <= ? ORDER BY t.empresa_id ASC, t.posicion ASC'
         );
         $consulta->bind_param($tipos, ...$valores);
         $consulta->execute();
@@ -336,9 +348,27 @@ class Estadisticas
         $consulta->close();
 
         return array_map(static fn ($x) => [
-            'cliente_id' => (int) $x['cliente_id'], 'nombre' => $x['nombre'],
+            'cliente_id' => (int) $x['cliente_id'], 'empresa_id' => (int) $x['empresa_id'], 'negocio' => (string) $x['negocio'], 'nombre' => $x['nombre'],
             'importe' => (int) $x['importe'], 'operaciones' => (int) $x['operaciones'], 'unidades' => (int) $x['unidades'],
         ], $filas);
+    }
+
+    /**
+     * Une filas que traen `empresa_id` y `negocio` en un grupo por negocio, conservando el orden.
+     *
+     * @param array<int, array{empresa_id: int, negocio: string}> $filas
+     * @return array<int, array{empresa_id: int, negocio: string, filas: array<int, array>}>
+     */
+    public static function agruparPorNegocio(array $filas): array
+    {
+        $grupos = [];
+        foreach ($filas as $fila) {
+            $id = (int) ($fila['empresa_id'] ?? 0);
+            $grupos[$id] ??= ['empresa_id' => $id, 'negocio' => (string) ($fila['negocio'] ?? ''), 'filas' => []];
+            $grupos[$id]['filas'][] = $fila;
+        }
+
+        return array_values($grupos);
     }
 
     /**
@@ -565,11 +595,11 @@ class Estadisticas
             $filas[] = ['Serie (' . self::AGRUPACIONES[$r['parametros']['agrupacion']] . ')', 'Ventas realizadas', (string) $g, $m($x['importe']), $x['operaciones'], $x['unidades'], '', '', ''];
         }
         foreach ($r['productos'] as $x) {
-            $filas[] = ['Productos más vendidos', trim($x['sku'] . ' ' . $x['nombre']), self::etiquetaPeriodo($r['parametros']['tipo'], $r['parametros']['anio'], $r['parametros']['indice']),
+            $filas[] = ['Productos más vendidos (' . $x['negocio'] . ')', trim($x['sku'] . ' ' . $x['nombre']), self::etiquetaPeriodo($r['parametros']['tipo'], $r['parametros']['anio'], $r['parametros']['indice']),
                 $m($x['importe']), $x['operaciones'], $x['unidades'], '', '', 'Importe de renglones sin IVA'];
         }
         foreach ($r['clientes'] as $x) {
-            $filas[] = ['Clientes con mayor volumen', $x['nombre'], self::etiquetaPeriodo($r['parametros']['tipo'], $r['parametros']['anio'], $r['parametros']['indice']),
+            $filas[] = ['Clientes con mayor volumen (' . $x['negocio'] . ')', $x['nombre'], self::etiquetaPeriodo($r['parametros']['tipo'], $r['parametros']['anio'], $r['parametros']['indice']),
                 $m($x['importe']), $x['operaciones'], $x['unidades'], '', '', ''];
         }
         foreach (['matriz_productos' => 'Productos por año', 'matriz_clientes' => 'Clientes por año'] as $clave => $seccion) {
@@ -679,8 +709,16 @@ class Estadisticas
         $nombres = ['ventas-serie' => 'Ventas', 'ventas-anios' => 'Ventas por año', 'semestres' => 'Semestres', 'ingresos-acumulados' => 'Ingresos acumulados',
             'ventas-vs-cobros' => 'Ventas y cobros', 'cobrado-pendiente' => 'Cobrado y pendiente', 'facturacion' => 'Facturación', 'gastos-anios' => 'Gastos',
             'gastos-categoria' => 'Gastos por categoría', 'negocios' => 'Negocios', 'productos-top' => 'Productos top', 'productos-menor' => 'Productos menor mov.', 'clientes-top' => 'Clientes top'];
+        $usadas = [];
         foreach ($r['graficas'] as $g) {
-            $hojas[] = Analisis::hojaExcel($g, $nombres[$g['id']] ?? mb_substr($g['titulo'], 0, 31), $contexto);
+            // Las gráficas por negocio traen su propio nombre corto (`hoja`); Excel no admite dos hojas iguales.
+            $nombre = $nombres[$g['id']] ?? ($g['hoja'] ?? mb_substr($g['titulo'], 0, 31));
+            $nombre = trim(str_replace([':', '*', '?', '/', '\\', '[', ']'], ' ', $nombre));
+            $base = $nombre;
+            $intento = 1;
+            while (isset($usadas[mb_strtolower($nombre)])) { $nombre = mb_substr($base, 0, 27) . ' (' . ++$intento . ')'; }
+            $usadas[mb_strtolower($nombre)] = true;
+            $hojas[] = Analisis::hojaExcel($g, $nombre, $contexto);
         }
 
         // Negocios: participación y variación

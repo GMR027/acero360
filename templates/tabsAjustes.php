@@ -9,6 +9,7 @@ $secciones = [
     'empresas'   => ['/admin/empresas', 'Empresas y razones sociales', 'corporate_fare'],
     'fiscal'     => ['/admin/fiscal/configuracion', 'Datos fiscales', 'tune'],
     'escritorio' => ['/admin/escritorio', 'Aplicación de escritorio', 'desktop_windows'],
+    'almacenamiento' => ['/admin/ajustes/almacenamiento', 'Almacenamiento y respaldos', 'hard_drive'],
     'version'    => ['/admin/ajustes?seccion=version', 'Versión y actualizaciones', 'info'],
     'novedades'  => ['/admin/ajustes?seccion=novedades', 'Novedades de la plataforma', 'campaign'],
     'papelera'   => ['/admin/ajustes/papelera', 'Papelera', 'delete'],

@@ -27,6 +27,7 @@ $config = [
 ];
 
 $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
+$GLOBALS['scriptsPagina'][] = '/public/js/pantone.js?v=' . filemtime(__DIR__ . '/../../../public/js/pantone.js');
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/sheetflow.js?v=' . filemtime(__DIR__ . '/../../../public/vendor/herramientas/sheetflow.js');
 
 template('header', [

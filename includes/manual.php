@@ -10,6 +10,7 @@ return [
      'intro' => 'Acero 360 sirve para cotizar, vender, entregar, llevar tus gastos y saber más o menos cuánto vas a pagar de impuestos. Todo se hace desde el menú de la izquierda (en el celular, desde el botón de abajo a la derecha).',
      'pasos' => [
         ['Entrar', ['Abre la página e inicia sesión con tu correo y contraseña.', 'Si olvidaste la contraseña, cámbiala en «Usuarios y perfil».']],
+        ['El panel', ['Arriba están los indicadores del periodo: ventas, cotizaciones, por cobrar, por facturar, entregas, devoluciones, gastos y avisos; cada tarjeta abre los registros que la forman.', 'Debajo, «Productos más vendidos» trae los 4 que más vendiste en el mes, con su código, su foto y el importe de venta; «Productos con existencias bajas» avisa cuáles están agotados, con existencia negativa o por debajo de su mínimo (los más urgentes primero). El número de la existencia sale en rojo cuando ya no queda nada y en naranja cuando quedan pocas.', 'Cada tarjeta de producto abre su ficha, y las de existencias te llevan al inventario con el producto listo para ajustarlo.']],
         ['Moverte por el menú', ['«Nueva cotización», «Histórico», «Clientes» y «Productos» son lo de todos los días.', 'Debajo de la línea están Ventas, Pantalla de entrega, Contabilidad, Impuestos, Inventario y Compras y proveedores (un solo apartado).']],
         ['Burbujas de ayuda', ['Deja el cursor sobre cualquier botón, pestaña o campo y, medio segundo después, aparece una burbuja que explica qué hace.', 'Con teclado funciona igual al llegar con la tecla Tab. Escape la cierra.']],
      ],
@@ -76,15 +77,15 @@ return [
      ],
      'consejos' => ['Solo los gastos pagados y con factura se restan de tus impuestos.', 'Un ticket sin factura se puede guardar, pero no baja tus impuestos.', 'Máximo por archivo: el tamaño que indica la pantalla.']],
 
-    ['id' => 'cobros', 'titulo' => 'Ventas y cobros en Contabilidad', 'icono' => 'payments',
-     'intro' => 'Cada venta genera automáticamente un ingreso. Tú solo anotas si ya te pagaron y si se facturó.',
+    ['id' => 'cobros', 'titulo' => 'Facturación y cobro de una venta', 'icono' => 'payments',
+     'intro' => 'Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros de esa venta se indican en una sola sección: «Facturación y cobro», arriba del detalle de la venta.',
      'pasos' => [
-        ['Anotar un pago del cliente', ['Contabilidad → «Ventas y cobros» → abre la venta → «Pagos recibidos del cliente».', 'Escribe cuándo y cuánto te pagaron y cómo. Si paga en partes, anota cada pago: queda «Pago parcial» hasta completar.']],
-        ['Decir si se facturó', ['En la misma pantalla: «¿Se le dio factura al cliente?» → Sí, No o Sin indicar.', 'Si hay factura, escribe su folio y UUID (o sube el XML y se llenan solos).']],
-        ['Subir la factura de la venta', ['Abajo, «Facturas y comprobantes»: elige el PDF y el XML a la vez y pulsa «Subir archivos».']],
-        ['Pendientes de facturar', ['La pestaña «Pendientes de facturar» lista las ventas sin factura para que no se te pase ninguna. Se puede exportar.']],
+        ['Anotar un pago del cliente', ['Abre la venta (Ventas → su folio; también desde Contabilidad → Ingresos → «Abrir», desde los avisos del panel o desde «Pendientes de facturar») y busca «Facturación y cobro».', 'En «Pago»: pulsa «Ya me pagaron todo» si ya te pagaron completo, o despliega «Anotar un pago parcial» y escribe cuándo, cuánto y cómo te pagaron. Si paga en partes, anota cada pago: queda «Pago parcial» hasta completar.']],
+        ['Decir si se facturó', ['En esa misma sección, «¿Ya se facturó?» → elige el estado: Pendiente de facturar, Facturada o No facturada.', 'Si hay factura, despliega «Folio, UUID y fecha (opcional)» y escribe el folio y el UUID (o súbelos: el XML los llena solos).']],
+        ['Subir la factura de la venta', ['En «Subir factura (PDF y/o XML)», de la misma sección: elige el PDF y el XML juntos y pulsa «Guardar facturación».', 'Los archivos quedan listados en «Facturas y comprobantes», con su validación documental; ahí también se descargan o se dan de baja.']],
+        ['Pendientes de facturar', ['La pestaña «Pendientes de facturar» lista las ventas sin factura para que no se te pase ninguna y su botón «Clasificar» abre esta misma sección. Se puede exportar.']],
      ],
-     'consejos' => ['Cancelar un pago o una venta pide un motivo y queda registrado; nada se borra en silencio.']],
+     'consejos' => ['Cancelar un pago o una venta pide un motivo y queda registrado; nada se borra en silencio.', 'Facturar y cobrar son cosas distintas: una venta puede estar facturada sin cobrarse, y al revés.']],
 
     ['id' => 'resumen', 'titulo' => 'Resumen del mes y cierre', 'icono' => 'dashboard',
      'intro' => 'La pantalla principal de Contabilidad te dice, sin tecnicismos, cómo vas.',
@@ -109,32 +110,90 @@ return [
      'intro' => 'Cómo van tus ventas, cobros, facturas y gastos, con indicadores y gráficas interactivas.',
      'pasos' => [
         ['Ver tus números', ['Arriba elige «Este mes», «Este año» o «Año pasado», o usa los filtros de periodo y negocio y pulsa «Ver estadísticas».', 'Ventas realizadas, cobros recibidos, ventas facturadas y gastos son cosas distintas: vender es cuando haces la venta, cobrar cuando te pagan y facturar cuando das factura.', 'Cada indicador dice cuánto subió o bajó (en pesos y en %) contra el mismo periodo del año anterior; en gastos, bajar es lo bueno.']],
-        ['Las gráficas', ['Ventas por mes, año contra año y por semestre; ingresos acumulados; ventas contra cobros; cobrado y saldo pendiente; facturadas y pendientes de facturar; gastos por año y categoría; comparación entre negocios; productos de mayor y menor movimiento y clientes.', 'Pasa el cursor para ver la cifra exacta y la variación contra el año anterior; toca un nombre de la leyenda para ocultar o mostrar esa serie; el icono de la esquina guarda la gráfica como imagen.']],
-        ['Filtros y descargas', ['«Más filtros» permite elegir un cliente o un producto y cuántos años comparar.', '«Ver las tablas con todos los números» muestra el detalle de cada gráfica. Arriba descargas PDF (con gráficas), Excel (una hoja por gráfica, con la gráfica dentro) o CSV; siempre salen con el periodo y los filtros que elegiste.']],
+        ['Las gráficas', ['Ventas por mes, año contra año y por semestre; ingresos acumulados; ventas contra cobros; cobrado y saldo pendiente; facturadas y pendientes de facturar; gastos por año y categoría; comparación entre negocios; productos de mayor y menor movimiento y clientes.', 'Productos y clientes salen SEPARADOS por negocio: cada negocio tiene su propia gráfica y sus propias filas, y cada producto trae su código (SKU) antes del nombre; en «Ventas por negocio» también ves los productos de cada negocio con su código.', 'Pasa el cursor para ver la cifra exacta y la variación contra el año anterior; toca un nombre de la leyenda para ocultar o mostrar esa serie; el icono de la esquina guarda la gráfica como imagen.']],
+        ['Filtros y descargas', ['«Más filtros» permite elegir un cliente o un producto y cuántos años comparar.', '«Ver las tablas con todos los números» muestra el detalle de cada gráfica. Arriba descargas PDF (con gráficas), Excel (una hoja por gráfica, con la gráfica dentro) o CSV; siempre salen con el periodo y los filtros que elegiste.', 'El PDF trae además tres secciones que la pantalla no muestra: los productos más vendidos del periodo (con su código, su foto y el importe), los de existencias bajas (el número en rojo si ya no queda nada y en naranja si quedan pocas) y la tabla de productos menos vendidos del periodo, por negocio y de menos a más piezas.']],
      ],
      'consejos' => ['Si el periodo no ha terminado, la comparación usa el mismo avance del año anterior para ser justa.']],
+
+    ['id' => 'notas', 'titulo' => 'Notas personales', 'icono' => 'sticky_note_2',
+     'intro' => 'La libreta del equipo: recordatorios, pendientes por cotizar, cambios y revisiones, en un solo lugar.',
+     'pasos' => [
+        ['Escribir una nota', ['Menú → «Notas personales» → «Nueva Nota».', 'Ponle título, escribe el contenido y elige una categoría: Recordatorio, Cotizar, Cambios, Revisar u Otro.', 'Si quieres un aviso, escribe en «Fecha y recordatorio» algo como «Mañana 9:00 AM». También puedes asociarle un cliente en «Referencia».']],
+        ['Buscarlas y ordenarlas', ['Arriba hay un buscador por palabra, cliente o etiqueta, y chips para filtrar: Todas, Fijadas, Recordatorios, Cotizar, Cambios, Revisar y Otro.', 'Las tarjetas de arriba cuentan cuántas hay de «Notas Activas», «Fijadas» y «Por cotizar».', 'La lista trae 12 por página; las fijadas siempre salen arriba.']],
+        ['Trabajar con ellas', ['Cada nota tiene «Editar», «Fijar» (la sube al principio), «Marcar como hecha» (después puedes «Reabrir») y «Eliminar», que pregunta antes.', 'Cada tarjeta dice quién la escribió y cuándo («Hoy, 10:42 AM», «Ayer», «18 Oct»).']],
+     ],
+     'consejos' => ['Las notas son del equipo: lo que escribe uno lo leen todos los administradores.', 'El título puede tener hasta 200 caracteres y el texto de recordatorio 80; es un recordatorio escrito, la plataforma no manda correos.']],
+
+    ['id' => 'redactor', 'titulo' => 'Redactor', 'icono' => 'edit_document',
+     'intro' => 'El procesador de textos de la plataforma: cartas, oficios, memorias, actas y procedimientos con formato profesional.',
+     'pasos' => [
+        ['Crear un documento', ['Menú → «Redactor» → «Nuevo documento». Dale nombre, fecha y elige carpeta.', 'Elige el corrector ortográfico (Español, English o ambos), el tamaño de hoja (Carta, A4, Oficio o Tabloide), la orientación y una plantilla.', 'Plantillas incluidas: Oficio/carta, Minuta, Informe de avance, Memoria técnica, RFI, Orden de cambio, Acta de entrega-recepción, Reporte de incidente y Lista de verificación. Pulsa «Crear y abrir».']],
+        ['Escribir con formato', ['Las pestañas de arriba son Inicio, Insertar, Diseño, Revisión y Herramientas.', 'En «Insertar» hay tabla, imagen, figura, dibujo, vínculo, salto de página, índice, nota al pie, leyendas numeradas, referencia cruzada, ecuación, portada y bloques de obra (acta, minuta, bitácora, orden de cambio, lista de asistencia).', 'Guarda con «Guardar»; también se guarda solo cada 30 segundos.']],
+        ['Control de cambios y firmas', ['En «Revisión» puedes activar cambios (control de versiones): al final, «Aceptar todos» o «Rechazar todos». Los comentarios tienen su propio panel.', '«Versiones» guarda una copia automática cada 10 minutos y conserva las últimas 40.', 'En «Firmas» guardas tu firma manuscrita (hasta 5 por usuario) o firmas electrónicas con contraseña; se insertan en bloques de 1 a 4 firmantes.']],
+        ['Descargar', ['Botón «Descargar» → Word (.docx), LibreOffice (.odt), PDF o Imprimir.', 'Al exportar puedes marcar «Mostrar cambios marcados», «Incluir comentarios al final» e «Incluir firmas electrónicas».']],
+     ],
+     'consejos' => ['Los documentos son compartidos: cualquiera de los administradores puede abrirlos y editarlos. Lo único tuyo son tus firmas dibujadas y tu diccionario del corrector.', 'Puedes insertar una tabla de SheetFlow y esta se actualizará sola; los dibujos que hagas en el Editor también se pueden insertar como imágenes.']],
+
+    ['id' => 'sheetflow', 'titulo' => 'SheetFlow', 'icono' => 'table_chart',
+     'intro' => 'La hoja de cálculo en línea para controles, presupuestos y listados que después puedes meter en un documento.',
+     'pasos' => [
+        ['Crear una tabla', ['Menú → «SheetFlow» → «Nueva tabla». Dale nombre y fecha.', 'Elige cómo empezar: «En blanco» (4 columnas × 10 renglones), «Tabla inteligente» (tú diseñas las columnas), una plantilla (Control de materiales, Presupuesto por conceptos, Registro de restricciones, Asistencia semanal) o «importar un archivo» (.sheetflow, .xlsx, .ods o .csv).']],
+        ['Llenarla', ['Cada columna tiene un tipo: Texto, Número, Moneda, Porcentaje, Fecha, Lista desplegable, Casilla (sí/no) o Semáforo.', 'Puedes copiar y pegar directamente desde Excel (Ctrl+C, Ctrl+V).', 'Abajo se suman los totales (suma, promedio, mínimo, máximo o cuenta) y se puede ordenar de A a Z o de Z a A.']],
+        ['Fórmulas', ['Escribe «=» para empezar una fórmula. Sirven las operaciones básicas (+ − * / ^) y estas funciones: SUMA, PROMEDIO, MIN, MAX, CONTAR y REDONDEAR.', 'Y estas condicionales: SI, Y, O, NO, SI.ERROR, SUMAR.SI, CONTAR.SI y PROMEDIO.SI.']],
+        ['Descargar', ['«Descargar» → Excel (.xlsx), CSV, SheetFlow (.sheetflow), PDF o Imprimir.', 'El archivo .sheetflow guarda la tabla completa para volver a importarla después.']],
+     ],
+     'consejos' => ['Límites: 30 columnas por 1 000 renglones, 500 caracteres por celda, hasta 20 opciones en una lista desplegable y 2 MB al importar un archivo (se usa la primera hoja y la primera fila son los encabezados).', 'Las tablas son compartidas: todos los administradores las ven y las editan.', 'Desde aquí el botón «Crear un documento con esta tabla» la manda al Redactor.']],
+
+    ['id' => 'editor', 'titulo' => 'Editor', 'icono' => 'design_services',
+     'intro' => 'El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas técnicas.',
+     'pasos' => [
+        ['Crear un documento', ['Menú → «Editor» → «Nuevo documento». Dale nombre, elige el tamaño de página (Carta, Oficio, Legal, Tabloide, A4, A3, A5 o Personalizado), la orientación y el fondo (Liso, Cuadrícula o Puntos).', 'Si eliges «Personalizado», cada lado va de 30 a 1500 milímetros.']],
+        ['Dibujar', ['Las herramientas son: Seleccionar (V), Mover lienzo (H), Medir, Líneas (continua, discontinua, trazo y punto, punteada), Polilínea, Lápiz (P), Flecha (F), Rectángulo (R), rectángulo redondeado, Elipse (O), triángolo, rombo, zona translúcida, más formas (26 iconos), Texto (T), Tabla, círculo numerado, rombo de restricción e Imagen (I).', 'Abajo a la izquierda están las casillas Cuadrícula, Imán, Reglas, Guías y Ortogonal (F8).', 'El panel de la derecha cambia el color, el negrita/cursiva/subrayado/tachado, la alineación y las capas; ahí también puedes agrupar, desagrupar, alinear y distribuir.']],
+        ['Páginas y descarga', ['Abajo: «Agregar lámina», «Duplicar esta lámina», mover y «Eliminar esta lámina».', 'Para bajarlo: «Exportar» → PDF, Imprimir o PNG de esta lámina.', 'Arriba hay Deshacer, Rehacer, zoom, maximizar y «Vista de lectura».']],
+     ],
+     'consejos' => ['Los documentos son compartidos: cualquiera los ve y los edita.', 'El Redactor puede insertar los PNG que dibujes aquí como imágenes.']],
+
+    ['id' => 'archivo', 'titulo' => 'Archivo', 'icono' => 'folder',
+     'intro' => 'El cajón de la oficina: carpetas virtuales para guardar y organizar los archivos de trabajo.',
+     'pasos' => [
+        ['Subir archivos', ['Menú → «Archivo». Sube con «Elegir archivos» + «Subir», o arrastrando los archivos a la zona que dice «Suelta aquí para subirlos».', 'Se admiten varios a la vez. El peso máximo por archivo lo marca el servidor y la propia pantalla lo indica abajo.']],
+        ['Organizar', ['«Nueva carpeta» crea una subcarpeta dentro de la que estás.', 'Las migas de pan de arriba (Archivo › carpeta › subcarpeta) te dicen dónde estás y sirven para volver atrás.', 'Cada carpeta tiene lápiz para renombrarla y papelera para eliminarla.']],
+        ['Buscar y mover', ['El buscador de arriba filtra por nombre o descripción.', 'Cada archivo tiene «Descargar», «Mover a…» (elige la carpeta destino) y «Eliminar».']],
+     ],
+     'consejos' => ['Los formatos admitidos son 60: Office y LibreOffice, texto, PDF, imágenes, comprimidos (zip, rar, 7z, tar, gz) y modelos de Rhinoceros, Revit, AutoCAD, SketchUp, IFC, STEP y similares.', 'Puedes crear hasta 4 niveles de carpetas una dentro de otra.', 'No se admiten archivos repetidos en la misma carpeta ni archivos .xml: las facturas no se guardan aquí, se adjuntan en Compras → detalle de la compra → comprobante.', 'El Archivo es compartido: todos los administradores ven lo mismo.']],
 
     ['id' => 'escritorio', 'titulo' => 'Aplicación de escritorio', 'icono' => 'desktop_windows',
      'intro' => 'La misma plataforma en una ventana propia, sin abrir el navegador.',
      'pasos' => [['Instalarla', ['Menú → «Ajustes» → pestaña «Aplicación de escritorio» → descarga el paquete .deb.', 'En una terminal: sudo apt install ./cotizaciones-escritorio_1.0.0_amd64.deb', 'Ábrela desde el menú de aplicaciones como «Acero 360».']]],
      'consejos' => ['Usa los mismos datos y la misma sesión que la web.']],
 
-    ['id' => 'seguridad', 'titulo' => 'Respaldos y cuidados', 'icono' => 'shield',
+    ['id' => 'almacenamiento', 'titulo' => 'Almacenamiento y respaldos', 'icono' => 'hard_drive',
+     'intro' => 'Cuánto ocupa tu información y cómo guardar una copia de seguridad desde la propia plataforma.',
+     'pasos' => [
+        ['Dónde verlo', ['Menú → «Ajustes» → pestaña «Almacenamiento y respaldos».']],
+        ['Cuánto ocupa', ['Arriba está el total y una barra con el reparto: base de datos (ventas, clientes, productos, facturas), documentos fiscales (PDF y XML), Archivo compartido, imágenes y copias de seguridad.', 'Debajo, la tabla detalla cuánto pesa cada parte y en qué carpeta está. Se calcula al abrir la página.']],
+        ['Respaldo automático', ['Actívalo y elige la hora (por defecto a las 23:00). La primera vez que alguien abra la plataforma después de esa hora se hace sola una copia al día.', 'Cuántas copias conservar: las más antiguas se borran solas al respaldar.', 'Carpeta de respaldos: la que trae por defecto o la que tú indiques. Usa un disco o servidor aparte si puedes.']],
+        ['Hacer una copia ahora', ['Botón «Hacer un respaldo ahora». Cada copia trae la base de datos y todos los archivos, con sus huellas de verificación y un manifiesto con la fecha.']],
+        ['Restaurar', ['En la tabla «Copias guardadas», «Restaurar en base nueva» trae esa copia de vuelta.', 'Nunca se pisa lo que estás usando: la copia se importa en una base nueva y los archivos se extraen a una carpeta aparte. Después revisas y decides si conviene usarla.']],
+     ],
+     'consejos' => ['Un respaldo dentro de la misma computadora no te salva si el disco se daña: copia esa carpeta también a un disco externo o a la nube.', 'Si entras desde varios equipos y prefieres que el respaldo ocurra aunque nadie entre, la pestaña trae una línea de cron para pegarla en el servidor.']],
+
+    ['id' => 'seguridad', 'titulo' => 'Cuidados con tu información', 'icono' => 'shield',
      'intro' => 'Tu información importa.',
      'pasos' => [
-        ['Respaldos', ['Se hace un respaldo cada noche (2:30) en la computadora de administración. Copia esa carpeta también a un disco externo o a la nube.']],
-        ['Cuidados', ['No compartas tu contraseña.', 'Cierra sesión en computadoras ajenas.', 'Los archivos fiscales no son públicos: solo se descargan con tu sesión.']],
+        ['Cuidados', ['No compartas tu contraseña.', 'Cierra sesión en computadoras ajenas.', 'Los archivos fiscales no son públicos: solo se descargan con tu sesión.', 'Haz respaldos: la sección anterior explica cómo, desde Ajustes → Almacenamiento.']],
      ],
      'consejos' => []],
 
     ['id' => 'seguimiento', 'titulo' => 'Centro de seguimiento', 'icono' => 'notifications',
-     'intro' => 'Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, gastos, entregas pendientes, productos con poco stock y novedades de la plataforma.',
+     'intro' => 'Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, gastos, compras, proveedores, entregas, inventario y novedades de la plataforma.',
      'pasos' => [
         ['Dónde verlo', ['La campana de arriba muestra cuántos avisos tienes sin leer. También está en el menú → «Centro de seguimiento».']],
-        ['Prioridades', ['Alta, media o baja según los días que lleva la operación (por ejemplo, un cobro de más de 30 días es de prioridad alta). Los más urgentes salen primero.']],
-        ['Abrir y marcar', ['«Abrir registro» te lleva a la venta, el gasto o el producto de origen.', '«Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.']],
+        ['Lo que vigila', ['Cotizaciones sin respuesta y por vencer.', 'Ventas sin cobrar o sin decir si se facturan.', 'Gastos por pagar y sin comprobante fiscal.', 'Compras: por recibir, con la factura del proveedor pendiente y con saldo por pagar; y pedidos directos a proveedor sin pagar.', 'Entregas y cambios por entregar.', 'Productos y materias primas por debajo de su mínimo (los que ya no tienen nada son los más urgentes).']],
+        ['Prioridades', ['Urgente, alta, normal e informativa, calculadas con fechas y estados reales: lo más urgente sale primero.']],
+        ['Abrir y marcar', ['«Abrir registro» te lleva a la venta, la compra, el gasto o el producto de origen.', '«Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.']],
      ],
-     'consejos' => ['Una venta pendiente de cobro y una pendiente de factura son avisos distintos: una venta ya facturada no aparece como «factura por definir».']],
+     'consejos' => ['Una venta pendiente de cobro y una pendiente de factura son avisos distintos: una venta ya facturada no aparece como «factura por definir».', 'Una compra que ya mandaste a contabilidad aparece como «Compra por pagar» y también como «Gasto por pagar»: son dos pantallas distintas del mismo dinero y ninguna se deduce de la otra.']],
 
     ['id' => 'acerca', 'titulo' => 'Acerca de Acero 360', 'icono' => 'info',
      'intro' => 'Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.',

@@ -1003,6 +1003,70 @@ Se corrige además el credencial obsoleto que `plan.md` seguía publicando.
 
 ---
 
+## Ronda — Una sola sección de facturación y cobro (2026-10-22)
+
+- **Dos pantallas → una.** `/admin/ventas/detalle` y `/admin/contabilidad/ingresos/detalle` mostraban datos de la misma venta (cada venta tiene **un** ingreso: `uq_ingreso_venta`). El detalle de la venta pasa a tener la única sección **«Facturación y cobro»**, arriba: estado de facturación con subida del CFDI e historial, cobros («Ya me pagaron todo», tabla de cobros y pago parcial) y documentos adjuntos.
+- **Plantillas:** `facturacionVenta.php` reescrita como sección unificada, nueva `cobrosIngreso.php` (compartida con el respaldo del detalle del ingreso) y `documentosOperacion.php` con el modo `interna` (bloque dentro de otra tarjeta, sin relleno propio).
+- **`/admin/contabilidad/ingresos/detalle` redirige (302)** al detalle de su venta y conserva el fragmento original (`#cobros`, `#documentos`…); sólo renderiza la vista antigua si el ingreso no tiene venta (registros legados). El destino por defecto de `/admin/contabilidad/ingresos/accion` también apunta a la venta.
+- **Enlaces unificados** con `Contabilidad::rutaDetalle($ingreso, $ancla)`: panel, lista de ingresos, «Pendientes de facturar», «Documentos fiscales», centro de seguimiento y lectura de facturas. `Panel` y `Seguimiento` suman `venta_id` a sus consultas.
+- **Pruebas:** `probar_etapa12` usa los ids canónicos (`estado_facturacion`) y comprueba la redirección 302; regresión en verde (21 suites PHP, 19 de navegador; `auditar_ui` 0 hallazgos y `auditar_profundo` idéntico a la línea base).
+- **Manual:** sección 8 renombrada a «Facturación y cobro de una venta» (`includes/manual.php` → `MANUAL_USUARIO.md`) y paso 2 de `GUIA.md` actualizados.
+
+---
+
+## Ronda — Estadísticas: productos y clientes separados por negocio (2026-10-23)
+
+- **Rankings por negocio.** `Estadisticas::topProductos()` y `Estadisticas::topClientes()` ahora devuelven el top de **cada negocio** (una fila `ROW_NUMBER() PARTITION BY v.empresa_id`), con `empresa_id` y `negocio`; el negocio es el emisor de la venta, el mismo que usa «Ventas por negocio». `Analisis::menorMovimiento()` hace lo mismo. Nuevo helper `Estadisticas::agruparPorNegocio()`.
+- **Código del producto.** Las etiquetas de las gráficas de productos encabezan el SKU (`RA-3 · Registro de ángulo 40x60 cm`), y las tablas de «Productos más vendidos» traen columnas **Negocio** y **Código** (antes el SKU iba en letra chica debajo del nombre). Los clientes salen por negocio con su nombre (no tienen código).
+- **Una gráfica por negocio.** «Productos con mayor movimiento», «Productos con menor movimiento» y «Clientes con mayor volumen» generan una gráfica por negocio (id `productos-top-<empresa>`…, con el negocio en el título) cuando hay más de uno; con un solo negocio (o filtro elegido) conservan el título y el id anteriores. Cada gráfica trae su nombre corto de hoja en el Excel (`hoja`), y `libroExcel()` dedupe los nombres para que Excel no reciba dos hojas iguales.
+- **Ventas por negocio con productos.** En la sección «Negocios y clientes» (pantalla y PDF), debajo de la comparación, cada negocio lista sus productos del periodo con código, piezas, importe y número de ventas.
+- **Exportaciones.** El CSV marca el negocio en la sección (`Productos más vendidos (Soluciones en Acero)`); el PDF repite las tablas por negocio.
+- **Pruebas y manual.** `pruebas/php/etapa7.php` verifica separación por negocio y SKU en productos, clientes y menor movimiento; `pruebas/probar_etapa7.mjs` comprueba una gráfica por negocio, las columnas Negocio/Código y el detalle por negocio en «Ventas por negocio» (39/39). Manual de usuario actualizado (`includes/manual.php` → `MANUAL_USUARIO.md`).
+
+---
+
+## Ronda — Panel: productos más vendidos y existencias en alerta (2026-10-23)
+
+- **Dos secciones nuevas en `/admin`, justo debajo de `rejilla-stats`, con el mismo estilo de tarjeta:**
+  - *Productos más vendidos · mes*: los **4** productos con más importe del mes, con **código (SKU), nombre, imagen** (miniatura 56×56 con carga diferida y marcador cuando no hay foto), el **monto de venta** del producto y el pie «N piezas en N ventas · importe de renglones sin IVA». Cada tarjeta abre la ficha del producto. El mes es el del filtro (mes + año) y, si no se eligió mes, el mes en curso, cortado al día de hoy; el encabezado enlaza a esa vista en Estadísticas.
+  - *Productos con existencias bajas*: tarjetas con la misma estructura para los productos activos con **stock negativo, agotado (0) o en/bajo su mínimo**, ordenadas por urgencia (negativos → agotados → bajo mínimo). La cifra es la existencia y el pie explica el estado («Existencia negativa», «Agotado», «Bajo el mínimo · mínimo N»). Enlazan a `/admin/inventario?q=<SKU>` con el producto listo para ajustar; el encabezado muestra «Ver inventario (N)» con el total en alerta y, si hay más de 8, una nota indica cuántos se muestran.
+- **`clases/Panel.php`:** nuevos métodos de solo lectura `productosMasVendidos($desde, $hasta, $limite = 4)`, `productosStockBajo($limite = 8)` y `contarStockBajo()`, con sus criterios documentados en el encabezado de la clase.
+- **Estilos:** `src/scss/layout/_cards.scss` agrega `.stat--producto`, `.stat__imagen(--vacia)`, `.stat__codigo` y `.stat__nombre`; `build/css/app.css` recompilado con `npx gulp css`.
+- **Color de la cifra:** el número de existencias sale en **rojo** (`--color-error`) cuando ya no queda nada (agotado o existencia negativa) y en **naranja** (`--color-advertencia`) cuando quedan pocas (en o debajo del mínimo). Nuevas clases `.stat--sin-existencias` y `.stat--pocas-existencias`; como usan las variables del tema, se ven bien en modo claro y oscuro.
+- **Pruebas y manual:** `pruebas/probar_ronda.mjs` suma la sección «10. Panel» (tarjetas o estado vacío, enlaces y color de la cifra) → **50/50**; manual de usuario actualizado (`includes/manual.php` → `MANUAL_USUARIO.md`).
+
+---
+
+## Ronda — Estadísticas: las tarjetas de producto solo en el PDF (2026-10-23)
+
+- **`templates/pdfEstadisticas.php` añade dos secciones debajo del bloque de filtros (periodo y filtros), que la pantalla NO muestra:**
+  - **«Productos más vendidos · <periodo>»** (p. ej. *Octubre 2026*): hasta 4 tarjetas con **imagen, código (SKU), nombre, monto de venta** y «N piezas en N ventas · renglones sin IVA», del rango del reporte (`$r['periodo']`).
+  - **«Productos con existencias bajas»**: hasta 8 tarjetas con el mismo formato; el número de existencia sale en **rojo** (`#e11d48`) cuando ya no queda nada y en **naranja** (`#d97706`) cuando está en o debajo del mínimo, más la nota de cuántos se muestran si hay más de 8.
+  - Datos con `Panel::productosMasVendidos()` y `Panel::productosStockBajo()`; imágenes en base64 (miniatura 300×300 primero, luego la completa) porque dompdf no sale a Internet; maqueta con tablas anidadas (dompdf sólo entiende un subconjunto de CSS).
+- **Solo el reporte:** ni Excel ni CSV ni la pantalla de `/admin/estadisticas` traen estas secciones (verificado en la suite: la pantalla no contiene «Productos con existencias bajas»).
+- **Tabla de productos menos vendidos.** Debajo de «Productos con existencias bajas», el PDF añade **«Productos menos vendidos · <periodo>»** con columnas **Negocio · Código · Producto · Piezas · Importe (sin IVA)**, tomada de `analisis.menor_movimiento` (los que sí se vendieron, de menos a más piezas y separados por negocio; ya no hace falta otra consulta). Si el periodo no tiene ventas se explica con una nota en lugar de dejar la tabla vacía.
+- **Pruebas y manual:** `pruebas/probar_etapa7.mjs` comprueba que el PDF trae las tres secciones y que la pantalla no → **42/42**; manual actualizado (`includes/manual.php` → `MANUAL_USUARIO.md`).
+
+---
+
+## Ronda — Centro de seguimiento: compras, proveedores y stock alineado (2026-10-23)
+
+El centro de seguimiento cubría ventas, gastos, entregas e inventario de productos, pero no el lado de las compras (módulo agregado después) ni las materias primas. Ahora vigila ambos, con la misma mecánica de siempre: los avisos **no se guardan**, se calculan en vivo con clave estable (`tipo:id`) y huella, y lo único que se escribe es `seguimiento_lecturas`.
+
+- **Categoría «Compras»** (`Seguimiento::CATEGORIAS`, icono `shopping_cart`) con cuatro tipos de aviso:
+  - `compra_recibir` — órdenes en `solicitada`/`parcial` cuyas partidas **controladas** no se han recibido completo. La huella es la cantidad faltante, así que al recibir parcialmente el aviso vuelve a ser nuevo. Las compras de puros servicios/consumibles (sin control de inventario) no generan aviso: no hay nada que recibir.
+  - `compra_cfdi` — compras con `estado_cfdi = 'pendiente_cfdi'`; el botón «No se facturará» manda `POST /admin/compras/comprobante` con `accion=estado_cfdi`.
+  - `compra_saldo` — compras no canceladas cuyo total (esperado + IVA) supera sus **pagos vigentes**, calculado en centavos como en el resto de la contabilidad. Trae el saldo y el método sugerido (el último pago registrado); el desplegable «Registrar pago» va a `POST /admin/compras/pago` con `accion=registrar`.
+  - `entrada` — pedidos directos a proveedor (`proveedor_entradas`) con `pagado = 0`, que no pasan por orden de compra. «Marcar como pagada» manda `POST /admin/proveedores/entradas/pago`.
+- **Una compra en contabilidad sigue avisando su saldo.** `gasto_id` no se usa para deducir el aviso: la compra ya enviada a contabilidad genera «Gasto por pagar» **y** «Compra por pagar». Deducir uno del otro dejaría la deuda sin aviso si se paga el gasto desde Contabilidad (`Gastos::marcarPagado` no escribe en `pagos_compra`). Documentado en el docblock de `Seguimiento` y en el manual.
+- **Stock de productos alineado con el Panel.** El aviso exigía `stock_minimo IS NOT NULL`, de modo que un producto **agotado o en negativo sin mínimo definido** se veía en el panel pero nunca en el seguimiento. El criterio pasó a ser el mismo que `Panel::productosStockBajo` (`stock <= 0` **o** `stock <= stock_minimo`); el detalle ya no inventa un mínimo cuando no existe.
+- **Materias primas bajo el mínimo.** Nuevo aviso `material:<id>` sobre `materiales` (`existencia <= minimo`, urgente cuando `existencia <= 0`), que enlaza a `/admin/compras/recepciones#materiales`. Antes el mínimo de `materiales` no lo vigilaba nada.
+- **Vista `views/admin/seguimiento.php`:** acciones rápidas para `compra_saldo` (pago parcial o total con importe y método), `compra_cfdi` («No se facturará») y `entrada` («Marcar como pagada»), con el mismo patrón de `details` + formulario compacto que ya usaban cobros y facturas.
+- **Pruebas:** `pruebas/php/etapa25.php` (39 casos) cubre los cuatro avisos nuevos, la huella al recibir y al pagar parcial, la no deducción del gasto, materiales con y sin mínimo y el stock sin mínimo; se agregó al listado de `pruebas/ejecutar_todo.sh`. Regresión en verde (etapas 11, 15, 16, 18, 19, 20, 21).
+- **Novedad 1.3.0** en `Seguimiento::NOVEDADES` y manual de usuario actualizado (`includes/manual.php` → `MANUAL_USUARIO.md`, sección 14: «Lo que vigila» y el consejo del doble aviso de una compra en contabilidad).
+
+---
+
 ## Ronda — Calendario: recordatorios y eventos (2026-10-23)
 
 Nueva herramienta del grupo «Herramientas personales»: un calendario mensual para anotar recordatorios y eventos sin salir del panel. Como Notas y el resto de herramientas, es **compartida** entre los administradores.
@@ -1022,3 +1086,17 @@ Nueva herramienta del grupo «Herramientas personales»: un calendario mensual p
 - **Ayuda:** entrada en `AYUDAS_POR_RUTA` (`src/js/modulos/ayudas.js`).
 - **Pruebas:** `pruebas/php/etapa27.php` (40 casos: migración, validaciones, altas con/sin negocio y con/sin hora, lecturas, edición, baja, menú y rutas) y `pruebas/probar_calendario.mjs` (31 casos de navegador: menú, calendario, navegación por mes y año, clic en un día, alta, validación, edición y baja con modal). Ambas quedaron en el listado de `pruebas/ejecutar_todo.sh`; **ambas en verde**.
 - **Despliegue (23 oct 2026):** imagen **`gmr27/cotizaciones:19`**, revisión de Helm **21**. El init `migrar-base` aplicó **`027_categorias_adicionales.sql`** y **`028_calendario.sql`** sólo con cambios de esquema/`INSERT IGNORE`: los datos existentes (usuarios, clientes, cotizaciones, ventas) quedaron intactos y MySQL **no se reinició**.
+
+---
+
+## Ronda — Ajustes → Almacenamiento: ocupación de disco y copias de seguridad (2026-10-23)
+
+Nueva pestaña **«Almacenamiento y respaldos»** en Ajustes (`/admin/ajustes/almacenamiento`, con ruta y vista propias como Papelera) y sección **18 del manual**. Se suma a las 5 secciones nuevas del manual por las herramientas personales (Notas, Redactor, SheetFlow, Editor y Archivo), que no estaban documentadas.
+
+- **Ocupación (solo lectura, en vivo).** `Almacenamiento::ocupacion()` suma la base de datos (`information_schema`, datos + índices) y cada carpeta de archivos: `storage/documentos`, `storage/archivo`, `public/image` y la carpeta de respaldos. Sale una barra con el reparto y una tabla con peso, porcentaje, explicación y ruta de cada parte. Recorrer carpetas se limita a 200 000 archivos por carpeta para no colgar la página. `formatearBytes()` arreglado: el `rtrim(..., '0')` anterior convertía 1 MB en «1 MB».
+- **Respaldos reutilizando los scripts ya probados.** No se reimplementa el volcado: la pestaña invoca `scripts/respaldar.sh` y `scripts/restaurar.sh`, que son los que valida `pruebas/probar_respaldo.sh`. Se comprueban antes `mysqldump`, `mysql`, `tar`, `gzip` y `sha256sum`; si falta alguno, la pestaña lo dice en lugar de fallar a mitad de un respaldo (en el contenedor Docker no se instala el cliente de MySQL).
+- **Corrección de precedencia en los scripts.** `respaldar.sh` y `restaurar.sh` hacían `source` del `.env` **pisando** las variables del entorno: la aplicación podía respaldar una base distinta de la que estaba usando (en Docker, cron o pruebas, donde `DB_NAME` viene del entorno). Ahora el entorno manda y el `.env` sólo completa lo que falte. Verificado por prueba.
+- **Respaldo automático (1 al día).** `Almacenamiento::respaldoDelDia()` se ejecuta al abrir la pestaña: si el automático está activo, ya pasó la hora (por defecto 23:00) y no se ha respaldado hoy, genera la copia y avisa en pantalla. Una sola por día, sin importar cuántos usuarios entren. Para quien lo quiera garantizado aunque nadie entre, la pestaña muestra la línea de cron calculada con la hora elegida.
+- **Restaurar nunca pisa nada.** `restaurar()` verifica las huellas SHA-256, importa en una base **nueva** (`cotizaciones_restaurada_AAAAMMDD`, con sufijo si ya existe) y extrae los archivos a `storage/restauracion-…`. Se niega si la copia no tiene `SHA256SUMS`. Cada acción queda en la bitácora (`Auditoria::registrar('respaldo', …)`).
+- **Configuración** en `configuracion`: `respaldo_automatico`, `respaldo_hora`, `respaldo_retener` (1–365, por defecto 14), `respaldo_carpeta` (sólo rutas absolutas) y `respaldo_ultimo`.
+- **Pruebas:** `pruebas/php/etapa26.php` (59 casos: formateo, ocupación, carpeta configurable, los 4 archivos del respaldo con permisos 600, huellas verificables, **que respalda la base conectada y no la del `.env`**, retención, los cuatro estados del automático, restauración en base nueva con los mismos registros y rechazo sin huellas). Quedó en el listado de `pruebas/ejecutar_todo.sh`.

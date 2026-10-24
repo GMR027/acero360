@@ -43,18 +43,31 @@ try {
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${vIva}`);
   const panel = pagina.locator('#facturacion');
   verifica('venta con IVA: pendiente de facturar, con IVA', (await panel.innerText()).toLowerCase().includes('pendiente de facturar') && (await panel.innerText()).toLowerCase().includes('con iva'));
-  verifica('sin CFDI avisa que será confirmación manual', (await panel.innerText()).includes('No hay un CFDI adjunto'));
-  await pagina.selectOption('#fv_estado', 'facturada');
-  await pagina.click('#facturacion button[type=submit]');
+  verifica('ya no pide confirmar a mano: subir el documento basta', (await panel.locator('#fv_manual').count()) === 0
+    && !(await panel.innerText()).includes('No hay un CFDI adjunto'));
+  await pagina.selectOption('#estado_facturacion', 'facturada');
+  await pagina.click('#facturacion form:has(#estado_facturacion) button[type=submit]');
   verifica('elegir «Facturada» sin CFDI queda como confirmación manual', sql(`SELECT CONCAT(estado_facturacion,'/',facturacion_manual) FROM ingresos WHERE venta_id=${vIva}`) === 'facturada/1');
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${vIva}`);
-  await pagina.selectOption('#fv_estado', 'facturada');
-  await pagina.check('#fv_manual');
-  await pagina.click('#facturacion button[type=submit]');
+  verifica('reabierta muestra «Facturada» con su confirmación manual', (await pagina.locator('#facturacion').innerText()).includes('confirmación manual'));
+  await pagina.selectOption('#estado_facturacion', 'facturada');
+  await pagina.click('#facturacion form:has(#estado_facturacion) button[type=submit]');
   verifica('confirmada a mano: facturada y marcada manual', sql(`SELECT CONCAT(estado_facturacion,'/',facturacion_manual) FROM ingresos WHERE venta_id=${vIva}`) === 'facturada/1');
   verifica('regresa al detalle de la venta con el historial', pagina.url().includes('/admin/ventas/detalle') && (await pagina.locator('#facturacion').innerText()).includes('confirmación manual'));
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${vSin}`);
   verifica('venta sin IVA: no facturada, sin IVA', (await pagina.locator('#facturacion').innerText()).toLowerCase().includes('no facturada') && (await pagina.locator('#facturacion').innerText()).toLowerCase().includes('sin iva'));
+
+  console.log('Una sola pantalla: el detalle del ingreso abre el detalle de la venta');
+  const ingresoId = sql(`SELECT id FROM ingresos WHERE venta_id=${vIva}`);
+  const sinCuerpo = await pagina.request.get(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}`, { maxRedirects: 0 });
+  verifica('la ruta del ingreso responde 302 hacia la venta', sinCuerpo.status() === 302
+    && sinCuerpo.headers().location === `/admin/ventas/detalle?id=${vIva}`, JSON.stringify(sinCuerpo.headers()));
+  await pagina.goto(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}#cobros`);
+  verifica('sigue cayendo en la venta y conserva el apartado pedido', pagina.url() === `${BASE}/admin/ventas/detalle?id=${vIva}#cobros`, pagina.url());
+  verifica('la venta es la única pantalla de facturación y cobro', (await pagina.locator('#facturacion').count()) === 1
+    && (await pagina.locator('#cobros').count()) === 1 && (await pagina.locator('#documentos').count()) === 1);
+  const inexistente = await pagina.request.get(`${BASE}/admin/contabilidad/ingresos/detalle?id=99999999`, { maxRedirects: 0 });
+  verifica('un ingreso inexistente sigue siendo 404', inexistente.status() === 404);
 
   console.log('Apartados independientes');
   await pagina.goto(`${BASE}/admin/contabilidad/sin-facturar?anio=${anio}&vista=no_facturada`);

@@ -31,6 +31,10 @@ $mostrarEncabezado = $mostrarEncabezado ?? true;
 $GLOBALS['mostrarSidebar'] = $mostrarSidebar;
 
 $temaActual = temaPreferido();
+
+// Versión del CSS compilado (?v=archivo): una compilación nueva cambia la URL,
+// para que una caché (CDN o navegador) no sirva nunca el build anterior.
+$versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
 ?>
 <!DOCTYPE html>
 <html lang="es" data-tema="<?= escaparValores($temaActual) ?>">
@@ -55,7 +59,7 @@ $temaActual = temaPreferido();
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="/build/css/app.css">
+    <link rel="stylesheet" href="/build/css/app.css<?= $versionCss !== false ? '?v=' . $versionCss : '' ?>">
 </head>
 <body data-movil="<?= modoMovil() ?>">
 <!-- Primera parada del teclado: permite saltarse el menú lateral.

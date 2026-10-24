@@ -2,6 +2,10 @@
 /**
  * views/admin/contabilidad/ingresos/detalle.php — Un ingreso: facturación
  * explícita, cobros, documentos y enlace a la operación original.
+ *
+ * Todo lo que se puede indicar de una venta (facturación, CFDI y cobros) vive hoy en una sola
+ * sección del detalle de la venta, así que esta ruta redirige ahí. Sólo se queda mostrando esta
+ * pantalla cuando el ingreso no tiene venta asociada (registros legados).
  */
 
 soloAdmin();
@@ -13,7 +17,11 @@ if (!$ingreso) {
     paginaNoEncontrada();
 }
 
-$cobros    = \App\Contabilidad::cobrosDeIngreso($id);
+if (!empty($ingreso['venta_id'])) {
+    // Sin ancla a propósito: el navegador conserva el fragmento original (#cobros, #documentos…).
+    redirigir('/admin/ventas/detalle?id=' . (int) $ingreso['venta_id']);
+}
+
 $cerrado   = \App\Contabilidad::periodoCerrado((int) $ingreso['contribuyente_id'], $ingreso['fecha']);
 $fact      = \App\Contabilidad::FACTURACION[$ingreso['estado_facturacion']];
 $cobro     = \App\Contabilidad::etiquetaCobro($ingreso['estado_cobro']);
@@ -96,80 +104,6 @@ template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
 
 <?php template('documentosOperacion', ['entidad' => 'ingreso', 'entidadId' => $id, 'retorno' => $retorno, 'bloqueado' => $cerrado || $ingreso['estado'] === 'cancelado', 'sinSubida' => true]); ?>
 
-<section id="cobros" class="tarjeta tarjeta--sin-relleno mb-lg">
-    <h2 class="titulo-5" style="padding:1rem 1rem 0">Pago</h2>
-    <?php if ($editable) : ?>
-        <form action="/admin/contabilidad/ingresos/accion" method="post" style="padding:1rem">
-            <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="accion" value="cobro_alterna">
-            <?php if ($ingreso['estado_cobro'] === 'cobrado') : ?>
-                <button class="btn btn--secundario" type="submit">Marcar como sin pagar</button>
-            <?php elseif ((float) $ingreso['saldo'] > 0) : ?>
-                <button class="btn btn--primario" type="submit">Ya me pagaron todo (<?= formatoMoneda($ingreso['saldo']) ?>)</button>
-            <?php endif; ?>
-        </form>
-    <?php endif; ?>
-    <?php if ($cobros) : ?>
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <caption class="solo-lectores">Cobros registrados</caption>
-                <thead><tr><th scope="col">Fecha</th><th scope="col" class="tabla--numerica">Importe</th><th scope="col">Método</th>
-                    <th scope="col">Referencia</th><th scope="col">Estado</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
-                <tbody>
-                    <?php foreach ($cobros as $c) : ?>
-                        <tr<?= $c['estado'] === 'cancelado' ? ' style="opacity:.6"' : '' ?>>
-                            <td><?= date('d/m/Y', strtotime($c['fecha'])) ?></td>
-                            <td class="tabla--numerica cifra"><?= formatoMoneda($c['importe']) ?></td>
-                            <td><?= escaparValores((string) $c['metodo']) ?></td>
-                            <td><?= escaparValores((string) $c['referencia']) ?></td>
-                            <td><?= $c['estado'] === 'cancelado' ? '<span class="badge badge--error">Cancelado</span> ' . escaparValores((string) $c['motivo_cancelacion']) : '<span class="badge badge--aprobado">Vigente</span>' ?></td>
-                            <td class="tabla--numerica">
-                                <?php if ($c['estado'] === 'vigente') : ?>
-                                    <form action="/admin/contabilidad/ingresos/accion" method="post" data-validar
-                                          data-confirmacion-sobre="Cobro"
-                                          data-confirmacion="¿Cancelar este cobro?"
-                                          data-confirmacion-mensaje="El cobro se conserva como cancelado y el saldo del ingreso vuelve a aumentar."
-                                          data-confirmacion-boton="Sí, cancelar">
-                                        <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="accion" value="cobro_cancelar">
-                                        <input type="hidden" name="cobro_id" value="<?= (int) $c['id'] ?>">
-                                        <label class="solo-lectores" for="mc-<?= (int) $c['id'] ?>">Motivo</label>
-                                        <input class="control control--compacto" type="text" id="mc-<?= (int) $c['id'] ?>" name="motivo" placeholder="Motivo" maxlength="200" required minlength="5">
-                                        <button class="btn btn--peligro btn--sm" type="submit">Cancelar</button>
-                                    </form>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php else : ?>
-        <p class="texto-secundario" style="padding:1rem">Aún no hay cobros registrados.</p>
-    <?php endif; ?>
-
-    <?php if ($editable && (float) $ingreso['saldo'] > 0) : ?>
-        <details style="padding:0 1rem 1rem"><summary class="texto-sm">Anotar un pago parcial</summary>
-        <form class="formulario mt-sm" action="/admin/contabilidad/ingresos/accion" method="post" novalidate>
-            <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="accion" value="cobro">
-            <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-            <div class="formulario__rejilla">
-                <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="El día en que recibiste el dinero." for="cobro-fecha">¿Cuándo te pagaron?</label>
-                    <input class="control" type="date" id="cobro-fecha" name="fecha" required value="<?= date('Y-m-d') ?>"></div>
-                <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Lo que el cliente te pagó en esta ocasión. Puedes anotar varios pagos." for="cobro-importe">¿Cuánto te pagaron?</label>
-                    <input class="control control--moneda" type="number" id="cobro-importe" name="importe" required min="0.01" step="0.01" inputmode="decimal"
-                           max="<?= number_format((float) $ingreso['saldo'], 2, '.', '') ?>" value="<?= number_format((float) $ingreso['saldo'], 2, '.', '') ?>">
-                    <span class="campo__ayuda">Saldo pendiente: <?= formatoMoneda($ingreso['saldo']) ?></span></div>
-                <div class="campo"><label class="campo__etiqueta" data-ayuda="Efectivo, transferencia, etc." for="cobro-metodo">¿Cómo te pagaron?</label>
-                    <select class="control" id="cobro-metodo" name="metodo">
-                        <?php $sugerido = \App\Contabilidad::metodoSugerido($ingreso); ?>
-                        <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?><option<?= $m === $sugerido ? ' selected' : '' ?>><?= escaparValores($m) ?></option><?php endforeach; ?>
-                    </select>
-                    <span class="campo__ayuda">Sugerida: <?= escaparValores($sugerido) ?> (<?= \App\Contabilidad::llevaIva($ingreso) ? 'con' : 'sin' ?> IVA). Cámbiala si te pagaron de otra forma.</span></div>
-                <div class="campo"><label class="campo__etiqueta" for="cobro-ref">Referencia (opcional)</label>
-                    <input class="control" type="text" id="cobro-ref" name="referencia" maxlength="80"></div>
-            </div>
-            <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Anotar pago recibido</button></div>
-        </form></details>
-    <?php endif; ?>
-</section>
+<?php template('cobrosIngreso', ['ingreso' => $ingreso, 'retorno' => $retorno]); ?>
 
 <?php template('footer'); ?>

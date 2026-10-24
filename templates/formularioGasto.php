@@ -1,9 +1,12 @@
 <?php
 /**
  * templates/formularioGasto.php — alta y edición de un gasto.
- * Variables: $gasto (array), $errores, $proveedores, $categorias, $empresas, $cancelar (URL)
+ * Variables: $gasto (array), $errores, $proveedores, $categorias, $empresas, $cancelar (URL),
+ *            $reglasCategoria (opcional: CoincidenciasFactura::REGLAS_CATEGORIA, con la que
+ *            el navegador sugiere el tipo de gasto — el mismo listado que usa la lectura inteligente)
  */
 $errores = $errores ?? [];
+$reglasCategoria = $reglasCategoria ?? [];
 $reparto = [];
 foreach ($gasto['reparto'] ?? [] as $r) {
     $reparto[$r['empresa_id']] = $r['porcentaje'];
@@ -50,7 +53,15 @@ $numEmpresas = max(1, count($empresas));
         <input class="control" type="date" id="fecha" name="fecha" required value="<?= $v('fecha', date('Y-m-d')) ?>"></div>
 
     <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige el tipo de gasto. Si escribes «gasolina», «CFE», «Telmex»… la plataforma lo sugiere sola." for="categoria_id">¿Qué tipo de gasto fue?</label>
-        <select class="control" id="categoria_id" name="categoria_id" data-sugerir-categoria>
+        <select class="control" id="categoria_id" name="categoria_id" data-sugerir-categoria
+                data-reglas="<?= escaparValores(json_encode(
+                    array_map(
+                        static fn (string $nombre, string $patron): array => [$nombre, $patron],
+                        array_keys($reglasCategoria),
+                        array_values($reglasCategoria)
+                    ),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                )) ?>">
             <option value="">— Elige un tipo —</option>
             <?php foreach ($categorias as $c) : ?>
                 <option value="<?= (int) $c['id'] ?>"<?= (int) ($gasto['categoria_id'] ?? 0) === (int) $c['id'] ? ' selected' : '' ?>><?= escaparValores($c['nombre']) ?></option>
@@ -181,21 +192,16 @@ $numEmpresas = max(1, count($empresas));
   if (tipo && concepto && nombre) {
     let manual = tipo.value !== '';
     tipo.addEventListener('change', function () { manual = tipo.value !== ''; });
-    const reglas = [
-      ['Combustible y transporte', /gasolin|diesel|combustible|caseta|pemex|oxxo gas|uber|taxi/],
-      ['Luz, agua y gas', /\bcfe\b|\bluz\b|agua|\bgas\b|conagua|oomsapas/],
-      ['Teléfono e internet', /telcel|telmex|izzi|totalplay|internet|tel[eé]fono|megacable|\bat&t\b/],
-      ['Ferretería y materiales', /ferreter|home depot|comex|pintura|tornill|material|interceramic|ferremax/],
-      ['Papelería y oficina', /papeler|office ?max|oficina|toner|impresi/],
-      ['Renta', /renta|arrendamiento/],
-      ['Seguros', /seguro|p[oó]liza/],
-      ['Donativos', /donativo|teleton|teletón|cruz roja|donaci/],
-      ['Alimentos y despensa', /soriana|walmart|costco|super|despensa|caf[eé]|panader|restaurante|comida/],
-      ['Retiros del propietario', /retiro|disposici[oó]n/],
-      ['Mantenimiento', /mantenimiento|reparaci|servicio t[eé]cnico/],
-      ['Honorarios', /honorarios|contador|notario|abogado/],
-      ['Sueldos', /sueldo|n[oó]mina|salario/],
-    ];
+    /* Las reglas llegan del servidor (CoincidenciasFactura::REGLAS_CATEGORIA): es el mismo
+       listado que usa la lectura inteligente, así que el formulario y la factura dicen lo mismo. */
+    let reglas = [];
+    try {
+      reglas = JSON.parse(tipo.getAttribute('data-reglas') || '[]').map(function (par) {
+        return [par[0], new RegExp(par[1], 'i')];
+      });
+    } catch (error) {
+      reglas = [];
+    }
     const sugerir = function () {
       if (manual) { return; }
       const texto = (concepto.value + ' ' + nombre.value).toLowerCase();

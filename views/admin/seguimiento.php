@@ -1,7 +1,8 @@
 <?php
 /**
- * views/admin/seguimiento.php — Centro de seguimiento: avisos de cobros, facturas, gastos, entregas, inventario y novedades.
- * Cada aviso abre su registro de origen. Marcar como leído solo escribe en seguimiento_lecturas.
+ * views/admin/seguimiento.php — Centro de seguimiento: avisos de cobros, facturas, gastos, compras,
+ * proveedores, entregas, inventario y novedades. Cada aviso abre su registro de origen.
+ * Marcar como leído solo escribe en seguimiento_lecturas.
  */
 
 soloAdmin();
@@ -130,6 +131,33 @@ template('header', [
                 <form action="/admin/contabilidad/gastos/accion" method="post">
                     <input type="hidden" name="accion" value="pagar"><input type="hidden" name="id" value="<?= $idAviso ?>"><input type="hidden" name="volver" value="<?= escaparValores($volverA) ?>">
                     <button class="btn btn--secundario btn--sm" type="submit">Marcar como pagado</button>
+                </form>
+            <?php elseif ($tipoAviso === 'compra_saldo') : ?>
+                <details class="accion-rapida">
+                    <summary class="btn btn--secundario btn--sm">Registrar pago</summary>
+                    <form action="/admin/compras/pago" method="post" class="fila--envuelto" style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap">
+                        <input type="hidden" name="accion" value="registrar"><input type="hidden" name="id" value="<?= $idAviso ?>">
+                        <input type="hidden" name="token" value="<?= bin2hex(random_bytes(16)) ?>"><input type="hidden" name="fecha" value="<?= date('Y-m-d') ?>">
+                        <label class="solo-lectores" for="pag-<?= $idAviso ?>">Importe</label>
+                        <input class="control control--compacto" id="pag-<?= $idAviso ?>" name="importe" inputmode="decimal" required value="<?= number_format((float) $a['saldo'], 2, '.', '') ?>" style="width:8rem">
+                        <label class="solo-lectores" for="metp-<?= $idAviso ?>">Método</label>
+                        <select class="control control--compacto" id="metp-<?= $idAviso ?>" name="metodo">
+                            <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?><option<?= $m === ($a['metodo'] ?? '') ? ' selected' : '' ?>><?= escaparValores($m) ?></option><?php endforeach; ?>
+                        </select>
+                        <button class="btn btn--primario btn--sm" type="submit">Guardar pago</button>
+                    </form>
+                </details>
+            <?php elseif ($tipoAviso === 'compra_cfdi') : ?>
+                <form action="/admin/compras/comprobante" method="post">
+                    <input type="hidden" name="accion" value="estado_cfdi"><input type="hidden" name="id" value="<?= $idAviso ?>">
+                    <input type="hidden" name="estado_cfdi" value="no_facturada">
+                    <button class="btn btn--secundario btn--sm" type="submit">No se facturará</button>
+                </form>
+            <?php elseif ($tipoAviso === 'entrada') : ?>
+                <form action="/admin/proveedores/entradas/pago" method="post">
+                    <input type="hidden" name="id" value="<?= $idAviso ?>"><input type="hidden" name="pagado" value="1">
+                    <input type="hidden" name="retorno" value="<?= escaparValores($volverA) ?>">
+                    <button class="btn btn--secundario btn--sm" type="submit">Marcar como pagada</button>
                 </form>
             <?php endif; ?>
             <?php if (!$a['leida']) : ?>

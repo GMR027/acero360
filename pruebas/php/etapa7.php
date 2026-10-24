@@ -112,8 +112,14 @@ $prueba('si deja de estar vendida, sale de las estadísticas', Estadisticas::com
 echo "Rankings\n";
 $prod2 = Estadisticas::topProductos('2026-01-01', '2026-01-31');
 $prueba('producto más vendido en enero 2026: 37 con 3 pzas y $1,500', $prod2[0]['producto_id'] === 37 && $prod2[0]['unidades'] === 3 && $prod2[0]['importe'] === 150000 && $prod2[1]['producto_id'] === 36);
+$prodAnio = Estadisticas::topProductos('2026-01-01', '2026-12-31');
+$prueba('los productos salen separados por negocio y con su código (SKU)', $prodAnio[0]['negocio'] === 'Soluciones en Acero' && $prodAnio[0]['sku'] === 'RA-3'
+    && $prodAnio[2]['empresa_id'] === 2 && $prodAnio[2]['producto_id'] === 36 && $prodAnio[2]['importe'] === 120000, json_encode($prodAnio));
 $cli2 = Estadisticas::topClientes('2026-01-01', '2026-12-31');
 $prueba('cliente con mayor volumen en 2026: cliente 1 (1,740 + 696 = 2,436)', $cli2[0]['cliente_id'] === $c1 && $cli2[0]['importe'] === 243600 && $cli2[0]['operaciones'] === 2);
+$prueba('los clientes salen separados por negocio', $cli2[0]['negocio'] === 'Soluciones en Acero' && $cli2[1]['empresa_id'] === 2 && $cli2[1]['cliente_id'] === $c2, json_encode($cli2));
+$menor = \App\Analisis::menorMovimiento('2026-01-01', '2026-12-31');
+$prueba('menor movimiento también separa por negocio y trae el código', $menor[0]['negocio'] === 'Soluciones en Acero' && $menor[0]['sku'] === 'RA-1' && end($menor)['empresa_id'] === 2, json_encode($menor));
 $mat = Estadisticas::porAnios('producto', 2025, 2026);
 $fila37 = array_values(array_filter($mat['filas'], fn ($f) => str_contains($f['nombre'], 'RA-3')))[0] ?? null;
 $prueba('producto por varios años: RA-3 = 1,000 (2025) y 1,500 (2026)', $fila37 && $fila37['por_anio'] === [2025 => 100000, 2026 => 150000], json_encode($fila37));

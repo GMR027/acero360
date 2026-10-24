@@ -14,6 +14,10 @@ namespace App;
  *   - «Pendiente de facturación» = venta vigente sin indicar si se factura (igual que el Centro de seguimiento).
  *   - «Devoluciones»: movimientos de inventario de devolución de cliente. La plataforma no maneja cambios
  *     de producto ni un estado «pendiente» de la devolución, así que se muestran las registradas.
+ *   - «Productos más vendidos»: importe de renglones (sin IVA) del periodo que se le pida; el panel usa
+ *     el mes elegido en el filtro y, si no hay mes elegido, el mes en curso.
+ *   - «Existencias en alerta»: productos activos con stock negativo, agotado (0) o en/bajo su mínimo;
+ *     los negativos son los más urgentes y salen primero.
  */
 class Panel
 {
@@ -142,8 +146,8 @@ class Panel
     public static function ventasPorCobrar(int $limite = 6): array
     {
         return self::varias(
-            "SELECT i.id, i.folio, i.fecha, cl.nombre AS cliente, (ROUND(i.total * 100) - COALESCE(k.cobrado, 0)) / 100 AS saldo
-               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id " . self::COBRADO . "
+            "SELECT i.id, i.venta_id, i.folio, i.fecha, cl.nombre AS cliente, (ROUND(i.total * 100) - COALESCE(k.cobrado, 0)) / 100 AS saldo
+               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id " . self::COBRADO . " 
               WHERE i.estado = 'vigente' AND ROUND(i.total * 100) > COALESCE(k.cobrado, 0)
               ORDER BY i.fecha, i.id LIMIT $limite"
         );
@@ -153,7 +157,7 @@ class Panel
     public static function ventasPorFacturar(int $limite = 6): array
     {
         return self::varias(
-            "SELECT i.id, i.folio, i.fecha, i.total, cl.nombre AS cliente
+            "SELECT i.id, i.venta_id, i.folio, i.fecha, i.total, cl.nombre AS cliente
                FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id
               WHERE i.estado = 'vigente' AND i.estado_facturacion = 'sin_clasificar'
               ORDER BY i.fecha, i.id LIMIT $limite"
@@ -164,7 +168,7 @@ class Panel
     public static function convertidasSinFactura(int $limite = 6): array
     {
         return self::varias(
-            "SELECT i.id, c.folio, i.fecha, i.total, i.estado_facturacion, cl.nombre AS cliente
+            "SELECT i.id, v.id AS venta_id, c.folio, i.fecha, i.total, i.estado_facturacion, cl.nombre AS cliente
                FROM ventas v
                JOIN cotizaciones c ON c.id = v.cotizacion_id
                JOIN ingresos i ON i.venta_id = v.id AND i.estado = 'vigente'
@@ -202,5 +206,59 @@ class Panel
               GROUP BY m.venta_id, folio, DATE(m.creado_en), cl.nombre
               ORDER BY MAX(m.creado_en) DESC LIMIT $limite"
         );
+    }
+
+    /**
+     * Productos más vendidos del rango (por importe de renglones sin IVA), con su imagen:
+     * piezas vendidas, número de ventas e importe total de renglones.
+     *
+     * @return array<int, array{producto_id: int, sku: string, nombre: string, imagen: ?string, piezas: int, ventas: int, importe: float}>
+     */
+    public static function productosMasVendidos(string $desde, string $hasta, int $limite = 4): array
+    {
+        return array_map(static fn ($x) => [
+            'producto_id' => (int) $x['producto_id'], 'sku' => (string) $x['sku'], 'nombre' => (string) $x['nombre'], 'imagen' => $x['imagen'],
+            'piezas' => (int) $x['piezas'], 'ventas' => (int) $x['ventas'], 'importe' => (float) $x['importe'],
+        ], self::varias(
+            "SELECT p.id AS producto_id, p.sku, p.nombre, p.imagen, SUM(vd.cantidad) AS piezas, COUNT(DISTINCT v.id) AS ventas,
+                    ROUND(SUM(vd.subtotal * 100)) / 100 AS importe
+               FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
+              WHERE v.estado = 'registrada' AND v.fecha BETWEEN ? AND ?
+              GROUP BY p.id, p.sku, p.nombre, p.imagen
+              ORDER BY importe DESC, piezas DESC, p.nombre ASC LIMIT " . max(1, $limite),
+            'ss',
+            [$desde, $hasta]
+        ));
+    }
+
+    /**
+     * Productos activos con existencias en alerta: NEGATIVAS primero, luego agotados (0)
+     * y por último los que están en o debajo de su cantidad mínima.
+     *
+     * @return array<int, array{producto_id: int, sku: string, nombre: string, imagen: ?string, stock: int, stock_minimo: ?int, estado: string}>
+     */
+    public static function productosStockBajo(int $limite = 8): array
+    {
+        $filas = self::varias(
+            'SELECT p.id AS producto_id, p.sku, p.nombre, p.imagen, p.stock, p.stock_minimo
+               FROM productos p
+              WHERE p.activo = 1 AND (p.stock <= 0 OR (p.stock_minimo IS NOT NULL AND p.stock <= p.stock_minimo))
+              ORDER BY (p.stock < 0) DESC, (p.stock = 0) DESC, p.stock ASC, p.nombre ASC LIMIT ' . max(1, $limite)
+        );
+
+        return array_map(static fn ($x) => [
+            'producto_id' => (int) $x['producto_id'], 'sku' => (string) $x['sku'], 'nombre' => (string) $x['nombre'], 'imagen' => $x['imagen'],
+            'stock' => (int) $x['stock'], 'stock_minimo' => $x['stock_minimo'] === null ? null : (int) $x['stock_minimo'],
+            'estado' => (int) $x['stock'] < 0 ? 'negativo' : ((int) $x['stock'] === 0 ? 'agotado' : 'bajo'),
+        ], $filas);
+    }
+
+    /** Cuántos productos activos tienen existencias en alerta (negativas, 0 o bajo el mínimo). */
+    public static function contarStockBajo(): int
+    {
+        return (int) self::uno(
+            'SELECT COUNT(*) AS n FROM productos p
+              WHERE p.activo = 1 AND (p.stock <= 0 OR (p.stock_minimo IS NOT NULL AND p.stock <= p.stock_minimo))'
+        )['n'];
     }
 }

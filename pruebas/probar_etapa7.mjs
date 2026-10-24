@@ -54,6 +54,7 @@ try {
   const vc = JSON.parse(await pagina.locator('#g-ventas-vs-cobros [data-grafica]').getAttribute('data-grafica'));
   verifica('ventas y cobros van en series distintas', vc.series.length === 2 && /ventas/i.test(vc.series[0].nombre) && /cobros/i.test(vc.series[1].nombre));
   verifica('productos más vendidos: RA-3 con 3 piezas', (await pagina.locator('table:has(caption:text("Productos más vendidos")) tbody tr').first().innerText()).includes('RA-3'));
+  verifica('las tarjetas nuevas son solo del reporte (no salen en pantalla)', !t.includes('Productos con existencias bajas'));
   verifica('clientes con mayor volumen listados', (await pagina.locator('table:has(caption:text("Clientes con mayor volumen")) tbody tr').count()) >= 1);
   verifica('matriz de productos por varios años', (await pagina.locator('table:has(caption:text("varios años")) tbody tr').count()) >= 1);
 
@@ -75,6 +76,23 @@ try {
   await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
   verifica('con producto avisa que mide renglones sin IVA', t.includes('Con un producto elegido') && t.includes('$1,500.00'));
+
+  console.log('Rankings por negocio');
+  await pagina.goto(`${BASE}/admin/estadisticas?tipo=anio&anio=2026&atras=1`);
+  const top1 = await pagina.locator('#g-productos-top-1 [data-grafica]').getAttribute('data-grafica');
+  const top2 = await pagina.locator('#g-productos-top-2 [data-grafica]').getAttribute('data-grafica');
+  verifica('productos de mayor movimiento, una gráfica por negocio', !!top1 && !!top2 && /Soluciones en Acero/.test(top1) && /Canastillas de la Baja/.test(top2));
+  verifica('cada producto trae su código (SKU) en la gráfica', JSON.parse(top1).categorias.some((c) => c.startsWith('RA-3')), top1.slice(0, 160));
+  const menor2 = await pagina.locator('#g-productos-menor-2 [data-grafica]').getAttribute('data-grafica');
+  verifica('productos de menor movimiento también por negocio y con código', !!menor2 && JSON.parse(menor2).categorias.some((c) => c.startsWith('RA-1')), (menor2 || '').slice(0, 160));
+  const cli2g = await pagina.locator('#g-clientes-top-2 [data-grafica]').getAttribute('data-grafica');
+  verifica('clientes con mayor volumen separados por negocio', !!cli2g && JSON.parse(cli2g).categorias.length >= 1, (cli2g || '').slice(0, 160));
+  await abrirTodo();
+  const tablaTop = (await pagina.locator('table:has(caption:text("Productos más vendidos"))').first().innerText()).toLowerCase();
+  verifica('la tabla de productos trae Negocio y Código', tablaTop.includes('negocio') && tablaTop.includes('código'));
+  const tablaClientes = (await pagina.locator('table:has(caption:text("Clientes con mayor volumen"))').first().innerText()).toLowerCase();
+  verifica('la tabla de clientes trae Negocio', tablaClientes.includes('negocio'));
+  verifica('ventas por negocio detalla sus productos con el código', (await pagina.locator('table:has(caption:text("productos de Canastillas de la Baja")) tbody tr').count()) >= 1);
 
   console.log('Periodo incompleto');
   await pagina.goto(`${BASE}/admin/estadisticas?tipo=anio&anio=${new Date().getFullYear()}&atras=1`);
@@ -106,6 +124,9 @@ try {
   const ruta = join(tmpdir(), 'e7.pdf'); writeFileSync(ruta, await pdf.body());
   const textoPdf = execFileSync('pdftotext', [ruta, '-'], { encoding: 'utf8' }).replace(/\s+/g, ' ');
   verifica('PDF con periodo, filtros y aviso de no equivalencia', pdf.status() === 200 && textoPdf.includes('Estadísticas de ventas') && textoPdf.includes('No son equivalentes') && textoPdf.includes('2,436.00'));
+  verifica('PDF con las tarjetas de productos más vendidos y de existencias bajas',
+    textoPdf.includes('Productos más vendidos') && textoPdf.includes('Productos con existencias bajas'), textoPdf.slice(0, 200));
+  verifica('PDF con la tabla de productos menos vendidos del periodo', textoPdf.includes('Productos menos vendidos'));
   const antes = sql('SELECT CONCAT(COUNT(*), "/", SUM(total)) FROM ventas');
   await pagina.request.get(`${BASE}/admin/estadisticas/exportar?${q}&formato=xlsx`);
   verifica('exportar no modifica ventas', sql('SELECT CONCAT(COUNT(*), "/", SUM(total)) FROM ventas') === antes);

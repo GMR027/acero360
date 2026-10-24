@@ -61,7 +61,7 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'pe
                             <td class="tabla--numerica cifra"><?= formatoMoneda($f['iva']) ?></td>
                             <td class="tabla--numerica cifra"><strong><?= formatoMoneda($f['total']) ?></strong></td>
                             <td class="tabla--centro"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span></td>
-                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/ingresos/detalle?id=<?= (int) $f['id'] ?>">Clasificar</a></td></tr>
+                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'facturacion')) ?>">Clasificar</a></td></tr>
                     <?php endforeach; ?>
                 </tbody>
                 <tfoot><tr><td colspan="4"><strong>Total</strong></td>

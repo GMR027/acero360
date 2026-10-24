@@ -78,6 +78,7 @@ $config = [
 ];
 
 $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
+$GLOBALS['scriptsPagina'][] = '/public/js/pantone.js?v=' . filemtime(__DIR__ . '/../../../public/js/pantone.js');
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/redactor/typo.js';
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/redactor.js?v=' . filemtime(__DIR__ . '/../../../public/vendor/herramientas/redactor.js');
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/redactor-extras.js?v=' . filemtime(__DIR__ . '/../../../public/vendor/herramientas/redactor-extras.js');

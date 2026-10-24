@@ -13,23 +13,34 @@ $id      = (int) ($_POST['id'] ?? 0);
 $accion  = (string) ($_POST['accion'] ?? '');
 $usuario = (int) ($_SESSION['id'] ?? 0);
 $destino = '/admin/contabilidad/ingresos/detalle?id=' . $id;
+$origen  = false; // true: la pantalla que envió el formulario indicó dónde regresar.
 
 // Solo se acepta volver al detalle de una venta (ruta interna fija), nunca una URL arbitraria.
 if (preg_match('#^/admin/ventas/detalle\?id=\d+$#', (string) ($_POST['volver'] ?? ''))) {
     $destino = $_POST['volver'];
+    $origen  = true;
 }
 
 if (preg_match('#^/admin/seguimiento(\?[a-z_=&]*)?$#', (string) ($_POST['volver'] ?? ''))) {
     $destino = $_POST['volver'];
+    $origen  = true;
 }
 
 // El conmutador de la lista de ingresos regresa a la misma lista (mismos filtros y página).
 if (preg_match('#^/admin/contabilidad/ingresos(\?[A-Za-z0-9_=&%.+-]*)?$#', (string) ($_POST['volver'] ?? ''))) {
     $destino = $_POST['volver'];
+    $origen  = true;
 }
 
-if (!\App\Contabilidad::buscarIngreso($id)) {
+$ingreso = \App\Contabilidad::buscarIngreso($id);
+
+if (!$ingreso) {
     redirigir('/admin/contabilidad/ingresos', 'error', 'El ingreso ya no existe.');
+}
+
+// Por defecto se regresa al detalle de la venta: ahí está la única sección de facturación y cobro.
+if (!$origen) {
+    $destino = \App\Contabilidad::rutaDetalle($ingreso);
 }
 
 if ($accion === 'facturacion') {

@@ -177,6 +177,41 @@ class Lecturas
         return $v;
     }
 
+    /**
+     * Propuesta para precargar el formulario de una venta o de un gasto.
+     *
+     * Se apoya en lo que ya se leyó y guardó al preparar la lectura: no vuelve a
+     * abrir el archivo. El cruce contra clientes, proveedores, negocios y
+     * productos lo hace CoincidenciasFactura, el mismo motor que usan los
+     * botones de registro inteligente.
+     *
+     * @return array<string, mixed>|null null si la lectura no existe
+     */
+    public static function propuesta(int $id, string $destino): ?array
+    {
+        $lectura = self::buscarID($id);
+        if (!$lectura || !in_array((string) $lectura['destino'], ['gasto', 'venta'], true)) {
+            return null;
+        }
+
+        $analisis = CoincidenciasFactura::analizar([
+            'fuente'    => (string) $lectura['fuente'],
+            'campos'    => (array) ($lectura['leidos']['campos'] ?? []),
+            'conceptos' => (array) ($lectura['leidos']['conceptos'] ?? []),
+            'avisos'    => (array) ($lectura['avisos_lista'] ?? []),
+        ], $destino);
+
+        return $analisis + [
+            'lectura_id' => (int) $lectura['id'],
+            'destino'    => (string) $lectura['destino'],
+            'nombre'     => (string) $lectura['nombre_original'],
+            'creado_en'  => (string) $lectura['creado_en'],
+            'estado'     => (string) $lectura['estado'],
+            'archivo'    => (string) $lectura['archivo'],
+            'mime'       => (string) $lectura['mime'],
+        ];
+    }
+
     /* --------------------------------------------------------------------
      * DISCREPANCIAS, DUPLICADOS Y COINCIDENCIAS
      * ------------------------------------------------------------------ */
