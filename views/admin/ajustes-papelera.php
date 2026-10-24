@@ -1,10 +1,13 @@
 <?php
 /**
- * views/admin/ajustes-papelera.php — Papelera: ventas y cotizaciones eliminadas.
+ * views/admin/ajustes-papelera.php — Papelera: ventas, cotizaciones y gastos eliminados.
  * Se pueden restaurar durante 90 días; después se borran definitivamente de la base.
  */
 
 soloAdmin();
+
+/** Nombre de cada tipo de elemento para la tabla. */
+$tipos = ['venta' => 'Venta', 'cotizacion' => 'Cotización', 'gasto' => 'Gasto'];
 
 $usuarioId = (int) ($_SESSION['id'] ?? 0);
 
@@ -36,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 \App\Papelera::purgarVencidos();
 $elementos = \App\Papelera::listar();
 
-template('header', ['titulo' => 'Papelera', 'subtitulo' => 'Ventas y cotizaciones eliminadas', 'rutaActiva' => '/admin/ajustes']);
+template('header', ['titulo' => 'Papelera', 'subtitulo' => 'Ventas, cotizaciones y gastos eliminados', 'rutaActiva' => '/admin/ajustes']);
 template('tabsAjustes', ['tab' => 'papelera']);
 ?>
 
@@ -45,7 +48,7 @@ template('tabsAjustes', ['tab' => 'papelera']);
         <span class="ajustes-cabecera__icono"><span class="material-symbols-outlined" aria-hidden="true">delete</span></span>
         <div>
             <h2 class="titulo-5" id="titulo-papelera">Papelera</h2>
-            <p class="texto-xs texto-secundario">Lo que eliminas de Ventas y Cotizaciones llega aquí. Puedes restaurarlo durante <?= \App\Papelera::DIAS ?> días; después se borra definitivamente.</p>
+            <p class="texto-xs texto-secundario">Lo que eliminas de Ventas, Cotizaciones y Gastos llega aquí. Puedes restaurarlo durante <?= \App\Papelera::DIAS ?> días; después se borra definitivamente. Un gasto se restaura con sus datos y su reparto entre negocios, pero sin los archivos adjuntos: esos se borraron del disco.</p>
         </div>
     </div>
 
@@ -53,7 +56,7 @@ template('tabsAjustes', ['tab' => 'papelera']);
         <div class="vacio">
             <span class="material-symbols-outlined vacio__icono" aria-hidden="true">delete</span>
             <p class="vacio__titulo">La papelera está vacía</p>
-            <p>Las ventas y cotizaciones que elimines aparecerán aquí.</p>
+            <p>Las ventas, cotizaciones y gastos que elimines aparecerán aquí.</p>
         </div>
     <?php else : ?>
         <div class="tabla-contenedor">
@@ -73,7 +76,7 @@ template('tabsAjustes', ['tab' => 'papelera']);
                 <?php foreach ($elementos as $e) : ?>
                     <tr>
                         <td><?= escaparValores($e['etiqueta']) ?></td>
-                        <td><?= $e['tipo'] === 'venta' ? 'Venta' : 'Cotización' ?></td>
+                        <td><?= escaparValores($tipos[$e['tipo']] ?? ucfirst($e['tipo'])) ?></td>
                         <td class="tabla__num cifra"><?= formatoMoneda($e['total']) ?></td>
                         <td><?= escaparValores(date('d/m/Y H:i', strtotime($e['eliminado_en']))) ?><?= $e['eliminado_por_nombre'] ? '<br><span class="texto-xs texto-secundario">' . escaparValores($e['eliminado_por_nombre']) . '</span>' : '' ?></td>
                         <td><?= max(0, (int) $e['dias_restantes']) ?> días</td>

@@ -2,6 +2,7 @@
 /**
  * views/admin/fiscal/resumen.php — Impuestos: cuánto se debe pagar cada mes (estimación simple).
  * Facturado − pagos → IVA y ISR por pagar.
+ * Sólo entran facturas pagadas al 100 % y gastos ya pagados; lo excluido se muestra aparte.
  */
 
 soloAdmin();
@@ -85,9 +86,9 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
     <p class="titulo-2" style="margin:.25rem 0"><?= $m(abs($aPagar)) ?></p>
     <ul class="lista-simple mt-md">
         <li class="lista-simple__elemento"><strong>IVA:</strong> <?= $m($actual['iva_por_pagar']) ?>
-            <span class="texto-secundario">— el IVA que cobraste menos el IVA de tus gastos.</span></li>
+            <span class="texto-secundario">— el IVA de las facturas que ya te pagaron menos el IVA de los gastos que ya pagaste.</span></li>
         <li class="lista-simple__elemento"><strong>ISR:</strong> <?= $m($actual['isr_por_pagar']) ?>
-            <span class="texto-secundario">— <?= escaparValores($tasaTexto) ?> % de lo facturado menos lo pagado, sin IVA.</span></li>
+            <span class="texto-secundario">— <?= escaparValores($tasaTexto) ?> % de lo facturado y cobrado menos lo pagado, sin IVA.</span></li>
     </ul>
     <p class="campo__ayuda mt-md">Se paga a más tardar el día 17 de <?= escaparValores(mb_strtolower(nombreMes($siguiente[1]))) ?> <?= (int) $siguiente[0] ?>. Es una estimación: confírmala con tu contador.</p>
     <div class="formulario__acciones" style="justify-content:flex-start">
@@ -101,6 +102,24 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
     <p class="nota nota--advertencia mb-lg movil-oculto" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lightbulb</span>
         <span><?= (int) $r['sin_clasificar'] ?> venta(s) de <?= $anio ?> no indican si se facturaron y <strong>no se cuentan</strong>. Solo cuentan las ventas marcadas como facturadas.
             <a href="/admin/contabilidad/sin-facturar?anio=<?= $anio ?>">Revisarlas</a>.</span></p>
+<?php endif; ?>
+
+<?php
+/* Lo que la estimación deja fuera este mes: facturas sin pagar o en parcialidades y gastos por pagar. */
+$facturasFuera = (int) ($actual['facturas_sin_pagar_n'] ?? 0);
+$gastosFuera   = (int) ($actual['gastos_no_pagados_n'] ?? 0);
+$fuera = [];
+if ($facturasFuera > 0) {
+    $fuera[] = '<strong>' . number_format($facturasFuera) . ' factura(s) sin pagar o en parcialidades</strong> por ' . $m($actual['facturas_sin_pagar']);
+}
+if ($gastosFuera > 0) {
+    $fuera[] = '<strong>' . number_format($gastosFuera) . ' gasto(s) por pagar</strong> por ' . $m($actual['gastos_no_pagados']);
+}
+?>
+<?php if ($fuera) : ?>
+    <p class="nota mb-lg" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">schedule</span>
+        <span>No entran en esta estimación de <?= escaparValores(mb_strtolower(nombreMes($mes))) ?>: <?= implode(' y ', $fuera) ?>.
+            Se cuentan cuando se confirme que ya se pagaron.</span></p>
 <?php endif; ?>
 
 <section class="tarjeta tarjeta--sin-relleno mb-lg movil-oculto">
@@ -136,8 +155,10 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
 <details class="mb-lg movil-oculto">
     <summary class="boton-enlace" style="cursor:pointer"><strong>¿Cómo se calcula?</strong></summary>
     <div class="mt-md">
-        <p class="campo__ayuda mb-md">Cuenta <strong>todos</strong> los gastos registrados como deducibles y solo las ventas marcadas como <strong>facturadas</strong>.
-            Cada importe se divide entre 1.16 para quitarle el IVA. IVA por pagar = IVA facturado − IVA de los gastos. ISR por pagar = (facturado sin IVA − pagos sin IVA) × <?= escaparValores($tasaTexto) ?> %.
+        <p class="campo__ayuda mb-md">Cuenta <strong>sólo</strong> las ventas marcadas como <strong>facturadas y pagadas al 100 %</strong>, y <strong>sólo</strong> los gastos que <strong>ya pagaste</strong>.
+            Las facturas con pagos en parcialidades o sin cobrar y los gastos por pagar quedan fuera hasta que se confirme su pago (arriba se indica cuántos y por cuánto).
+            El IVA es el <strong>real de cada CFDI</strong> (no se inventa el 16 %): la base es el total menos su IVA. IVA por pagar = IVA facturado − IVA de los gastos. ISR por pagar = (facturado sin IVA − pagos sin IVA) × <?= escaparValores($tasaTexto) ?> %.
+            El método de pago (PUE una sola exhibición, PPD parcialidades o por definir) es informativo: no cambia la cuenta, sólo explica por qué una operación entra o no.
             <a href="/admin/fiscal/configuracion">Cambiar el porcentaje de ISR</a>.</p>
         <section class="tarjeta tarjeta--sin-relleno">
             <div class="tabla-contenedor">

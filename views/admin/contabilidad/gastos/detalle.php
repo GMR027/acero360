@@ -38,6 +38,8 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
         <div><dt>Total</dt><dd><strong><?= formatoMoneda($gasto['total']) ?></strong></dd></div>
         <div><dt>Negocio</dt><dd><?= (int) $gasto['compartido'] === 1 ? 'Compartido' : escaparValores((string) ($gasto['empresa_nombre'] ?? 'General')) ?></dd></div>
         <div><dt>UUID</dt><dd><?= escaparValores((string) $gasto['uuid_fiscal']) ?: '—' ?></dd></div>
+        <div><dt>Uso del CFDI</dt><dd><?= $gasto['uso_cfdi'] ? escaparValores(\App\Gastos::USOS_CFDI[$gasto['uso_cfdi']] ?? $gasto['uso_cfdi']) : '—' ?></dd></div>
+        <div><dt>Método de pago</dt><dd><?= $gasto['metodo_pago_sat'] ? escaparValores(\App\Gastos::METODOS_CFDI[$gasto['metodo_pago_sat']] ?? $gasto['metodo_pago_sat']) : '—' ?></dd></div>
         <div><dt>Pagado a</dt><dd><?= escaparValores(\App\Gastos::BENEFICIARIOS[$gasto['beneficiario_tipo']] ?? '') ?>: <?= escaparValores($gasto['beneficiario']) ?></dd></div>
         <div><dt>Factura (CFDI)</dt><dd><span class="badge <?= $factura['clase'] ?>"><?= escaparValores($factura['etiqueta']) ?></span><br><small class="texto-secundario"><?= escaparValores($factura['detalle']) ?></small></dd></div>
     </dl>

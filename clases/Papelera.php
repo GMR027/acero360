@@ -5,11 +5,14 @@ namespace App;
 use mysqli_sql_exception;
 
 /**
- * Papelera — ventas y cotizaciones eliminadas.
+ * Papelera — ventas, cotizaciones y gastos eliminados.
  *
  * Al eliminar, el registro completo (encabezado y renglones) se guarda como copia en la tabla
  * `papelera` dentro de la misma transacción que lo borra. Durante 90 días se puede restaurar desde
  * Ajustes → Papelera; pasado ese plazo la copia se borra definitivamente (scripts/purgar_papelera.php).
+ *
+ * Un gasto restaura sus datos y su reparto entre negocios, pero NO sus archivos adjuntos:
+ * Gastos::eliminar los borra del disco dentro de la misma operación.
  */
 class Papelera
 {
@@ -56,6 +59,23 @@ class Papelera
         }
 
         return ['cotizaciones' => $cotizacion, 'cotizacion_detalles' => self::filas('SELECT * FROM cotizacion_detalles WHERE cotizacion_id = ?', $id)];
+    }
+
+    /**
+     * Copia el gasto y su reparto entre negocios.
+     *
+     * Los archivos adjuntos NO se copian: `Gastos::eliminar` los borra del disco,
+     * así que un gasto restaurado vuelve sin sus documentos (los datos fiscales
+     * —UUID, folio, uso y método del CFDI— sí se conservan).
+     */
+    public static function copiarGasto(int $id): ?array
+    {
+        $gasto = self::filas('SELECT * FROM gastos WHERE id = ?', $id);
+        if (!$gasto) {
+            return null;
+        }
+
+        return ['gastos' => $gasto, 'gasto_reparto' => self::filas('SELECT * FROM gasto_reparto WHERE gasto_id = ?', $id)];
     }
 
     /** Guarda la copia. false si no se pudo (el llamador debe revertir y NO borrar). */
@@ -132,9 +152,11 @@ class Papelera
         try {
             self::$db->begin_transaction();
 
-            $mensaje = $item['tipo'] === 'venta'
-                ? self::restaurarVenta($filas, $usuarioId)
-                : self::restaurarCotizacion($filas);
+            $mensaje = match ($item['tipo']) {
+                'venta'  => self::restaurarVenta($filas, $usuarioId),
+                'gasto'  => self::restaurarGasto($filas),
+                default  => self::restaurarCotizacion($filas),
+            };
 
             if ($mensaje === null) {
                 self::$db->rollBack();
@@ -152,7 +174,7 @@ class Papelera
         } catch (mysqli_sql_exception $e) {
             self::$db->rollBack();
             error_log('[Papelera::restaurar] ' . $e->getMessage());
-            self::$errores[] = 'No fue posible restaurarlo: algún dato relacionado (cliente, negocio o producto) ya no existe.';
+            self::$errores[] = 'No fue posible restaurarlo: algún dato relacionado (cliente, negocio, producto o folio fiscal) ya no existe.';
             return false;
         }
     }
@@ -222,6 +244,42 @@ class Papelera
         }
 
         return $venta['folio'];
+    }
+
+    /**
+     * Devuelve el gasto a la contabilidad con sus datos y su reparto entre negocios.
+     *
+     * Lo que NO vuelve: los archivos adjuntos (se borraron del disco al eliminarlo)
+     * y el enlace con la lectura inteligente que lo originó. Si el UUID fiscal ya
+     * lo está usando otro gasto vigente, el restaurado se queda sin UUID para no
+     * duplicar la factura.
+     */
+    private static function restaurarGasto(array $filas): ?string
+    {
+        $gasto = $filas['gastos'][0] ?? null;
+        if (!$gasto) {
+            self::$errores[] = 'La copia guardada está incompleta.';
+            return null;
+        }
+
+        $id = (int) $gasto['id'];
+        if (self::existe('gastos', 'id', $id)) {
+            self::$errores[] = 'Ya existe un gasto con ese número; no se restauró.';
+            return null;
+        }
+        if (!empty($gasto['uuid_fiscal']) && self::existe('gastos', 'uuid_fiscal', (string) $gasto['uuid_fiscal'])) {
+            $gasto['uuid_fiscal'] = null;
+        }
+        // `uuid_vigente` la calcula la propia base (UUID único entre los gastos vigentes):
+        // está en la copia, pero no se puede escribir a mano.
+        unset($gasto['uuid_vigente']);
+
+        self::insertar('gastos', $gasto);
+        foreach ($filas['gasto_reparto'] ?? [] as $reparto) {
+            self::insertar('gasto_reparto', $reparto);
+        }
+
+        return (string) ($gasto['beneficiario'] ?? ('gasto #' . $id));
     }
 
     private static function restaurarCotizacion(array $filas): ?string

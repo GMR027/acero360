@@ -71,11 +71,12 @@ return [
      'pasos' => [
         ['Las 6 preguntas', ['Contabilidad → Gastos → «Anotar un gasto».', '¿En qué fue? · ¿A quién le pagaste? · ¿Cuándo fue? · ¿Cuánto pagaste en total (con IVA incluido)? · ¿Ya lo pagaste? · ¿Te dieron factura?', 'La plataforma separa sola el subtotal y el IVA. Si no tiene IVA, elige «No tiene IVA».']],
         ['Subir la factura', ['En el mismo formulario, «Factura o comprobante»: elige uno o varios archivos (PDF, XML, JPG, PNG o WebP). Se detecta solo qué es cada uno.', 'También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes».', 'Si subes el XML de la factura, se leen sus datos (folio fiscal, importes) y avisa si algo no cuadra.']],
+        ['Uso del CFDI y método de pago', ['Cuando el gasto es «Con factura», aparecen dos campos más: «Uso del CFDI» (para qué se usó: adquisición de mercancías, gastos en general, mobiliario…) y «Método de pago del CFDI».', 'El método de pago tiene tres opciones: «PPD · Pago en parcialidades», «PUE · Pago en una sola exhibición» y «Por definir (aún no se decide)», que es la que queda si todavía no sabes cómo se pagará.', 'Si el gasto es «Sin factura», esos campos no se guardan: no hay comprobante del que hablar.', 'Si subes el XML, el uso del CFDI y el método de pago se llenan solos con los que trae la factura.']],
         ['Más detalles', ['«Más detalles (opcional)» tiene categoría, cómo pagaste, folio fiscal, repartir entre negocios y notas. No hace falta llenarlo.']],
         ['Pagarlo después', ['Si lo dejaste como «lo debo todavía», ábrelo cuando lo pagues y cámbialo a pagado con su fecha.']],
         ['Que la plataforma lea la factura', ['Gastos → «Leer factura» (o desde una venta, «Leer factura»). Sube el XML (lo mejor: datos exactos), el PDF o una foto.', 'Aparece una pantalla de revisión con lo que se leyó, qué tan seguro es cada dato y el aviso de discrepancias o duplicados. Corrige lo necesario y marca «Revisé este dato» en lo dudoso.', 'Nada se guarda hasta que pulsas «Confirmar datos». Puedes asociar el documento a un gasto o venta que ya existe (sin duplicarlo) y queda registrado quién confirmó y cuándo.', 'El folio de la factura (p. ej. A-123) y el UUID son datos distintos. Si no se puede leer el archivo, captura los datos a mano en la misma pantalla.']],
      ],
-     'consejos' => ['Solo los gastos pagados y con factura se restan de tus impuestos.', 'Un ticket sin factura se puede guardar, pero no baja tus impuestos.', 'Máximo por archivo: el tamaño que indica la pantalla.']],
+     'consejos' => ['Solo los gastos ya pagados se restan de tus impuestos; el archivo o el CFDI adjunto es el respaldo para tu contador.', 'Un ticket sin factura se puede guardar: la estimación lo resta si está pagado, pero tu contador decide si es deducible.', 'Si eliminas un gasto por error, tiene 90 días en Ajustes → Papelera y se puede restaurar con todos sus datos (sin los archivos adjuntos: esos sí se borraron).', 'Máximo por archivo: el tamaño que indica la pantalla.']],
 
     ['id' => 'cobros', 'titulo' => 'Facturación y cobro de una venta', 'icono' => 'payments',
      'intro' => 'Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros de esa venta se indican en una sola sección: «Facturación y cobro», arriba del detalle de la venta.',
@@ -84,6 +85,7 @@ return [
         ['Decir si se facturó', ['En esa misma sección, «¿Ya se facturó?» → elige el estado: Pendiente de facturar, Facturada o No facturada.', 'Si hay factura, despliega «Folio, UUID y fecha (opcional)» y escribe el folio y el UUID (o súbelos: el XML los llena solos).']],
         ['Subir la factura de la venta', ['En «Subir factura (PDF y/o XML)», de la misma sección: elige el PDF y el XML juntos y pulsa «Guardar facturación».', 'Los archivos quedan listados en «Facturas y comprobantes», con su validación documental; ahí también se descargan o se dan de baja.']],
         ['Pendientes de facturar', ['La pestaña «Pendientes de facturar» lista las ventas sin factura para que no se te pase ninguna y su botón «Clasificar» abre esta misma sección. Se puede exportar.']],
+        ['Ver todas tus ventas', ['Contabilidad → «Ventas y cobros» muestra DOS tablas: arriba las ventas con factura o pendientes de facturar, y abajo las que ya marcaste como «No facturada» (esas ya no se van a facturar).', 'Cada tabla tiene su propio total y se pagina por su lado; los filtros de arriba (búsqueda, facturación y periodo) aplican a las dos.', 'El interruptor de la columna «Facturación» mueve una venta de una tabla a la otra: si un día llega la factura, márcala como facturada y sube a la tabla de arriba.']],
      ],
      'consejos' => ['Cancelar un pago o una venta pide un motivo y queda registrado; nada se borra en silencio.', 'Facturar y cobrar son cosas distintas: una venta puede estar facturada sin cobrarse, y al revés.']],
 
@@ -100,11 +102,11 @@ return [
     ['id' => 'impuestos', 'titulo' => 'Impuestos (solo informativo)', 'icono' => 'request_quote',
      'intro' => 'Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT según lo que vendiste y gastaste.',
      'pasos' => [
-        ['Leer la cifra', ['Impuestos → arriba: «deberías separar aproximadamente $X», con el IVA y el ISR por separado.', 'Solo cuenta lo que ya te pagaron y los gastos ya pagados con factura.']],
-        ['Hacerla más exacta', ['Marca como «No deducible» los gastos que sabes que no se restan.']],
-        ['Para tu contador', ['«¿Cómo se calcula?» muestra paso a paso la cuenta, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.']],
+        ['Leer la cifra', ['Impuestos → arriba: «deberías separar aproximadamente $X», con el IVA y el ISR por separado.', 'Solo cuenta las facturas que ya te pagaron al 100 % y los gastos ya pagados.', 'Una factura en parcialidades o sin cobrar, o un gasto por pagar, NO se cuenta hasta que se confirme el pago: la misma pantalla te dice cuántos quedaron fuera y por cuánto.']],
+        ['Qué significa el método de pago', ['PUE (una sola exhibición), PPD (parcialidades) y «por definir» son informativos: no cambian la cuenta, solo explican por qué una operación entra o no. Un gasto PPD entra cuando queda pagado por completo.', 'Los archivos que subes en ventas y gastos (XML, PDF o fotos) son solo respaldo para consultar y descargar: no modifican los importes ni el cálculo.']],
+        ['Para tu contador', ['«¿Cómo se calcula?» muestra paso a paso la cuenta, con el IVA real de cada CFDI, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.']],
      ],
-     'consejos' => ['Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.', 'Los pagos provisionales se presentan a más tardar el día 17 del mes siguiente.']],
+     'consejos' => ['Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.', 'Los pagos provisionales se presentan a más tardar el día 17 del mes siguiente.', 'Facturar y cobrar siguen siendo cosas distintas: una factura emitida se cuenta cuando ya te la pagaron.']],
 
     ['id' => 'estadisticas', 'titulo' => 'Estadísticas', 'icono' => 'monitoring',
      'intro' => 'Cómo van tus ventas, cobros, facturas y gastos, con indicadores y gráficas interactivas.',
@@ -189,9 +191,9 @@ return [
      'intro' => 'Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, gastos, compras, proveedores, entregas, inventario y novedades de la plataforma.',
      'pasos' => [
         ['Dónde verlo', ['La campana de arriba muestra cuántos avisos tienes sin leer. También está en el menú → «Centro de seguimiento».']],
-        ['Lo que vigila', ['Cotizaciones sin respuesta y por vencer.', 'Ventas sin cobrar o sin decir si se facturan.', 'Gastos por pagar y sin comprobante fiscal.', 'Compras: por recibir, con la factura del proveedor pendiente y con saldo por pagar; y pedidos directos a proveedor sin pagar.', 'Entregas y cambios por entregar.', 'Productos y materias primas por debajo de su mínimo (los que ya no tienen nada son los más urgentes).']],
+        ['Lo que vigila', ['Cotizaciones sin respuesta y por vencer.', 'Ventas sin cobrar o sin decir si se facturan.', 'Gastos por pagar y sin comprobante fiscal.', 'Facturas de gasto con pago en parcialidades (PPD) o con el método de pago por definir.', 'Compras: por recibir, con la factura del proveedor pendiente y con saldo por pagar; y pedidos directos a proveedor sin pagar.', 'Entregas y cambios por entregar.', 'Productos y materias primas por debajo de su mínimo (los que ya no tienen nada son los más urgentes).']],
         ['Prioridades', ['Urgente, alta, normal e informativa, calculadas con fechas y estados reales: lo más urgente sale primero.']],
-        ['Abrir y marcar', ['«Abrir registro» te lleva a la venta, la compra, el gasto o el producto de origen.', '«Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.']],
+        ['Abrir y marcar', ['«Abrir registro» te lleva a la venta, la compra, el gasto o el producto de origen.', 'En un aviso de factura con método de pago por definir o en parcialidades, «Definir método de pago» permite elegir PUE, PPD o por definir sin salir de ahí.', '«Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.']],
      ],
      'consejos' => ['Una venta pendiente de cobro y una pendiente de factura son avisos distintos: una venta ya facturada no aparece como «factura por definir».', 'Una compra que ya mandaste a contabilidad aparece como «Compra por pagar» y también como «Gasto por pagar»: son dos pantallas distintas del mismo dinero y ninguna se deduce de la otra.']],
 
@@ -208,7 +210,7 @@ return [
      'intro' => 'Qué significan, en pocas palabras.',
      'pasos' => [['Glosario', [
         'IVA: impuesto de 16 % que cobras en las ventas y que pagas en tus compras; al SAT le entregas la diferencia.',
-        'ISR: impuesto sobre tu ganancia (lo que vendes menos lo que gastas con factura).',
+        'ISR: impuesto sobre tu ganancia (lo que cobras menos lo que pagas).',
         'CFDI / factura: el comprobante fiscal digital. Viene en PDF (para leer) y XML (para la computadora).',
         'UUID o folio fiscal: el número único de cada factura.',
         'Deducible: un gasto que puedes restar de tus ventas para pagar menos ISR. Necesita factura y estar pagado.',

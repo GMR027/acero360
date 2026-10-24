@@ -1062,7 +1062,7 @@ body {
 
 /* ==========================================================================
    _botones.scss — Sistema de botones unificado.
-   Variantes: primario, secundario, peligro, éxito, texto, fantasma.
+   Variantes: primario, secundario, peligro, rojo, éxito, texto, fantasma.
    Todas comparten la misma altura, radio y estados de foco.
    ========================================================================== */
 .btn {
@@ -1146,6 +1146,21 @@ body {
 .btn--exito:hover:not(:disabled) {
   background-color: var(--color-exito-texto);
   border-color: var(--color-exito-texto);
+  color: var(--color-texto-invertido);
+}
+.btn {
+  /* --- Rojo sólido: acción visible sin ser «eliminar» (lo usa «Registro
+         compra inteligente», en rojo frente al verde de la venta) --- */
+}
+.btn--rojo {
+  background-color: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--color-texto-invertido);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+}
+.btn--rojo:hover:not(:disabled) {
+  background-color: var(--color-error-texto);
+  border-color: var(--color-error-texto);
   color: var(--color-texto-invertido);
 }
 .btn {
@@ -2450,6 +2465,41 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 .conmutador-estado__boton:focus-visible .conmutador-estado__pista {
   outline: 2px solid var(--color-primario);
   outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Selección múltiple de filas (pantalla de gastos): casilla de cada renglón y
+   barra pegada al pie de la tarjeta con el contador, el motivo y la acción.
+   -------------------------------------------------------------------------- */
+.tabla__casilla {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--color-primario);
+  cursor: pointer;
+}
+
+.tabla-toolbar--seleccion {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  justify-content: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background-color: var(--color-superficie);
+  border-top: 1px solid var(--color-borde);
+  border-bottom: 0;
+  /* El atributo [hidden] no basta por sí solo: la regla .tabla-toolbar
+     { display: flex } tiene la misma especificidad y va antes en el archivo. */
+}
+.tabla-toolbar--seleccion[hidden] {
+  display: none;
+}
+
+/* Campo del motivo dentro de esa barra: crece, pero no se lleva todo el ancho. */
+.tabla-toolbar__motivo {
+  flex: 1 1 16rem;
+  min-width: 11rem;
+  max-width: 28rem;
 }
 
 /* ==========================================================================

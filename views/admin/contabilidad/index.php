@@ -30,6 +30,16 @@ $idContrib = \App\Contabilidad::contribuyentePrincipal();
 $imp = \App\ResumenFiscal::impuestosDelPeriodo($idContrib, $periodo['anio'], $periodo['mes']);
 $impAPagar = $imp['impuestos'];
 $conSigno = static fn (float $v): string => ($v < 0 ? '−' : '') . formatoMoneda(abs($v));
+// Lo que la estimación deja fuera: facturas sin pagar o en parcialidades y gastos por pagar.
+$fueraImp = [];
+if ((int) ($imp['facturas_sin_pagar_n'] ?? 0) > 0) {
+    $fueraImp[] = number_format((int) $imp['facturas_sin_pagar_n']) . ' factura(s) sin cobrar por completo';
+}
+if ((int) ($imp['gastos_no_pagados_n'] ?? 0) > 0) {
+    $fueraImp[] = number_format((int) $imp['gastos_no_pagados_n']) . ' gasto(s) por pagar';
+}
+$pieImpuesto = 'IVA ' . $conSigno($imp['iva_por_pagar']) . ' + ISR ' . $conSigno($imp['isr_por_pagar']) . ' (estimación)'
+    . ($fueraImp ? ' · fuera: ' . implode(' y ', $fueraImp) : '');
 [$anioAnt, $mesAnt] = \App\Contabilidad::mesAnterior($periodo['anio'], $periodo['mes']);
 $ra = \App\Contabilidad::resumenPeriodo($anioAnt, $mesAnt, $periodo['empresa']);
 $entraAnt = $ra['ventas']['total'] - $ra['facturacion']['no_facturada']['total'];
@@ -57,7 +67,7 @@ template('resumenReporte', [
         ['etiqueta' => 'Lo que gastaste', 'valor' => formatoMoneda($sale), 'pie' => number_format($g['operaciones']) . ' gastos · ya pagaste ' . formatoMoneda($gasto($g['pagado'])),
             'variacion' => \App\Contabilidad::variacion($sale, $saleAnt), 'subeEsBueno' => false],
         ['etiqueta' => $impAPagar >= 0 ? 'Impuestos que debes pagar' : 'Impuestos a tu favor', 'valor' => formatoMoneda(abs($impAPagar)),
-            'pie' => 'IVA ' . $conSigno($imp['iva_por_pagar']) . ' + ISR ' . $conSigno($imp['isr_por_pagar']) . ' (estimación)',
+            'pie' => $pieImpuesto,
             'variacion' => \App\Contabilidad::variacion($impAPagar, $impAnt), 'subeEsBueno' => false],
     ],
     'etiquetaComparativa' => 'vs. ' . nombreMes($mesAnt) . ' ' . $anioAnt,
@@ -67,12 +77,14 @@ template('resumenReporte', [
             'destino' => 'venta',
             'texto'   => 'Registro Venta Inteligente',
             'icono'   => 'receipt_long',
+            'clase'   => 'btn--exito',
             'ayuda'   => 'Sube la factura (XML, PDF o foto) que emitiste y el formulario de venta se llena solo con el cliente, las fechas y los renglones que sí se reconocen',
         ],
         [
             'destino' => 'gasto',
             'texto'   => 'Registro compra inteligente',
             'icono'   => 'shopping_cart',
+            'clase'   => 'btn--rojo',
             'ayuda'   => 'Sube la factura (XML, PDF o foto) que te dieron y el formulario de gasto se llena solo con el proveedor, el total, el folio fiscal y los renglones',
         ],
     ],
@@ -166,7 +178,7 @@ if ($pend['gastos_por_pagar']['n'] > 0) {
     $avisos[] = ['request_quote', $pend['gastos_por_pagar']['n'] . ' gasto(s) por pagar: ' . formatoMoneda($pend['gastos_por_pagar']['monto']), '/admin/contabilidad/gastos?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'Ver gastos'];
 }
 if ($pend['gastos_sin_factura'] > 0) {
-    $avisos[] = ['attach_file', $pend['gastos_sin_factura'] . ' gasto(s) sin factura (no se podrán restar de tus impuestos)', '/admin/contabilidad/gastos?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'Ver gastos'];
+    $avisos[] = ['attach_file', $pend['gastos_sin_factura'] . ' gasto(s) sin factura (informativo: la estimación resta los pagados; el CFDI es el respaldo para tu contador)', '/admin/contabilidad/gastos?anio=' . $periodo['anio'] . '&mes=' . $periodo['mes'], 'Ver gastos'];
 }
 ?>
 <section class="tarjeta mb-lg">

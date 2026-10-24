@@ -8,7 +8,10 @@
  *   · nombra bien al emisor y al receptor (la etiqueta larga manda sobre la corta);
  *   · coteja productos por SKU, por nombre exacto y por nombre parecido;
  *   · deja en «sin equivalente» lo que no coincide, sin tocar el catálogo;
- *   · deduce la tasa de IVA y avisa cuando el folio fiscal ya está registrado.
+ *   · deduce la tasa de IVA y avisa cuando el folio fiscal ya está registrado;
+ *   · el aviso de duplicado exige folio fiscal, folio + (fecha o importe) o
+ *     importe + (fecha o RFC): la fecha sola no basta y un registro que ya trae
+ *     otro folio fiscal se descarta aunque coincida lo demás.
  *
  * Los RFC y los nombres llevan el «24» para no chocar con los de las otras etapas.
  *
@@ -143,10 +146,53 @@ $prueba('y no genera ningún producto nuevo', (int) $uno('SELECT COUNT(*) FROM p
 
 echo "\nDuplicados por folio fiscal\n";
 $contribuyente = (int) $uno('SELECT IFNULL(MIN(id), 0) FROM contribuyentes');
-$db->query("INSERT INTO gastos (contribuyente_id, fecha, concepto, beneficiario_tipo, beneficiario, naturaleza, subtotal, iva, total, estado_pago, estado, uuid_fiscal, usuario_id)
-            VALUES ($contribuyente, '$hoy', 'Gasto con factura', 'otro', 'Ferretería', 'gasto', 100, 16, 116, 'pendiente', 'vigente', '" . $uuidVenta . "', $usuario)");
+// Folio y RFC del CFDI además del UUID: los otros criterios de CoincidenciasFactura
+// se cotejan contra estos datos (4321.19 es un importo que no comparte ningún otro).
+$db->query("INSERT INTO gastos (contribuyente_id, fecha, concepto, beneficiario_tipo, beneficiario, naturaleza, subtotal, iva, total,
+            estado_pago, estado, uuid_fiscal, folio_comercial, rfc_emisor, usuario_id)
+            VALUES ($contribuyente, '$hoy', 'Gasto con factura', 'otro', 'Ferretería', 'gasto', 3725.16, 596.03, 4321.19,
+            'pendiente', 'vigente', '" . $uuidVenta . "', 'Z9', 'ZZX770101AA1', $usuario)");
 $gastoDuplicado = (int) $db->insert_id;
 $prueba('avisa que el folio fiscal ya está en un gasto', CoincidenciasFactura::analizar($lectura, 'gasto')['duplicado'] !== null);
+
+echo "\nDuplicados: qué NO lo es\n";
+$duplicadosDe = static fn (array $datos): array => CoincidenciasFactura::duplicados(
+    (string) ($datos['uuid'] ?? ''),
+    (string) ($datos['folio'] ?? ''),
+    (string) ($datos['fecha'] ?? ''),
+    (string) ($datos['destino'] ?? 'gasto'),
+    (string) ($datos['sha256'] ?? ''),
+    (float) ($datos['total'] ?? 0.0),
+    (string) ($datos['rfc'] ?? '')
+);
+$ver = static fn (array $x): string => json_encode(array_map(static fn (array $r): array => ['id' => $r['id'], 'criterio' => $r['criterio']], $x));
+
+$prueba('la misma fecha con otro importe no es duplicado',
+    $duplicadosDe(['fecha' => $hoy, 'total' => 99999.99]) === [], $ver($duplicadosDe(['fecha' => $hoy, 'total' => 99999.99])));
+$prueba('el mismo importe en otra fecha y sin RFC no es duplicado',
+    $duplicadosDe(['fecha' => '2019-07-07', 'total' => 4321.19]) === [], $ver($duplicadosDe(['fecha' => '2019-07-07', 'total' => 4321.19])));
+$prueba('el mismo importe en otra fecha con OTRO RFC no es duplicado',
+    $duplicadosDe(['fecha' => '2019-07-07', 'total' => 4321.19, 'rfc' => 'ZZZ990101AAA']) === [],
+    $ver($duplicadosDe(['fecha' => '2019-07-07', 'total' => 4321.19, 'rfc' => 'ZZZ990101AAA'])));
+
+$otraFecha = $duplicadosDe(['fecha' => '2019-07-07', 'total' => 4321.19, 'rfc' => 'ZZX770101AA1']);
+$prueba('el mismo importe con el mismo RFC sí avisa aunque la fecha cambie',
+    count($otraFecha) === 1 && $otraFecha[0]['criterio'] === 'mismo importe y RFC', $ver($otraFecha));
+
+$mismoDiaFolio = $duplicadosDe(['folio' => 'Z9', 'fecha' => $hoy]);
+$prueba('el mismo folio con el mismo día sí avisa',
+    count($mismoDiaFolio) === 1 && $mismoDiaFolio[0]['criterio'] === 'folio de factura y misma fecha', $ver($mismoDiaFolio));
+$prueba('el mismo folio con otra fecha y otro importe no avisa',
+    $duplicadosDe(['folio' => 'Z9', 'fecha' => '2019-07-07', 'total' => 99999.99]) === [],
+    $ver($duplicadosDe(['folio' => 'Z9', 'fecha' => '2019-07-07', 'total' => 99999.99])));
+
+// Un registro que ya trae OTRO folio fiscal: son facturas distintas aunque
+// coincidan folio de factura, fecha, importe y RFC.
+$contradicho = $duplicadosDe([
+    'uuid' => 'FFFF0000-0000-4000-8000-000000000000', 'folio' => 'Z9', 'fecha' => $hoy,
+    'total' => 4321.19, 'rfc' => 'ZZX770101AA1',
+]);
+$prueba('si el registro ya trae otro folio fiscal se descarta, aunque coincida lo demás', $contradicho === [], $ver($contradicho));
 
 echo "\nTasas de IVA\n";
 // Un comprobante sin el nodo de impuestos: no trae IVA desglosado.

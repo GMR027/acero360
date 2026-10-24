@@ -1,6 +1,6 @@
 <?php
 /**
- * pruebas/php/etapa17.php — Papelera (enviar, restaurar, purgar a los 90 días) y UUID fiscal único en la base.
+ * pruebas/php/etapa17.php — Papelera (enviar, restaurar, purgar a los 90 días), gastos eliminados y UUID fiscal único en la base.
  *   DB_NAME=cotizaciones_test php pruebas/php/etapa17.php
  */
 require __DIR__ . '/../../config/entorno.php';
@@ -9,7 +9,7 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 require __DIR__ . '/../../includes/app.php';
 @session_start();
 
-use App\{Cotizaciones, Papelera, Ventas};
+use App\{Cotizaciones, Gastos, Papelera, Ventas};
 
 $fallos = 0;
 $prueba = function (string $n, bool $ok, string $d = '') use (&$fallos) {
@@ -79,6 +79,54 @@ $item = $db->query("SELECT id FROM papelera WHERE tipo = 'cotizacion'")->fetch_a
 $prueba('la cotización está en la papelera', (bool) $item);
 $prueba('restaurar la cotización funciona', Papelera::restaurar((int) $item['id'], $usuario), implode(' ', Papelera::getErrores()));
 $prueba('volvió con su renglón', (int) $uno("SELECT COUNT(*) FROM cotizacion_detalles WHERE cotizacion_id = $cotId") === 1);
+
+echo "== Papelera: gasto ==\n";
+$crearGasto = static function (?string $uuid, bool $compartido) use ($usuario, $hoy): int {
+    if (!Gastos::crear([
+        'fecha' => $hoy, 'beneficiario_tipo' => 'otro', 'beneficiario' => 'T17 Proveedor',
+        'concepto' => 'T17 material', 'subtotal' => '100.00', 'iva_tasa' => '16',
+        'estado_pago' => 'pagado', 'fecha_pago' => $hoy, 'revision_fiscal' => 'por_validar',
+        'comprobante_fiscal' => '1', 'uuid_fiscal' => $uuid,
+        'compartido' => $compartido ? 1 : 0, 'reparto' => $compartido ? [1 => 100] : [],
+    ], $usuario)) {
+        fwrite(STDERR, 'No se pudo crear el gasto de prueba: ' . implode(' | ', Gastos::getErrores()) . "\n");
+        return 0;
+    }
+
+    return Gastos::$ultimoId;
+};
+
+$gastoId = $crearGasto(null, true);
+$prueba('el gasto de prueba se creó', $gastoId > 0);
+$prueba('eliminar el gasto funciona', Gastos::eliminar($gastoId, $usuario, 'T17 eliminación de prueba'), implode(' ', Gastos::getErrores()));
+$prueba('el gasto ya no está en gastos', (int) $uno("SELECT COUNT(*) FROM gastos WHERE id = $gastoId") === 0);
+$itemGasto = $db->query("SELECT * FROM papelera WHERE tipo = 'gasto'")->fetch_assoc();
+$prueba('quedó una copia en la papelera', (bool) $itemGasto && (int) $itemGasto['referencia_id'] === $gastoId);
+$prueba('la etiqueta lo identifica', str_contains((string) ($itemGasto['etiqueta'] ?? ''), 'T17 Proveedor'), (string) ($itemGasto['etiqueta'] ?? ''));
+$prueba('la copia guarda el total y el reparto', (string) ($itemGasto['total'] ?? '') === '116.00' && str_contains((string) ($itemGasto['datos'] ?? ''), '"gasto_reparto"'));
+$prueba('vence en ~90 días', (int) $uno("SELECT DATEDIFF(vence_en, NOW()) FROM papelera WHERE id = {$itemGasto['id']}") >= 89);
+
+$prueba('restaurar el gasto funciona', Papelera::restaurar((int) $itemGasto['id'], $usuario), implode(' ', Papelera::getErrores()));
+$gasto = Gastos::buscarID($gastoId);
+$prueba('volvió con su número, total y estado', $gasto !== null && (string) $gasto['total'] === '116.00' && $gasto['estado'] === 'vigente');
+$prueba('con su reparto entre negocios', $gasto !== null && count($gasto['reparto']) === 1
+    && (int) $gasto['reparto'][0]['empresa_id'] === 1 && (float) $gasto['reparto'][0]['porcentaje'] === 100.0);
+$prueba('la papelera quedó vacía', (int) $uno('SELECT COUNT(*) FROM papelera') === 0);
+
+echo "== Papelera: gasto cuyo UUID ya usó otro ==\n";
+$uuidGasto = 'CCCCCCCC-DDDD-EEEE-FFFF-000000000000';
+$gastoU = $crearGasto($uuidGasto, false);
+Gastos::eliminar($gastoU, $usuario, 'T17 se vuelve a capturar');
+$gastoNuevo = $crearGasto($uuidGasto, false);   // otra captura ya usa ese folio fiscal
+$prueba('el gasto nuevo se quedó el UUID', (string) Gastos::buscarID($gastoNuevo)['uuid_fiscal'] === $uuidGasto);
+$itemU = $db->query("SELECT id FROM papelera WHERE tipo = 'gasto'")->fetch_assoc();
+$prueba('restaurar con el UUID ocupado no falla', Papelera::restaurar((int) $itemU['id'], $usuario), implode(' ', Papelera::getErrores()));
+$restaurado = Gastos::buscarID($gastoU);
+$prueba('el restaurado vuelve sin el UUID (no se duplica la factura)', $restaurado !== null && $restaurado['uuid_fiscal'] === null);
+$prueba('la papelera volvió a quedar vacía', (int) $uno('SELECT COUNT(*) FROM papelera') === 0);
+
+$vistaPapelera = (string) file_get_contents(__DIR__ . '/../../views/admin/ajustes-papelera.php');
+$prueba('la vista de la papelera sabe qué es un gasto', str_contains($vistaPapelera, "'gasto' => 'Gasto'"));
 
 echo "== Papelera: purga a los 90 días ==\n";
 Cotizaciones::eliminar($cotId);

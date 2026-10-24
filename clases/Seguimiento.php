@@ -21,7 +21,8 @@ namespace App;
  *   urgente      producto o material sin existencias
  *   alta         cotización con vigencia vencida o que vence en ≤ 2 días (fecha + vigencia_dias);
  *                venta ya cobrada por completo y aún pendiente de facturar
- *   normal       lo demás: cobros, facturas, gastos, compras, entregas y entradas a proveedor pendientes
+ *   normal       lo demás: cobros, facturas, gastos, compras, entregas y entradas a proveedor pendientes;
+ *                y las facturas de gasto con pago en parcialidades (PPD) o con el método de pago por definir
  *                (la plataforma no registra fecha de vencimiento de cobros, entregas ni compras;
  *                se muestra su antigüedad, no un vencimiento)
  *   informativa  novedades y mejoras de la plataforma
@@ -57,6 +58,8 @@ class Seguimiento
 
     /** Novedades de la plataforma: [clave/versión, fecha, título, texto, enlace]. */
     public const NOVEDADES = [
+        ['1.4.0', '2026-10-23', 'Uso del CFDI y método de pago en los gastos',
+         'Al anotar un gasto con factura ya puedes capturar su Uso del CFDI (adquisición de mercancías, gastos en general…) y su método de pago: PPD en parcialidades, PUE en una sola exhibición o por definir. El centro de seguimiento avisa de las facturas con pago en parcialidades o con el método aún por definir, y desde el aviso puedes definirlo.', '/admin/contabilidad/gastos/crear'],
         ['1.3.0', '2026-10-23', 'Seguimiento de compras, proveedores y materiales',
          'El centro de seguimiento ahora también vigila el lado de las compras: órdenes por recibir, facturas de proveedor pendientes, saldos por pagar, entradas sin pagar y materias primas por debajo de su mínimo.', '/admin/compras'],
         ['1.2.3', '2026-10-21', 'Conmutadores de facturación y cobro en Ingresos',
@@ -81,7 +84,7 @@ class Seguimiento
     {
         return [
             'cotizacion' => 'Abrir cotización', 'cobro' => 'Abrir venta', 'factura' => 'Abrir venta para facturar',
-            'gasto_pago' => 'Abrir gasto', 'gasto_comp' => 'Abrir gasto',
+            'gasto_pago' => 'Abrir gasto', 'gasto_comp' => 'Abrir gasto', 'gasto_cfdi' => 'Abrir gasto',
             'compra_recibir' => 'Ver compra por recibir', 'compra_cfdi' => 'Abrir compra para facturar', 'compra_saldo' => 'Abrir compra',
             'entrada' => 'Abrir entrada', 'material' => 'Ver material',
             'entrega' => 'Ver entrega pendiente', 'cambio' => 'Entregar cambio',
@@ -186,10 +189,13 @@ class Seguimiento
             ];
         }
 
-        // Gastos por pagar y gastos sin comprobante fiscal.
+        // Gastos por pagar, gastos sin comprobante fiscal y facturas con el método de pago sin resolver.
+        // «Por definir» incluye los gastos antiguos guardados sin método: la factura existe y todavía
+        // no se sabe si se paga de una vez (PUE) o en parcialidades (PPD).
         $gastos = self::$db->query(
-            "SELECT id, fecha, beneficiario, concepto, total, estado_pago, comprobante_fiscal FROM gastos
-              WHERE estado = 'vigente' AND (estado_pago = 'pendiente' OR comprobante_fiscal = 0)
+            "SELECT id, fecha, beneficiario, concepto, total, estado_pago, comprobante_fiscal, metodo_pago_sat FROM gastos
+              WHERE estado = 'vigente' AND (estado_pago = 'pendiente' OR comprobante_fiscal = 0 OR
+                    (comprobante_fiscal = 1 AND IFNULL(metodo_pago_sat, 'POR') <> 'PUE'))
               ORDER BY fecha, id LIMIT $lim"
         )->fetch_all(MYSQLI_ASSOC);
         foreach ($gastos as $g) {
@@ -209,6 +215,19 @@ class Seguimiento
                     'titulo' => 'Gasto sin comprobante fiscal · ' . $g['beneficiario'],
                     'detalle' => $g['concepto'] . ' · ' . $moneda($g['total']) . ' · sin factura no se puede deducir.',
                     'huella' => 'sin_comprobante',
+                ];
+            }
+            $metodo = (string) ($g['metodo_pago_sat'] ?? '');
+            if ((int) $g['comprobante_fiscal'] === 1 && $metodo !== 'PUE') {
+                $ppd = $metodo === 'PPD';
+                $avisos[] = $base + [
+                    'clave' => 'gasto_cfdi:' . $g['id'], 'prioridad' => 'normal',
+                    'titulo' => ($ppd ? 'Factura con pago en parcialidades · ' : 'Factura con método de pago por definir · ') . $g['beneficiario'],
+                    'detalle' => $g['concepto'] . ' · ' . $moneda($g['total']) . ' · factura emitida ' . self::antiguedad($dias)
+                        . ($ppd
+                            ? ' · PPD: al cobrar cada parcialidad hay que emitir su complemento de pago.'
+                            : ' · define si se paga en una sola exhibición (PUE) o en parcialidades (PPD).'),
+                    'huella' => 'metodo' . ($metodo ?: 'sin'), 'metodo_cfdi' => $metodo ?: 'POR',
                 ];
             }
         }

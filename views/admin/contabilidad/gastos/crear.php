@@ -40,6 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null) {
             'iva_tasa'           => (string) (int) $propuesta['iva_tasa'],
             'comprobante_fiscal' => '1',
             'uuid_fiscal'        => $propuesta['uuid'],
+            // Resto de los datos del CFDI: quedan guardados en el gasto (sirven, entre
+            // otras cosas, para no señalar como duplicada una factura distinta).
+            'folio_comercial'    => $propuesta['folio'],
+            'rfc_emisor'         => (string) ($propuesta['campos']['emisor_rfc']['valor'] ?? ''),
+            'rfc_receptor'       => (string) ($propuesta['campos']['receptor_rfc']['valor'] ?? ''),
+            'moneda'             => $propuesta['moneda'] !== '' ? $propuesta['moneda'] : 'MXN',
+            'forma_pago_sat'     => $propuesta['forma_pago'],
+            'metodo_pago_sat'    => $propuesta['metodo_pago'],
             'metodo_pago'        => $formaSata[substr($propuesta['forma_pago'], 0, 2)] ?? '',
             'naturaleza'         => 'compra',
             'revision_fiscal'    => 'por_validar',
@@ -82,6 +90,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
             if (trim((string) ($datos['concepto'] ?? '')) === '' && $x['emisor_nombre'] !== '') {
                 $datos['concepto'] = 'Factura de ' . $x['emisor_nombre'];
             }
+            // Folio de la factura y RFC de las dos partes: datos del documento, no de la persona.
+            if (trim((string) ($datos['folio_comercial'] ?? '')) === '') {
+                $datos['folio_comercial'] = trim(trim((string) ($x['serie'] ?? '')) . ' ' . trim((string) ($x['folio'] ?? '')));
+            }
+            if (trim((string) ($datos['rfc_emisor'] ?? '')) === '') {
+                $datos['rfc_emisor'] = (string) ($x['emisor_rfc'] ?? '');
+            }
+            if (trim((string) ($datos['rfc_receptor'] ?? '')) === '') {
+                $datos['rfc_receptor'] = (string) ($x['receptor_rfc'] ?? '');
+            }
+            // Uso del CFDI y método de pago: se completan solos si la persona los dejó vacíos.
+            if (trim((string) ($datos['metodo_pago_sat'] ?? '')) === '' && in_array((string) $x['metodo_pago'], ['PUE', 'PPD'], true)) {
+                $datos['metodo_pago_sat'] = $x['metodo_pago'];
+            }
+            if (trim((string) ($datos['uso_cfdi'] ?? '')) === '' && isset(\App\Gastos::USOS_CFDI[(string) ($x['uso_cfdi'] ?? '')])) {
+                $datos['uso_cfdi'] = $x['uso_cfdi'];
+            }
             break;
         }
     }
@@ -91,24 +116,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
         $subidos = 0;
         $fallos  = [];
 
-        // El documento leído con el botón inteligente se adjunta solo al gasto
-        // (queda en `documentos` con su CFDI, sin volver a pedirlo).
+        // Los documentos leídos con el botón inteligente —el XML y el PDF que se
+        // subieron juntos— se adjuntan solos al gasto (quedan en `documentos` con
+        // su CFDI, sin volver a pedirlos).
         if ($lecturaArchivo !== null) {
-            $rutaLectura = \App\Archivos::base() . '/' . $lecturaArchivo['archivo'];
-            if (is_readable($rutaLectura)) {
-                $adjunto = [
-                    'name'     => (string) $lecturaArchivo['nombre_original'],
-                    'type'     => (string) $lecturaArchivo['mime'],
-                    'tmp_name' => $rutaLectura,
-                    'error'    => UPLOAD_ERR_OK,
-                    'size'     => (int) filesize($rutaLectura),
-                ];
-                if (\App\Archivos::subir('gasto', $nuevoId, $adjunto, 'auto', (int) ($_SESSION['id'] ?? 0), null, '', false)) {
-                    $subidos++;
-                } else {
-                    $fallos[] = $lecturaArchivo['nombre_original'] . ': ' . (\App\Archivos::getErrores()[0] ?? 'no se pudo adjuntar');
-                }
-            }
+            $esperados = 1 + count($lecturaArchivo['leidos']['extras'] ?? []);
+            $fallosLectura = \App\Lecturas::adjuntar($lecturaArchivo, 'gasto', $nuevoId, (int) ($_SESSION['id'] ?? 0));
+            $subidos += max(0, $esperados - count($fallosLectura));
+            $fallos = array_merge($fallos, $fallosLectura);
         }
 
         foreach (\App\Archivos::listaDeSubidas($_FILES['archivo'] ?? null) as $archivo) {

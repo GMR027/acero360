@@ -229,6 +229,13 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 2. También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes».
 3. Si subes el XML de la factura, se leen sus datos (folio fiscal, importes) y avisa si algo no cuadra.
 
+### Uso del CFDI y método de pago
+
+1. Cuando el gasto es «Con factura», aparecen dos campos más: «Uso del CFDI» (para qué se usó: adquisición de mercancías, gastos en general, mobiliario…) y «Método de pago del CFDI».
+2. El método de pago tiene tres opciones: «PPD · Pago en parcialidades», «PUE · Pago en una sola exhibición» y «Por definir (aún no se decide)», que es la que queda si todavía no sabes cómo se pagará.
+3. Si el gasto es «Sin factura», esos campos no se guardan: no hay comprobante del que hablar.
+4. Si subes el XML, el uso del CFDI y el método de pago se llenan solos con los que trae la factura.
+
 ### Más detalles
 
 - «Más detalles (opcional)» tiene categoría, cómo pagaste, folio fiscal, repartir entre negocios y notas. No hace falta llenarlo.
@@ -245,8 +252,9 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 4. El folio de la factura (p. ej. A-123) y el UUID son datos distintos. Si no se puede leer el archivo, captura los datos a mano en la misma pantalla.
 
 > **Consejos**
-> - Solo los gastos pagados y con factura se restan de tus impuestos.
-> - Un ticket sin factura se puede guardar, pero no baja tus impuestos.
+> - Solo los gastos ya pagados se restan de tus impuestos; el archivo o el CFDI adjunto es el respaldo para tu contador.
+> - Un ticket sin factura se puede guardar: la estimación lo resta si está pagado, pero tu contador decide si es deducible.
+> - Si eliminas un gasto por error, tiene 90 días en Ajustes → Papelera y se puede restaurar con todos sus datos (sin los archivos adjuntos: esos sí se borraron).
 > - Máximo por archivo: el tamaño que indica la pantalla.
 
 ---
@@ -273,6 +281,12 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 ### Pendientes de facturar
 
 - La pestaña «Pendientes de facturar» lista las ventas sin factura para que no se te pase ninguna y su botón «Clasificar» abre esta misma sección. Se puede exportar.
+
+### Ver todas tus ventas
+
+1. Contabilidad → «Ventas y cobros» muestra DOS tablas: arriba las ventas con factura o pendientes de facturar, y abajo las que ya marcaste como «No facturada» (esas ya no se van a facturar).
+2. Cada tabla tiene su propio total y se pagina por su lado; los filtros de arriba (búsqueda, facturación y periodo) aplican a las dos.
+3. El interruptor de la columna «Facturación» mueve una venta de una tabla a la otra: si un día llega la factura, márcala como facturada y sube a la tabla de arriba.
 
 > **Consejos**
 > - Cancelar un pago o una venta pide un motivo y queda registrado; nada se borra en silencio.
@@ -314,19 +328,22 @@ Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT 
 ### Leer la cifra
 
 1. Impuestos → arriba: «deberías separar aproximadamente $X», con el IVA y el ISR por separado.
-2. Solo cuenta lo que ya te pagaron y los gastos ya pagados con factura.
+2. Solo cuenta las facturas que ya te pagaron al 100 % y los gastos ya pagados.
+3. Una factura en parcialidades o sin cobrar, o un gasto por pagar, NO se cuenta hasta que se confirme el pago: la misma pantalla te dice cuántos quedaron fuera y por cuánto.
 
-### Hacerla más exacta
+### Qué significa el método de pago
 
-- Marca como «No deducible» los gastos que sabes que no se restan.
+1. PUE (una sola exhibición), PPD (parcialidades) y «por definir» son informativos: no cambian la cuenta, solo explican por qué una operación entra o no. Un gasto PPD entra cuando queda pagado por completo.
+2. Los archivos que subes en ventas y gastos (XML, PDF o fotos) son solo respaldo para consultar y descargar: no modifican los importes ni el cálculo.
 
 ### Para tu contador
 
-- «¿Cómo se calcula?» muestra paso a paso la cuenta, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.
+- «¿Cómo se calcula?» muestra paso a paso la cuenta, con el IVA real de cada CFDI, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.
 
 > **Consejos**
 > - Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.
 > - Los pagos provisionales se presentan a más tardar el día 17 del mes siguiente.
+> - Facturar y cobrar siguen siendo cosas distintas: una factura emitida se cuenta cuando ya te la pagaron.
 
 ---
 
@@ -579,9 +596,10 @@ Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, ga
 1. Cotizaciones sin respuesta y por vencer.
 2. Ventas sin cobrar o sin decir si se facturan.
 3. Gastos por pagar y sin comprobante fiscal.
-4. Compras: por recibir, con la factura del proveedor pendiente y con saldo por pagar; y pedidos directos a proveedor sin pagar.
-5. Entregas y cambios por entregar.
-6. Productos y materias primas por debajo de su mínimo (los que ya no tienen nada son los más urgentes).
+4. Facturas de gasto con pago en parcialidades (PPD) o con el método de pago por definir.
+5. Compras: por recibir, con la factura del proveedor pendiente y con saldo por pagar; y pedidos directos a proveedor sin pagar.
+6. Entregas y cambios por entregar.
+7. Productos y materias primas por debajo de su mínimo (los que ya no tienen nada son los más urgentes).
 
 ### Prioridades
 
@@ -590,7 +608,8 @@ Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, ga
 ### Abrir y marcar
 
 1. «Abrir registro» te lleva a la venta, la compra, el gasto o el producto de origen.
-2. «Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.
+2. En un aviso de factura con método de pago por definir o en parcialidades, «Definir método de pago» permite elegir PUE, PPD o por definir sin salir de ahí.
+3. «Marcar como leído» solo oculta el aviso de tu lista: no cambia ninguna venta, cobro ni factura. Si la operación cambia (por ejemplo, un pago parcial), el aviso vuelve a aparecer como nuevo.
 
 > **Consejos**
 > - Una venta pendiente de cobro y una pendiente de factura son avisos distintos: una venta ya facturada no aparece como «factura por definir».
@@ -627,7 +646,7 @@ Qué significan, en pocas palabras.
 ### Glosario
 
 - IVA: impuesto de 16 % que cobras en las ventas y que pagas en tus compras; al SAT le entregas la diferencia.
-- ISR: impuesto sobre tu ganancia (lo que vendes menos lo que gastas con factura).
+- ISR: impuesto sobre tu ganancia (lo que cobras menos lo que pagas).
 - CFDI / factura: el comprobante fiscal digital. Viene en PDF (para leer) y XML (para la computadora).
 - UUID o folio fiscal: el número único de cada factura.
 - Deducible: un gasto que puedes restar de tus ventas para pagar menos ISR. Necesita factura y estar pagado.

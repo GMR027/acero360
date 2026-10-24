@@ -132,6 +132,21 @@ template('header', [
                     <input type="hidden" name="accion" value="pagar"><input type="hidden" name="id" value="<?= $idAviso ?>"><input type="hidden" name="volver" value="<?= escaparValores($volverA) ?>">
                     <button class="btn btn--secundario btn--sm" type="submit">Marcar como pagado</button>
                 </form>
+            <?php elseif ($tipoAviso === 'gasto_cfdi') : ?>
+                <details class="accion-rapida">
+                    <summary class="btn btn--secundario btn--sm">Definir método de pago</summary>
+                    <form action="/admin/contabilidad/gastos/accion" method="post" class="fila--envuelto" style="display:flex;gap:.5rem;margin-top:.5rem">
+                        <input type="hidden" name="accion" value="metodo_cfdi"><input type="hidden" name="id" value="<?= $idAviso ?>">
+                        <input type="hidden" name="volver" value="<?= escaparValores($volverA) ?>">
+                        <label class="solo-lectores" for="mc-<?= $idAviso ?>">Método de pago del CFDI</label>
+                        <select class="control control--compacto" id="mc-<?= $idAviso ?>" name="metodo">
+                            <?php foreach (\App\Gastos::METODOS_CFDI as $clave => $texto) : ?>
+                                <option value="<?= $clave ?>"<?= ($a['metodo_cfdi'] ?? '') === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="btn btn--primario btn--sm" type="submit">Guardar</button>
+                    </form>
+                </details>
             <?php elseif ($tipoAviso === 'compra_saldo') : ?>
                 <details class="accion-rapida">
                     <summary class="btn btn--secundario btn--sm">Registrar pago</summary>

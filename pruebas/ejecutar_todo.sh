@@ -56,11 +56,11 @@ if ! kill -0 $SERVIDOR 2>/dev/null; then
 fi
 
 echo "==> PHP (lógica de negocio)"
-for n in 2 3 4 5 6 7 9 10 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27; do ejecutar "php etapa$n" php pruebas/php/etapa$n.php; done
+for n in 2 3 4 5 6 7 9 10 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do ejecutar "php etapa$n" php pruebas/php/etapa$n.php; done
 ejecutar "php descuentos en PDF" php pruebas/probar_descuento_pdf.php
 
 echo "==> Navegador (flujos completos)"
-for t in probar_etapa2 probar_etapa3 probar_etapa4 probar_etapa5 probar_etapa7 probar_etapa9 probar_etapa10 probar_etapa12 probar_campana probar_devoluciones probar_etapa13 probar_compras probar_catalogo probar_compra_catalogo probar_reportes probar_ronda probar_ronda2 probar_categorias probar_herramientas probar_permisos probar_categorias_gasto probar_duplicados probar_calendario; do
+for t in probar_etapa2 probar_etapa3 probar_etapa4 probar_etapa5 probar_etapa7 probar_etapa9 probar_etapa10 probar_etapa12 probar_campana probar_devoluciones probar_etapa13 probar_compras probar_catalogo probar_compra_catalogo probar_reportes probar_ronda probar_ronda2 probar_categorias probar_herramientas probar_permisos probar_categorias_gasto probar_duplicados probar_facturas_reales probar_gastos_masivos probar_calendario; do
     ejecutar "$t" node pruebas/$t.mjs
 done
 

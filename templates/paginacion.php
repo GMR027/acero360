@@ -6,6 +6,9 @@
  *   $pagina   ['paginaActual' => int, 'totalPaginas' => int]
  *   $rutaBase Ruta actual sin parámetro de página, p. ej. '/admin/clientes'
  *   $total    Número total de registros (opcional, para el texto de rango)
+ *   $parametro Nombre del parámetro de la URL (opcional, por defecto «pagina»).
+ *              Se usa cuando una pantalla tiene varias tablas paginadas: cada
+ *              tabla se pagina con su propio parámetro y no se pisan.
  *
  * Uso:
  *   $pagina = paginacion(10, $totalRegistros);
@@ -15,6 +18,7 @@
 $pagina    = $pagina ?? ['paginaActual' => 1, 'totalPaginas' => 1];
 $rutaBase  = $rutaBase ?? '/admin';
 $total     = $total ?? 0;
+$parametro = $parametro ?? 'pagina';
 $porPagina = max(1, $pagina['limite'] ?? 10);
 
 $actual = (int) $pagina['paginaActual'];
@@ -30,12 +34,12 @@ $hasta = min($total, $actual * $porPagina);
  * Si la ruta base ya lleva parámetros (p. ej. el texto de búsqueda `q`),
  * el número de página se añade con `&` para no romper la query string.
  */
-$enlacePagina = function (int $num) use ($rutaBase): string {
+$enlacePagina = function (int $num) use ($rutaBase, $parametro): string {
     if ($num <= 1) {
         return $rutaBase;
     }
     $separador = strpos($rutaBase, '?') === false ? '?' : '&';
-    return $rutaBase . $separador . 'pagina=' . $num;
+    return $rutaBase . $separador . $parametro . '=' . $num;
 };
 ?>
 <nav class="paginacion" aria-label="Paginación de resultados">

@@ -1,6 +1,7 @@
 <?php
 /**
- * views/admin/contabilidad/gastos/accion.php — cancelar un gasto (solo POST).
+ * views/admin/contabilidad/gastos/accion.php — acciones de un gasto (solo POST):
+ * marcar como pagado, definir el método de pago del CFDI y cancelar.
  */
 
 soloAdmin();
@@ -22,6 +23,14 @@ if (($_POST['accion'] ?? '') === 'pagar') {
         redirigir($destino, 'exito', 'Gasto marcado como pagado.');
     }
     redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible marcar el gasto como pagado.');
+}
+
+// Centro de seguimiento: definir el método de pago del CFDI (PUE, PPD o por definir).
+if (($_POST['accion'] ?? '') === 'metodo_cfdi') {
+    if (\App\Gastos::metodoCfdi($id, (string) ($_POST['metodo'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {
+        redirigir($destino, 'exito', 'Método de pago del CFDI guardado.');
+    }
+    redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible guardar el método de pago del CFDI.');
 }
 
 if (\App\Gastos::cancelar($id, (string) ($_POST['motivo'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {

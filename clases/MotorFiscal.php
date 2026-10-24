@@ -20,6 +20,11 @@ namespace App;
  *
  * Importes en centavos enteros; el IVA de un cobro parcial se prorratea en acumulado para
  * que la suma de los cobros de una venta sea exactamente el IVA de la venta.
+ *
+ * CONFIRMACIÓN DE PAGO: una factura entra al cálculo únicamente cuando sus cobros vigentes
+ * cubren su total. Con pagos en parcialidades (o sin cobro) se trata como SIN PAGAR y no
+ * aporta ingreso ni IVA trasladado; al confirmarse el pago, sus cobros se reconocen en el mes
+ * en que se recibieron. Lo excluido sale en 'facturas_excluidas' y en los avisos.
  */
 class MotorFiscal
 {
@@ -136,7 +141,27 @@ class MotorFiscal
         $reglas = $catalogos['reglas']['doc'];
         $tasaIva = $catalogos['iva']['doc']['tasa_general'] ?? null;
 
-        /* --- 1. Cobros prorrateados: base e IVA cobrados, mes a mes ------------------ */
+        /* --- 1. Cobros prorrateados: base e IVA cobrados, mes a mes ------------------
+         * SÓLO de facturas pagadas al 100 %: una con pagos en parcialidades (o sin cobro
+         * confirmado) se trata como sin pagar y no aporta nada. Al confirmarse el pago,
+         * sus cobros se reconocen en el mes en que se recibieron (prorrateo de IVA). */
+        $liquidado = [];
+        $pendiente = [];
+        $consulta = $db->prepare(
+            "SELECT i.id, ROUND(i.total * 100) AS total,
+                    COALESCE((SELECT SUM(ROUND(c.importe * 100)) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente'), 0) AS cobrado
+               FROM ingresos i
+              WHERE i.estado = 'vigente' AND i.contribuyente_id = ?"
+        );
+        $consulta->bind_param('i', $contribuyenteId);
+        $consulta->execute();
+        foreach ($consulta->get_result() as $f) {
+            $id = (int) $f['id'];
+            $liquidado[$id] = (int) $f['cobrado'] >= (int) $f['total'];
+            $pendiente[$id] = max(0, (int) $f['total'] - (int) $f['cobrado']);
+        }
+        $consulta->close();
+
         $consulta = $db->prepare(
             "SELECT c.id, c.ingreso_id, c.fecha, c.importe, i.total, i.iva
                FROM cobros c JOIN ingresos i ON i.id = c.ingreso_id
@@ -151,10 +176,16 @@ class MotorFiscal
         $ingresoMes = array_fill(1, 12, 0);   // base cobrada (sin IVA) por mes
         $ivaMes = array_fill(1, 12, 0);       // IVA cobrado por mes
         $acumulado = [];                       // ingreso_id => [cobrado acumulado, iva acumulado]
+        $facturasExcluidas = [];               // ingreso_id => lo que falta por cobrar (centavos)
         foreach ($cobros as $c) {
+            $id = (int) $c['ingreso_id'];
+            if (!($liquidado[$id] ?? false)) {
+                // Pago parcial o sin cobro confirmado: se trata como sin pagar y no entra.
+                $facturasExcluidas[$id] = $pendiente[$id] ?? 0;
+                continue;
+            }
             $total = Contabilidad::centavos($c['total']);
             $iva = Contabilidad::centavos($c['iva']);
-            $id = (int) $c['ingreso_id'];
             [$cobradoAntes, $ivaAntes] = $acumulado[$id] ?? [0, 0];
             $cobradoAhora = $cobradoAntes + Contabilidad::centavos($c['importe']);
             $ivaAhora = $total > 0 ? (int) round($iva * min($cobradoAhora, $total) / $total) : 0;
@@ -166,6 +197,16 @@ class MotorFiscal
                 $ivaMes[$m] += $ivaCobro;
                 $ingresoMes[$m] += Contabilidad::centavos($c['importe']) - $ivaCobro;
             }
+        }
+
+        // Lo excluido por pago incompleto, para que el cálculo lo declare en vez de callarlo.
+        $r['facturas_excluidas'] = [
+            'n'        => count($facturasExcluidas),
+            'pendiente' => array_sum($facturasExcluidas) / 100.0,
+        ];
+        if ($facturasExcluidas) {
+            $avisos[] = count($facturasExcluidas) . ' factura(s) con pagos en parcialidades (faltan '
+                . number_format(array_sum($facturasExcluidas) / 100, 2, '.', '') . ' por cobrar) no se consideran: entran cuando se paguen al 100 %.';
         }
 
         /* --- 2. Gastos pagados que cumplen las reglas ------------------------------- */

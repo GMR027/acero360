@@ -1,7 +1,8 @@
 <?php
 /**
- * pruebas/php/etapa6.php — catálogo fiscal versionado, motor (IVA/ISR por flujo de efectivo),
- * configuración fiscal y cierre/reapertura mensual. Los montos esperados están calculados A MANO
+ * pruebas/php/etapa6.php — catálogo fiscal versionado, motor (IVA/ISR por flujo de efectivo), la regla de
+ * pago (una factura en parcialidades o sin pagar no entra hasta liquidarse), configuración fiscal y
+ * cierre/reapertura mensual. Los montos esperados están calculados A MANO
  * (ver comentarios) con las tarifas oficiales del Anexo 8 RMF 2026.
  *
  *   DB_NAME=cotizaciones_test php pruebas/php/etapa6.php
@@ -143,6 +144,24 @@ $prueba('avisa que la configuración no está confirmada con el contador', (bool
 $mar = MotorFiscal::calcular($contrib, 2026, 3);
 $prueba('marzo · avisa que falta el pago provisional de febrero (se tomaría como $0)', $mar['isr']['meses_sin_pago_registrado'] === [2], json_encode($mar['isr']['meses_sin_pago_registrado']));
 $prueba('marzo · sin movimientos: IVA a cargo 0', $mar['iva']['a_cargo'] === 0);
+
+echo "Motor: una factura en parcialidades no se considera hasta liquidarse\n";
+// Venta de mayo $3,000 + IVA 480 = $3,480, pagada en dos partes de $1,740.
+$parcial = $venta('2026-05-05', (int) $clientes[0], [37 => $L(3, 1000)]);
+$prueba('venta de mayo creada (3,480)', $parcial > 0 && Contabilidad::buscarIngreso($parcial)['total'] === '3480.00');
+Contabilidad::registrarCobro($parcial, '2026-05-10', 1740, 'Transferencia', '', $usuario);   // primera mitad
+
+$may = MotorFiscal::calcular($contrib, 2026, 5);
+$prueba('con pago parcial: mayo no cuenta nada (IVA trasladado 0)', $may['iva']['trasladado_cobrado'] === 0, $pesos($may['iva']['trasladado_cobrado']));
+$prueba('…ni ingresos acumulados (siguen 12,000)', $may['isr']['ingresos_acumulados'] === 1200000, $pesos($may['isr']['ingresos_acumulados']));
+$prueba('declara 1 factura excluida con 1,740 por cobrar', $may['facturas_excluidas']['n'] === 1 && $may['facturas_excluidas']['pendiente'] == 1740.0, json_encode($may['facturas_excluidas']));
+$prueba('avisa que está en parcialidades', (bool) array_filter($may['avisos'], fn ($a) => str_contains($a, 'parcialidades')));
+
+Contabilidad::registrarCobro($parcial, '2026-05-20', 1740, 'Transferencia', '', $usuario);   // resto: ya pagada al 100 %
+$may2 = MotorFiscal::calcular($contrib, 2026, 5);
+$prueba('al confirmarse el pago entra completa: IVA trasladado 480', $may2['iva']['trasladado_cobrado'] === 48000, $pesos($may2['iva']['trasladado_cobrado']));
+$prueba('…y su base sin IVA suma 3,000', $may2['isr']['ingresos_acumulados'] === 1500000, $pesos($may2['isr']['ingresos_acumulados']));
+$prueba('ya no hay factura excluida ni aviso de parcialidades', $may2['facturas_excluidas']['n'] === 0 && !array_filter($may2['avisos'], fn ($a) => str_contains($a, 'parcialidades')));
 
 RegistrosFiscales::registrarAjuste($contrib, 2026, 2, 'saldo_favor_iva_anterior', 100, '', $usuario);
 $feb2 = MotorFiscal::calcular($contrib, 2026, 2);

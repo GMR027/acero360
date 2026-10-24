@@ -13,6 +13,9 @@ namespace App;
  *   • Un periodo cerrado no se modifica en silencio.
  *   • Tener un comprobante adjunto NO vuelve deducible un gasto ni acreditable
  *     su IVA: `revision_fiscal` arranca en «por_validar» y se resuelve a mano.
+ *   • El Uso del CFDI y el método de pago (PUE / PPD / por definir) son datos
+ *     del comprobante: si el gasto es «sin factura» se limpian, y el centro de
+ *     seguimiento vigila las facturas con pago en parcialidades o por definir.
  *   • Importes en centavos enteros; IVA = subtotal × tasa, redondeado a centavos.
  */
 class Gastos
@@ -38,6 +41,46 @@ class Gastos
         'por_validar'  => ['etiqueta' => 'Por validar', 'clase' => 'badge--pendiente'],
         'validado'     => ['etiqueta' => 'Validado',    'clase' => 'badge--aprobado'],
         'no_deducible' => ['etiqueta' => 'No deducible', 'clase' => 'badge--neutro'],
+    ];
+
+    /** Uso del CFDI del receptor (catálogo SAT vigente del UsoCFDI, sólo los usos que le tocan a un gasto). */
+    public const USOS_CFDI = [
+        'G01' => 'G01 · Adquisición de mercancías',
+        'G02' => 'G02 · Devoluciones, descuentos o bonificaciones',
+        'G03' => 'G03 · Gastos en general',
+        'I01' => 'I01 · Construcciones',
+        'I02' => 'I02 · Mobiliario y equipo de oficina',
+        'I03' => 'I03 · Equipo de transporte',
+        'I04' => 'I04 · Equipo de computación y accesorios',
+        'I05' => 'I05 · Dados, troqueles, moldes y herramental',
+        'I06' => 'I06 · Comunicaciones telefónicas',
+        'I07' => 'I07 · Comunicaciones satelitales',
+        'I08' => 'I08 · Otra maquinaria y equipo',
+        'D01' => 'D01 · Honorarios médicos, dentales y gastos hospitalarios',
+        'D02' => 'D02 · Gastos médicos por incapacidad o discapacidad',
+        'D03' => 'D03 · Gastos funerales',
+        'D04' => 'D04 · Donativos',
+        'D05' => 'D05 · Intereses reales de créditos hipotecarios (casa habitación)',
+        'D06' => 'D06 · Aportaciones voluntarias al SAR',
+        'D07' => 'D07 · Primas de seguros de gastos médicos',
+        'D08' => 'D08 · Gastos de transportación escolar obligatoria',
+        'D09' => 'D09 · Depósitos en cuentas de ahorro y planes de pensiones',
+        'D10' => 'D10 · Pagos por servicios educativos (colegiaturas)',
+        'S01' => 'S01 · Sin efectos fiscales',
+    ];
+
+    /**
+     * Método de pago del CFDI tal como se captura en la factura del proveedor.
+     *
+     * «POR» (por definir) no es un valor del SAT: marca la factura cuyo método
+     * todavía no se decide —se sabe que se pagará, pero no si en una sola
+     * exhibición o en parcialidades—, y por eso el centro de seguimiento lo
+     * vigila junto con PPD. El CFDI leído de un XML sólo puede traer PUE o PPD.
+     */
+    public const METODOS_CFDI = [
+        'PPD' => 'PPD · Pago en parcialidades',
+        'POR' => 'Por definir (aún no se decide)',
+        'PUE' => 'PUE · Pago en una sola exhibición',
     ];
 
     public static function setDB($database): void
@@ -487,6 +530,25 @@ class Gastos
         $revision = (string) ($d['revision_fiscal'] ?? ($previo['revision_fiscal'] ?? 'por_validar'));
         $revision = isset(self::REVISION[$revision]) ? $revision : 'por_validar';
 
+        // Uso del CFDI y método de pago del CFDI: son datos del comprobante, así que un gasto
+        // SIN factura no los guarda (se limpian aunque el formulario los traiga ocultos).
+        $metodoSat = strtoupper(trim((string) ($d['metodo_pago_sat'] ?? '')));
+        if ($metodoSat !== '' && !isset(self::METODOS_CFDI[$metodoSat])) {
+            $errores[] = 'Elige el método de pago del CFDI: PUE, PPD o por definir.';
+            $metodoSat = '';
+        }
+        $usoCfdi = strtoupper(trim((string) ($d['uso_cfdi'] ?? '')));
+        if (!isset(self::USOS_CFDI[$usoCfdi])) {
+            if ($usoCfdi !== '') {
+                $errores[] = 'El uso del CFDI no pertenece al catálogo del SAT.';
+            }
+            $usoCfdi = '';
+        }
+        if ($factura === '0') {
+            $metodoSat = '';
+            $usoCfdi = '';
+        }
+
         return [$errores, [
             'fecha' => $fecha, 'proveedor_id' => $proveedorId, 'beneficiario_tipo' => $tipoBen, 'beneficiario' => $beneficiario,
             'concepto' => trim((string) ($d['concepto'] ?? '')),
@@ -503,7 +565,8 @@ class Gastos
             'folio_comercial' => mb_substr(trim((string) ($d['folio_comercial'] ?? '')), 0, 40) ?: null,
             'moneda' => preg_match('/^[A-Z]{3}$/', strtoupper(trim((string) ($d['moneda'] ?? '')))) ? strtoupper(trim((string) $d['moneda'])) : 'MXN',
             'forma_pago_sat' => mb_substr(trim((string) ($d['forma_pago_sat'] ?? '')), 0, 3) ?: null,
-            'metodo_pago_sat' => in_array(strtoupper(trim((string) ($d['metodo_pago_sat'] ?? ''))), ['PUE', 'PPD'], true) ? strtoupper(trim((string) $d['metodo_pago_sat'])) : null,
+            'metodo_pago_sat' => $metodoSat ?: null,
+            'uso_cfdi' => $usoCfdi ?: null,
             'rfc_emisor' => strtoupper(mb_substr(trim((string) ($d['rfc_emisor'] ?? '')), 0, 13)) ?: null,
             'rfc_receptor' => strtoupper(mb_substr(trim((string) ($d['rfc_receptor'] ?? '')), 0, 13)) ?: null,
             'lectura_id' => (int) ($d['lectura_id'] ?? 0) ?: null,
@@ -537,16 +600,16 @@ class Gastos
                 'INSERT INTO gastos (contribuyente_id, fecha, proveedor_id, beneficiario_tipo, beneficiario, concepto, categoria_id, naturaleza,
                         empresa_id, compartido, subtotal, iva_tasa, iva, total, estado_pago, fecha_pago, metodo_pago,
                         comprobante_fiscal, uuid_fiscal, revision_fiscal, observaciones, usuario_id,
-                        folio_comercial, moneda, forma_pago_sat, metodo_pago_sat, rfc_emisor, rfc_receptor, lectura_id)
-                 VALUES (' . implode(', ', array_fill(0, 29, '?')) . ')'
+                        folio_comercial, moneda, forma_pago_sat, metodo_pago_sat, uso_cfdi, rfc_emisor, rfc_receptor, lectura_id)
+                 VALUES (' . implode(', ', array_fill(0, 30, '?')) . ')'
             );
             $consulta->bind_param(
-                'isisssisiisssssssisssi' . 'ssssssi',
+                'isisssisiisssssssisssi' . 'sssssssi',
                 $contribuyente, $g['fecha'], $g['proveedor_id'], $g['beneficiario_tipo'], $g['beneficiario'], $g['concepto'], $g['categoria_id'],
                 $g['naturaleza'], $g['empresa_id'], $g['compartido'], $g['subtotal'], $g['iva_tasa'], $g['iva'], $g['total'],
                 $g['estado_pago'], $g['fecha_pago'], $g['metodo_pago'], $g['comprobante_fiscal'], $g['uuid_fiscal'],
                 $g['revision_fiscal'], $g['observaciones'], $usuarioId,
-                $g['folio_comercial'], $g['moneda'], $g['forma_pago_sat'], $g['metodo_pago_sat'], $g['rfc_emisor'], $g['rfc_receptor'], $g['lectura_id']
+                $g['folio_comercial'], $g['moneda'], $g['forma_pago_sat'], $g['metodo_pago_sat'], $g['uso_cfdi'], $g['rfc_emisor'], $g['rfc_receptor'], $g['lectura_id']
             );
             $consulta->execute();
             $id = (int) self::$db->insert_id;
@@ -603,14 +666,14 @@ class Gastos
                 'UPDATE gastos SET fecha = ?, proveedor_id = ?, beneficiario_tipo = ?, beneficiario = ?, concepto = ?, categoria_id = ?, naturaleza = ?,
                         empresa_id = ?, compartido = ?, subtotal = ?, iva_tasa = ?, iva = ?, total = ?, estado_pago = ?,
                         fecha_pago = ?, metodo_pago = ?, comprobante_fiscal = ?, uuid_fiscal = ?, revision_fiscal = ?,
-                        observaciones = ? WHERE id = ?'
+                        metodo_pago_sat = ?, uso_cfdi = ?, observaciones = ? WHERE id = ?'
             );
             $consulta->bind_param(
-                'sisssisiisssssssisssi',
+                'sisssisiisssssssisssssi',
                 $g['fecha'], $g['proveedor_id'], $g['beneficiario_tipo'], $g['beneficiario'], $g['concepto'], $g['categoria_id'], $g['naturaleza'],
                 $g['empresa_id'], $g['compartido'], $g['subtotal'], $g['iva_tasa'], $g['iva'], $g['total'],
                 $g['estado_pago'], $g['fecha_pago'], $g['metodo_pago'], $g['comprobante_fiscal'], $g['uuid_fiscal'],
-                $g['revision_fiscal'], $g['observaciones'], $id
+                $g['revision_fiscal'], $g['metodo_pago_sat'], $g['uso_cfdi'], $g['observaciones'], $id
             );
             $consulta->execute();
             $consulta->close();
@@ -618,7 +681,7 @@ class Gastos
             self::guardarReparto($id, $g['reparto']);
 
             $cambios = [];
-            foreach (['fecha', 'subtotal', 'iva', 'total', 'estado_pago', 'revision_fiscal', 'concepto'] as $campo) {
+            foreach (['fecha', 'subtotal', 'iva', 'total', 'estado_pago', 'revision_fiscal', 'concepto', 'metodo_pago_sat', 'uso_cfdi'] as $campo) {
                 if ((string) $previo[$campo] !== (string) $g[$campo]) {
                     $cambios[$campo] = [$previo[$campo], $g[$campo]];
                 }
@@ -633,6 +696,38 @@ class Gastos
             self::$errores[] = 'No fue posible actualizar el gasto.';
             return false;
         }
+    }
+
+    /**
+     * Define el método de pago del CFDI de un gasto (PUE, PPD o «por definir»).
+     * Lo usa el centro de seguimiento para resolver un aviso sin abrir el gasto.
+     */
+    public static function metodoCfdi(int $id, string $metodo, int $usuarioId): bool
+    {
+        self::$errores = [];
+        $metodo = strtoupper(trim($metodo));
+        $gasto = self::buscarID($id);
+
+        if (!$gasto || $gasto['estado'] !== 'vigente') {
+            self::$errores[] = 'El gasto no existe o está cancelado.';
+            return false;
+        }
+        if (!isset(self::METODOS_CFDI[$metodo])) {
+            self::$errores[] = 'Elige el método de pago del CFDI: PUE, PPD o por definir.';
+            return false;
+        }
+        if (Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $gasto['fecha'])) {
+            self::$errores[] = Contabilidad::mensajePeriodoCerrado($gasto['fecha']);
+            return false;
+        }
+
+        $consulta = self::$db->prepare('UPDATE gastos SET metodo_pago_sat = ? WHERE id = ?');
+        $consulta->bind_param('si', $metodo, $id);
+        $consulta->execute();
+        $consulta->close();
+
+        Auditoria::registrar('gasto', $id, 'metodo_cfdi', $usuarioId, null, ['anterior' => $gasto['metodo_pago_sat'], 'nuevo' => $metodo]);
+        return true;
     }
 
     /** Marca como pagado un gasto pendiente (fecha de pago = hoy). */
@@ -692,6 +787,142 @@ class Gastos
         $consulta->close();
 
         Auditoria::registrar('gasto', $id, 'cancelar', $usuarioId, $motivo, ['total' => $gasto['total']]);
+        return true;
+    }
+
+    /** Documentos adjuntos que borró la última llamada a eliminar(). */
+    public static int $documentosEliminados = 0;
+
+    /**
+     * Elimina el gasto Y sus documentos adjuntos (filas y archivos del servidor).
+     *
+     * A diferencia de cancelar(), aquí el registro desaparece: es para limpiar
+     * capturas erroneas. Exige motivo (queda en la bitácora), no toca meses ya
+     * cerrados y deja sin enlaces rotos todo lo que apuntaba al gasto:
+     *
+     *   · `documentos` y sus archivos        se borran con el gasto;
+     *   · `gasto_reparto`                    cae en cascada (FK);
+     *   · `ordenes_compra.gasto_id`          queda NULL (FK) y la compra pierde
+     *                                         su estado de CFDI al borrar el XML;
+     *   · `lecturas_documentales`            se desenlazan y, si se habían
+     *                                         confirmado, vuelven a estar
+     *                                         disponibles para releer el archivo.
+     *
+     * Los archivos sólo se borran después de confirmar la transacción: si algo
+     * falla, sigue habiendo fila y archivo (nunca al revés).
+     *
+     * @param int    $usuarioId quién elimina
+     * @param string $motivo    mínimo 5 caracteres; se guarda en la bitácora
+     * @return bool true si se eliminó; el detalle del fallo va en getErrores()
+     */
+    public static function eliminar(int $id, int $usuarioId, string $motivo): bool
+    {
+        self::$errores = [];
+        self::$documentosEliminados = 0;
+
+        $motivo = trim($motivo);
+        if (mb_strlen($motivo) < 5) {
+            self::$errores[] = 'Escribe el motivo de la eliminación (mínimo 5 caracteres).';
+            return false;
+        }
+
+        $adjuntos = [];
+        $rutas = [];
+
+        try {
+            self::$db->begin_transaction();
+
+            $bloqueo = self::$db->prepare('SELECT id FROM gastos WHERE id = ? FOR UPDATE');
+            $bloqueo->bind_param('i', $id);
+            $bloqueo->execute();
+            $bloqueo->close();
+
+            $gasto = self::buscarID($id);
+            if (!$gasto) {
+                self::$db->rollBack();
+                self::$errores[] = 'El gasto ya no existe.';
+                return false;
+            }
+            if (Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $gasto['fecha'])) {
+                self::$db->rollBack();
+                self::$errores[] = Contabilidad::mensajePeriodoCerrado($gasto['fecha']);
+                return false;
+            }
+
+            // Antes de tocar nada, copia completa a la papelera: durante 90 días se puede
+            // restaurar desde Ajustes → Papelera (los archivos adjuntos sí se pierden).
+            $etiqueta = '#' . $id . ' · ' . $gasto['beneficiario'] . ' · ' . date('d/m/Y', strtotime($gasto['fecha']));
+            $copia = Papelera::copiarGasto($id);
+            if ($copia === null || !Papelera::guardar('gasto', $id, $etiqueta, (float) $gasto['total'], $copia, $usuarioId)) {
+                self::$db->rollBack();
+                self::$errores = array_merge(self::$errores, Papelera::getErrores());
+                return false;
+            }
+
+            $orden = self::$db->prepare('SELECT id FROM ordenes_compra WHERE gasto_id = ? LIMIT 1');
+            $orden->bind_param('i', $id);
+            $orden->execute();
+            $filaOrden = $orden->get_result()->fetch_assoc();
+            $orden->close();
+            $ordenId = $filaOrden ? (int) $filaOrden['id'] : null;
+
+            // Documentos: primero se anotan las rutas y después se borran las filas.
+            $adjuntos = Archivos::deOperacion('gasto', $id, true);
+            foreach ($adjuntos as $adjunto) {
+                $ruta = Archivos::rutaAbsoluta($adjunto);
+                if ($ruta !== null) {
+                    $rutas[] = $ruta;
+                }
+            }
+            $borrarDocs = self::$db->prepare("DELETE FROM documentos WHERE entidad = 'gasto' AND entidad_id = ?");
+            $borrarDocs->bind_param('i', $id);
+            $borrarDocs->execute();
+            $borrarDocs->close();
+
+            // La compra que apuntaba a este gasto pasa a «sin CFDI» (y abajo se desliga).
+            CompraContable::sincronizarDocumentos($id, $usuarioId);
+
+            // Las lecturas confirmadas contra este gasto quedan sin enlace: si la
+            // captura era errónea se puede volver a leer y registrar el archivo.
+            $lecturas = self::$db->prepare(
+                "UPDATE lecturas_documentales SET entidad = NULL, entidad_id = NULL,
+                        estado = IF(estado = 'confirmada', 'descartada', estado),
+                        confirmado_por = ?, confirmado_en = NOW()
+                 WHERE entidad = 'gasto' AND entidad_id = ?"
+            );
+            $lecturas->bind_param('ii', $usuarioId, $id);
+            $lecturas->execute();
+            $lecturas->close();
+
+            $borrarGasto = self::$db->prepare('DELETE FROM gastos WHERE id = ?');
+            $borrarGasto->bind_param('i', $id);
+            $borrarGasto->execute();
+            $borrarGasto->close();
+
+            Auditoria::registrar('gasto', $id, 'eliminar', $usuarioId, $motivo, [
+                'fecha'       => $gasto['fecha'],
+                'beneficiario' => $gasto['beneficiario'],
+                'total'       => $gasto['total'],
+                'documentos'  => count($adjuntos),
+                'orden_compra' => $ordenId,
+            ]);
+
+            self::$db->commit();
+        } catch (\mysqli_sql_exception $excepcion) {
+            self::$db->rollBack();
+            error_log('[Gastos::eliminar] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible eliminar el gasto.';
+            return false;
+        }
+
+        // Ya no hay fila que apunte a estos archivos: se borran del disco (mejor esfuerzo).
+        foreach ($rutas as $ruta) {
+            if (is_file($ruta)) {
+                @unlink($ruta);
+            }
+        }
+        self::$documentosEliminados = count($adjuntos);
+
         return true;
     }
 

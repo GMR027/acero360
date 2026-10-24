@@ -123,7 +123,7 @@ class CierrePeriodo
         );
         if ($sinComprobante > 0) {
             $h[] = self::hallazgo('gastos_sin_comprobante', 'aviso', 'Gastos sin comprobante fiscal', $sinComprobante,
-                'No se consideran deducibles ni acreditables en la estimación.', "/admin/contabilidad/gastos?$periodo&sin_comprobante=1");
+                'La estimación resta todo gasto pagado; el comprobante es respaldo para tu contador (no cambia el cálculo).', "/admin/contabilidad/gastos?$periodo&sin_comprobante=1");
         }
 
         $porValidar = self::cuenta(
@@ -132,7 +132,7 @@ class CierrePeriodo
         );
         if ($porValidar > 0) {
             $h[] = self::hallazgo('gastos_por_validar', 'aviso', 'Gastos con deducibilidad por validar', $porValidar,
-                'Mientras sigan «por validar» no entran en la estimación de ISR ni de IVA acreditable.', "/admin/contabilidad/gastos?$periodo");
+                '«Por validar» es informativo: la estimación resta el gasto en cuanto está pagado; la deducción la decide tu contador.', "/admin/contabilidad/gastos?$periodo");
         }
 
         $porCobrar = self::cuenta(
@@ -142,7 +142,7 @@ class CierrePeriodo
         );
         if ($porCobrar > 0) {
             $h[] = self::hallazgo('cobros_pendientes', 'info', 'Ventas con cobro pendiente', $porCobrar,
-                'Con flujo de efectivo, el ingreso y el IVA se causan al cobrar: un cobro posterior caerá en otro mes.', "/admin/contabilidad/ingresos?$periodo");
+                'No entran en la estimación de impuestos hasta pagarse al 100 % (parcialidades o sin cobro = sin pagar). Al confirmarse el pago completo, la factura entra en el mes de su fecha.', "/admin/contabilidad/ingresos?$periodo");
         }
 
         $porPagar = self::cuenta(
@@ -151,7 +151,7 @@ class CierrePeriodo
         );
         if ($porPagar > 0) {
             $h[] = self::hallazgo('pagos_pendientes', 'info', 'Gastos con pago pendiente', $porPagar,
-                'La deducción y el IVA acreditable se toman cuando el gasto se paga.', "/admin/contabilidad/gastos?$periodo&pago=pendiente");
+                'Mientras no se paguen no descuentan de impuestos: la deducción y el IVA acreditable se toman cuando el gasto se paga.', "/admin/contabilidad/gastos?$periodo&pago=pendiente");
         }
 
         // Conciliación.

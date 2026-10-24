@@ -171,6 +171,14 @@ try {
   comprobar('el botón «Registro compra inteligente» está junto a los de exportar', await pagina.locator('[data-inteligente="gasto"]').count() === 1);
   comprobar('los tres formatos de exportación siguen intactos', await pagina.locator('.formulario__acciones a[href*="formato="]').count() === 3);
 
+  // Venta en verde y compra en rojo: se mide el color calculado, no la clase.
+  const rgbDe = async (selector) =>
+    (await pagina.$eval(selector, (el) => getComputedStyle(el).backgroundColor)).match(/\d+/g).map(Number);
+  const [rv, gv] = await rgbDe('[data-inteligente="venta"]');
+  comprobar('el botón de venta inteligente sale en verde', gv > rv && gv > 0, `rgb(${rv}, ${gv}, —)`);
+  const [rg, bg] = await rgbDe('[data-inteligente="gasto"]');
+  comprobar('el botón de compra inteligente sale en rojo', rg > bg && bg > 0, `rgb(${rg}, ${bg}, —)`);
+
   console.log('\n2. Registro Venta Inteligente');
   await pagina.click('[data-inteligente="venta"]');
   await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 5000 });

@@ -77,6 +77,7 @@ class CfdiXml
             'emisor_nombre'   => $primero($atributo($emisor, 'Nombre'), $atributo($emisor, 'nombre')),
             'receptor_rfc'    => strtoupper($primero($atributo($receptor, 'Rfc'), $atributo($receptor, 'rfc'))),
             'receptor_nombre' => $primero($atributo($receptor, 'Nombre'), $atributo($receptor, 'nombre')),
+            'uso_cfdi'        => strtoupper($atributo($receptor, 'UsoCFDI')),
             'uuid'            => $uuid,
             'forma_pago'      => $primero($atributo($comprobante, 'FormaPago'), $atributo($comprobante, 'formaDePago')),
             'metodo_pago'     => $primero($atributo($comprobante, 'MetodoPago'), $atributo($comprobante, 'metodoDePago')),

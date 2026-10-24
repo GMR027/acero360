@@ -1,6 +1,6 @@
 /* ==========================================================================
    _botones.scss — Sistema de botones unificado.
-   Variantes: primario, secundario, peligro, éxito, texto, fantasma.
+   Variantes: primario, secundario, peligro, rojo, éxito, texto, fantasma.
    Todas comparten la misma altura, radio y estados de foco.
    ========================================================================== */
 
@@ -89,6 +89,21 @@
     &:hover:not(:disabled) {
       background-color: $color-exito-texto;
       border-color: $color-exito-texto;
+      color: $color-texto-invertido;
+    }
+  }
+
+  /* --- Rojo sólido: acción visible sin ser «eliminar» (lo usa «Registro
+         compra inteligente», en rojo frente al verde de la venta) --- */
+  &--rojo {
+    background-color: $color-error;
+    border-color: $color-error;
+    color: $color-texto-invertido;
+    box-shadow: $sombra-1;
+
+    &:hover:not(:disabled) {
+      background-color: $color-error-texto;
+      border-color: $color-error-texto;
       color: $color-texto-invertido;
     }
   }

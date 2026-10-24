@@ -654,7 +654,13 @@ class Contabilidad
      * LISTADOS
      * ------------------------------------------------------------------ */
 
-    /** @return array{0: string, 1: string, 2: array<int, mixed>} */
+    /**
+     * Condiciones de los listados de ingresos. `facturacion_grupo` separa las dos
+     * tablas de «Ventas y cobros»: 'con_factura' (facturadas y pendientes de
+     * facturar) y 'sin_factura' (las marcadas como «No facturada»).
+     *
+     * @return array{0: string, 1: string, 2: array<int, mixed>}
+     */
     private static function condicionesIngresos(array $f): array
     {
         $donde = ['1 = 1'];
@@ -682,6 +688,13 @@ class Contabilidad
             $donde[] = 'i.estado_facturacion = ?';
             $tipos .= 's';
             $valores[] = $f['facturacion'];
+        }
+        // Las dos tablas de «Ventas y cobros»: lo que se factura (o está por facturarse)
+        // y lo que ya se marcó como «No facturada». Se puede combinar con el filtro de arriba.
+        if (($f['facturacion_grupo'] ?? '') === 'sin_factura') {
+            $donde[] = "i.estado_facturacion = 'no_facturada'";
+        } elseif (($f['facturacion_grupo'] ?? '') === 'con_factura') {
+            $donde[] = "i.estado_facturacion <> 'no_facturada'";
         }
         foreach (['desde' => 'i.fecha >= ?', 'hasta' => 'i.fecha <= ?'] as $campo => $sql) {
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($f[$campo] ?? ''))) {

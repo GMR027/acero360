@@ -21,7 +21,7 @@ $sufijo  = $anio . ($mes > 0 ? sprintf('-%02d', $mes) : '');
 $volver  = '/admin/fiscal' . ($tipo === 'movimientos' ? '/movimientos' : '') . "?anio=$anio&mes=" . max(1, $mes);
 $r       = \App\ResumenFiscal::anual($contrib, $anio);
 $tasa    = rtrim(rtrim(number_format($r['tasa'], 2), '0'), '.');
-$aviso   = "Estimación administrativa: ISR al $tasa % de (facturado sin IVA − pagos sin IVA); cuenta las ventas facturadas y todos los gastos. Confírmala con tu contador.";
+$aviso   = "Estimación administrativa: ISR al $tasa % de (facturado sin IVA − pagos sin IVA), con el IVA real de cada CFDI. Cuenta sólo las ventas facturadas PAGADAS al 100 % y los gastos YA PAGADOS: las facturas en parcialidades o sin cobrar y los gastos por pagar quedan fuera hasta confirmar su pago. El método del CFDI (PUE/PPD/por definir) y los archivos adjuntos son informativos y no cambian la cuenta. Confírmala con tu contador.";
 $horizontal = false;
 
 if ($tipo === 'impuestos' && $mes > 0) {
@@ -31,6 +31,8 @@ if ($tipo === 'impuestos' && $mes > 0) {
     $filas  = [
         ['Facturado (con IVA)', round($x['facturado'], 2)],
         ['Pagos y gastos (con IVA)', round($x['pagos'], 2)],
+        ['Fuera: facturas sin pagar o en parcialidades (' . number_format((int) $x['facturas_sin_pagar_n']) . ')', round($x['facturas_sin_pagar'], 2)],
+        ['Fuera: gastos por pagar (' . number_format((int) $x['gastos_no_pagados_n']) . ')', round($x['gastos_no_pagados'], 2)],
         ['IVA facturado', round($x['iva_facturado'], 2)],
         ['IVA de los gastos', round($x['iva_acreditado'], 2)],
         ['IVA por pagar', round($x['iva_por_pagar'], 2)],
@@ -46,7 +48,8 @@ if ($tipo === 'impuestos' && $mes > 0) {
     }
     $enc[]  = 'Año';
     $filas  = [];
-    foreach ([['facturado', 'Facturado'], ['pagos', 'Pagos y gastos'], ['iva_por_pagar', 'IVA por pagar'], ['isr_por_pagar', "ISR por pagar ($tasa %)"], ['impuestos', 'IMPUESTOS POR PAGAR']] as [$k, $texto]) {
+    foreach ([['facturado', 'Facturado'], ['pagos', 'Pagos y gastos'], ['facturas_sin_pagar', 'Fuera: facturas sin pagar'], ['gastos_no_pagados', 'Fuera: gastos por pagar'],
+        ['iva_por_pagar', 'IVA por pagar'], ['isr_por_pagar', "ISR por pagar ($tasa %)"], ['impuestos', 'IMPUESTOS POR PAGAR']] as [$k, $texto]) {
         $fila = [$texto];
         for ($i = 1; $i <= 12; $i++) {
             $fila[] = round($r['meses'][$i][$k], 2);
@@ -103,7 +106,10 @@ if ($tipo === 'movimientos' && $formato === 'xlsx') {
         [['v' => $titulo, 'f' => 'titulo']], [],
         $neg(['Concepto', 'Importe']),
         ['Ventas (total)', $mon($d['totales']['ventas'])], ['   de las cuales facturadas', $mon($d['totales']['ventas_facturadas'])],
-        ['Gastos (total)', $mon($d['totales']['gastos'])],
+        ['   de las cuales facturadas y cobradas (sí cuentan)', $mon($d['totales']['ventas_facturadas_pagadas'])],
+        ['Gastos (total)', $mon($d['totales']['gastos'])], ['   de los cuales ya pagados (sí descuentan)', $mon($d['totales']['gastos_pagados'])],
+        ['Fuera del cálculo: facturas sin pagar o en parcialidades', $mon($imp['facturas_sin_pagar'])],
+        ['Fuera del cálculo: gastos por pagar', $mon($imp['gastos_no_pagados'])],
         ['IVA por pagar', $mon($imp['iva_por_pagar'])], ["ISR por pagar ($tasa %)", $mon($imp['isr_por_pagar'])],
         [['v' => 'IMPUESTOS POR PAGAR', 'f' => 'neg'], $mon($imp['impuestos'])], [],
         ['Comprado a proveedores en el periodo', $mon($prov['totales']['comprado'])],

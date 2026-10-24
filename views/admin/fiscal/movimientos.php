@@ -2,6 +2,7 @@
 /**
  * views/admin/fiscal/movimientos.php — Todas las ventas y todos los gastos de ambos negocios, con los impuestos
  * por pagar del periodo. Se puede exportar a PDF, Excel o CSV. Solo lectura.
+ * Cada fila indica si ya se pagó («Pagada»/«Pagado»); sólo eso entra en la estimación de impuestos.
  */
 
 soloAdmin();
@@ -42,14 +43,29 @@ template('tabsFiscal', ['tab' => 'movimientos', 'periodo' => ['anio' => $anio, '
 <section class="estadisticas-resumen" aria-label="Resumen del periodo">
     <div class="tarjeta"><span class="stat__etiqueta">Ventas</span>
         <span class="estadisticas-resumen__valor"><?= $m($d['totales']['ventas']) ?></span>
-        <span class="stat__pie">Facturadas: <?= $m($d['totales']['ventas_facturadas']) ?></span></div>
+        <span class="stat__pie">Facturadas: <?= $m($d['totales']['ventas_facturadas']) ?> · ya cobradas: <?= $m($d['totales']['ventas_facturadas_pagadas']) ?></span></div>
     <div class="tarjeta"><span class="stat__etiqueta">Gastos</span>
         <span class="estadisticas-resumen__valor"><?= $m($d['totales']['gastos']) ?></span>
-        <span class="stat__pie">Todos cuentan como deducibles</span></div>
+        <span class="stat__pie">Pagados: <?= $m($d['totales']['gastos_pagados']) ?> (sólo ellos descuentan)</span></div>
     <div class="tarjeta"><span class="stat__etiqueta"><?= $imp['impuestos'] >= 0 ? 'Impuestos por pagar' : 'Saldo a tu favor' ?> · <?= escaparValores($periodoTexto) ?></span>
         <span class="estadisticas-resumen__valor"><?= $m(abs($imp['impuestos'])) ?></span>
         <span class="stat__pie">IVA <?= $m($imp['iva_por_pagar']) ?> + ISR <?= $m($imp['isr_por_pagar']) ?></span></div>
 </section>
+
+<?php
+/* Lo que la estimación deja fuera del periodo: facturas sin pagar o a medias y gastos por pagar. */
+$fuera = [];
+if ((int) ($imp['facturas_sin_pagar_n'] ?? 0) > 0) {
+    $fuera[] = number_format((int) $imp['facturas_sin_pagar_n']) . ' factura(s) sin pagar o en parcialidades por ' . $m($imp['facturas_sin_pagar']);
+}
+if ((int) ($imp['gastos_no_pagados_n'] ?? 0) > 0) {
+    $fuera[] = number_format((int) $imp['gastos_no_pagados_n']) . ' gasto(s) por pagar por ' . $m($imp['gastos_no_pagados']);
+}
+?>
+<?php if ($fuera) : ?>
+    <p class="nota mb-lg" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">schedule</span>
+        <span>No entran en los impuestos de arriba: <?= implode(' y ', $fuera) ?>. Se cuentan cuando se confirme que ya se pagaron.</span></p>
+<?php endif; ?>
 
 <div class="formulario__acciones mb-lg" style="justify-content:flex-start">
     <?php foreach (['pdf' => ['PDF', 'picture_as_pdf'], 'xlsx' => ['Excel', 'table'], 'csv' => ['CSV', 'description']] as $formato => [$texto, $icono]) : ?>
@@ -85,6 +101,6 @@ template('tabsFiscal', ['tab' => 'movimientos', 'periodo' => ['anio' => $anio, '
         </div>
     <?php endif; ?>
 </section>
-<p class="campo__ayuda">Los impuestos de arriba usan solo las ventas facturadas y todos los gastos (estimación). Aquí se listan todas las ventas, estén o no facturadas.</p>
+<p class="campo__ayuda">Los impuestos de arriba usan <strong>sólo</strong> las ventas facturadas y <strong>cobradas al 100 %</strong> y los gastos ya <strong>pagados</strong> (estimación). Aquí se listan todas las ventas y gastos del periodo con su estado: las que no se han pagado no descuentan ni gravan hasta confirmarse. El método del CFDI (PUE una sola exhibición, PPD parcialidades o por definir) es informativo y aparece en el detalle; los archivos adjuntos son sólo respaldo documental y no cambian los importes.</p>
 
 <?php template('footer'); ?>

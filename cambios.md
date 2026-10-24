@@ -1100,3 +1100,106 @@ Nueva pestaña **«Almacenamiento y respaldos»** en Ajustes (`/admin/ajustes/al
 - **Restaurar nunca pisa nada.** `restaurar()` verifica las huellas SHA-256, importa en una base **nueva** (`cotizaciones_restaurada_AAAAMMDD`, con sufijo si ya existe) y extrae los archivos a `storage/restauracion-…`. Se niega si la copia no tiene `SHA256SUMS`. Cada acción queda en la bitácora (`Auditoria::registrar('respaldo', …)`).
 - **Configuración** en `configuracion`: `respaldo_automatico`, `respaldo_hora`, `respaldo_retener` (1–365, por defecto 14), `respaldo_carpeta` (sólo rutas absolutas) y `respaldo_ultimo`.
 - **Pruebas:** `pruebas/php/etapa26.php` (59 casos: formateo, ocupación, carpeta configurable, los 4 archivos del respaldo con permisos 600, huellas verificables, **que respalda la base conectada y no la del `.env`**, retención, los cuatro estados del automático, restauración en base nueva con los mismos registros y rechazo sin huellas). Quedó en el listado de `pruebas/ejecutar_todo.sh`.
+
+---
+
+## Ronda — Registro inteligente: aviso de duplicado con los datos de la factura y botones con color (2026-10-23)
+
+Al subir una factura con «Registro Venta Inteligente» o «Registro compra inteligente» aparecía el aviso *«Este documento ya tiene un registro con la misma información»* apoyado en la **fecha**: con una venta registrada ese día ya salía el aviso aunque fuera otra factura (p. ej. *Venta #9 · VEN-2026-0008 · 2026-10-22 · $64,815.40 · GRUPO DEMO · misma fecha*). Ahora el cotejo se hace con los datos que identifican al documento.
+
+- **`CoincidenciasFactura::duplicados()` — cuatro criterios y un veto.** Sólo cuenta lo que identifica A LA FACTURA:
+  1. **mismo archivo (sha256)** — el PDF/XML ya está adjunto en algún lado. El criterio existía en el docblock pero **nunca se consultaba**: ahora `Lecturas::propuesta()` manda la huella de la lectura.
+  2. **folio fiscal (UUID)** — el timbre del CFDI es único (gasto o ingreso → su venta).
+  3. **folio de factura + fecha o importe** — un folio suelto se repite entre proveedores, así que basta el folio sólo si además cuadra el día o el monto.
+  4. **mismo importe + (misma fecha o mismo RFC)** — el mismo monto el mismo día, o el mismo monto del mismo tercero aunque la fecha cambie («a veces»). Va **sólo contra registros del mismo tipo**: una compra no se compara con una venta, son libros distintos.
+  - **Veto:** si el registro ya trae **otro UUID, otro folio u otro RFC** que el documento, son facturas distintas aunque compartan fecha e importe. El RFC nunca señala por sí solo (un cliente o un proveedor facturan muchas veces): sirve para descartar y, con el importe, para convencer.
+  - Un **gasto cancelado** ya no se señala como «el que existe» (`datosDeRegistro()` exige `estado = 'vigente'`).
+- **Verificado con las facturas reales de `~/Descargas`.** Con `VEN-2026-0006` (19/10, $58,210.75, CLIENTE DEMO) subida: la CFE **3255** sí avisa y la CFE **3254** —mismo día, otro importe— ya no. Con una venta del **22/10 en $64,815.40 de GRUPO DEMO**: la GRB **3259** (22/10, $65,620.15) ya **no** avisa —ese era el caso reportado— y la GRB **3260** ($64,815.40) sí, por importe y RFC.
+- **El gasto ya no pierde los datos del CFDI.** `templates/formularioGasto.php` trae ocultos `folio_comercial`, `rfc_emisor`, `rfc_receptor`, `moneda`, `forma_pago_sat` y `metodo_pago_sat`, que `gastos/crear.php` precarga desde la propuesta y también completa si se sube un XML directamente en el formulario. Antes se guardaban vacíos, y sin folio ni RFC el cotejo tenía menos con qué trabajar.
+- **Los dos archivos quedan adjuntos.** `Lecturas::adjuntar()` pasó a ser pública y la usa `gastos/crear.php`: el XML **y el PDF** que se suben juntos se guardan en `documentos` (antes sólo el principal; el PDF se perdía). `probar_inteligente` sigue viendo 1 archivo cuando sólo se sube el XML.
+- **Botones con color.** `templates/resumenReporte.php` acepta la clave `clase` por acción (por defecto sigue siendo `btn--primario`); Contabilidad manda `btn--exito` para **Registro Venta Inteligente** (verde) y `btn--rojo` para **Registro compra inteligente** (rojo). Nuevo modificador `.btn--rojo` en `src/scss/layout/_botones.scss`, gemelo sólido de `--exito` y con las variables del tema (se ve bien en claro y oscuro); compilado con `npx gulp css`.
+- **Pruebas:**
+  - `pruebas/php/etapa24.php` suma «Duplicados: qué NO lo es» (7 casos: misma fecha con otro importe, mismo importe con otra fecha con y sin RFC, folio con la misma fecha, folio con otra fecha, y el veto por otro folio fiscal).
+  - `pruebas/probar_duplicados.mjs` reescrito a las nuevas reglas — **22/22**: mismo día e importe → aviso con «Ver la venta»; mismo día con **otro importe** → se va derecho al formulario; mismo importe y mismo RFC con **otra fecha** → aviso; sin coincidencia → formulario. Crea su propia venta de referencia (las otras pruebas de la suite borran y facturan ventas) y ya borra los archivos de `storage/documentos/lecturas` (antes dejaba sus filas huérfanas).
+  - Nuevo `pruebas/probar_facturas_reales.mjs` — **60/60**: colores de los dos botones, los 10 XML + 10 PDF de `~/Descargas/ingresos`, el caso reportado de GRUPO DEMO, los 9 XML + 9 PDF de `~/Descargas/gastos`, el registro de la de un proveedor (XML + PDF) con sus relecturas («mismo archivo», «folio fiscal (UUID)») y las del mismo día de otro proveedor que **no** deben avisar. Crea las ventas de referencia que necesita, así que no depende de lo que otras pruebas dejen en la base; si no encuentra las carpetas termina en verde sin probar nada. Entró a `pruebas/ejecutar_todo.sh` y a `npm run pruebas`.
+  - `pruebas/probar_inteligente.mjs` suma la comprobación del color calculado de cada botón — **38/38**.
+- **Regresión completa (`pruebas/ejecutar_todo.sh --rapido`, base `cotizaciones_test`): 52/52 en verde.**
+
+---
+
+## Ronda — Gastos: uso del CFDI, método de pago y sus avisos en el seguimiento (2026-10-23)
+
+La captura de un gasto registraba la factura (UUID, folio, RFC del emisor, forma de pago y moneda) pero no dos datos que el SAT pide en el CFDI: el **Uso del CFDI** y el **método de pago**. El método sólo se guardaba si venía de un XML leído (y sólo `PUE`/`PPD`), así que una factura «en parcialidades» o «por definir» no quedaba registrada ni se vigilaba en ninguna parte.
+
+- **Dos campos nuevos en el formulario de gasto** (`templates/formularioGasto.php`, comunes a alta y edición) que aparecen **sólo cuando la respuesta es «Con factura o CFDI»** (misma alternancia que el resto; el servidor los limpia si el gasto termina siendo sin factura, porque no hay comprobante del que hablar):
+  - **Uso del CFDI** — catálogo `Gastos::USOS_CFDI` (G01 adquisición de mercancías, G03 gastos en general, I01–I08, D01–D10 y S01), validado contra el catálogo; vacío si no se sabe.
+  - **Método de pago del CFDI** — `Gastos::METODOS_CFDI`: **PPD · pago en parcialidades**, **PUE · pago en una sola exhibición** y **por definir** (la que queda cuando aún no se decide; por eso es el valor por defecto de una factura nueva). El CFDI leído sigue precargando `PUE`/`PPD` como antes.
+  - **Al subir el XML en el mismo formulario** se completan solos los dos campos vacíos: `CfdiXml::leer()` pasó a leer también `UsoCFDI` del receptor, además del `MetodoPago` que ya leía.
+- **Migración `029_uso_cfdi_gastos.sql`** (con su `029_reversion.sql`): `gastos.uso_cfdi CHAR(4)` y `metodo_pago_sat` acepta además `POR`. Los tres campos del CFDI que iban ocultos siguen ocultos (`folio_comercial`, `rfc_emisor`, `rfc_receptor`, `moneda`, `forma_pago_sat`); el método de pago salió de ahí y pasó a ser visible.
+- **El detalle del gasto muestra ambos** en su lista de datos (`Uso del CFDI` y `Método de pago`), y la edición los guarda con auditoría de los cambios (junto a fecha, importes, estado de pago, revisión fiscal y concepto).
+- **Centro de seguimiento: aviso `gasto_cfdi`** para toda factura vigente cuyo método **no** sea `PUE`: «Factura con pago en parcialidades» (con el recordatorio del complemento de pago) o «Factura con método de pago por definir» (incluye las facturas guardadas antes de esta ronda, que no traen método). Prioridad normal, huella con el método — si cambia, el aviso se vuelve nuevo— y categoría «Gastos». Un gasto sin factura nunca lo genera.
+- **Acción rápida desde el aviso:** «Definir método de pago» guarda `PUE`, `PPD` o «por definir» sin abrir el gasto (`Gastos::metodoCfdi()`, con validación de catálogo, periodo abierto y bitácora; el POST va a `gastos/accion`). También se puede resolver desde «Editar gasto».
+- **Manual de usuario** (secciones 5 «Anotar un gasto» y 20 «Centro de seguimiento», regenerado con `scripts/generar_manual.php`) y **Novedad 1.4.0** en `Seguimiento::NOVEDADES`.
+- **Pruebas:** `pruebas/php/etapa28.php` (26 casos: la migración, el alta con los tres métodos y con uso válido, el rechazo de uso/método fuera de catálogo, la limpieza al capturar sin factura, la edición, `metodoCfdi`, la lectura del `UsoCFDI` del XML, y que el aviso sale en PPD y «por definir» —también sin método guardado—, no en PUE, desaparece al pasar a PUE y no aparece en un gasto sin factura). Quedó en el listado de `pruebas/ejecutar_todo.sh`; regresión completa en verde (PHP 2–28 y navegador: `etapa5`, `etapa13`, `categorias_gasto`, `inteligente`, `campana`, `duplicados` 22/22 y `compras`).
+
+---
+
+## Ronda — Ventas y cobros: dos tablas, lo que se factura y lo que no (2026-10-23)
+
+La pestaña «Ventas y cobros» mezclaba en una sola tabla las ventas facturadas, las pendientes de facturar y las que ya se habían marcado como **«No facturada»**: para encontrar una venta sin factura había que pelear con el filtro, y lo que ya no se va a facturar tapaba lo que sí. Ahora son dos tablas en la misma pantalla, con los mismos filtros.
+
+- **Tabla 1 «Ventas con factura o pendientes de facturar»** — `estado_facturacion` distinto de `no_facturada` (facturadas y pendientes). Conserva buscador, filtros de facturación/estado, conmutadores de facturación y cobro, y su propio total y paginación.
+- **Tabla 2 «Ventas indicadas como sin factura (no se facturarán)»** — las `no_facturada`, con su propio conteo, su total al pie y su paginación. Lleva una nota que explica que estas ventas no cuentan como CFDI emitido y cómo regresarlas (el mismo interruptor de la columna «Facturación»).
+- **Cada venta cae en una sola tabla y las dos suman el total del periodo.** El filtro de arriba (búsqueda, facturación, estado, periodo) aplica a las dos; si se elige «No facturada», la tabla de arriba queda vacía y la de abajo muestra sólo esa.
+- **`Contabilidad::condicionesIngresos()`** acepta `facturacion_grupo` (`con_factura` | `sin_factura`), que se combina con el filtro `facturacion` existente; `listarIngresos`, `contarIngresos` y `totalesIngresos` se usan igual.
+- **Paginación por tabla.** `paginacion()` ya tenía el parámetro opcional `$parametro`; la plantilla `templates/paginacion.php` lo respeta ahora (por defecto sigue siendo `pagina`, así que ningún otro listado cambia). La primera tabla pagina con `pagina` y la segunda con `pagina_sin`, de modo que cambiar de página en una no mueve a la otra.
+- **Manual de usuario:** sección «Facturación y cobro de una venta» — «Ver todas tus ventas» describe las dos tablas (regenerado con `scripts/generar_manual.php`).
+- **Pruebas:** `pruebas/php/etapa29.php` (20 casos: la clasificación de cada venta en una sola tabla, que las dos suman el total del periodo, los totales por tabla, el filtro combinado, los títulos de la vista, el doble parámetro de paginación y que el resto de los listados sigue usando `pagina`). Quedó en `pruebas/ejecutar_todo.sh`; regresión completa en verde (PHP 2–29, `probar_etapa5`, `probar_etapa12`, `probar_reportes` y auditorías de pantalla: 0 hallazgos de UI, 0 errores de consola y 0 desbordes en móvil).
+
+---
+
+## Ronda — Papelera: los gastos eliminados también se pueden recuperar (2026-10-23)
+
+La papelera (Ajustes → Papelera) sólo guardaba ventas y cotizaciones. Un gasto eliminado desaparecía para siempre: ni sus datos fiscales (UUID, folio, uso y método del CFDI) ni su reparto entre negocios se podían recuperar. Ahora un gasto eliminado manda su copia a la papelera, igual que el resto, y se puede restaurar durante 90 días.
+
+- **`Papelera::copiarGasto()`** guarda el gasto completo más su reparto entre negocios (`gasto_reparto`), dentro de la misma transacción que lo borra; si la copia no se guarda, **no se elimina nada** (mismo criterio que ventas y cotizaciones).
+- **`Papelera::restaurarGasto()`** devuelve el gasto con su número, importes, datos fiscales y reparto. Dos cuidados:
+  - `gastos.uuid_vigente` es una columna **generada** por la base (UUID único entre gastos vigentes) y no admite escritura: se quita de la copia antes del INSERT (si no, la restauración fallaba con «The value specified for generated column … is not allowed»; lo descubrió la prueba).
+  - Si el UUID fiscal ya lo está usando **otro gasto vigente**, el restaurado vuelve sin UUID para no duplicar la factura.
+- **Lo que NO vuelve:** los archivos adjuntos (`Gastos::eliminar` los borra del disco) y el enlace con la lectura inteligente que originó la captura. Un gasto restaurado sin su XML aparece como «Con factura: falta adjuntarla», y la compra de origen vuelve a «pendiente de factura». Está dicho en la propia pantalla de la papelera y en el manual.
+- **`Gastos::eliminar()`** (el borrado definitivo, con motivo y hasta 200 gastos por vez desde la lista de Gastos) ahora copia a la papelera **antes de tocar nada** y se revierte entero si la copia falla.
+- **Migración `030_papelera_gastos.sql`** (con su reversion): el `ENUM` de `papelera.tipo` pasa a `('venta','cotizacion','gasto')`.
+- **Vista `views/admin/ajustes-papelera.php`:** columna «Tipo» con las tres clases (Venta, Cotización, Gasto) y textos actualizados, incluido el aviso de que un gasto restaurado vuelve sin sus archivos.
+- **Pruebas:** `pruebas/php/etapa17.php` suma 15 casos (envío a la papelera al eliminar, etiqueta, total y reparto en la copia, vencimiento a 90 días, restauración completa, el caso del UUID ya ocupado y la vista). Regresión en verde: PHP 2–29 y navegador (`etapa5`, `compras`, `categorias_gasto`).
+
+---
+
+## Ronda — Impuestos: sólo entran facturas pagadas y gastos pagados (2026-10-23)
+
+Una factura emitida se sumaba completa en «Facturado» aunque el cliente sólo hubiera dejado una seña —o nada—, y **todos** los gastos se restaban aunque no se hubiesen pagado: la estimación calculaba impuestos sobre dinero que ni había entrado ni había salido. Ahora hay una sola regla de pago y aplica en todos los cálculos.
+
+- **Regla:** una factura entra al cálculo **únicamente cuando sus cobros vigentes cubren su total** («Pagada»); con pago **en parcialidades** o **sin cobro confirmado** se trata como **sin pagar** y no aporta ingreso ni IVA trasladado. Un gasto sólo descuenta con `estado_pago = 'pagado'`. Al confirmarse el pago, la factura se reconoce **en el mes de su fecha** y el gasto en el de su registro; los meses ya cerrados conservan su fotografía (`periodos_contables.resumen`).
+- **`ResumenFiscal`** (motor de Fiscal → Resumen, del bloque de impuestos de Contabilidad, del cierre y de los PDF/Excel/CSV):
+  - `anual()` suma sólo facturas pagadas al 100 % (subconsulta de cobros vigentes) y sólo gastos pagados; cada mes expone además **`facturas_sin_pagar[_n]`** y **`gastos_no_pagados[_n]`** (n.º e importe de lo excluido), acumulados en el total del año.
+  - `movimientos()` añade el estado de cada fila al «Detalle» («Facturada · Pago parcial», «Sin tipo · Por pagar»…) y reparte los totales: **`ventas_facturadas_pagadas`** y **`gastos_pagados`** (lo que sí cuenta) junto a los totales registrados.
+- **`MotorFiscal`** (IVA/ISR por flujo de efectivo): los cobros de una factura no liquidada se omiten del prorrateo —antes sí entraba lo cobrado en parcialidades—; lo excluido sale en **`facturas_excluidas`** (n.º e importe por cobrar) con el aviso «N factura(s) con pagos en parcialidades…».
+- **Cierre (`CierrePeriodo`):** los avisos `cobros_pendientes` y `pagos_pendientes` ahora dicen que esas facturas y gastos **no entran en la estimación hasta pagarse** (siguen en nivel `info`: no cambia el flujo de cierre).
+- **Pantallas:** `views/admin/fiscal/resumen.php` (nota con lo excluido y «¿Cómo se calcula?» al día), `fiscal/movimientos.php` (pies «Facturadas · ya cobradas» y «Pagados: sólo ellos descuentan», más la nota), `fiscal/exportar.php` y `templates/pdfFiscalMovimientos.php` (las mismas cifras y la nota en PDF, Excel y CSV), y el pie de «Impuestos» en `views/admin/contabilidad/index.php` («fuera: N factura(s) sin cobrar… y M gasto(s) por pagar»).
+- **Manual:** sección «Impuestos» de `includes/manual.php`, regenerado con `scripts/generar_manual.php`.
+- **Pruebas:**
+  - `pruebas/php/etapa6.php` — bloque «una factura en parcialidades no se considera hasta liquidarse» (8 casos en mayo de 2026, para no mover las cifras ya calculadas a mano de enero–marzo).
+  - **Nuevo `pruebas/php/etapa30.php`** (28 casos sobre un contribuyente propio `T30FISCAL01`): facturado sólo con cobro completo, excluidas por mes y por año, gasto pendiente fuera, estados y totales de `movimientos()`, `impuestosDelPeriodo()` y la fotografía del cierre. Registrada en `pruebas/ejecutar_todo.sh`.
+  - Nota de la sesión: `pruebas/php/etapa28.php` (uso del CFDI y método de pago de los gastos) se **reconstruyó** el 23 de octubre tras chocar el nombre de archivo con esta suite; quedó con sus mismos 26 casos y en verde, y la de impuestos pasó a `etapa30`.
+
+---
+
+## Ronda — Comportamiento definitivo del cálculo de impuestos (2026-10-23)
+
+Se revisó la hoja real **`~/Descargas/FISCAL 2026.xlsx`** (hoja `FISCAL` + una hoja por mes): «Facturamelo» son los ingresos, las demás hojas el registro de gastos, y la cuenta es `IVA facturado − IVA acreditable` e `ISR = (base ingresos − base gastos) × 32 %`, con el total como suma de ambos. A partir de ahí queda **una sola definición** para la estimación de la plataforma.
+
+- **Qué entra:** sólo operaciones **pagadas**, por el mes de la **fecha de la operación** (como el Excel): facturas `facturada` cuyos cobros vigentes cubren el total y gastos con `estado_pago = 'pagado'`. Una factura en parcialidades o sin cobrar y un gasto por pagar quedan fuera (se muestran con su n.º e importe). No se filtra por `revision_fiscal` ni por comprobante: la deducción la decide el contador.
+- **IVA real:** `ResumenFiscal` ya no divide todo entre `1.16`; toma el **IVA registrado en cada operación** (`SUM(iva)`) y la base es `total − IVA`. Con operaciones al 16 % da exactamente el mismo resultado que la hoja `FISCAL` (`total / 1.16`) y además es correcto con 0 %, 8 % u otra tasa. Se eliminó la constante `ResumenFiscal::IVA`.
+- **PUE / PPD / por definir (informativos):** el método del CFDI no altera la cuenta; explica por qué una operación entra o no. `movimientos()` agrega el método al «Detalle» («Pagado · PPD · parcialidades», «Por pagar · Por definir (aún no se decide)») y nuevos totales `iva_ventas_pagadas` / `iva_gastos_pagados`; el PDF, Excel y CSV lo heredan. En ingresos el equivalente es el estado de cobro (Pagada / Pago parcial / Sin pagar).
+- **Archivos adjuntos:** XML, PDF y fotos son sólo respaldo documental (consulta y descarga); no modifican importes ni el cálculo.
+- **Textos corregidos** que prometían filtros inexistentes: avisos `gastos_sin_comprobante` y `gastos_por_validar` de `CierrePeriodo`, «¿Cómo se calcula?» de `fiscal/resumen.php`, notas de `fiscal/movimientos.php`, aviso de `fiscal/exportar.php`, guías del PDF fiscal, aviso de gastos sin factura de `contabilidad/index.php`, ayuda de `formularioGasto.php`, manual (`includes/manual.php` → `MANUAL_USUARIO.md`) y `GUIA.md`.
+- **Pruebas:** `pruebas/php/etapa30.php` suma un bloque con factura al **0 %** (base completa, IVA 0), gastos **PPD** y **«por definir»** pendientes que quedan fuera, el PPD que entra al pagarse, la comprobación de las fórmulas, el detalle/totales con el método y los **tres métodos lado a lado**: PUE descuenta desde su registro, PPD al liquidarse y «por definir» sólo al marcarse pagado (el método explica, manda el pago). Sin migraciones.

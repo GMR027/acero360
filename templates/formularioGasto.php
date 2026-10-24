@@ -89,13 +89,38 @@ $numEmpresas = max(1, count($empresas));
         </select></div>
 
     <?php $factura = array_key_exists('comprobante_fiscal', $gasto) && $gasto['comprobante_fiscal'] !== '' && $gasto['comprobante_fiscal'] !== null ? (string) (int) $gasto['comprobante_fiscal'] : ''; ?>
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Responde según lo que te dieron. Solo un gasto con factura (CFDI) puede restarse de tus impuestos." for="comprobante_fiscal">¿Tiene factura (CFDI)?</label>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Responde según lo que te dieron. La estimación resta todo gasto pagado; el CFDI es el respaldo que tu contador necesita para deducirlo." for="comprobante_fiscal">¿Tiene factura (CFDI)?</label>
         <select class="control" id="comprobante_fiscal" name="comprobante_fiscal" data-factura required>
             <option value="">— Elige —</option>
             <option value="1"<?= $factura === '1' ? ' selected' : '' ?>>Con factura o CFDI</option>
             <option value="0"<?= $factura === '0' ? ' selected' : '' ?>>Sin factura o CFDI</option>
         </select>
         <span class="campo__ayuda">Una foto del ticket no es una factura: aunque la adjuntes, el gasto no será deducible.</span></div>
+
+    <?php
+    /* Datos del comprobante: sólo existen si el gasto lleva factura (lo oculta y limpia el script). */
+    $usoCfdi = strtoupper(trim((string) ($gasto['uso_cfdi'] ?? '')));
+    $metodoCfdi = strtoupper(trim((string) ($gasto['metodo_pago_sat'] ?? '')));
+    if (!isset(\App\Gastos::METODOS_CFDI[$metodoCfdi])) {
+        $metodoCfdi = 'POR';   // sin dato guardado: la factura está «por definir»
+    }
+    ?>
+    <div class="campo" data-cfdi<?= $factura === '1' ? '' : ' hidden' ?>><label class="campo__etiqueta" data-ayuda="Para qué se usó la factura, según el catálogo del SAT." for="uso_cfdi">Uso del CFDI</label>
+        <select class="control" id="uso_cfdi" name="uso_cfdi">
+            <option value="">— Elige el uso —</option>
+            <?php foreach (\App\Gastos::USOS_CFDI as $clave => $texto) : ?>
+                <option value="<?= $clave ?>"<?= $usoCfdi === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda">Lo más común es «G01 · Adquisición de mercancías» o «G03 · Gastos en general»; si no lo sabes, déjalo vacío.</span></div>
+
+    <div class="campo" data-cfdi<?= $factura === '1' ? '' : ' hidden' ?>><label class="campo__etiqueta" data-ayuda="Lo que dice la factura sobre cómo se pagará: de una sola vez, en parcialidades, o todavía sin definir." for="metodo_pago_sat">Método de pago del CFDI</label>
+        <select class="control" id="metodo_pago_sat" name="metodo_pago_sat">
+            <?php foreach (\App\Gastos::METODOS_CFDI as $clave => $texto) : ?>
+                <option value="<?= $clave ?>"<?= $metodoCfdi === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda">Si eliges «PPD · Pago en parcialidades» o «Por definir», el Centro de seguimiento lo vigila hasta que quede claro.</span></div>
 
     <?php if (count($empresas) > 1) : ?>
         <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige el negocio al que corresponde. «Para todos» si sirve a ambos." for="empresa_id">¿Para cuál negocio fue?</label>
@@ -144,6 +169,15 @@ $numEmpresas = max(1, count($empresas));
             <span class="campo__ayuda">Normalmente «Gasto». No lo cambies si no estás seguro.</span></div>
 
         <input type="hidden" name="revision_fiscal" value="<?= $v('revision_fiscal', 'por_validar') ?>">
+
+        <!-- Datos del CFDI que se leen del documento (los trae la lectura inteligente y los
+             guarda el servidor al crear el gasto; en la edición no se modifican, por eso van ocultos).
+             El uso del CFDI y el método de pago NO van aquí: se capturan arriba, visibles. -->
+        <input type="hidden" name="folio_comercial" value="<?= $v('folio_comercial') ?>">
+        <input type="hidden" name="rfc_emisor" value="<?= $v('rfc_emisor') ?>">
+        <input type="hidden" name="rfc_receptor" value="<?= $v('rfc_receptor') ?>">
+        <input type="hidden" name="moneda" value="<?= $v('moneda', 'MXN') ?>">
+        <input type="hidden" name="forma_pago_sat" value="<?= $v('forma_pago_sat') ?>">
 
         <fieldset class="campo campo--completo">
             <legend class="campo__etiqueta">¿Se reparte entre varios negocios?</legend>
@@ -215,6 +249,17 @@ $numEmpresas = max(1, count($empresas));
     };
     concepto.addEventListener('input', sugerir);
     nombre.addEventListener('input', sugerir);
+  }
+  /* Uso del CFDI y método de pago: sólo existen si el gasto lleva factura. */
+  const facturaSel = document.querySelector('[data-factura]');
+  const camposCfdi = document.querySelectorAll('[data-cfdi]');
+  if (facturaSel && camposCfdi.length) {
+    const alternarCfdi = function () {
+      const conFactura = facturaSel.value === '1';
+      camposCfdi.forEach(function (campo) { campo.hidden = !conFactura; });
+    };
+    facturaSel.addEventListener('change', alternarCfdi);
+    alternarCfdi();
   }
   /* «Pagado a»: el proveedor se elige de la lista; estación u otro llevan una descripción libre. */
   const tipoBen = document.querySelector('[data-beneficiario-tipo]');

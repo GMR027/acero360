@@ -47,14 +47,14 @@ $hayDeuda = $prov['totales']['saldo'] > 0.005;
     <p>Ambos negocios · Emitido <?= date('d/m/Y H:i') ?></p>
 
     <table class="resumen"><tr>
-        <td><small>Ventas (<?= count($ventas) ?>)</small><strong><?= $mx($d['totales']['ventas']) ?></strong><small>Facturadas: <?= $mx($d['totales']['ventas_facturadas']) ?></small></td>
-        <td><small>Gastos (<?= count($gastos) ?>)</small><strong><?= $mx($d['totales']['gastos']) ?></strong><small>IVA de gastos: <?= $mx($d['totales']['iva_gastos']) ?></small></td>
+        <td><small>Ventas (<?= count($ventas) ?>)</small><strong><?= $mx($d['totales']['ventas']) ?></strong><small>Facturadas: <?= $mx($d['totales']['ventas_facturadas']) ?> · cobradas: <?= $mx($d['totales']['ventas_facturadas_pagadas']) ?></small></td>
+        <td><small>Gastos (<?= count($gastos) ?>)</small><strong><?= $mx($d['totales']['gastos']) ?></strong><small>Pagados: <?= $mx($d['totales']['gastos_pagados']) ?> · IVA de gastos: <?= $mx($d['totales']['iva_gastos']) ?></small></td>
         <td><small><?= $imp['impuestos'] >= 0 ? 'Impuestos por pagar' : 'Saldo a tu favor' ?></small><strong><?= $mx(abs($imp['impuestos'])) ?></strong><small>IVA <?= $mx($imp['iva_por_pagar']) ?> + ISR <?= $mx($imp['isr_por_pagar']) ?></small></td>
         <td><small>Se debe a proveedores</small><strong class="<?= $hayDeuda ? 'debe' : 'ok' ?>"><?= $mx($prov['totales']['saldo']) ?></strong><small>Al día de hoy, todas las compras</small></td>
     </tr></table>
 
     <h2>1. Ventas</h2>
-    <p class="guia">Lo que se vendió en el periodo. Subtotal + IVA = Total. «Estado» indica si ya se facturó.</p>
+    <p class="guia">Lo que se vendió en el periodo. Subtotal + IVA = Total. «Estado» indica si ya se facturó y si está pagada: sólo las marcadas como <strong>Pagada</strong> entran en el cálculo de impuestos. El método (PUE/PPD/por definir) es informativo.</p>
     <table>
         <thead><tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Negocio</th><th>Estado</th><th class="num">Subtotal</th><th class="num">IVA</th><th class="num">Total</th></tr></thead>
         <tbody>
@@ -69,7 +69,7 @@ $hayDeuda = $prov['totales']['saldo'] > 0.005;
     </table>
 
     <h2 class="gasto">2. Gastos</h2>
-    <p class="guia">Lo que se gastó en el periodo (incluye pagos a proveedores que se registraron como gasto). «Tipo» es la categoría del gasto.</p>
+    <p class="guia">Lo que se gastó en el periodo (incluye pagos a proveedores que se registraron como gasto). «Tipo» es la categoría del gasto y, tras «·», si ya se pagó y su método del CFDI (PUE una sola exhibición, PPD parcialidades o por definir, informativo): sólo los marcados como <strong>Pagado</strong> descuentan de impuestos.</p>
     <table>
         <thead><tr><th>Fecha</th><th>Concepto</th><th>Proveedor o beneficiario</th><th>Negocio</th><th>Tipo</th><th class="num">Subtotal</th><th class="num">IVA</th><th class="num">Total</th></tr></thead>
         <tbody>
@@ -91,6 +91,18 @@ $hayDeuda = $prov['totales']['saldo'] > 0.005;
         <tr><td>ISR por pagar (<?= escaparValores($tasa) ?> %)</td><td class="num"><?= $mx($imp['isr_por_pagar']) ?></td></tr>
         <tfoot><tr><td>IMPUESTOS POR PAGAR</td><td class="num"><?= $mx($imp['impuestos']) ?></td></tr></tfoot>
     </table>
+    <?php
+    $fuera = [];
+    if ((int) ($imp['facturas_sin_pagar_n'] ?? 0) > 0) {
+        $fuera[] = number_format((int) $imp['facturas_sin_pagar_n']) . ' factura(s) sin pagar o en parcialidades por ' . $mx($imp['facturas_sin_pagar']);
+    }
+    if ((int) ($imp['gastos_no_pagados_n'] ?? 0) > 0) {
+        $fuera[] = number_format((int) $imp['gastos_no_pagados_n']) . ' gasto(s) por pagar por ' . $mx($imp['gastos_no_pagados']);
+    }
+    ?>
+    <?php if ($fuera) : ?>
+        <p class="guia">Fuera de esta estimación: <?= implode(' y ', $fuera) ?>. Se cuentan cuando se confirme que ya se pagaron.</p>
+    <?php endif; ?>
 
     <h2 class="prov">4. Proveedores: compras, pagos y lo que se debe</h2>
     <p class="guia">Saldo = total de las compras (subtotal + IVA) − pagos registrados. Es lo que se debe hoy, sin importar el periodo; compras y pagos sí se limitan al periodo.</p>

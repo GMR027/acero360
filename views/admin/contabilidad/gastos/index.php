@@ -85,34 +85,75 @@ template('resumenReporte', [
             <p class="vacio__titulo">Sin gastos en este periodo</p>
             <a class="btn btn--primario" href="/admin/contabilidad/gastos/crear">Registrar un gasto</a></div>
     <?php else : ?>
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <caption class="solo-lectores">Gastos del periodo</caption>
-                <thead><tr><th scope="col">Fecha</th><th scope="col">Proveedor / concepto</th><th scope="col">Categoría</th><th scope="col">Negocio</th>
-                    <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th><th scope="col" class="tabla--numerica">Total</th>
-                    <th scope="col" class="tabla--centro">Pago</th><th scope="col" class="tabla--centro">Comprobante</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
-                <tbody>
-                    <?php foreach ($gastos as $g) : ?>
-                        <tr>
-                            <td><?= date('d/m/Y', strtotime($g['fecha'])) ?></td>
-                            <td><strong><?= escaparValores($g['beneficiario']) ?></strong><span class="texto-xs texto-secundario"><br><?= escaparValores($g['concepto']) ?></span></td>
-                            <td><?= escaparValores((string) $g['categoria_nombre']) ?: '—' ?></td>
-                            <td><?= (int) $g['compartido'] === 1 ? '<span class="badge badge--info">Compartido</span>' : escaparValores((string) ($g['empresa_nombre'] ?? 'General')) ?></td>
-                            <td class="tabla--numerica cifra"><?= formatoMoneda($g['subtotal']) ?></td>
-                            <td class="tabla--numerica cifra"><?= formatoMoneda($g['iva']) ?></td>
-                            <td class="tabla--numerica cifra"><strong><?= formatoMoneda($g['total']) ?></strong></td>
-                            <td class="tabla--centro"><?= $g['estado_pago'] === 'pagado' ? '<span class="badge badge--aprobado">Pagado</span>' : '<span class="badge badge--pendiente">Pendiente</span>' ?></td>
-                            <td class="tabla--centro"><?= (int) $g['comprobante_fiscal'] === 1 ? '<span class="badge badge--aprobado">Sí</span>' : '<span class="badge badge--neutro">No</span>' ?>
-                                <br><a class="texto-xs" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>#documentos" aria-label="Ver los documentos del gasto"><?= (int) $g['documentos'] ?> doc.</a></td>
-                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>">Abrir</a></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-                <tfoot><tr><td colspan="4"><strong>Total de los <?= number_format($tot['n']) ?> gastos filtrados</strong></td>
-                    <td class="tabla--numerica cifra"><?= formatoMoneda($tot['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($tot['iva']) ?></td>
-                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="3"></td></tr></tfoot>
-            </table>
-        </div>
+        <!-- Selección múltiple: los gastos marcados se eliminan (con sus documentos)
+             desde POST /admin/contabilidad/gastos/masivo. El contador, el motivo y el
+             botón los maneja src/js/modulos/gastosMasivos.js. -->
+        <form action="/admin/contabilidad/gastos/masivo" method="post" novalidate
+              data-gastos-masivos
+              data-confirmacion="¿Eliminar los gastos marcados?"
+              data-confirmacion-sobre="Egresos y gastos"
+              data-confirmacion-boton="Eliminar">
+            <input type="hidden" name="accion" value="eliminar">
+            <?php foreach ($parametros as $clave => $valor) : ?>
+                <input type="hidden" name="<?= escaparValores((string) $clave) ?>" value="<?= escaparValores((string) $valor) ?>">
+            <?php endforeach; ?>
+
+            <div class="tabla-contenedor">
+                <table class="tabla">
+                    <caption class="solo-lectores">Gastos del periodo</caption>
+                    <thead><tr>
+                        <th scope="col" class="tabla--centro">
+                            <label class="solo-lectores" for="gastos-todas">Seleccionar todos los gastos de esta página</label>
+                            <input class="tabla__casilla" type="checkbox" id="gastos-todas" data-marcar-todas>
+                        </th>
+                        <th scope="col">Fecha</th><th scope="col">Proveedor / concepto</th><th scope="col">Categoría</th><th scope="col">Negocio</th>
+                        <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th><th scope="col" class="tabla--numerica">Total</th>
+                        <th scope="col" class="tabla--centro">Pago</th><th scope="col" class="tabla--centro">Comprobante</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+                    <tbody>
+                        <?php foreach ($gastos as $g) : ?>
+                            <tr>
+                                <td class="tabla--centro">
+                                    <label class="solo-lectores" for="gasto-<?= (int) $g['id'] ?>">Seleccionar el gasto de <?= escaparValores($g['beneficiario']) ?> del <?= date('d/m/Y', strtotime($g['fecha'])) ?></label>
+                                    <input class="tabla__casilla" type="checkbox" id="gasto-<?= (int) $g['id'] ?>" name="gastos[]"
+                                           value="<?= (int) $g['id'] ?>" data-documentos="<?= (int) $g['documentos'] ?>">
+                                </td>
+                                <td><?= date('d/m/Y', strtotime($g['fecha'])) ?></td>
+                                <td><strong><?= escaparValores($g['beneficiario']) ?></strong><span class="texto-xs texto-secundario"><br><?= escaparValores($g['concepto']) ?></span></td>
+                                <td><?= escaparValores((string) $g['categoria_nombre']) ?: '—' ?></td>
+                                <td><?= (int) $g['compartido'] === 1 ? '<span class="badge badge--info">Compartido</span>' : escaparValores((string) ($g['empresa_nombre'] ?? 'General')) ?></td>
+                                <td class="tabla--numerica cifra"><?= formatoMoneda($g['subtotal']) ?></td>
+                                <td class="tabla--numerica cifra"><?= formatoMoneda($g['iva']) ?></td>
+                                <td class="tabla--numerica cifra"><strong><?= formatoMoneda($g['total']) ?></strong></td>
+                                <td class="tabla--centro"><?= $g['estado_pago'] === 'pagado' ? '<span class="badge badge--aprobado">Pagado</span>' : '<span class="badge badge--pendiente">Pendiente</span>' ?></td>
+                                <td class="tabla--centro"><?= (int) $g['comprobante_fiscal'] === 1 ? '<span class="badge badge--aprobado">Sí</span>' : '<span class="badge badge--neutro">No</span>' ?>
+                                    <br><a class="texto-xs" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>#documentos" aria-label="Ver los documentos del gasto"><?= (int) $g['documentos'] ?> doc.</a></td>
+                                <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>">Abrir</a></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <tfoot><tr><td colspan="5"><strong>Total de los <?= number_format($tot['n']) ?> gastos filtrados</strong></td>
+                        <td class="tabla--numerica cifra"><?= formatoMoneda($tot['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($tot['iva']) ?></td>
+                        <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="4"></td></tr></tfoot>
+                </table>
+            </div>
+
+            <div class="tabla-toolbar tabla-toolbar--seleccion" data-resumen-seleccion hidden>
+                <div class="tabla-toolbar__resumen">
+                    <strong data-seleccion-contador>Ningún gasto marcado</strong>
+                    <span class="texto-secundario texto-sm" data-seleccion-documentos>Sin documentos por borrar</span>
+                </div>
+                <div class="campo tabla-toolbar__motivo">
+                    <label class="campo__etiqueta campo__etiqueta--obligatorio" for="motivo-eliminacion">Motivo de la eliminación</label>
+                    <input class="control" type="text" id="motivo-eliminacion" name="motivo" maxlength="200" required
+                           placeholder="Ej. Capturado dos veces por error">
+                    <span class="campo__ayuda">Mínimo 5 caracteres; queda en la bitácora de cada gasto.</span>
+                </div>
+                <button class="btn btn--peligro" type="submit" data-eliminar-gastos disabled>
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">delete_forever</span>
+                    <span>Eliminar seleccionados</span>
+                </button>
+            </div>
+        </form>
         <?php template('paginacion', ['pagina' => $pagina, 'rutaBase' => $rutaBase, 'total' => $total]); ?>
     <?php endif; ?>
 </section>

@@ -53,7 +53,8 @@ class CoincidenciasFactura
     /**
      * Cruza un documento ya leído con el contenido de la plataforma.
      *
-     * @param array  $lectura salida de LectorDocumental::leer()
+     * @param array  $lectura salida de LectorDocumental::leer() (admite sha256 opcional,
+     *                        que usa para detectar el mismo archivo ya adjunto)
      * @param string $destino 'venta' (factura que emití) | 'gasto' (factura que me dieron)
      * @return array<string, mixed> propuesta para precargar el formulario correspondiente
      */
@@ -102,11 +103,20 @@ class CoincidenciasFactura
             $resultado['avisos']
         );
 
-        if ($resultado['uuid'] !== '' || $resultado['folio'] !== '') {
-            // Sólo se busca por fecha si el documento la trae: si no, la de hoy se
-            // convertiría en una falsa coincidencia con las ventas del día.
-            $fechaDeducida = $campos('fecha') !== '' ? $resultado['fecha'] : '';
-            $resultado['duplicados'] = self::duplicados($resultado['uuid'], $resultado['folio'], $fechaDeducida, $destino);
+        // Sólo se busca por fecha si el documento la trae: si no, la de hoy se
+        // convertiría en una falsa coincidencia con las ventas del día.
+        $fechaDeducida = $campos('fecha') !== '' ? $resultado['fecha'] : '';
+        if ($resultado['uuid'] !== '' || $resultado['folio'] !== '' || ($fechaDeducida !== '' && $resultado['total'] > 0)) {
+            $resultado['duplicados'] = self::duplicados(
+                $resultado['uuid'],
+                $resultado['folio'],
+                $fechaDeducida,
+                $destino,
+                (string) ($lectura['sha256'] ?? ''),
+                $resultado['total'],
+                // El tercero del documento: en una venta es el cliente, en un gasto el proveedor.
+                $destino === 'venta' ? $campos('receptor_rfc') : $campos('emisor_rfc')
+            );
 
             foreach ($resultado['duplicados'] as $coincidencia) {
                 if ($coincidencia['criterio'] === 'folio fiscal (UUID)') {
@@ -549,31 +559,61 @@ class CoincidenciasFactura
     /**
      * Registros que ya existen con esta misma factura.
      *
-     * Cuatro criterios, de más fiable a más débil; el último sólo se consulta si
-     * los anteriores no dijeron nada, porque una fecha compartida por sí sola es
-     * una coincidencia floja:
+     * La pregunta no es «¿hay algo ese día?» ni «¿es el mismo cliente?»: un
+     * cliente o un proveedor pueden tener varias facturas y varias ventas
+     * pueden caer en el mismo día. Lo que identifica AL DOCUMENTO es esto:
      *
-     *   1. mismo archivo (sha256)       el PDF/XML ya está adjunto en algún lado
-     *   2. folio fiscal (UUID)         gasto o ingreso con ese UUID
-     *   3. folio de factura            gasto con folio_comercial, venta con factura_folio
-     *   4. misma fecha                 ventas registradas ese día (sólo si no hubo nada antes)
+     *   1. mismo archivo (sha256)               el PDF/XML ya está adjunto en algún lado
+     *   2. folio fiscal (UUID)                  es el mismo CFDI: el timbre es único
+     *   3. folio de factura + fecha o importe   misma serie y folio, y que además cuadre
+     *                                          el día o el monto (un folio suelto se
+     *                                          repite entre proveedores)
+     *   4. mismo importe + (fecha o RFC)        el mismo monto el mismo día, o el mismo
+     *                                          monto facturado por el mismo tercero;
+     *                                          sólo contra registros del mismo tipo
+     *
+     * Y sobre todo: nada que se CONTRADIGA. Si el registro ya trae otro folio
+     * fiscal, otro folio u otro RFC que el del documento, son facturas distintas
+     * aunque compartan fecha e importe. El RFC sólo sirve para descartar, nunca
+     * por sí solo para señalar: el mismo proveedor factura muchas veces.
+     *
+     * @param string $destino 'venta' | 'gasto' (delimita el criterio 4)
+     * @param float  $total   importe del documento (para los criterios 3 y 4)
+     * @param string $rfc     RFC del tercero: receptor en una venta, emisor en un gasto
      *
      * @return array<int, array{tipo: string, id: int, ruta: string, etiqueta: string,
      *                          folio: string, fecha: string, total: float,
      *                          detalle: string, criterio: string}>
      */
-    public static function duplicados(string $uuid, string $folio, string $fecha, string $destino, string $sha256 = ''): array
-    {
-        unset($destino);
+    public static function duplicados(
+        string $uuid,
+        string $folio,
+        string $fecha,
+        string $destino,
+        string $sha256 = '',
+        float $total = 0.0,
+        string $rfc = ''
+    ): array {
         $encontrados = [];
-        $uuid  = strtoupper(trim($uuid));
-        $folio = trim($folio);
+        $destino = in_array($destino, ['venta', 'gasto'], true) ? $destino : '';
+        $doc = [
+            'uuid'  => strtoupper(trim($uuid)),
+            'folio' => self::folioNormalizado($folio),
+            'fecha' => preg_match('/^20\d{2}-\d{2}-\d{2}$/', $fecha) === 1 ? $fecha : '',
+            'total' => round($total, 2),
+            'rfc'   => strtoupper(trim($rfc)),
+        ];
 
         // 1) El mismo archivo ya fue adjuntado antes (mismo PDF o XML).
         if ($sha256 !== '') {
-            foreach (self::consultar("SELECT entidad, entidad_id FROM documentos WHERE activo = 1 AND sha256 = ? LIMIT 3", 's', $sha256) as $doc) {
-                $tipo = $doc['entidad'] === 'gasto' ? 'gasto' : 'venta';
-                $registro = self::datosDeRegistro($tipo, (int) $doc['entidad_id'], 'mismo archivo');
+            foreach (self::consultar("SELECT entidad, entidad_id FROM documentos WHERE activo = 1 AND sha256 = ? LIMIT 3", 's', $sha256) as $doc2) {
+                $tipo = $doc2['entidad'] === 'gasto' ? 'gasto' : 'venta';
+                // Los documentos de una venta se guardan contra su ingreso.
+                $id = $tipo === 'venta' ? self::ventaDelIngreso((int) $doc2['entidad_id']) : (int) $doc2['entidad_id'];
+                if ($id <= 0) {
+                    continue;
+                }
+                $registro = self::datosDeRegistro($tipo, $id, 'mismo archivo');
                 if ($registro) {
                     $encontrados[] = $registro;
                 }
@@ -581,14 +621,14 @@ class CoincidenciasFactura
         }
 
         // 2) Folio fiscal (UUID) en un gasto o en un ingreso (→ su venta).
-        if ($uuid !== '') {
-            foreach (self::consultar("SELECT id FROM gastos WHERE (uuid_vigente = ? OR uuid_fiscal = ?) AND estado = 'vigente' LIMIT 2", 'ss', $uuid, $uuid) as $g) {
+        if ($doc['uuid'] !== '') {
+            foreach (self::consultar("SELECT id FROM gastos WHERE (uuid_vigente = ? OR uuid_fiscal = ?) AND estado = 'vigente' LIMIT 2", 'ss', $doc['uuid'], $doc['uuid']) as $g) {
                 $registro = self::datosDeRegistro('gasto', (int) $g['id'], 'folio fiscal (UUID)');
                 if ($registro) {
                     $encontrados[] = $registro;
                 }
             }
-            foreach (self::consultar('SELECT venta_id FROM ingresos WHERE uuid_fiscal = ? AND venta_id IS NOT NULL LIMIT 2', 's', $uuid) as $i) {
+            foreach (self::consultar('SELECT venta_id FROM ingresos WHERE uuid_fiscal = ? AND venta_id IS NOT NULL LIMIT 2', 's', $doc['uuid']) as $i) {
                 $registro = self::datosDeRegistro('venta', (int) $i['venta_id'], 'folio fiscal (UUID)');
                 if ($registro) {
                     $encontrados[] = $registro;
@@ -596,29 +636,67 @@ class CoincidenciasFactura
             }
         }
 
-        // 3) Folio de factura (Serie + Folio) en un gasto o en la factura de una venta.
-        if ($folio !== '') {
-            $sinEspacios = str_replace(' ', '', $folio);
-            foreach (self::consultar("SELECT id FROM gastos WHERE REPLACE(folio_comercial, ' ', '') = ? AND estado = 'vigente' LIMIT 2", 's', $sinEspacios) as $g) {
-                $registro = self::datosDeRegistro('gasto', (int) $g['id'], 'folio de factura');
+        // 3) Folio de factura (Serie + Folio): sólo cuenta si además cuadra la
+        //    fecha o el importe, y si el registro no trae otro folio fiscal.
+        if ($doc['folio'] !== '') {
+            $porFolio = "SELECT id, fecha, total, rfc_emisor AS rfc, uuid_fiscal AS uuid, folio_comercial AS folio
+                           FROM gastos WHERE REPLACE(UPPER(folio_comercial), ' ', '') = ? AND estado = 'vigente' LIMIT 5";
+            foreach (self::consultar($porFolio, 's', $doc['folio']) as $g) {
+                $criterio = self::criterioDeRegistro($g, $doc, true);
+                if ($criterio === null) {
+                    continue;
+                }
+                $registro = self::datosDeRegistro('gasto', (int) $g['id'], $criterio);
                 if ($registro) {
                     $encontrados[] = $registro;
                 }
             }
-            foreach (self::consultar("SELECT venta_id FROM ingresos WHERE REPLACE(factura_folio, ' ', '') = ? AND venta_id IS NOT NULL LIMIT 2", 's', $sinEspacios) as $i) {
-                $registro = self::datosDeRegistro('venta', (int) $i['venta_id'], 'folio de factura');
+            $porFolioVenta = "SELECT i.venta_id AS id, i.fecha, i.total, cl.rfc, i.uuid_fiscal AS uuid, i.factura_folio AS folio
+                                FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id
+                               WHERE REPLACE(UPPER(i.factura_folio), ' ', '') = ? AND i.venta_id IS NOT NULL LIMIT 5";
+            foreach (self::consultar($porFolioVenta, 's', $doc['folio']) as $i) {
+                $criterio = self::criterioDeRegistro($i, $doc, true);
+                if ($criterio === null) {
+                    continue;
+                }
+                $registro = self::datosDeRegistro('venta', (int) $i['id'], $criterio);
                 if ($registro) {
                     $encontrados[] = $registro;
                 }
             }
         }
 
-        // 4) Mismo día: sólo si los criterios de arriba no dijeron nada. Una venta
-        //    de ese día no prueba que esta factura esté registrada, pero sí que
-        //    conviene mirarlo antes de duplicar.
-        if (!$encontrados && preg_match('/^20\d{2}-\d{2}-\d{2}$/', $fecha)) {
-            foreach (self::consultar("SELECT id FROM ventas WHERE fecha = ? AND estado = 'registrada' ORDER BY id DESC LIMIT 3", 's', $fecha) as $v) {
-                $registro = self::datosDeRegistro('venta', (int) $v['id'], 'misma fecha');
+        // 4) Mismo importe: convence con la fecha del documento o con el RFC del
+        //    tercero; nunca sólo por estar en el mismo día. Sólo se coteja con
+        //    registros del mismo tipo que el documento (una compra no se compara
+        //    con una venta: son libros distintos).
+        if ($doc['total'] > 0 && $destino === 'gasto') {
+            $porImporte = "SELECT id, fecha, total, rfc_emisor AS rfc, uuid_fiscal AS uuid, folio_comercial AS folio
+                             FROM gastos WHERE ABS(total - ?) < 0.01 AND estado = 'vigente'
+                            ORDER BY fecha DESC, id DESC LIMIT 10";
+            foreach (self::consultar($porImporte, 'd', $doc['total']) as $g) {
+                $criterio = self::criterioDeRegistro($g, $doc, false);
+                if ($criterio === null) {
+                    continue;
+                }
+                $registro = self::datosDeRegistro('gasto', (int) $g['id'], $criterio);
+                if ($registro) {
+                    $encontrados[] = $registro;
+                }
+            }
+        } elseif ($doc['total'] > 0) {
+            $porImporteVenta = "SELECT v.id, v.fecha, v.total, cl.rfc, i.uuid_fiscal AS uuid, i.factura_folio AS folio
+                                  FROM ventas v
+                                  LEFT JOIN clientes cl ON cl.id = v.cliente_id
+                                  LEFT JOIN ingresos i ON i.venta_id = v.id
+                                 WHERE v.estado = 'registrada' AND ABS(v.total - ?) < 0.01
+                                ORDER BY v.fecha DESC, v.id DESC LIMIT 10";
+            foreach (self::consultar($porImporteVenta, 'd', $doc['total']) as $v) {
+                $criterio = self::criterioDeRegistro($v, $doc, false);
+                if ($criterio === null) {
+                    continue;
+                }
+                $registro = self::datosDeRegistro('venta', (int) $v['id'], $criterio);
                 if ($registro) {
                     $encontrados[] = $registro;
                 }
@@ -640,11 +718,92 @@ class CoincidenciasFactura
         return $unicos;
     }
 
+    /**
+     * ¿El registro encontrado corresponde a este documento?
+     *
+     * Primero se descarta lo que se contradice; después se pide la coincidencia
+     * que toca según por qué lo haya encontrado la búsqueda: si ya coincidía el
+     * folio ($porFolio) basta con que cuadre la fecha o el importe, y si ya
+     * coincidía el importe hace falta la fecha o el mismo RFC del tercero.
+     *
+     * @param array{fecha?: string, total?: mixed, rfc?: string, uuid?: string, folio?: string} $fila registro existente
+     * @param array{uuid: string, folio: string, fecha: string, total: float, rfc: string}      $doc  documento leído
+     * @return string|null texto del criterio para el aviso, o null si no corresponde
+     */
+    private static function criterioDeRegistro(array $fila, array $doc, bool $porFolio): ?string
+    {
+        if (self::seContradice($fila, $doc)) {
+            return null;
+        }
+
+        $mismoDia = $doc['fecha'] !== '' && (string) ($fila['fecha'] ?? '') === $doc['fecha'];
+        $mismoImporte = $doc['total'] > 0
+            && Contabilidad::centavos($fila['total'] ?? 0) === Contabilidad::centavos($doc['total']);
+
+        if ($porFolio) {
+            if ($mismoDia) {
+                return 'folio de factura y misma fecha';
+            }
+            if ($mismoImporte) {
+                return 'folio de factura y mismo importe';
+            }
+
+            return null;
+        }
+
+        if ($mismoDia) {
+            return 'misma fecha e importe';
+        }
+
+        // Sin la fecha hace falta el RFC de los dos lados: el importe sólo
+        // convence si es el mismo tercero el que lo factura.
+        $delRegistro = strtoupper(trim((string) ($fila['rfc'] ?? '')));
+
+        return $doc['rfc'] !== '' && $delRegistro === $doc['rfc'] ? 'mismo importe y RFC' : null;
+    }
+
+    /**
+     * El registro trae otros datos de identificación que el documento.
+     *
+     * Dos UUID distintos, dos folios distintos o dos RFC distintos significan
+     * facturas distintas, aunque compartan fecha e importe: no hay nada que
+     * avisar, hay algo que descartar. Un lado vacío no contradice (falta el
+     * dato, no es otro valor).
+     *
+     * @param array{fecha?: string, total?: mixed, rfc?: string, uuid?: string, folio?: string} $fila
+     * @param array{uuid: string, folio: string, fecha: string, total: float, rfc: string}      $doc
+     */
+    private static function seContradice(array $fila, array $doc): bool
+    {
+        $otroUuid  = strtoupper(trim((string) ($fila['uuid'] ?? '')));
+        $otroFolio = self::folioNormalizado((string) ($fila['folio'] ?? ''));
+        $otroRfc   = strtoupper(trim((string) ($fila['rfc'] ?? '')));
+
+        return ($doc['uuid'] !== '' && $otroUuid !== '' && $otroUuid !== $doc['uuid'])
+            || ($doc['folio'] !== '' && $otroFolio !== '' && $otroFolio !== $doc['folio'])
+            || ($doc['rfc'] !== '' && $otroRfc !== '' && $otroRfc !== $doc['rfc']);
+    }
+
+    /** Folio comparable: «BEX 21324» y «BEX21324» son el mismo folio. */
+    private static function folioNormalizado(string $folio): string
+    {
+        return strtoupper(str_replace(' ', '', trim($folio)));
+    }
+
+    /** Venta a la que pertenece un ingreso (0 si no está ligado a ninguna). */
+    private static function ventaDelIngreso(int $ingresoId): int
+    {
+        $filas = self::consultar('SELECT venta_id FROM ingresos WHERE id = ? LIMIT 1', 'i', $ingresoId);
+
+        return (int) ($filas[0]['venta_id'] ?? 0);
+    }
+
     /** Ficha de un registro ya existente, con todo lo que necesita el aviso. */
     private static function datosDeRegistro(string $tipo, int $id, string $criterio): ?array
     {
         if ($tipo === 'gasto') {
-            $filas = self::consultar('SELECT id, folio_comercial, fecha, total, concepto, beneficiario FROM gastos WHERE id = ? LIMIT 1', 'i', $id);
+            // Un gasto cancelado ya no es «el que existe»: no se señala como duplicado.
+            $filas = self::consultar("SELECT id, folio_comercial, fecha, total, concepto, beneficiario FROM gastos WHERE id = ? AND estado = 'vigente' LIMIT 1", 'i', $id);
             $fila = $filas[0] ?? null;
             if (!$fila) {
                 return null;

@@ -57,7 +57,7 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
 2. **Cobrar y facturar:** *Ventas → abrir la venta* → en «Facturación y cobro» (arriba) registras cada cobro y marcas la **facturación** (facturada / no facturada) — es un dato explícito. *Contabilidad → Ingresos* lleva a esa misma pantalla.
 3. **Comprar:** *Órdenes de compra* → registrar recepción (parcial o total) → cerrar → PDF «solicitado vs recibido».
 4. **Entregar:** *Pantalla de entrega* → marcar ventas → crear preparación → registrar entregas (parciales permitidas).
-5. **Gastos:** *Contabilidad → Egresos*; adjunta CFDI (XML) y comprobantes; valida cada gasto para que cuente en la estimación fiscal.
+5. **Gastos:** *Contabilidad → Egresos*; adjunta CFDI (XML) y comprobantes; marca como pagado lo que ya pagaste (sólo eso entra en la estimación fiscal; el CFDI es el respaldo para tu contador).
 6. **Cada mes:** *Cierre del mes* (verificaciones, reconocer avisos, cerrar). Un mes cerrado bloquea cambios; se reabre solo con contraseña y motivo.
 7. **Fotografía del inventario:** *Inventario → Fotografías mensuales* (o automática con `scripts/foto_inventario.php`).
 
@@ -104,7 +104,7 @@ aplicación de escritorio) contra una base de **prueba**, nunca la real. Detalle
 ## 9. Limitaciones conocidas (honestas)
 
 - **Los cálculos fiscales son una estimación administrativa** y deben validarse con el contador; régimen y flujo de efectivo están **por confirmar** (aviso visible).
-  Los criterios de deducción/acreditamiento de gastos (pagado + validado + con comprobante; activos fijos fuera) son de la plataforma, no texto de ley.
+  Los criterios de la estimación (sólo operaciones pagadas; el método PUE/PPD/por definir y los archivos adjuntos son informativos; activos fijos fuera) son de la plataforma, no texto de ley.
 - El XML se lee documentalmente (UUID, RFC, total); **no se verifica el timbre ante el SAT**.
 - No hay nota de crédito para el ajuste económico de una devolución; no hay depreciación de activos; no se calculan retenciones que tú hagas a terceros.
 - Un solo rol (administrador); no hay roles granulares (decisión del usuario).

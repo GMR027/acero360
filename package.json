@@ -7,7 +7,7 @@
     "build": "gulp build",
     "watch": "gulp watch",
     "sass": "sass --watch src/scss/app.scss:build/css/app.css",
-    "pruebas": "node pruebas/probar_ronda.mjs && node pruebas/probar_ronda2.mjs && node pruebas/probar_categorias.mjs && node pruebas/probar_inteligente.mjs && node pruebas/probar_categorias_gasto.mjs && node pruebas/probar_duplicados.mjs",
+    "pruebas": "node pruebas/probar_ronda.mjs && node pruebas/probar_ronda2.mjs && node pruebas/probar_categorias.mjs && node pruebas/probar_inteligente.mjs && node pruebas/probar_categorias_gasto.mjs && node pruebas/probar_duplicados.mjs && node pruebas/probar_facturas_reales.mjs && node pruebas/probar_gastos_masivos.mjs",
     "auditorias": "node pruebas/auditar_ui.mjs && node pruebas/auditar_profundo.mjs && node pruebas/auditar_consola.mjs"
   },
   "keywords": [

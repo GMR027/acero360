@@ -5,7 +5,8 @@
  *            $etiquetaComparativa (texto, p. ej. «vs. Septiembre 2026»; vacío si no hay comparativa),
  *            $exportar (ruta base con su consulta, sin formato; vacío para no mostrar botones),
  *            $accionesExtra (opcional: botones propios de la pantalla, a la derecha de los de exportar,
- *                            cada uno con destino, texto, icono y ayuda),
+ *                            cada uno con destino, texto, icono, ayuda y, si se quiere, la clase de color
+ *                            (`btn--exito`, `btn--rojo`, …); por defecto va en primario),
  *            $ocrDisponible (opcional: true/false para avisar si el servidor puede leer fotos y PDFs escaneados).
  */
 $etiquetaComparativa = $etiquetaComparativa ?? '';
@@ -41,7 +42,8 @@ $ocrDisponible = $ocrDisponible ?? null;
             <?php endforeach; ?>
         <?php endif; ?>
         <?php foreach ($accionesExtra as $accion) : ?>
-            <button class="btn btn--primario" type="button"
+            <!-- El color lo elige quien arma la pantalla: venta en verde, compra en rojo. -->
+            <button class="btn <?= escaparValores((string) ($accion['clase'] ?? 'btn--primario')) ?>" type="button"
                     data-inteligente="<?= escaparValores($accion['destino']) ?>"
                     title="<?= escaparValores((string) ($accion['ayuda'] ?? '')) ?>">
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem"><?= escaparValores((string) $accion['icono']) ?></span>

@@ -1,6 +1,6 @@
 # Matriz de pruebas — los 22 escenarios obligatorios
 
-Ejecución completa: `pruebas/ejecutar_todo.sh` (28 suites, base de prueba, nunca la real). Última corrida: **28 correctas · 0 fallos**.
+Ejecución completa: `pruebas/ejecutar_todo.sh` (54 suites: 27 etapas de PHP + PDF de descuentos, 24 de navegador, respaldos y limpieza; base de prueba `cotizaciones_test`, nunca la real). Última corrida: **54 correctas · 0 fallos** (23-oct-2026, `--rapido`).
 
 | # | Escenario | Dónde se prueba | Estado |
 |---|---|---|---|
@@ -56,6 +56,12 @@ Los 15 escenarios obligatorios del prompt de reestructuración. `php/etapa18.php
 ## Solicitud de compra desde el catálogo (sección 4 del segundo prompt)
 
 `php/etapa20.php` (lógica: solo el catálogo activo del proveedor; nombre, código y costo recuperados; importe y total; IVA; copia histórica del costo al cambiar el catálogo; costo manual respetado y auditado; producto de otro proveedor o inactivo rechazado; recepción con el costo histórico; verificado con mutaciones) y `probar_compra_catalogo.mjs` (interfaz: selector por proveedor, rellenado y bloqueo, importes y total en vivo, «Cambiar costo», historial intacto, producto desactivado, cambio de proveedor, móvil). Migración 021 ensayada sobre un respaldo real (aplicar → revertir → aplicar).
+
+## Impuestos: sólo facturas pagadas y gastos pagados (2026-10-23)
+
+`php/etapa30.php` (28 casos sobre un contribuyente propio: el «facturado» sólo suma facturas cobradas al 100 %, las de parcialidades y las sin cobrar salen como excluidas por mes y por año, un gasto pendiente no entra en «Pagos y gastos», `movimientos()` trae el estado y los totales repartidos, `impuestosDelPeriodo()` devuelve las mismas cifras y la fotografía del cierre guarda la estimación con la regla) y `php/etapa6.php` (8 casos nuevos en el motor de IVA/ISR: una factura a medio pagar no aporta nada hasta liquidarse y, al hacerlo, entra completa con su prorrateo de IVA).
+
+También quedó reconstruida `php/etapa28.php` (uso del CFDI y método de pago de los gastos, 26 casos), que se había perdido por un choque de nombres de archivo con esta suite.
 
 ## Ensayos adicionales
 - **Migración 019 sobre un respaldo REAL de producción** (BD en la migración 10 → 011…019): aplica limpia, los datos quedan intactos y la reversión funciona (aplicar → revertir → aplicar).

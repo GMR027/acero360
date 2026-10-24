@@ -2,6 +2,10 @@
 /**
  * views/admin/contabilidad/ingresos/index.php — Ingresos por ventas del periodo.
  * Generados automáticamente desde las ventas confirmadas; solo lectura.
+ *
+ * Dos tablas con los mismos filtros: las ventas con factura o pendientes de
+ * facturar, y las que ya se marcaron como «No facturada». Cada tabla pagina
+ * por su lado (parámetros «pagina» y «pagina_sin»).
  */
 
 soloAdmin();
@@ -20,12 +24,22 @@ if ($filtros['desde'] !== '' || $filtros['hasta'] !== '' || ($_GET['todos'] ?? '
     $filtros['anio'] = 0;
     $filtros['mes'] = 0;
 }
-$total    = \App\Contabilidad::contarIngresos($filtros);
-$pagina   = paginacion(15, $total);
-$ingresos = \App\Contabilidad::listarIngresos($filtros, $pagina['limite'], $pagina['offset']);
-$empresas = \App\Empresas::mostrarTodos(100, 0);
 
-// Resumen del filtro y comparativa con el mes anterior (solo cuando se mira un mes concreto).
+/* Las dos tablas del periodo. Las de abajo («No facturada») se listan aparte
+ * porque ya no se van a facturar: no deben mezclarse con las que sí. */
+$conFactura  = $filtros + ['facturacion_grupo' => 'con_factura'];
+$sinFactura  = $filtros + ['facturacion_grupo' => 'sin_factura'];
+$totalCon    = \App\Contabilidad::contarIngresos($conFactura);
+$totalSin    = \App\Contabilidad::contarIngresos($sinFactura);
+$pagina      = paginacion(15, $totalCon);
+$paginaSin   = paginacion(15, $totalSin, 'pagina_sin');
+$ingresos    = \App\Contabilidad::listarIngresos($conFactura, $pagina['limite'], $pagina['offset']);
+$ingresosSin = \App\Contabilidad::listarIngresos($sinFactura, $paginaSin['limite'], $paginaSin['offset']);
+$empresas    = \App\Empresas::mostrarTodos(100, 0);
+
+// Totales de cada tabla (el pie de cada una) y del periodo completo (las tarjetas de arriba).
+$totCon = \App\Contabilidad::totalesIngresos($conFactura);
+$totSin = \App\Contabilidad::totalesIngresos($sinFactura);
 $tot = \App\Contabilidad::totalesIngresos($filtros);
 $comparar = $filtros['anio'] > 0 && $filtros['mes'] > 0;
 $ant = null;
@@ -54,7 +68,47 @@ $conmutador = static function (array $i, string $accion, bool $activo, string $e
 };
 $rutaBase = '/admin/contabilidad/ingresos' . ($parametros ? '?' . http_build_query($parametros) : '');
 
-template('header', ['titulo' => 'Ingresos por ventas', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
+/** Una fila de ingreso: las mismas columnas en las dos tablas. */
+$filaTabla = static function (array $i) use ($conmutador): string {
+    $fact = \App\Contabilidad::FACTURACION[$i['estado_facturacion']];
+    $cobro = \App\Contabilidad::etiquetaCobro($i['estado_cobro']);
+    ob_start(); ?>
+    <tr>
+        <td><?= date('d/m/Y', strtotime($i['fecha'])) ?></td>
+        <td><strong><?= escaparValores($i['folio']) ?></strong></td>
+        <td><?= escaparValores($i['cliente_empresa'] ?: $i['cliente_nombre']) ?></td>
+        <td><?= escaparValores(trim((string) $i['cliente_alias']) !== '' ? $i['cliente_alias'] : '—') ?></td>
+        <td><?= escaparValores($i['empresa_nombre']) ?></td>
+        <td class="tabla--numerica cifra"><?= formatoMoneda((float) $i['subtotal'] - (float) $i['descuento']) ?></td>
+        <td class="tabla--numerica cifra"><?= formatoMoneda($i['iva']) ?></td>
+        <td class="tabla--numerica cifra"><strong><?= formatoMoneda($i['total']) ?></strong></td>
+        <td class="tabla--centro"><div class="celda-estado"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span>
+            <?php if ($i['estado'] === 'vigente') :
+                $facturada = $i['estado_facturacion'] === 'facturada';
+                echo $conmutador($i, 'facturacion_alterna', $facturada, 'Facturada', $facturada ? '¿Marcar como pendiente de facturar?' : '¿Marcar como facturada?',
+                    $facturada ? 'Se quitan el folio y el UUID guardados de la factura.' : 'Si no hay un CFDI adjunto, queda como confirmación manual de que ya se emitió la factura.',
+                    $facturada ? 'Sí, pendiente' : 'Sí, facturada');
+            endif; ?></div></td>
+        <td class="tabla--centro"><div class="celda-estado"><span class="badge <?= $cobro['clase'] ?>"><?= escaparValores($cobro['etiqueta']) ?></span>
+            <?php if ($i['estado'] === 'vigente' && ($i['estado_cobro'] === 'cobrado' || (float) $i['saldo'] > 0)) :
+                $pagada = $i['estado_cobro'] === 'cobrado';
+                echo $conmutador($i, 'cobro_alterna', $pagada, 'Pagada', $pagada ? '¿Marcar como sin pagar?' : '¿Marcar como pagada?',
+                    $pagada ? 'Se cancelan los cobros registrados y el saldo vuelve a ser el total.' : 'Se registra hoy un cobro por el saldo pendiente (' . formatoMoneda($i['saldo']) . ').',
+                    $pagada ? 'Sí, sin pagar' : 'Sí, pagada');
+            endif; ?></div></td>
+        <td class="tabla--numerica cifra"><?= formatoMoneda($i['saldo']) ?></td>
+        <td class="tabla--centro"><a href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i, 'documentos')) ?>" aria-label="Ver los documentos de la venta <?= escaparValores($i['folio']) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : '<span class="badge badge--neutro badge--sin-punto">Sin documentos</span>' ?></a></td>
+        <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i)) ?>">Abrir</a></td>
+    </tr>
+    <?php return (string) ob_get_clean();
+};
+$encabezados = '<th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Alias</th><th scope="col">Negocio</th>'
+    . '<th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th>'
+    . '<th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Facturación</th>'
+    . '<th scope="col" class="tabla--centro">Cobro</th><th scope="col" class="tabla--numerica">Saldo</th>'
+    . '<th scope="col" class="tabla--centro">Documentos</th><th scope="col"><span class="solo-lectores">Acciones</span></th>';
+
+template('header', ['titulo' => 'Ventas y cobros', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/contabilidad/ingresos', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true]);
 template('resumenReporte', [
@@ -69,7 +123,7 @@ template('resumenReporte', [
 ]);
 ?>
 
-<section class="tarjeta tarjeta--sin-relleno">
+<section class="tarjeta tarjeta--sin-relleno mb-lg">
     <div class="tabla-toolbar">
         <form class="buscador" action="/admin/contabilidad/ingresos" method="get" role="search">
             <input type="hidden" name="anio" value="<?= $periodo['anio'] ?>">
@@ -94,65 +148,63 @@ template('resumenReporte', [
             </select>
             <button class="btn btn--secundario btn--sm" type="submit">Filtrar</button>
         </form>
-        <span class="badge badge--neutro badge--sin-punto cifra"><?= number_format($total) ?> <?= $total === 1 ? 'ingreso' : 'ingresos' ?></span>
+        <span class="badge badge--neutro badge--sin-punto cifra"><?= number_format($totalCon) ?> <?= $totalCon === 1 ? 'venta' : 'ventas' ?></span>
     </div>
+
+    <h2 class="titulo-5 mb-md">Ventas con factura o pendientes de facturar</h2>
 
     <?php if (!$ingresos) : ?>
         <div class="vacio">
             <span class="material-symbols-outlined vacio__icono" aria-hidden="true">trending_up</span>
-            <p class="vacio__titulo">Sin ingresos en este periodo</p>
-            <p>Cada venta confirmada genera su ingreso automáticamente.</p>
+            <p class="vacio__titulo">Sin ventas de este tipo en este periodo</p>
+            <p>Aquí aparecen las ventas facturadas y las que todavía faltan por facturar. Cada venta confirmada genera su ingreso automáticamente.</p>
         </div>
     <?php else : ?>
         <div class="tabla-contenedor">
             <table class="tabla">
-                <caption class="solo-lectores">Ingresos por ventas</caption>
-                <thead><tr><th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Alias</th><th scope="col">Negocio</th>
-                    <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th>
-                    <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Facturación</th>
-                    <th scope="col" class="tabla--centro">Cobro</th><th scope="col" class="tabla--numerica">Saldo</th>
-                    <th scope="col" class="tabla--centro">Documentos</th>
-                    <th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+                <caption class="solo-lectores">Ventas facturadas y pendientes de facturar</caption>
+                <thead><tr><?= $encabezados ?></tr></thead>
                 <tbody>
-                    <?php foreach ($ingresos as $i) :
-                        $fact = \App\Contabilidad::FACTURACION[$i['estado_facturacion']];
-                        $cobro = \App\Contabilidad::etiquetaCobro($i['estado_cobro']); ?>
-                        <tr>
-                            <td><?= date('d/m/Y', strtotime($i['fecha'])) ?></td>
-                            <td><strong><?= escaparValores($i['folio']) ?></strong></td>
-                            <td><?= escaparValores($i['cliente_empresa'] ?: $i['cliente_nombre']) ?></td>
-                            <td><?= escaparValores(trim((string) $i['cliente_alias']) !== '' ? $i['cliente_alias'] : '—') ?></td>
-                            <td><?= escaparValores($i['empresa_nombre']) ?></td>
-                            <td class="tabla--numerica cifra"><?= formatoMoneda((float) $i['subtotal'] - (float) $i['descuento']) ?></td>
-                            <td class="tabla--numerica cifra"><?= formatoMoneda($i['iva']) ?></td>
-                            <td class="tabla--numerica cifra"><strong><?= formatoMoneda($i['total']) ?></strong></td>
-                            <td class="tabla--centro"><div class="celda-estado"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span>
-                                <?php if ($i['estado'] === 'vigente') :
-                                    $facturada = $i['estado_facturacion'] === 'facturada';
-                                    echo $conmutador($i, 'facturacion_alterna', $facturada, 'Facturada', $facturada ? '¿Marcar como pendiente de facturar?' : '¿Marcar como facturada?',
-                                        $facturada ? 'Se quitan el folio y el UUID guardados de la factura.' : 'Si no hay un CFDI adjunto, queda como confirmación manual de que ya se emitió la factura.',
-                                        $facturada ? 'Sí, pendiente' : 'Sí, facturada');
-                                endif; ?></div></td>
-                            <td class="tabla--centro"><div class="celda-estado"><span class="badge <?= $cobro['clase'] ?>"><?= escaparValores($cobro['etiqueta']) ?></span>
-                                <?php if ($i['estado'] === 'vigente' && ($i['estado_cobro'] === 'cobrado' || (float) $i['saldo'] > 0)) :
-                                    $pagada = $i['estado_cobro'] === 'cobrado';
-                                    echo $conmutador($i, 'cobro_alterna', $pagada, 'Pagada', $pagada ? '¿Marcar como sin pagar?' : '¿Marcar como pagada?',
-                                        $pagada ? 'Se cancelan los cobros registrados y el saldo vuelve a ser el total.' : 'Se registra hoy un cobro por el saldo pendiente (' . formatoMoneda($i['saldo']) . ').',
-                                        $pagada ? 'Sí, sin pagar' : 'Sí, pagada');
-                                endif; ?></div></td>
-                            <td class="tabla--numerica cifra"><?= formatoMoneda($i['saldo']) ?></td>
-                            <td class="tabla--centro"><a href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i, 'documentos')) ?>" aria-label="Ver los documentos de la venta <?= escaparValores($i['folio']) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : '<span class="badge badge--neutro badge--sin-punto">Sin documentos</span>' ?></a></td>
-                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i)) ?>">Abrir</a></td>
-                        </tr>
-                    <?php endforeach; ?>
+                    <?php foreach ($ingresos as $i) : ?><?= $filaTabla($i) ?><?php endforeach; ?>
                 </tbody>
-                <tfoot><tr><td colspan="5"><strong>Total de los <?= number_format($tot['n']) ?> ingresos filtrados</strong></td>
-                    <td class="tabla--numerica cifra"><?= formatoMoneda($tot['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($tot['iva']) ?></td>
-                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="2"></td>
-                    <td class="tabla--numerica cifra"><?= formatoMoneda($tot['saldo']) ?></td><td colspan="2"></td></tr></tfoot>
+                <tfoot><tr><td colspan="5"><strong>Total de los <?= number_format($totCon['n']) ?> ingresos filtrados</strong></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($totCon['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($totCon['iva']) ?></td>
+                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($totCon['total']) ?></strong></td><td colspan="2"></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($totCon['saldo']) ?></td><td colspan="2"></td></tr></tfoot>
             </table>
         </div>
-        <?php template('paginacion', ['pagina' => $pagina, 'rutaBase' => $rutaBase, 'total' => $total]); ?>
+        <?php template('paginacion', ['pagina' => $pagina, 'rutaBase' => $rutaBase, 'total' => $totalCon]); ?>
+    <?php endif; ?>
+</section>
+
+<section class="tarjeta tarjeta--sin-relleno">
+    <div class="flex-entre fila--envuelto mb-md">
+        <h2 class="titulo-5">Ventas indicadas como sin factura (no se facturarán)</h2>
+        <span class="badge badge--neutro badge--sin-punto cifra"><?= number_format($totalSin) ?> <?= $totalSin === 1 ? 'venta' : 'ventas' ?></span>
+    </div>
+
+    <?php if (!$ingresosSin) : ?>
+        <div class="vacio">
+            <span class="material-symbols-outlined vacio__icono" aria-hidden="true">receipt_long</span>
+            <p class="vacio__titulo">Ninguna venta marcada como «No facturada»</p>
+            <p>Cuando en una venta digas que no se facturará, aparecerá aquí.</p>
+        </div>
+    <?php else : ?>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <caption class="solo-lectores">Ventas marcadas como sin factura</caption>
+                <thead><tr><?= $encabezados ?></tr></thead>
+                <tbody>
+                    <?php foreach ($ingresosSin as $i) : ?><?= $filaTabla($i) ?><?php endforeach; ?>
+                </tbody>
+                <tfoot><tr><td colspan="5"><strong>Total de las <?= number_format($totSin['n']) ?> ventas sin factura</strong></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($totSin['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($totSin['iva']) ?></td>
+                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($totSin['total']) ?></strong></td><td colspan="2"></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($totSin['saldo']) ?></td><td colspan="2"></td></tr></tfoot>
+            </table>
+        </div>
+        <p class="campo__ayuda">Estas ventas ya no se van a facturar: no cuentan como CFDI emitido. Si alguna vez sí se factura, usa el interruptor de la columna «Facturación» y pasa a la tabla de arriba.</p>
+        <?php template('paginacion', ['pagina' => $paginaSin, 'rutaBase' => $rutaBase, 'total' => $totalSin, 'parametro' => 'pagina_sin']); ?>
     <?php endif; ?>
 </section>
 

@@ -199,6 +199,8 @@ class Lecturas
             'campos'    => (array) ($lectura['leidos']['campos'] ?? []),
             'conceptos' => (array) ($lectura['leidos']['conceptos'] ?? []),
             'avisos'    => (array) ($lectura['avisos_lista'] ?? []),
+            // Con la huella del archivo se detecta también el mismo PDF/XML ya adjunto.
+            'sha256'    => (string) ($lectura['sha256'] ?? ''),
         ], $destino);
 
         return $analisis + [
@@ -543,9 +545,13 @@ class Lecturas
     /**
      * Asocia al registro el original y los complementarios de la lectura.
      *
+     * Se usa al confirmar una lectura y al guardar el gasto que se abrió con el
+     * botón inteligente: así el XML y el PDF que se subieron juntos quedan los
+     * dos adjuntos al registro.
+     *
      * @return string[] avisos de lo que no se pudo adjuntar
      */
-    private static function adjuntar(array $lectura, string $entidad, int $entidadId, int $usuarioId): array
+    public static function adjuntar(array $lectura, string $entidad, int $entidadId, int $usuarioId): array
     {
         $fallos = [];
         $lista = [['archivo' => $lectura['archivo'], 'nombre' => $lectura['nombre_original']]];
