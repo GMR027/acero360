@@ -917,6 +917,16 @@ class CoincidenciasFactura
         return $filas;
     }
 
+    /**
+     * Similitud (0–100) entre dos textos crudos, con las mismas reglas de cotejo
+     * de este motor (normalización + umbral del 85 %). Lo usa ComprasIntel para
+     * comparar partidas de compra contra conceptos del XML.
+     */
+    public static function similitudTextos(string $a, string $b): float
+    {
+        return self::similitud(self::normalizar($a), self::normalizar($b));
+    }
+
     /** Texto comparable: minúsculas, sin acentos, sin puntuación. */
     private static function normalizar(string $texto): string
     {

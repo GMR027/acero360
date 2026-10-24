@@ -40,6 +40,299 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
         una venta entra al cálculo de CFDI emitidos únicamente cuando la marcas como facturada.
     </p>
 
+    <?php
+    /* -----------------------------------------------------------------------
+     * VALIDACIÓN PREVIA A FACTURAR (FASE 5)
+     *
+     * Se revisa el receptor, el emisor, los conceptos, los importes, el
+     * método/forma de pago y la emitibilidad de la venta ANTES de facturar.
+     * Todo clasificado en correcto / advertencia / error obligatorio.
+     *
+     * El botón abre el modal de revisión (cliente, datos fiscales, conceptos,
+     * importes y advertencias). Si hay errores, el modal no ofrece continuar y
+     * el servidor vuelve a bloquear en /admin/ventas/fiscal y en
+     * ingresos/accion: no se factura con información indispensable faltante.
+     *
+     * Nota: hoy no hay integración con PAC (no se timbra desde el sistema),
+     * por eso «continuar» no simula una emisión: sólo valida y relaciona un
+     * CFDI existente si lo hay.
+     */
+    $ventaFiscalId = (int) ($ingreso['venta_id'] ?? 0);
+    $revisionFiscal = ($ventaFiscalId > 0 && $editable) ? \App\VentasFiscal::validar($ventaFiscalId) : null;
+    ?>
+    <?php if ($revisionFiscal !== null) : $rv = $revisionFiscal; ?>
+        <div class="mb-md" id="validacion-previa">
+            <p class="texto-sm mb-sm">
+                <strong>Validación previa a facturar:</strong>
+                <span class="badge badge--aprobado"><?= (int) $rv['resumen']['correcto'] ?> correctos</span>
+                <?php if ($rv['resumen']['advertencia'] > 0) : ?>
+                    <span class="badge badge--pendiente"><?= (int) $rv['resumen']['advertencia'] ?> advertencias</span>
+                <?php endif; ?>
+                <?php if ($rv['resumen']['error'] > 0) : ?>
+                    <span class="badge badge--error"><?= (int) $rv['resumen']['error'] ?> errores obligatorios</span>
+                <?php endif; ?>
+            </p>
+
+            <?php if ($rv['errores'] || $rv['advertencias']) : ?>
+                <details class="mb-sm">
+                    <summary class="texto-sm">Puntos por corregir o revisar (<?= count($rv['errores']) ?> pendientes, <?= count($rv['advertencias']) ?> por revisar)</summary>
+                    <ul class="lista-simple">
+                        <?php foreach ($rv['errores'] as $error) : ?>
+                            <li class="texto-error"><?= escaparValores($error) ?></li>
+                        <?php endforeach; ?>
+                        <?php foreach ($rv['advertencias'] as $aviso) : ?>
+                            <li>⚠ <?= escaparValores($aviso) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php if ($rv['errores']) : ?>
+                        <p class="texto-sm texto-error mt-sm">Hay errores obligatorios: no se puede facturar hasta completarlos
+                            <?php if ((int) ($rv['cliente']['id'] ?? 0) > 0) : ?>· <a href="/admin/clientes/editar?id=<?= (int) $rv['cliente']['id'] ?>">Editar datos fiscales del cliente</a><?php endif; ?>
+                        </p>
+                    <?php endif; ?>
+                </details>
+            <?php endif; ?>
+
+            <?php if ($rv['uuid'] !== '') : ?>
+                <p class="nota nota--info mb-sm" role="status">
+                    <span>Esta venta ya tiene un CFDI: UUID <strong><?= escaparValores($rv['uuid']) ?></strong><?php
+                    if ($rv['cfdi']) : ?> (archivo adjunto: <?= escaparValores($rv['cfdi']['nombre_original']) ?>)<?php endif; ?>.
+                    Sólo se reemite con una corrección o sustitución autorizada.</span>
+                </p>
+            <?php endif; ?>
+
+            <button class="btn btn--primario" type="button" id="btn-revision-fiscal">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">fact_check</span>
+                <span>Revisar y facturar</span>
+            </button>
+        </div>
+
+        <!-- Cuerpo del modal de revisión (inerte hasta que JS lo abre). -->
+        <template id="tpl-revision-fiscal">
+            <div>
+                <p class="texto-sm">
+                    <strong>Cliente:</strong> <?= escaparValores(trim($rv['cliente']['nombre_empresa'] ?: $rv['cliente']['nombre'])) ?>
+                    (ficha #<?= (int) $rv['cliente']['id'] ?>) ·
+                    <strong>RFC:</strong> <?= escaparValores(\App\VentasFiscal::normalizarRfc((string) $rv['cliente']['rfc']) ?: 'sin definir') ?>
+                </p>
+
+                <h4 class="titulo-6 mt-md mb-sm">Datos fiscales</h4>
+                <div class="formulario__rejilla">
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="f-rfc">RFC del receptor</label>
+                        <input class="control" type="text" id="f-rfc" maxlength="20" style="text-transform:uppercase"
+                               value="<?= escaparValores((string) $rv['cliente']['rfc']) ?>">
+                    </div>
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="f-cp">Código postal fiscal</label>
+                        <input class="control" type="text" id="f-cp" maxlength="5" inputmode="numeric"
+                               value="<?= escaparValores((string) $rv['cliente']['codigo_postal']) ?>">
+                    </div>
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="f-regimen">Régimen fiscal</label>
+                        <select class="control" id="f-regimen">
+                            <option value="">— Sin definir —</option>
+                            <?php foreach (\App\VentasFiscal::REGIMENES as $claveR) : ?>
+                                <option value="<?= $claveR ?>"<?= mb_strtoupper(trim((string) $rv['cliente']['regimen_fiscal'])) === $claveR ? ' selected' : '' ?>><?= $claveR ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="f-uso">Uso del CFDI</label>
+                        <select class="control" id="f-uso">
+                            <option value="">— Sin definir —</option>
+                            <?php foreach (\App\VentasFiscal::USOS_CFDI as $claveU) : ?>
+                                <?php $textoU = \App\Gastos::USOS_CFDI[$claveU] ?? $claveU; ?>
+                                <option value="<?= $claveU ?>"<?= mb_strtoupper(trim((string) $rv['cliente']['uso_cfdi'])) === $claveU ? ' selected' : '' ?>><?= escaparValores($textoU) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="f-metodo">Método de pago</label>
+                        <select class="control" id="f-metodo">
+                            <option value="">— Elegir —</option>
+                            <?php $metodoActual = mb_strtoupper(trim((string) ($rv['ingreso']['metodo_pago'] ?? ''))); ?>
+                            <?php foreach (\App\VentasFiscal::METODOS as $claveM => $textoM) : ?>
+                                <option value="<?= $claveM ?>"<?= $metodoActual === $claveM ? ' selected' : '' ?>><?= escaparValores($textoM) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="campo__ayuda">Propuesta por la operación: <?= escaparValores($rv['propuestas']['metodo']) ?></span>
+                    </div>
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="f-forma">Forma de pago</label>
+                        <select class="control" id="f-forma">
+                            <option value="">— Sin definir —</option>
+                            <?php $formaActual = trim((string) ($rv['ingreso']['forma_pago'] ?? '')); ?>
+                            <?php foreach (\App\VentasFiscal::FORMAS_PAGO as $claveF => $textoF) : ?>
+                                <option value="<?= $claveF ?>"<?= $formaActual === $claveF ? ' selected' : '' ?>><?= escaparValores($claveF . ' · ' . $textoF) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="campo__ayuda">Propuesta por la operación: <?= escaparValores($rv['propuestas']['forma'] . ' · ' . (\App\VentasFiscal::FORMAS_PAGO[$rv['propuestas']['forma']] ?? '')) ?></span>
+                    </div>
+                </div>
+                <p class="campo__ayuda mt-sm">
+                    Emisor: <?= escaparValores($rv['empresa']['nombre']) ?> · RFC <?= escaparValores(\App\VentasFiscal::normalizarRfc((string) $rv['empresa']['rfc']) ?: (\App\VentasFiscal::normalizarRfc((string) ($rv['contribuyente_rfc'] ?? '')) ?: 'sin definir')) ?>
+                    · CP <?= escaparValores(trim((string) $rv['empresa']['cp']) ?: '—') ?>
+                    · régimen <?= escaparValores(trim((string) $rv['empresa']['regimen']) ?: '—') ?>.
+                </p>
+
+                <h4 class="titulo-6 mt-md mb-sm">Conceptos</h4>
+                <?php if ($rv['conceptos']) : ?>
+                    <div class="tabla-contenedor mb-sm"><table class="tabla">
+                        <thead><tr><th scope="col">Descripción</th><th scope="col" class="tabla--numerica">Cant.</th>
+                            <th scope="col" class="tabla--numerica">Precio</th><th scope="col" class="tabla--numerica">Dcto.</th>
+                            <th scope="col" class="tabla--numerica">Importe</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($rv['conceptos'] as $con) : ?>
+                            <tr><td><?= escaparValores($con['descripcion']) ?></td>
+                                <td class="tabla--numerica cifra"><?= (int) $con['cantidad'] ?></td>
+                                <td class="tabla--numerica cifra"><?= formatoMoneda($con['precio']) ?></td>
+                                <td class="tabla--numerica cifra"><?= $con['descuento'] > 0 ? rtrim(rtrim(number_format($con['descuento'], 2), '0'), '.') . '%' : '—' ?></td>
+                                <td class="tabla--numerica cifra"><?= formatoMoneda($con['importe']) ?></td></tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table></div>
+                <?php else : ?>
+                    <p class="texto-sm texto-error">La venta no tiene conceptos.</p>
+                <?php endif; ?>
+
+                <h4 class="titulo-6 mt-md mb-sm">Importes</h4>
+                <p class="texto-sm">
+                    Subtotal <strong class="cifra"><?= formatoMoneda((float) $rv['venta']['subtotal']) ?></strong>
+                    · Descuento <strong class="cifra"><?= formatoMoneda((float) $rv['venta']['descuento']) ?></strong>
+                    · IVA <strong class="cifra"><?= formatoMoneda((float) $rv['venta']['iva']) ?></strong>
+                    · Otros impuestos <strong class="cifra"><?= formatoMoneda((float) ($rv['ingreso']['otros_impuestos'] ?? 0)) ?></strong>
+                    · <strong>Total <span class="cifra"><?= formatoMoneda((float) $rv['venta']['total']) ?></span></strong>
+                    <br>Cobrado <span class="cifra"><?= formatoMoneda((float) $rv['cobrado']) ?></span>
+                    · saldo <span class="cifra"><?= formatoMoneda((float) $rv['venta']['total'] - (float) $rv['cobrado']) ?></span>
+                    · venta <?= escaparValores($rv['venta']['folio']) ?> del <?= date('d/m/Y', strtotime((string) $rv['venta']['fecha'])) ?>
+                </p>
+
+                <h4 class="titulo-6 mt-md mb-sm">Validaciones (<?= count($rv['items']) ?>)</h4>
+                <ul class="lista-simple">
+                    <?php foreach ($rv['items'] as $item) : $est = \App\VentasFiscal::ESTADOS[$item['estado']]; ?>
+                        <li>
+                            <span class="badge <?= $est['clase'] ?>"><?= escaparValores($est['etiqueta']) ?></span>
+                            <span class="texto-xs texto-secundario"><?= escaparValores(\App\VentasFiscal::GRUPOS[$item['grupo']] ?? $item['grupo']) ?> ·</span>
+                            <?= escaparValores($item['detalle']) ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+
+                <?php if ($rv['facturada'] && $rv['uuid'] !== '') : ?>
+                    <hr class="divisor mt-md mb-md">
+                    <label class="comprobacion" for="f-sustitucion">
+                        <input type="checkbox" id="f-sustitucion">
+                        <span>Corrección o sustitución autorizada de la venta (ya existe CFDI <?= escaparValores($rv['uuid']) ?>)</span>
+                    </label>
+                    <label class="campo__etiqueta mt-sm" for="f-motivo">Motivo de la corrección o sustitución</label>
+                    <input class="control" type="text" id="f-motivo" maxlength="120" placeholder="Ej. Error en cantidades: se sustituye el comprobante">
+                <?php endif; ?>
+
+                <?php if (!$rv['puede_facturar']) : ?>
+                    <p class="nota nota--error mt-md" role="alert">
+                        <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
+                        <span><strong>Falta información indispensable</strong> (<?= (int) $rv['resumen']['error'] ?> error(es) obligatorio(s)).
+                            Completa los campos de arriba o corrige los puntos marcados: no se puede avanzar a facturar.</span>
+                    </p>
+                <?php else : ?>
+                    <p class="nota nota--info mt-md" role="status">
+                        <span class="material-symbols-outlined nota__icono" aria-hidden="true">check_circle</span>
+                        <span>Validación aprobada<?php if ($rv['resumen']['advertencia'] > 0) : ?> con <?= (int) $rv['resumen']['advertencia'] ?> advertencia(s) por revisar<?php endif; ?>.</span>
+                    </p>
+                <?php endif; ?>
+
+                <p class="texto-sm texto-error" id="f-falta" hidden></p>
+            </div>
+        </template>
+
+        <!-- Formulario real: el modal sólo llena estos campos y lo envía. -->
+        <form id="form-fiscal" action="/admin/ventas/fiscal" method="post" hidden>
+            <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+            <input type="hidden" name="accion" value="emitir">
+            <input type="hidden" name="venta" value="<?= $ventaFiscalId ?>">
+            <input type="hidden" id="env-rfc" name="rfc" value="">
+            <input type="hidden" id="env-cp" name="codigo_postal" value="">
+            <input type="hidden" id="env-regimen" name="regimen_fiscal" value="">
+            <input type="hidden" id="env-uso" name="uso_cfdi" value="">
+            <input type="hidden" id="env-metodo" name="metodo_pago" value="">
+            <input type="hidden" id="env-forma" name="forma_pago" value="">
+            <input type="hidden" id="env-sustitucion" name="sustitucion" value="">
+            <input type="hidden" id="env-motivo" name="motivo_sustitucion" value="">
+        </form>
+
+        <script>
+        /* Modal de revisión previa a facturar (FASE 5).
+         * Abre la revisión clasificada; sólo envía si los campos indispensables
+         * están completos (el servidor vuelve a validar todo antes de avanzar).
+         * Sin JS el resumen de arriba sigue visible y el formulario de
+         * facturación queda bloqueado en el servidor si hay errores. */
+        (function () {
+            var boton = document.getElementById('btn-revision-fiscal');
+            if (!boton) { return; }
+            if (typeof abrirModal !== 'function') { boton.hidden = true; return; }
+
+            var copiar = function (origen, destino) {
+                var o = document.getElementById(origen), d = document.getElementById(destino);
+                if (o && d) { d.value = o.value; }
+            };
+
+            boton.addEventListener('click', function () {
+                var plantilla = document.getElementById('tpl-revision-fiscal');
+                var cuerpo = plantilla.content.cloneNode(true);
+
+                abrirModal({
+                    sobreTitulo: 'Facturación de la venta',
+                    titulo: 'Revisión previa a facturar',
+                    cuerpo: cuerpo,
+                    textoConfirmar: 'Continuar y facturar',
+                    alConfirmar: function () {
+                        var faltan = [];
+                        var rfc = (document.getElementById('f-rfc').value || '').trim();
+                        var cp = (document.getElementById('f-cp').value || '').trim();
+                        var regimen = document.getElementById('f-regimen').value;
+                        var uso = document.getElementById('f-uso').value;
+                        var metodo = document.getElementById('f-metodo').value;
+                        var forma = document.getElementById('f-forma').value;
+
+                        if (rfc === '') { faltan.push('RFC del receptor'); }
+                        if (!/^[A-Za-zÑñ&]{3,4}\d{6}[A-Za-z0-9]{3}$/.test(rfc.replace(/[\s\-.]/g, '').toUpperCase())
+                            && !/^(XAXX010101000|XEXX010101000)$/.test(rfc.replace(/[\s\-.]/g, '').toUpperCase())) {
+                            faltan.push('el formato del RFC');
+                        }
+                        if (!/^\d{5}$/.test(cp)) { faltan.push('el código postal fiscal (5 dígitos)'); }
+                        if (regimen === '') { faltan.push('el régimen fiscal'); }
+                        if (uso === '') { faltan.push('el uso del CFDI'); }
+                        if (metodo === '') { faltan.push('el método de pago'); }
+                        if (metodo === 'PUE' && forma === '') { faltan.push('la forma de pago (obligatoria con PUE)'); }
+                        var sustitucion = document.getElementById('f-sustitucion');
+                        var motivo = document.getElementById('f-motivo');
+                        if (sustitucion && sustitucion.checked && (!motivo || motivo.value.trim().length < 5)) {
+                            faltan.push('el motivo de la sustitución (mínimo 5 caracteres)');
+                        }
+
+                        var aviso = document.getElementById('f-falta');
+                        if (faltan.length > 0) {
+                            aviso.textContent = 'No se puede continuar: falta ' + faltan.join(', ') + '.';
+                            aviso.hidden = false;
+                            return;
+                        }
+
+                        copiar('f-rfc', 'env-rfc');
+                        copiar('f-cp', 'env-cp');
+                        copiar('f-regimen', 'env-regimen');
+                        copiar('f-uso', 'env-uso');
+                        copiar('f-metodo', 'env-metodo');
+                        copiar('f-forma', 'env-forma');
+                        if (sustitucion) { document.getElementById('env-sustitucion').value = sustitucion.checked ? '1' : ''; }
+                        if (motivo) { document.getElementById('env-motivo').value = motivo.value; }
+                        document.getElementById('form-fiscal').submit();
+                    }
+                });
+            });
+        })();
+        </script>
+    <?php endif; ?>
+
     <?php if ($editable) : ?>
         <form class="formulario" action="/admin/contabilidad/ingresos/accion" method="post" enctype="multipart/form-data" novalidate>
             <input type="hidden" name="id" value="<?= (int) $ingreso['id'] ?>">

@@ -121,6 +121,52 @@ select.control {
   max-width: 12rem;
 }
 
+/* --- Controles con botón superpuesto (mostrar contraseña) ---------------- */
+/* La caja envuelve al control y da posición al botón del ojo; el padding
+   derecho reserva el espacio para que el texto no quede debajo del icono. */
+.campo__caja {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .control {
+    padding-right: 2.5rem;
+  }
+}
+
+.campo__ojo {
+  position: absolute;
+  right: $espacio-xs;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  overflow: hidden; // si falla la fuente de iconos, el texto no se sale del botón.
+  background: none;
+  border: 0;
+  border-radius: $radio-sm;
+  color: $color-texto-secundario;
+  cursor: pointer;
+  transition: color $transicion-rapida;
+
+  &:hover {
+    color: $color-texto;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-primario;
+    outline-offset: 1px;
+    color: $color-texto;
+  }
+
+  &-icono {
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+}
+
 /* --- Rejilla de campos ---------------------------------------------------- */
 /* Campo que ocupa el ancho completo dentro de una rejilla de formulario. */
 .campo--completo {

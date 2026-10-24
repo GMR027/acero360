@@ -27,7 +27,14 @@ const publicas = new Set(['/', '/login', '/registro', '/logout']);
 const protegidas = rutas.filter((r) => !publicas.has(r.ruta));
 console.log(`Rutas declaradas: ${rutas.length} (${protegidas.length} protegidas)`);
 
-const pedir = (metodo, ruta, cookie = '') => fetch(BASE + ruta, { method: metodo, redirect: 'manual', headers: cookie ? { cookie } : {}, body: metodo === 'POST' ? new URLSearchParams({ id: '1' }) : undefined });
+const galletas = (r) => (r.headers.getSetCookie?.() || []).map((c) => c.split(';')[0]).filter(Boolean).join('; ');
+// La puerta CSRF exige la llave de la sesión en TODO POST; sin ella el login ni se intenta
+// y la prueba de rol sería vacía (parecería rechazo de permisos por no tener sesión).
+const pedir = (metodo, ruta, cookie = '', token = '') => fetch(BASE + ruta, {
+  method: metodo, redirect: 'manual',
+  headers: { ...(cookie ? { cookie } : {}), ...(token ? { 'x-csrf-token': token } : {}) },
+  body: metodo === 'POST' ? new URLSearchParams({ id: '1' }) : undefined,
+});
 const esLogin = (r) => r.status === 302 && (r.headers.get('location') || '').includes('/login');
 
 console.log('Sin sesión');
@@ -44,11 +51,21 @@ console.log('Usuario que no es administrador (rol 2)');
 const hash = execFileSync('php', ['-r', "echo password_hash('Prueba1234!', PASSWORD_BCRYPT);"], { encoding: 'utf8' });
 sql("DELETE FROM usuarios WHERE email='prueba.rol2@cotizaciones.local'");
 sql(`INSERT INTO usuarios (nombre,email,contrasena,rol) VALUES ('Sin permisos','prueba.rol2@cotizaciones.local','${hash}',2)`);
-const login = await fetch(BASE + '/login', { method: 'POST', redirect: 'manual', body: new URLSearchParams({ email: 'prueba.rol2@cotizaciones.local', contrasena: 'Prueba1234!' }) });
-const cookie = (login.headers.getSetCookie?.() || []).map((c) => c.split(';')[0]).join('; ');
+const previo = await fetch(BASE + '/login');
+const cookieAnon = galletas(previo);
+const csrf = ((await previo.text()).match(/name="_csrf"\s+value="([^"]+)"/) || [])[1] || '';
+const login = await fetch(BASE + '/login', {
+  method: 'POST', redirect: 'manual',
+  headers: { ...(cookieAnon ? { cookie: cookieAnon } : {}), 'content-type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({ _csrf: csrf, email: 'prueba.rol2@cotizaciones.local', contrasena: 'Prueba1234!' }),
+});
+const cookie = [cookieAnon, galletas(login)].filter(Boolean).join('; ');
+const ubicacion = login.headers.get('location') || '';
+verifica('la sesión del usuario sin permisos SÍ inicia (para probar el rol de verdad)',
+  login.status === 302 && ubicacion.includes('/admin'), `${login.status} → ${ubicacion}`);
 let rechazadasRol2 = 0;
 for (const { metodo, ruta } of protegidas) {
-  const r = await pedir(metodo, ruta, cookie);
+  const r = await pedir(metodo, ruta, cookie, csrf);
   esLogin(r) ? rechazadasRol2++ : verifica(`${metodo} ${ruta} con rol 2`, false, `status ${r.status}`);
 }
 verifica('un usuario sin rol de administrador es rechazado en TODAS las rutas', rechazadasRol2 === protegidas.length, `${rechazadasRol2}/${protegidas.length}`);

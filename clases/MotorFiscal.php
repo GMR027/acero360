@@ -147,8 +147,10 @@ class MotorFiscal
          * sus cobros se reconocen en el mes en que se recibieron (prorrateo de IVA). */
         $liquidado = [];
         $pendiente = [];
+        $mesExclusion = [];              // ingreso_id => mes (por FECHA de la factura) para declarar lo excluido
+        $facturasExcluidas = [];         // ingreso_id => ['pendiente' => centavos, 'mes' => 1..12]
         $consulta = $db->prepare(
-            "SELECT i.id, ROUND(i.total * 100) AS total,
+            "SELECT i.id, i.fecha, ROUND(i.total * 100) AS total,
                     COALESCE((SELECT SUM(ROUND(c.importe * 100)) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente'), 0) AS cobrado
                FROM ingresos i
               WHERE i.estado = 'vigente' AND i.contribuyente_id = ?"
@@ -159,6 +161,12 @@ class MotorFiscal
             $id = (int) $f['id'];
             $liquidado[$id] = (int) $f['cobrado'] >= (int) $f['total'];
             $pendiente[$id] = max(0, (int) $f['total'] - (int) $f['cobrado']);
+            $mesExclusion[$id] = (int) substr((string) $f['fecha'], 5, 2);
+            // Toda factura NO cobrada al 100 % queda declarada como excluida aunque no
+            // tenga ni un cobro (así nada se cae en silencio: requisito de mostrar razones).
+            if (!$liquidado[$id]) {
+                $facturasExcluidas[$id] = ['pendiente' => $pendiente[$id], 'mes' => $mesExclusion[$id]];
+            }
         }
         $consulta->close();
 
@@ -176,12 +184,11 @@ class MotorFiscal
         $ingresoMes = array_fill(1, 12, 0);   // base cobrada (sin IVA) por mes
         $ivaMes = array_fill(1, 12, 0);       // IVA cobrado por mes
         $acumulado = [];                       // ingreso_id => [cobrado acumulado, iva acumulado]
-        $facturasExcluidas = [];               // ingreso_id => lo que falta por cobrar (centavos)
         foreach ($cobros as $c) {
             $id = (int) $c['ingreso_id'];
             if (!($liquidado[$id] ?? false)) {
-                // Pago parcial o sin cobro confirmado: se trata como sin pagar y no entra.
-                $facturasExcluidas[$id] = $pendiente[$id] ?? 0;
+                // Pago parcial o sin cobro confirmado: se trata como sin pagar y no entra
+                // (su exclusión ya quedó registrada arriba con su mes y saldo pendiente).
                 continue;
             }
             $total = Contabilidad::centavos($c['total']);
@@ -200,13 +207,14 @@ class MotorFiscal
         }
 
         // Lo excluido por pago incompleto, para que el cálculo lo declare en vez de callarlo.
+        $pendienteExcluido = array_sum(array_column($facturasExcluidas, 'pendiente'));
         $r['facturas_excluidas'] = [
-            'n'        => count($facturasExcluidas),
-            'pendiente' => array_sum($facturasExcluidas) / 100.0,
+            'n'         => count($facturasExcluidas),
+            'pendiente' => $pendienteExcluido / 100.0,
         ];
         if ($facturasExcluidas) {
             $avisos[] = count($facturasExcluidas) . ' factura(s) con pagos en parcialidades (faltan '
-                . number_format(array_sum($facturasExcluidas) / 100, 2, '.', '') . ' por cobrar) no se consideran: entran cuando se paguen al 100 %.';
+                . number_format($pendienteExcluido / 100, 2, '.', '') . ' por cobrar) no se consideran: entran cuando se paguen al 100 %.';
         }
 
         /* --- 2. Gastos pagados que cumplen las reglas ------------------------------- */
@@ -288,6 +296,57 @@ class MotorFiscal
         $consulta->close();
 
         $declaraciones = RegistrosFiscales::declaraciones($contribuyenteId, $anio);
+
+        /* --- 3b. Series por mes (centavos) y reglas aplicadas ------------------------
+         * Exponen exactamente lo mismo que calculó este motor para que las pantallas y
+         * el adaptador de ResumenFiscal no hagan SU propia cuenta (un solo motor). */
+        $gastosNoPagadosN = array_fill(1, 12, 0);
+        $gastosNoPagados = array_fill(1, 12, 0);
+        $consulta = $db->prepare(
+            "SELECT MONTH(COALESCE(fecha_pago, fecha)) AS m, COUNT(*) AS n, SUM(ROUND(total * 100)) AS t
+               FROM gastos
+              WHERE estado = 'vigente' AND estado_pago = 'pendiente' AND contribuyente_id = ?
+                AND YEAR(COALESCE(fecha_pago, fecha)) = ?
+              GROUP BY MONTH(COALESCE(fecha_pago, fecha))"
+        );
+        $consulta->bind_param('ii', $contribuyenteId, $anio);
+        $consulta->execute();
+        foreach ($consulta->get_result() as $f) {
+            $gastosNoPagadosN[(int) $f['m']] = (int) $f['n'];
+            $gastosNoPagados[(int) $f['m']] = (int) $f['t'];
+        }
+        $consulta->close();
+
+        $porMes = [
+            'ingreso' => $ingresoMes, 'iva_cobrado' => $ivaMes,
+            'deduccion' => $deduccionMes, 'iva_acreditable' => $ivaAcreditableMes,
+            'ret_iva' => $retIva, 'ret_isr' => $retIsr,
+            'saldo_favor_iva' => $ajuste['saldo_favor_iva_anterior'], 'ajuste_iva' => $ajuste['otros_ajustes_iva'],
+            'ptu' => $ajuste['ptu_pagada'], 'perdidas' => $ajuste['perdidas_por_amortizar'],
+            'otros_isr' => $ajuste['otros_acreditamientos_isr'],
+            'facturas_excluidas_n' => array_fill(1, 12, 0), 'facturas_excluidas' => array_fill(1, 12, 0),
+            'gastos_no_pagados_n' => $gastosNoPagadosN, 'gastos_no_pagados' => $gastosNoPagados,
+        ];
+        foreach ($facturasExcluidas as $excluida) {
+            $mx = max(1, min(12, (int) $excluida['mes']));
+            $porMes['facturas_excluidas_n'][$mx]++;
+            $porMes['facturas_excluidas'][$mx] += (int) $excluida['pendiente'];
+        }
+        $r['por_mes'] = $porMes;
+
+        // Reglas y régimen aplicados (versionados en el catálogo): la pantalla los muestra
+        // junto a cada exclusión para que se vea el porqué de cada importe fuera del cálculo.
+        $r['reglas'] = [
+            'base_ingresos' => $configuracion['base_ingresos'] ?? null,
+            'tipo_persona' => $configuracion['tipo_persona'] ?? null,
+            'regimen' => $configuracion['regimen'] ?? null,
+            'gasto_requiere_validacion' => !empty($reglas['gasto_requiere_validacion']),
+            'gasto_requiere_comprobante' => !empty($reglas['gasto_requiere_comprobante']),
+            'naturalezas_excluidas_deduccion' => (array) ($reglas['naturalezas_excluidas_deduccion'] ?? []),
+            'naturalezas_excluidas_iva_acreditable' => (array) ($reglas['naturalezas_excluidas_iva_acreditable'] ?? []),
+            'iva_prorrateado_por_cobro' => !empty($reglas['iva_se_prorratea_por_cobro']),
+            'tasa_iva_general' => $tasaIva,
+        ];
 
         /* --- 4. IVA del mes ---------------------------------------------------------- */
         $iva = [

@@ -38,8 +38,11 @@ if ((int) ($imp['facturas_sin_pagar_n'] ?? 0) > 0) {
 if ((int) ($imp['gastos_no_pagados_n'] ?? 0) > 0) {
     $fueraImp[] = number_format((int) $imp['gastos_no_pagados_n']) . ' gasto(s) por pagar';
 }
-$pieImpuesto = 'IVA ' . $conSigno($imp['iva_por_pagar']) . ' + ISR ' . $conSigno($imp['isr_por_pagar']) . ' (estimación)'
+$pieImpuesto = 'IVA ' . $conSigno($imp['iva_por_pagar']) . ' + ISR ' . $conSigno($imp['isr_por_pagar']) . ' (estimación con catálogos versionados)'
     . ($fueraImp ? ' · fuera: ' . implode(' y ', $fueraImp) : '');
+if (isset($imp['habilitado']) && !$imp['habilitado']) {
+    $pieImpuesto = 'Cálculo fiscal deshabilitado para este periodo (sin catálogos activos ni configuración): los importes NO se calculan, no se inventan cifras.';
+}
 [$anioAnt, $mesAnt] = \App\Contabilidad::mesAnterior($periodo['anio'], $periodo['mes']);
 $ra = \App\Contabilidad::resumenPeriodo($anioAnt, $mesAnt, $periodo['empresa']);
 $entraAnt = $ra['ventas']['total'] - $ra['facturacion']['no_facturada']['total'];

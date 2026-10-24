@@ -3,32 +3,32 @@
 namespace App;
 
 /**
- * ResumenFiscal — estimación de impuestos por mes (misma cuenta que la hoja «FISCAL» del contador).
+ * ResumenFiscal — acceso en pantalla a la estimación de impuestos por mes.
  *
- * COMPORTAMIENTO DEFINITIVO (una sola regla para pantallas, cierre, PDF, Excel y CSV):
+ * ADAPTADOR DE MotorFiscal (un solo motor): desde la FASE 7 esta clase NO calcula
+ * impuestos por su cuenta. `anual()` traduce mes a mes la salida de
+ * `MotorFiscal::calcular()` (catálogos versionados, base de flujo de efectivo) a las
+ * claves históricas que usan las pantallas, el PDF, Excel, CSV y el cierre de
+ * periodo, de modo que no pueden existir dos motores con cifras distintas para la
+ * misma operación. Lo que aquí sólo se mantiene son DATOS y listados:
  *
- *   Entra al cálculo (por el mes de la FECHA de la operación):
- *     · Ingresos: estado «vigente», facturados y COBRADOS AL 100 % (cobros vigentes ≥ total).
- *     · Gastos:   estado «vigente» y estado_pago «pagado».
- *   No entra: factura sin cobro o con pago parcial (PPD/parcialidades) y gasto «por pagar».
- *   Al confirmarse el pago entra completo, en el mes de la fecha de la operación; lo excluido
- *   se declara en 'facturas_sin_pagar[_n]' y 'gastos_no_pagados[_n]'.
+ *   · reales()/guardarReal()   → lo realmente pagado al SAT (impuesto_real_mensual)
+ *   · movimientos()            → listado de ventas y gastos con sus estados
+ *   · proveedores()            → compras, pagos y saldos con proveedores
+ *   · tasaIsr()                → tasa plana de referencia (ya NO dirige el cálculo:
+ *                                con el catálogo activo el ISR usa la tarifa art. 106)
  *
- *   El método de pago del CFDI (PUE una sola exhibición, PPD parcialidades, POR por definir) y
- *   el estado de cobro son INFORMATIVOS: no cambian la cuenta, sólo explican por qué una
- *   operación está dentro o fuera. Los archivos adjuntos (XML/PDF/fotos) son respaldo
- *   documental: no modifican importes.
+ * Criterio del motor (flujo de efectivo, único método soportado):
+ *   · Entra lo COBRADO (facturas al 100 %, con el IVA prorrateado por cada cobro) y los
+ *     gastos PAGADOS que cumplan sus reglas versionadas (comprobante, naturaleza,
+ *     revisión fiscal). El mes es el del cobro/pago efectivo, no el de la operación.
+ *   · No entra nada sin pagar o en parcialidades, ni gastos excluidos; lo excluido se
+ *     declara en 'facturas_excluidas', 'gastos_excluidos' y 'avisos'.
+ *   · IVA = IVA cobrado − acreditable − retenciones − saldo a favor − otros ajustes.
+ *     ISR = tarifa art. 106 del catálogo sobre el acumulado, contra pagos previos,
+ *     retenciones y otros acreditamientos. IVA e ISR no comparten cifras.
  *
- *   Fórmulas (idénticas a la hoja FISCAL):
- *     IVA facturado   = Σ IVA de las facturas que entran
- *     IVA acreditable = Σ IVA de los gastos que entran
- *     IVA por pagar   = IVA facturado − IVA acreditable
- *     base            = total con IVA − su IVA (el IVA REAL del CFDI; sin inventar el 16 %)
- *     ISR por pagar   = (base facturada − base de gastos) × tasa (32 % por defecto, editable)
- *     Impuestos       = IVA por pagar + ISR por pagar (un negativo es saldo a favor)
- *
- * Equivale a «total / 1.16» cuando la operación es al 16 %, y es exacto con 0 %, 8 % u otra tasa.
- * Es una estimación para planear: NO sustituye a la declaración.
+ * Es una estimación administrativa: NO sustituye al contador ni a la declaración.
  */
 class ResumenFiscal
 {
@@ -86,78 +86,88 @@ class ResumenFiscal
     /**
      * Las 12 columnas del año y su total.
      *
+     * ADAPTADOR, NO MOTOR: cada mes se traduce de MotorFiscal::calcular() (catálogos
+     * versionados, base de flujo de efectivo). Aquí NO hay fórmula propia, para que no
+     * puedan existir dos motores con cifras distintas para la misma operación.
+     *
+     * Cambios de semántica respecto a la versión con cálculo propio:
+     *   · facturado/pagos/iva_*  se atribuyen por el MES DEL COBRO y del PAGO EFECTIVO
+     *     (con el IVA prorrateado por cobro), no por la fecha de la operación.
+     *   · isr_por_pagar          tarifa progresiva del catálogo art. 106 (acumulado,
+     *     pagos provisionales anteriores, retenciones y otros acreditamientos) en vez
+     *     de una tasa plana configurable.
+     *   · iva_por_pagar          cobrado − acreditable − retenciones − saldo a favor
+     *     − otros ajustes (antes sólo facturado − gastos).
+     *   · Los gastos que no entran (sin comprobante, no deducibles, naturaleza excluida)
+     *     quedan en 'gastos_excluidos' y sus reglas en 'reglas' para mostrar el porqué.
+     *   Si el motor está deshabilitado (sin catálogo activo, sin configuración o régimen
+     *   no admitido) 'habilitado' es false con 'avisos': NO se inventa ningún importe.
+     *
      * @return array{meses: array<int, array<string, float|null>>, total: array<string, float>, tasa: float}
      */
     public static function anual(int $contribuyente, int $anio): array
     {
-        $tasa = self::tasaIsr();
+        $tasa = self::tasaIsr();   // Sólo informativa: el cálculo usa la tarifa del catálogo.
+        $reales = self::reales($contribuyente, $anio);
 
-        // Cobro total de una factura: sólo si sus cobros vigentes cubren su total.
-        $pagada = 'ROUND(i.total * 100) <= COALESCE((SELECT SUM(ROUND(c.importe * 100)) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = \'vigente\'), 0)';
+        // Resumen anual (mes 12) para los totales del año: avisos, exclusiones y reglas.
+        $anual = MotorFiscal::calcular($contribuyente, $anio, 12);
+        $habilitado = !empty($anual['habilitado']) && isset($anual['por_mes']);
+        $avisos = array_values(array_unique((array) ($anual['avisos'] ?? [])));
+        $cero = static fn (int $c): float => $c / 100.0;
 
-        $facturado = array_fill(1, 12, 0.0);
-        $ivaFacturado = array_fill(1, 12, 0.0);
-        $consulta = self::$db->prepare(
-            "SELECT MONTH(i.fecha) AS mes, SUM(i.total) AS total, SUM(i.iva) AS iva FROM ingresos i
-              WHERE i.estado = 'vigente' AND i.estado_facturacion = 'facturada' AND i.contribuyente_id = ? AND YEAR(i.fecha) = ?
-                AND $pagada
-              GROUP BY MONTH(i.fecha)"
-        );
-        $consulta->bind_param('ii', $contribuyente, $anio);
-        $consulta->execute();
-        foreach ($consulta->get_result()->fetch_all(MYSQLI_ASSOC) as $f) {
-            $facturado[(int) $f['mes']] = (float) $f['total'];
-            $ivaFacturado[(int) $f['mes']] = (float) $f['iva'];
+        $claveMes = [
+            'facturado', 'pagos', 'facturado_sin_iva', 'pagos_sin_iva', 'iva_facturado', 'iva_acreditado',
+            'iva_por_pagar', 'isr_por_pagar', 'impuestos', 'facturas_sin_pagar_n', 'facturas_sin_pagar',
+            'gastos_no_pagados_n', 'gastos_no_pagados', 'iva_retenciones', 'iva_saldo_favor', 'iva_otros_ajustes',
+            'isr_retenciones', 'isr_otros_acreditamientos', 'isr_pagos_previos',
+        ];
+        $total = array_fill_keys(array_merge($claveMes, ['real', 'a_pagar_meses']), 0.0);
+        $total['facturas_sin_pagar_n'] = 0;
+        $total['gastos_no_pagados_n'] = 0;
+        $meses = [];
+
+        for ($m = 1; $m <= 12; $m++) {
+            $c = $m === 12 ? $anual : MotorFiscal::calcular($contribuyente, $anio, $m);
+            $mesOk = !empty($c['habilitado']) && isset($c['por_mes']);
+            $pm = $c['por_mes'] ?? [];
+
+            // Neto = a cargo − saldo a favor (los dos vienen del motor en centavos).
+            $ivaNeto = $mesOk ? (int) ($c['iva']['a_cargo'] ?? 0) - (int) ($c['iva']['saldo_a_favor'] ?? 0) : 0;
+            $isrNeto = $mesOk ? (int) ($c['isr']['a_pagar'] ?? 0) - (int) ($c['isr']['excedente_acreditable'] ?? 0) : 0;
+
+            $fila = [
+                'facturado'         => $cero((int) ($pm['ingreso'][$m] ?? 0) + (int) ($pm['iva_cobrado'][$m] ?? 0)),
+                'pagos'             => $cero((int) ($pm['deduccion'][$m] ?? 0) + (int) ($pm['iva_acreditable'][$m] ?? 0)),
+                'facturado_sin_iva' => $cero((int) ($pm['ingreso'][$m] ?? 0)),
+                'pagos_sin_iva'     => $cero((int) ($pm['deduccion'][$m] ?? 0)),
+                'iva_facturado'     => $cero((int) ($pm['iva_cobrado'][$m] ?? 0)),
+                'iva_acreditado'    => $cero((int) ($pm['iva_acreditable'][$m] ?? 0)),
+                'iva_por_pagar'     => $cero($ivaNeto),
+                'isr_por_pagar'     => $cero($isrNeto),
+                'impuestos'         => $cero($ivaNeto + $isrNeto),
+                'real'              => $reales[$m] ?? null,
+                'facturas_sin_pagar_n' => (int) ($pm['facturas_excluidas_n'][$m] ?? 0),
+                'facturas_sin_pagar'   => $cero((int) ($pm['facturas_excluidas'][$m] ?? 0)),
+                'gastos_no_pagados_n'  => (int) ($pm['gastos_no_pagados_n'][$m] ?? 0),
+                'gastos_no_pagados'    => $cero((int) ($pm['gastos_no_pagados'][$m] ?? 0)),
+                // Detalle: por qué entra o no cada importe (retenciones y otros conceptos).
+                'iva_retenciones'            => $cero((int) ($pm['ret_iva'][$m] ?? 0)),
+                'iva_saldo_favor'            => $cero((int) ($pm['saldo_favor_iva'][$m] ?? 0)),
+                'iva_otros_ajustes'          => $cero((int) ($pm['ajuste_iva'][$m] ?? 0)),
+                'isr_retenciones'            => $cero((int) ($pm['ret_isr'][$m] ?? 0)),
+                'isr_otros_acreditamientos'  => $cero((int) ($pm['otros_isr'][$m] ?? 0)),
+                'isr_pagos_previos'          => $cero((int) ($c['isr']['pagos_provisionales_anteriores'] ?? 0)),
+                'habilitado'                 => $mesOk,
+            ];
+            $meses[$m] = $fila;
+
+            foreach ($claveMes as $k) {
+                $total[$k] += $fila[$k];
+            }
+            $total['real'] += $fila['real'] ?? 0.0;
+            $total['a_pagar_meses'] += max(0.0, $fila['impuestos']);
         }
-        $consulta->close();
-
-        // Fuera del cálculo: facturas ya emitidas pero sin pagar por completo (parcialidades o nada).
-        $sinPagarN = array_fill(1, 12, 0);
-        $sinPagar  = array_fill(1, 12, 0.0);
-        $consulta = self::$db->prepare(
-            "SELECT MONTH(i.fecha) AS mes, COUNT(*) AS n, SUM(i.total) AS total FROM ingresos i
-              WHERE i.estado = 'vigente' AND i.estado_facturacion = 'facturada' AND i.contribuyente_id = ? AND YEAR(i.fecha) = ?
-                AND NOT ($pagada)
-              GROUP BY MONTH(i.fecha)"
-        );
-        $consulta->bind_param('ii', $contribuyente, $anio);
-        $consulta->execute();
-        foreach ($consulta->get_result()->fetch_all(MYSQLI_ASSOC) as $f) {
-            $sinPagarN[(int) $f['mes']] = (int) $f['n'];
-            $sinPagar[(int) $f['mes']]  = (float) $f['total'];
-        }
-        $consulta->close();
-
-        $pagos = array_fill(1, 12, 0.0);
-        $ivaPagos = array_fill(1, 12, 0.0);
-        $consulta = self::$db->prepare(
-            "SELECT MONTH(fecha) AS mes, SUM(total) AS total, SUM(iva) AS iva FROM gastos
-              WHERE estado = 'vigente' AND estado_pago = 'pagado' AND contribuyente_id = ? AND YEAR(fecha) = ?
-              GROUP BY MONTH(fecha)"
-        );
-        $consulta->bind_param('ii', $contribuyente, $anio);
-        $consulta->execute();
-        foreach ($consulta->get_result()->fetch_all(MYSQLI_ASSOC) as $f) {
-            $pagos[(int) $f['mes']] = (float) $f['total'];
-            $ivaPagos[(int) $f['mes']] = (float) $f['iva'];
-        }
-        $consulta->close();
-
-        // Fuera del cálculo: gastos todavía no pagados (no descuentan hasta confirmar el pago).
-        $gastoNoPagadoN = array_fill(1, 12, 0);
-        $gastoNoPagado   = array_fill(1, 12, 0.0);
-        $consulta = self::$db->prepare(
-            "SELECT MONTH(fecha) AS mes, COUNT(*) AS n, SUM(total) AS total FROM gastos
-              WHERE estado = 'vigente' AND estado_pago = 'pendiente' AND contribuyente_id = ? AND YEAR(fecha) = ?
-              GROUP BY MONTH(fecha)"
-        );
-        $consulta->bind_param('ii', $contribuyente, $anio);
-        $consulta->execute();
-        foreach ($consulta->get_result()->fetch_all(MYSQLI_ASSOC) as $f) {
-            $gastoNoPagadoN[(int) $f['mes']] = (int) $f['n'];
-            $gastoNoPagado[(int) $f['mes']]  = (float) $f['total'];
-        }
-        $consulta->close();
 
         $consulta = self::$db->prepare(
             "SELECT COUNT(*) FROM ingresos WHERE estado = 'vigente' AND estado_facturacion = 'sin_clasificar' AND contribuyente_id = ? AND YEAR(fecha) = ?"
@@ -167,37 +177,20 @@ class ResumenFiscal
         $sinClasificar = (int) $consulta->get_result()->fetch_row()[0];
         $consulta->close();
 
-        $reales = self::reales($contribuyente, $anio);
-        $meses = [];
-        $total = ['facturado' => 0.0, 'pagos' => 0.0, 'facturado_sin_iva' => 0.0, 'pagos_sin_iva' => 0.0, 'iva_facturado' => 0.0,
-            'iva_acreditado' => 0.0, 'iva_por_pagar' => 0.0, 'isr_por_pagar' => 0.0, 'impuestos' => 0.0, 'real' => 0.0, 'a_pagar_meses' => 0.0,
-            'facturas_sin_pagar' => 0.0, 'facturas_sin_pagar_n' => 0, 'gastos_no_pagados' => 0.0, 'gastos_no_pagados_n' => 0];
-
-        for ($m = 1; $m <= 12; $m++) {
-            // Base = total con IVA − el IVA REAL de la operación (no se inventa el 16 %).
-            $fSin = max(0.0, $facturado[$m] - $ivaFacturado[$m]);
-            $pSin = max(0.0, $pagos[$m] - $ivaPagos[$m]);
-            $ivaF = $ivaFacturado[$m];
-            $ivaA = $ivaPagos[$m];
-            $iva  = $ivaF - $ivaA;
-            $isr  = ($fSin - $pSin) * $tasa / 100;
-            $meses[$m] = [
-                'facturado' => $facturado[$m], 'pagos' => $pagos[$m], 'facturado_sin_iva' => $fSin, 'pagos_sin_iva' => $pSin,
-                'iva_facturado' => $ivaF, 'iva_acreditado' => $ivaA, 'iva_por_pagar' => $iva, 'isr_por_pagar' => $isr,
-                'impuestos' => $iva + $isr, 'real' => $reales[$m] ?? null,
-                'facturas_sin_pagar_n' => $sinPagarN[$m], 'facturas_sin_pagar' => $sinPagar[$m],
-                'gastos_no_pagados_n' => $gastoNoPagadoN[$m], 'gastos_no_pagados' => $gastoNoPagado[$m],
-            ];
-            foreach (['facturado', 'pagos', 'facturado_sin_iva', 'pagos_sin_iva', 'iva_facturado', 'iva_acreditado', 'iva_por_pagar',
-                'isr_por_pagar', 'facturas_sin_pagar_n', 'facturas_sin_pagar', 'gastos_no_pagados_n', 'gastos_no_pagados'] as $k) {
-                $total[$k] += $meses[$m][$k];
-            }
-            $total['impuestos'] += $iva + $isr;
-            $total['real'] += $reales[$m] ?? 0.0;
-            $total['a_pagar_meses'] += max(0.0, $iva + $isr);
-        }
-
-        return ['meses' => $meses, 'total' => $total, 'tasa' => $tasa, 'hay_reales' => $reales !== [], 'sin_clasificar' => $sinClasificar];
+        return [
+            'meses' => $meses, 'total' => $total, 'tasa' => $tasa,
+            'hay_reales' => $reales !== [], 'sin_clasificar' => $sinClasificar,
+            // Origen y razones del cálculo (un solo motor: MotorFiscal).
+            'motor'          => 'MotorFiscal',
+            'habilitado'     => $habilitado,
+            'avisos'         => $avisos,
+            'versiones'      => $anual['versiones'] ?? null,
+            'configuracion'  => $anual['configuracion'] ?? null,
+            'aviso_legal'    => $anual['aviso_legal'] ?? null,
+            'reglas'         => $anual['reglas'] ?? null,
+            'gastos_excluidos'  => $anual['gastos_excluidos'] ?? ['no_validados' => 0, 'sin_comprobante' => 0, 'naturaleza' => 0, 'no_deducibles' => 0],
+            'facturas_excluidas' => $anual['facturas_excluidas'] ?? ['n' => 0, 'pendiente' => 0.0],
+        ];
     }
 
     /**

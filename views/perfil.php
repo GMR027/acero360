@@ -206,15 +206,19 @@ template('tabsAjustes', ['tab' => 'perfil']);
             <div class="formulario__rejilla">
                 <div class="campo">
                     <label class="campo__etiqueta" for="contrasena">Nueva contraseña</label>
-                    <input class="control" type="password" id="contrasena" name="contrasena"
-                           minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+                    <div class="campo__caja">
+                        <input class="control" type="password" id="contrasena" name="contrasena"
+                               minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres" data-ver-contrasena>
+                    </div>
                     <span class="campo__ayuda">Opcional</span>
                 </div>
 
                 <div class="campo">
                     <label class="campo__etiqueta" for="repetir">Repetir contraseña</label>
-                    <input class="control" type="password" id="repetir" name="repetir"
-                           minlength="8" autocomplete="new-password" data-comparar="contrasena">
+                    <div class="campo__caja">
+                        <input class="control" type="password" id="repetir" name="repetir"
+                               minlength="8" autocomplete="new-password" data-comparar="contrasena" data-ver-contrasena>
+                    </div>
                 </div>
             </div>
 

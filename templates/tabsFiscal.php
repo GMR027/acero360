@@ -6,6 +6,7 @@ $consulta = isset($periodo) ? '?' . http_build_query(['anio' => $periodo['anio']
 $secciones = [
     'resumen'       => ['/admin/fiscal' . $consulta, 'Impuestos', 'request_quote'],
     'movimientos'   => ['/admin/fiscal/movimientos' . $consulta, 'Ventas y gastos', 'table_view'],
+    'registros'     => ['/admin/fiscal/registros' . $consulta, 'Retenciones y declaraciones', 'gavel'],
     'configuracion' => ['/admin/fiscal/configuracion', 'Datos fiscales', 'tune'],
 ];
 ?>

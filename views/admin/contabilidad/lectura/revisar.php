@@ -11,6 +11,10 @@ $lectura = \App\Lecturas::buscarID($id);
 if (!$lectura) {
     paginaNoEncontrada();
 }
+// Una factura de compra se revisa en su propio flujo (Compras Inteligentes).
+if ((string) $lectura['destino'] === 'compra') {
+    redirigir('/admin/compras/inteligente/revision?id=' . $id);
+}
 $usuario = (int) ($_SESSION['id'] ?? 0);
 $destino = $lectura['destino'];
 

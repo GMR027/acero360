@@ -20,8 +20,13 @@ $periodo = ($mes > 0 ? nombreMes($mes) . ' ' : '') . $anio;
 $sufijo  = $anio . ($mes > 0 ? sprintf('-%02d', $mes) : '');
 $volver  = '/admin/fiscal' . ($tipo === 'movimientos' ? '/movimientos' : '') . "?anio=$anio&mes=" . max(1, $mes);
 $r       = \App\ResumenFiscal::anual($contrib, $anio);
-$tasa    = rtrim(rtrim(number_format($r['tasa'], 2), '0'), '.');
-$aviso   = "Estimación administrativa: ISR al $tasa % de (facturado sin IVA − pagos sin IVA), con el IVA real de cada CFDI. Cuenta sólo las ventas facturadas PAGADAS al 100 % y los gastos YA PAGADOS: las facturas en parcialidades o sin cobrar y los gastos por pagar quedan fuera hasta confirmar su pago. El método del CFDI (PUE/PPD/por definir) y los archivos adjuntos son informativos y no cambian la cuenta. Confírmala con tu contador.";
+$ver     = $r['versiones'] ?? [];
+$aviso   = 'Estimación administrativa de un solo motor (MotorFiscal) con los catálogos versionados: IVA v'
+    . (int) ($ver['iva'] ?? 0) . ', criterios de la plataforma v' . (int) ($ver['reglas'] ?? 0)
+    . ' y tarifa ISR art. 106 v' . (int) ($ver['isr'] ?? 0)
+    . '. Base de flujo de efectivo: entra lo COBRADO al 100 % (IVA prorrateado por cada cobro, mes del cobro) y los gastos PAGADOS que cumplan las reglas (comprobante fiscal obligatorio; naturalezas excluidas). '
+    . 'IVA por pagar = IVA cobrado − IVA acreditable − retenciones − saldo a favor − otros ajustes. ISR = tarifa oficial progresiva sobre la utilidad acumulada, contra pagos provisionales previos, retenciones y acreditamientos. '
+    . 'Lo excluido (facturas en parcialidades, gastos sin comprobante o no deducibles) se lista en el reporte. Confírmala con tu contador.';
 $horizontal = false;
 
 if ($tipo === 'impuestos' && $mes > 0) {
@@ -29,14 +34,17 @@ if ($tipo === 'impuestos' && $mes > 0) {
     $titulo = 'Impuestos por pagar · ' . $periodo;
     $enc    = ['Concepto', 'Importe'];
     $filas  = [
-        ['Facturado (con IVA)', round($x['facturado'], 2)],
-        ['Pagos y gastos (con IVA)', round($x['pagos'], 2)],
+        ['Cobrado (con IVA)', round($x['facturado'], 2)],
+        ['Gastos que entran (con IVA)', round($x['pagos'], 2)],
         ['Fuera: facturas sin pagar o en parcialidades (' . number_format((int) $x['facturas_sin_pagar_n']) . ')', round($x['facturas_sin_pagar'], 2)],
         ['Fuera: gastos por pagar (' . number_format((int) $x['gastos_no_pagados_n']) . ')', round($x['gastos_no_pagados'], 2)],
-        ['IVA facturado', round($x['iva_facturado'], 2)],
-        ['IVA de los gastos', round($x['iva_acreditado'], 2)],
+        ['IVA cobrado (trasladado)', round($x['iva_facturado'], 2)],
+        ['IVA acreditable de gastos', round($x['iva_acreditado'], 2)],
+        ['Retenciones y ajustes de IVA (incl. saldo a favor)', round($x['iva_retenciones'] + $x['iva_saldo_favor'] + $x['iva_otros_ajustes'], 2)],
+        ['ISR retenido y acreditamientos', round($x['isr_retenciones'] + $x['isr_otros_acreditamientos'], 2)],
+        ['Pagos provisionales de ISR previos', round($x['isr_pagos_previos'], 2)],
         ['IVA por pagar', round($x['iva_por_pagar'], 2)],
-        ["ISR por pagar ($tasa %)", round($x['isr_por_pagar'], 2)],
+        ['ISR provisional (art. 106)', round($x['isr_por_pagar'], 2)],
         ['IMPUESTOS POR PAGAR', round($x['impuestos'], 2)],
     ];
     $nombre = "impuestos-$sufijo";
@@ -48,8 +56,11 @@ if ($tipo === 'impuestos' && $mes > 0) {
     }
     $enc[]  = 'Año';
     $filas  = [];
-    foreach ([['facturado', 'Facturado'], ['pagos', 'Pagos y gastos'], ['facturas_sin_pagar', 'Fuera: facturas sin pagar'], ['gastos_no_pagados', 'Fuera: gastos por pagar'],
-        ['iva_por_pagar', 'IVA por pagar'], ['isr_por_pagar', "ISR por pagar ($tasa %)"], ['impuestos', 'IMPUESTOS POR PAGAR']] as [$k, $texto]) {
+    foreach ([['facturado', 'Cobrado (con IVA)'], ['pagos', 'Gastos que entran (con IVA)'], ['facturas_sin_pagar', 'Fuera: facturas sin pagar'], ['gastos_no_pagados', 'Fuera: gastos por pagar'],
+        ['iva_facturado', 'IVA cobrado'], ['iva_acreditado', 'IVA acreditable'],
+        ['iva_retenciones', 'Retenciones y ajustes de IVA'], ['isr_retenciones', 'ISR retenido'],
+        ['isr_pagos_previos', 'Pagos provisionales previos'],
+        ['iva_por_pagar', 'IVA por pagar'], ['isr_por_pagar', 'ISR provisional (art. 106)'], ['impuestos', 'IMPUESTOS POR PAGAR']] as [$k, $texto]) {
         $fila = [$texto];
         for ($i = 1; $i <= 12; $i++) {
             $fila[] = round($r['meses'][$i][$k], 2);
@@ -72,7 +83,7 @@ if ($tipo === 'impuestos' && $mes > 0) {
     $filas[] = ['', '', '', '', '', 'TOTAL VENTAS', '', round($d['totales']['iva_ventas'], 2), round($d['totales']['ventas'], 2)];
     $filas[] = ['', '', '', '', '', 'TOTAL GASTOS', '', round($d['totales']['iva_gastos'], 2), round($d['totales']['gastos'], 2)];
     $filas[] = ['', '', '', '', '', 'IVA por pagar', '', '', round($imp['iva_por_pagar'], 2)];
-    $filas[] = ['', '', '', '', '', "ISR por pagar ($tasa %)", '', '', round($imp['isr_por_pagar'], 2)];
+    $filas[] = ['', '', '', '', '', 'ISR provisional (art. 106)', '', '', round($imp['isr_por_pagar'], 2)];
     $filas[] = ['', '', '', '', '', 'IMPUESTOS POR PAGAR', '', '', round($imp['impuestos'], 2)];
     $nombre = "ventas-y-gastos-$sufijo";
     $horizontal = true;
@@ -81,7 +92,7 @@ if ($tipo === 'impuestos' && $mes > 0) {
 
 if ($tipo === 'movimientos' && $formato === 'pdf') {
     \App\Documentos::descargarReporteFiscal(
-        ['titulo' => $titulo, 'd' => $d, 'imp' => $imp, 'tasa' => $tasa, 'prov' => $prov, 'aviso' => $aviso . ' Lo que se debe a proveedores es el saldo de sus compras menos los pagos registrados.'],
+        ['titulo' => $titulo, 'd' => $d, 'imp' => $imp, 'prov' => $prov, 'aviso' => $aviso . ' Lo que se debe a proveedores es el saldo de sus compras menos los pagos registrados.'],
         $nombre,
         $volver
     );
@@ -110,7 +121,7 @@ if ($tipo === 'movimientos' && $formato === 'xlsx') {
         ['Gastos (total)', $mon($d['totales']['gastos'])], ['   de los cuales ya pagados (sí descuentan)', $mon($d['totales']['gastos_pagados'])],
         ['Fuera del cálculo: facturas sin pagar o en parcialidades', $mon($imp['facturas_sin_pagar'])],
         ['Fuera del cálculo: gastos por pagar', $mon($imp['gastos_no_pagados'])],
-        ['IVA por pagar', $mon($imp['iva_por_pagar'])], ["ISR por pagar ($tasa %)", $mon($imp['isr_por_pagar'])],
+        ['IVA por pagar', $mon($imp['iva_por_pagar'])], ['ISR provisional (art. 106)', $mon($imp['isr_por_pagar'])],
         [['v' => 'IMPUESTOS POR PAGAR', 'f' => 'neg'], $mon($imp['impuestos'])], [],
         ['Comprado a proveedores en el periodo', $mon($prov['totales']['comprado'])],
         ['Pagado a proveedores en el periodo', $mon($prov['totales']['pagado_periodo'])],

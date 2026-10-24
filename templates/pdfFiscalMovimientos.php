@@ -5,7 +5,7 @@
  * Secciones: resumen del periodo · 1 Ventas · 2 Gastos · 3 Impuestos por pagar · 4 Proveedores
  * (resumen de lo que se debe, compras y pagos del periodo).
  *
- * Variables: $titulo, $periodo, $d (ResumenFiscal::movimientos), $imp, $tasa, $prov (ResumenFiscal::proveedores), $aviso
+ * Variables: $titulo, $periodo, $d (ResumenFiscal::movimientos), $imp, $prov (ResumenFiscal::proveedores), $aviso
  */
 $mx    = static fn ($v) => '$' . number_format((float) $v, 2);
 $fecha = static fn ($v) => $v ? date('d/m/Y', strtotime((string) $v)) : '';
@@ -88,7 +88,7 @@ $hayDeuda = $prov['totales']['saldo'] > 0.005;
         <tr><td>IVA de las ventas</td><td class="num"><?= $mx($imp['iva_facturado']) ?></td></tr>
         <tr><td>IVA de los gastos (acreditable)</td><td class="num"><?= $mx($imp['iva_acreditado']) ?></td></tr>
         <tr><td>IVA por pagar</td><td class="num"><?= $mx($imp['iva_por_pagar']) ?></td></tr>
-        <tr><td>ISR por pagar (<?= escaparValores($tasa) ?> %)</td><td class="num"><?= $mx($imp['isr_por_pagar']) ?></td></tr>
+        <tr><td>ISR provisional (art. 106)</td><td class="num"><?= $mx($imp['isr_por_pagar']) ?></td></tr>
         <tfoot><tr><td>IMPUESTOS POR PAGAR</td><td class="num"><?= $mx($imp['impuestos']) ?></td></tr></tfoot>
     </table>
     <?php

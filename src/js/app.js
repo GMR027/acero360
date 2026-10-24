@@ -279,6 +279,9 @@ function inicializarAplicacion() {
   // 8. Miniaturas de producto: alternativa si falla la carga y ampliación.
   inicializarMiniaturasProducto();
 
+  // 9. Campos de contraseña con botón para mostrar lo que se escribió.
+  prepararBotonesVerContrasena();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

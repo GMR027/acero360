@@ -53,6 +53,26 @@ class CompraContable
     }
 
     /**
+     * Compra de la que proviene un gasto (busca por ordenes_compra.gasto_id), o null
+     * si el gasto es manual y no nació de una compra.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function ordenDeGasto(int $gastoId): ?array
+    {
+        $consulta = self::$db->prepare(
+            'SELECT o.*, p.nombre AS proveedor_nombre FROM ordenes_compra o
+               JOIN proveedores p ON p.id = o.proveedor_id WHERE o.gasto_id = ? LIMIT 1'
+        );
+        $consulta->bind_param('i', $gastoId);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ?: null;
+    }
+
+    /**
      * Crea el gasto de la compra (una sola vez) y devuelve su id; si ya existe devuelve el existente.
      * 0 si no se pudo (errores en getErrores()).
      */

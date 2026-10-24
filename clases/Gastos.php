@@ -618,6 +618,13 @@ class Gastos
             self::guardarReparto($id, $g['reparto']);
             Auditoria::registrar('gasto', $id, 'crear', $usuarioId, null, ['total' => $g['total'], 'compartido' => $g['compartido']]);
 
+            // Una lectura de «compra» que resolvió como gasto deja de estar pendiente de decisión
+            // en Compras Inteligentes (si no, seguiría apareciendo como «sin decidir»). Para las
+            // lecturas de gasto/venta no hace nada: esas las cierra su propio flujo de confirmación.
+            if (!empty($g['lectura_id'])) {
+                ComprasIntel::cerrarLectura(['id' => (int) $g['lectura_id']], 'gasto', $id, $usuarioId);
+            }
+
             if (!$dentroDeTransaccion) {
                 self::$db->commit();
             }

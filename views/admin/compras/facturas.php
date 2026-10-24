@@ -78,9 +78,10 @@ template('tabsCompras', ['tab' => 'facturas']);
             <caption class="solo-lectores">Facturas y comprobantes por compra</caption>
             <thead><tr><th scope="col">Compra</th><th scope="col">Proveedor</th><th scope="col">Fecha</th>
                 <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Factura</th>
+                <th scope="col" class="tabla--centro">Ciclo</th>
                 <th scope="col" class="tabla--numerica">Documentos</th><th scope="col">Contabilidad</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
             <tbody>
-            <?php foreach ($ordenes as $o) : $cfdi = \App\CompraContable::ESTADOS_CFDI[$o['estado_cfdi']]; ?>
+            <?php foreach ($ordenes as $o) : $cfdi = \App\CompraContable::ESTADOS_CFDI[$o['estado_cfdi']]; $ciclo = \App\PagosCompra::ciclo($o); ?>
                 <tr>
                     <td><a href="/admin/compras/detalle?id=<?= (int) $o['id'] ?>"><strong><?= escaparValores($o['folio']) ?></strong></a>
                         <?= $o['referencia'] ? '<span class="texto-xs texto-secundario"><br>Ref. ' . escaparValores($o['referencia']) . '</span>' : '' ?></td>
@@ -88,6 +89,7 @@ template('tabsCompras', ['tab' => 'facturas']);
                     <td><?= escaparValores(date('d/m/Y', strtotime($o['fecha_solicitud']))) ?></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda($o['total_compra']) ?></td>
                     <td class="tabla--centro"><span class="badge <?= $cfdi['clase'] ?>"><?= escaparValores($cfdi['etiqueta']) ?></span></td>
+                    <td class="tabla--centro"><span class="badge <?= $ciclo['clase'] ?>"><?= escaparValores($ciclo['etiqueta']) ?></span></td>
                     <td class="tabla--numerica cifra"><?= (int) $o['documentos'] ?></td>
                     <td><?= $o['gasto_id'] ? '<a href="/admin/contabilidad/gastos/detalle?id=' . (int) $o['gasto_id'] . '">Gasto #' . (int) $o['gasto_id'] . '</a>' : '<span class="texto-secundario">Sin enviar</span>' ?></td>
                     <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/compras/detalle?id=<?= (int) $o['id'] ?>#factura"><?= $o['estado_cfdi'] === 'con_cfdi' ? 'Ver' : 'Adjuntar' ?></a></td>

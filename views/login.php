@@ -87,8 +87,11 @@ template('header', [
 
         <div class="campo">
             <label class="campo__etiqueta campo__etiqueta--obligatorio" for="contrasena">Contraseña</label>
-            <input class="control" type="password" id="contrasena" name="contrasena" required
-                   autocomplete="current-password" placeholder="••••••••">
+            <div class="campo__caja">
+                <input class="control" type="password" id="contrasena" name="contrasena" required
+                       autocomplete="current-password" placeholder="••••••••" data-ver-contrasena>
+                <!-- El botón del ojo (mostrar/ocultar) lo agrega src/js/modulos/verContrasena.js -->
+            </div>
         </div>
 
         <button class="btn btn--primario btn--bloque" type="submit">Iniciar sesión</button>

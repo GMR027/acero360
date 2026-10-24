@@ -27,6 +27,9 @@ class Contabilidad
     /** @var string[] Mensajes de la última operación. */
     protected static $errores = [];
 
+    /** Id del último cobro registrado (antes de la auditoría, que también inserta). */
+    public static int $ultimoId = 0;
+
     public const FACTURACION = [
         // 'sin_clasificar' es la clave interna histórica de «Pendiente de facturar».
         'sin_clasificar' => ['etiqueta' => 'Pendiente de facturar', 'clase' => 'badge--pendiente'],
@@ -73,6 +76,34 @@ class Contabilidad
     public static function contribuyentePrincipal(): int
     {
         return (int) self::$db->query('SELECT MIN(id) FROM contribuyentes WHERE activo = 1')->fetch_row()[0];
+    }
+
+    /**
+     * ¿El RFC es de este negocio? (contribuyentes y empresas del sistema, con la
+     * misma normalización que usa la validación de ventas).
+     *
+     * Permite distinguir de qué lado está un complemento de pago (FASE 6):
+     * si el EMISOR soy yo → es un cobro a cliente (Ventas); si el RECEPTOR soy
+     * yo → es un pago a proveedor (Compras). Se cachea por petición: los RFC
+     * no cambian dentro de una misma operación.
+     */
+    public static function esRfcPropio(string $rfc): bool
+    {
+        static $propios = null;
+
+        if ($propios === null) {
+            $propios = [];
+            $filas = self::$db->query('SELECT rfc FROM contribuyentes UNION SELECT rfc FROM empresas');
+            while ($fila = $filas->fetch_assoc()) {
+                $normal = VentasFiscal::normalizarRfc((string) ($fila['rfc'] ?? ''));
+                if ($normal !== '') {
+                    $propios[$normal] = true;
+                }
+            }
+        }
+
+        $consultado = VentasFiscal::normalizarRfc($rfc);
+        return $consultado !== '' && isset($propios[$consultado]);
     }
 
     /** @return array<string, mixed>|null */
@@ -508,11 +539,22 @@ class Contabilidad
      * COBROS
      * ------------------------------------------------------------------ */
 
-    /** @return array<int, array<string, mixed>> */
+    /**
+     * Cobros de un ingreso, con el complemento de pago (si alguno lo respalda).
+     * La columna extra sólo añade información: los estados de cobro y de
+     * facturación siguen siendo independientes (FASE 6, requisito 2).
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public static function cobrosDeIngreso(int $ingresoId): array
     {
         $consulta = self::$db->prepare(
-            'SELECT c.*, u.nombre AS usuario_nombre FROM cobros c LEFT JOIN usuarios u ON u.id = c.usuario_id
+            'SELECT c.*, u.nombre AS usuario_nombre, cp.uuid AS complemento_uuid, cp.fecha_pago AS complemento_fecha
+               FROM cobros c
+               LEFT JOIN usuarios u ON u.id = c.usuario_id
+          LEFT JOIN complemento_cobros cc ON cc.cobro_id = c.id
+          LEFT JOIN complemento_doctos cd ON cd.id = cc.complemento_docto_id
+          LEFT JOIN complementos_pago cp ON cp.id = cd.complemento_id AND cp.estado = \'vigente\'
               WHERE c.ingreso_id = ? ORDER BY c.fecha, c.id'
         );
         $consulta->bind_param('i', $ingresoId);
@@ -523,19 +565,28 @@ class Contabilidad
         return $filas;
     }
 
-    /** Registra un cobro (parcial o total). Nunca cobra más que el saldo. */
+    /**
+     * Registra un cobro (parcial o total). Nunca cobra más que el saldo.
+     *
+     * @param bool $dentroDeTransaccion true cuando el llamador (p. ej.
+     *        ComplementosVenta) ya abrió transacción: no abre ni confirma;
+     *        devuelve false con el error para que él decida.
+     */
     public static function registrarCobro(
         int $ingresoId,
         string $fecha,
         $importe,
         string $metodo,
         string $referencia,
-        int $usuarioId
+        int $usuarioId,
+        bool $dentroDeTransaccion = false
     ): bool {
         self::$errores = [];
 
         try {
-            self::$db->begin_transaction();
+            if (!$dentroDeTransaccion) {
+                self::$db->begin_transaction();
+            }
 
             $bloqueo = self::$db->prepare('SELECT id FROM ingresos WHERE id = ? FOR UPDATE');
             $bloqueo->bind_param('i', $ingresoId);
@@ -544,27 +595,37 @@ class Contabilidad
 
             $ingreso = self::buscarIngreso($ingresoId);
             if (!$ingreso || $ingreso['estado'] !== 'vigente') {
-                self::$db->rollBack();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollBack();
+                }
                 self::$errores[] = 'Solo se registran cobros de un ingreso vigente.';
                 return false;
             }
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !strtotime($fecha)) {
-                self::$db->rollBack();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollBack();
+                }
                 self::$errores[] = 'La fecha del cobro no es válida.';
                 return false;
             }
             if (!is_numeric($importe) || self::centavos($importe) <= 0) {
-                self::$db->rollBack();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollBack();
+                }
                 self::$errores[] = 'El importe del cobro debe ser mayor a cero.';
                 return false;
             }
             if (self::centavos($importe) > self::centavos($ingreso['saldo'])) {
-                self::$db->rollBack();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollBack();
+                }
                 self::$errores[] = 'El cobro excede el saldo pendiente (' . number_format((float) $ingreso['saldo'], 2) . ').';
                 return false;
             }
             if (self::periodoCerrado((int) $ingreso['contribuyente_id'], $fecha)) {
-                self::$db->rollBack();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollBack();
+                }
                 self::$errores[] = self::mensajePeriodoCerrado($fecha);
                 return false;
             }
@@ -579,12 +640,17 @@ class Contabilidad
             $crear->execute();
             $cobroId = (int) self::$db->insert_id;
             $crear->close();
+            self::$ultimoId = $cobroId;   // antes de la auditoría: su INSERT pisa el insert_id.
 
             Auditoria::registrar('cobro', $cobroId, 'crear', $usuarioId, null, ['ingreso' => $ingresoId, 'importe' => $monto]);
-            self::$db->commit();
+            if (!$dentroDeTransaccion) {
+                self::$db->commit();
+            }
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
-            self::$db->rollBack();
+            if (!$dentroDeTransaccion) {
+                self::$db->rollBack();
+            }
             error_log('[Contabilidad::registrarCobro] ' . $excepcion->getMessage());
             self::$errores[] = 'No fue posible registrar el cobro.';
             return false;

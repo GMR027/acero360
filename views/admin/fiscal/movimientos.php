@@ -49,7 +49,12 @@ template('tabsFiscal', ['tab' => 'movimientos', 'periodo' => ['anio' => $anio, '
         <span class="stat__pie">Pagados: <?= $m($d['totales']['gastos_pagados']) ?> (sólo ellos descuentan)</span></div>
     <div class="tarjeta"><span class="stat__etiqueta"><?= $imp['impuestos'] >= 0 ? 'Impuestos por pagar' : 'Saldo a tu favor' ?> · <?= escaparValores($periodoTexto) ?></span>
         <span class="estadisticas-resumen__valor"><?= $m(abs($imp['impuestos'])) ?></span>
-        <span class="stat__pie">IVA <?= $m($imp['iva_por_pagar']) ?> + ISR <?= $m($imp['isr_por_pagar']) ?></span></div>
+        <span class="stat__pie">IVA <?= $m($imp['iva_por_pagar']) ?> + ISR <?= $m($imp['isr_por_pagar']) ?> (estimación con catálogos versionados)</span></div>
+    <?php if (empty($imp['habilitado'])) : ?>
+        <div class="tarjeta"><span class="stat__etiqueta">Cálculo deshabilitado</span>
+            <span class="stat__pie">Sin catálogos activos ni configuración fiscal para este periodo: los importes NO se calculan (no se inventan cifras).
+                <a href="/admin/fiscal/configuracion">Revisar</a></span></div>
+    <?php endif; ?>
 </section>
 
 <?php

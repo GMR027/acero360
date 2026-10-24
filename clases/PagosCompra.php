@@ -27,6 +27,9 @@ class PagosCompra
         'pagada'    => ['etiqueta' => 'Pagada',            'clase' => 'badge--aprobado'],
     ];
 
+    /** Id del último pago registrado (antes de la auditoría, que también inserta). */
+    public static int $ultimoId = 0;
+
     public static function setDB($database): void
     {
         self::$db = $database;
@@ -46,6 +49,43 @@ class PagosCompra
             return 'pendiente';
         }
         return $pagadoCentavos >= $totalCentavos ? 'pagada' : 'parcial';
+    }
+
+    /**
+     * Ciclo completo de una compra: factura (recibida o no) Y dinero (pagado o no).
+     * Distingue los tres estados del ciclo:
+     *   · pendiente de recibir CFDI (aunque ya se haya pagado)
+     *   · factura recibida pendiente de pagar
+     *   · factura recibida con pago parcial / pagada
+     *
+     * @param array{estado_cfdi?: string, estado_pago?: string} $orden
+     * @return array{etiqueta: string, clase: string}
+     */
+    public static function ciclo(array $orden): array
+    {
+        $cfdi = (string) ($orden['estado_cfdi'] ?? '');
+        $pago = (string) ($orden['estado_pago'] ?? '');
+
+        if ($cfdi === 'pendiente_cfdi') {
+            return match ($pago) {
+                'parcial' => ['etiqueta' => 'Sin factura · pago parcial', 'clase' => 'badge--pendiente'],
+                'pagada'  => ['etiqueta' => 'Sin factura · ya pagada', 'clase' => 'badge--pendiente'],
+                default   => ['etiqueta' => 'Pendiente de recibir CFDI', 'clase' => 'badge--pendiente'],
+            };
+        }
+        if ($cfdi === 'no_facturada') {
+            return [
+                'etiqueta' => 'No se factura · ' . ($pago === 'pagada' ? 'pagada' : ($pago === 'parcial' ? 'pago parcial' : 'por pagar')),
+                'clase'    => 'badge--neutro',
+            ];
+        }
+
+        // con_cfdi (factura recibida)
+        return match ($pago) {
+            'parcial' => ['etiqueta' => 'Factura recibida · pago parcial', 'clase' => 'badge--pendiente'],
+            'pagada'  => ['etiqueta' => 'Factura recibida · pagada', 'clase' => 'badge--aprobado'],
+            default   => ['etiqueta' => 'Factura recibida · pendiente de pagar', 'clase' => 'badge--pendiente'],
+        };
     }
 
     /** Total de la compra (subtotal + IVA capturado) en centavos. */
@@ -133,6 +173,9 @@ class PagosCompra
 
     /**
      * Registra un pago. $token (32 hex) hace que reenviar el formulario no duplique el pago.
+     *
+     * @param bool $dentroDeTransaccion true cuando el llamador (p. ej. ComplementosPago) ya abrió
+     *        transacción: no abre, confirma ni revierte; devuelve false con errores para que él decida.
      */
     public static function registrar(
         int $ordenId,
@@ -141,7 +184,8 @@ class PagosCompra
         string $metodo,
         string $referencia,
         string $token,
-        int $usuarioId
+        int $usuarioId,
+        bool $dentroDeTransaccion = false
     ): bool {
         self::$errores = [];
 
@@ -160,7 +204,9 @@ class PagosCompra
         }
 
         try {
-            self::$db->begin_transaction();
+            if (!$dentroDeTransaccion) {
+                self::$db->begin_transaction();
+            }
             $consulta = self::$db->prepare('SELECT * FROM ordenes_compra WHERE id = ? FOR UPDATE');
             $consulta->bind_param('i', $ordenId);
             $consulta->execute();
@@ -168,12 +214,16 @@ class PagosCompra
             $consulta->close();
 
             if (!$orden || $orden['estado'] === 'cancelada') {
-                self::$db->rollback();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollback();
+                }
                 self::$errores[] = 'No se registran pagos de una compra cancelada o inexistente.';
                 return false;
             }
             if (Contabilidad::periodoCerrado((int) $orden['contribuyente_id'], $fecha)) {
-                self::$db->rollback();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollback();
+                }
                 self::$errores[] = Contabilidad::mensajePeriodoCerrado($fecha);
                 return false;
             }
@@ -181,7 +231,9 @@ class PagosCompra
             $saldo = self::totalCompra($orden) - self::pagado($ordenId);
             $centavos = Contabilidad::centavos($importe);
             if ($centavos > $saldo) {
-                self::$db->rollback();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollback();
+                }
                 self::$errores[] = 'El pago excede el saldo pendiente (' . number_format($saldo / 100, 2) . ').';
                 return false;
             }
@@ -197,19 +249,26 @@ class PagosCompra
             try {
                 $crear->execute();
             } catch (\mysqli_sql_exception $duplicado) {
-                self::$db->rollback();
+                if (!$dentroDeTransaccion) {
+                    self::$db->rollback();
+                }
                 self::$errores[] = 'Este pago ya fue registrado; no se volvió a sumar.';
                 return false;
             }
             $pagoId = (int) self::$db->insert_id;
             $crear->close();
+            self::$ultimoId = $pagoId;   // antes de la auditoría: su INSERT pisa el insert_id de la conexión.
 
             Auditoria::registrar('pago_compra', $pagoId, 'crear', $usuarioId, null, ['orden' => $ordenId, 'importe' => $monto]);
             self::sincronizarGasto($ordenId);
-            self::$db->commit();
+            if (!$dentroDeTransaccion) {
+                self::$db->commit();
+            }
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
-            self::$db->rollback();
+            if (!$dentroDeTransaccion) {
+                self::$db->rollback();
+            }
             error_log('[PagosCompra::registrar] ' . $excepcion->getMessage());
             self::$errores[] = 'No fue posible registrar el pago.';
             return false;

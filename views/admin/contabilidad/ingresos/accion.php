@@ -43,6 +43,35 @@ if (!$origen) {
     $destino = \App\Contabilidad::rutaDetalle($ingreso);
 }
 
+/* -------------------------------------------------------------------------
+ * FASE 5 — validación previa obligatoria antes de marcar una VENTA como
+ * facturada. Si queda un solo error obligatorio (RFC, datos fiscales,
+ * conceptos, importes, método/forma de pago…) no se avanza: ni en este
+ * formulario ni en el conmutador de las listas.
+ *
+ * Sólo aplica cuando se AVANZA a «facturada»: reenviar el formulario para
+ * adjuntar el XML/PDF o corregir folio/fecha de una venta ya facturada no es
+ * un avance y no se bloquea. Revertir a «pendiente» tampoco. Los ingresos sin
+ * venta (manuales) no aplican.
+ * ---------------------------------------------------------------------- */
+$accionFacturar = (string) ($_POST['estado_facturacion'] ?? '');
+if ($accion === 'facturacion_alterna') {
+    $accionFacturar = ($ingreso['estado_facturacion'] ?? '') === 'facturada' ? 'sin_clasificar' : 'facturada';
+}
+$avanza = $accionFacturar === 'facturada'
+    && (string) ($ingreso['estado_facturacion'] ?? '') !== 'facturada'
+    && !empty($ingreso['venta_id']);
+if ($avanza) {
+    $revisionFiscal = \App\VentasFiscal::validar((int) $ingreso['venta_id']);
+    if ($revisionFiscal !== null && !$revisionFiscal['puede_facturar']) {
+        $pendientes = array_slice($revisionFiscal['errores'], 0, 4);
+        $resto = count($revisionFiscal['errores']) - count($pendientes);
+        redirigir($destino, 'error', 'No se puede marcar como facturada: ' . implode(' · ', $pendientes)
+            . ($resto > 0 ? " (+$resto más)" : '')
+            . ' Completa los datos desde «Revisar y facturar» en el detalle de la venta.');
+    }
+}
+
 if ($accion === 'facturacion') {
     // Los archivos se adjuntan primero para que un CFDI timbrado respalde la factura.
     $fallos = [];

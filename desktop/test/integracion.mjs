@@ -10,12 +10,14 @@
  */
 import { _electron as electron, chromium } from 'playwright';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));
+// La versión sale de package.json (fuente única): al subirla no hay que reescribir la prueba.
+const VERSION = JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8')).version;
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:8017';
 const DB = process.env.DB_NAME || 'cotizaciones_test';
 if (DB !== 'cotizaciones_test') { console.error('Usa DB_NAME=cotizaciones_test'); process.exit(2); }
@@ -61,8 +63,9 @@ try {
   const api = await ventana.evaluate(() => ({ claves: Object.keys(window.escritorio || {}).sort(), congelado: Object.isFrozen(window.escritorio) }));
   verifica('el puente expone solo 3 funciones y está congelado', JSON.stringify(api.claves) === '["abrirAyuda","informacion","reintentar"]' && api.congelado, JSON.stringify(api));
   const info = await ventana.evaluate(() => window.escritorio.informacion());
-  verifica('informacion() devuelve versión y servidor', info.version === '1.0.0' && info.servidor === BASE, JSON.stringify(info));
-  verifica('el agente de usuario identifica a la aplicación', (await ventana.evaluate(() => navigator.userAgent)).includes('Acero360Escritorio/1.0.0'));
+  verifica('informacion() devuelve versión y servidor', info.version === VERSION && info.servidor === BASE, JSON.stringify(info));
+  verifica('el agente de usuario identifica a la aplicación',
+    (await ventana.evaluate(() => navigator.userAgent)).includes(`Acero360Escritorio/${VERSION}`));
 
   console.log('Sesión y uso normal');
   await ventana.fill('#email', EMAIL);

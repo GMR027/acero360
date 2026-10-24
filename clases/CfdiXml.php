@@ -83,6 +83,10 @@ class CfdiXml
             'metodo_pago'     => $primero($atributo($comprobante, 'MetodoPago'), $atributo($comprobante, 'metodoDePago')),
             'descuento'       => $primero($atributo($comprobante, 'Descuento'), $atributo($comprobante, 'descuento')),
             'iva'             => self::iva($xpath, $atributo),
+            // Otros impuestos trasladados (IEPS, ISR trasladado…) y retenidos (ISR/IVA retenido):
+            // no entran al IVA, pero el contador los necesita para cuadrar la factura.
+            'otros_impuestos' => self::otrosImpuestos($xpath, $atributo),
+            'retenciones'     => self::retenciones($xpath, $atributo),
             'conceptos'       => self::conceptos($xpath, $atributo),
         ];
         // El folio comercial (Serie+Folio) NO es el UUID fiscal: se guardan por separado.
@@ -118,6 +122,49 @@ class CfdiXml
         return number_format($suma, 2, '.', '');
     }
 
+    /**
+     * Impuestos trasladados distintos del IVA (002): IEPS (003), ISR trasladado (001)…
+     * Se devuelven ya sumados como cadena decimal, o '' si la factura solo trae IVA.
+     */
+    private static function otrosImpuestos(\DOMXPath $xpath, callable $atributo): string
+    {
+        $suma = 0.0;
+        $hay = false;
+        foreach ($xpath->query('/*/*[local-name()="Impuestos"]/*[local-name()="Traslados"]/*[local-name()="Traslado"]') as $traslado) {
+            $impuesto = $atributo($traslado, 'Impuesto');
+            if ($impuesto !== '' && $impuesto !== '002' && $atributo($traslado, 'Importe') !== '') {
+                $suma += (float) $atributo($traslado, 'Importe');
+                $hay = true;
+            }
+        }
+
+        return $hay ? number_format($suma, 2, '.', '') : '';
+    }
+
+    /**
+     * Retenciones del comprobante (ISR 001 / IVA 004), ya sumadas.
+     * Son dinero que el cliente te retiene: bajan tu ingreso, no son IVA trasladado.
+     */
+    private static function retenciones(\DOMXPath $xpath, callable $atributo): string
+    {
+        $suma = 0.0;
+        $hay = false;
+        foreach ($xpath->query('/*/*[local-name()="Impuestos"]/*[local-name()="Retenciones"]/*[local-name()="Retencion"]') as $retencion) {
+            if ($atributo($retencion, 'Importe') !== '') {
+                $suma += (float) $atributo($retencion, 'Importe');
+                $hay = true;
+            }
+        }
+        if ($hay) {
+            return number_format($suma, 2, '.', '');
+        }
+        // Algunos CFDI solo traen el total de retenciones.
+        $total = $xpath->query('/*/*[local-name()="Impuestos"]')->item(0);
+        $texto = $atributo($total, 'TotalRetenciones');
+
+        return $texto !== '' ? $texto : '';
+    }
+
     /** @return array<int, array{descripcion: string, sku: string, cantidad: string, valor_unitario: string, importe: string, descuento: string}> */
     private static function conceptos(\DOMXPath $xpath, callable $atributo): array
     {
@@ -137,5 +184,91 @@ class CfdiXml
         }
 
         return $lista;
+    }
+
+    /**
+     * Lee el complemento de PAGOS (CFDI tipo «P», namespace pago:/pago10:) de un XML.
+     *
+     * Devuelve la fecha y el monto del pago más todos los DoctoRelacionado: cada
+     * factura original con su parcialidad, saldo anterior e importe pagado. Eso es
+     * lo que permite localizar las facturas y vincular el complemento a los pagos
+     * registrados. Si el XML no trae complemento de pagos, devuelve null.
+     *
+     * @return array{fecha_pago: string, monto: string, moneda: string, forma_pago: string,
+     *               doctos: array<int, array<string, string>>}|null
+     */
+    public static function complementoPago(string $xml): ?array
+    {
+        if (preg_match('/<!\s*(DOCTYPE|ENTITY)/i', $xml)) {
+            return null;
+        }
+
+        $anterior = libxml_use_internal_errors(true);
+        $documento = new \DOMDocument();
+        $cargado = $documento->loadXML($xml, LIBXML_NONET | LIBXML_NOBLANKS);
+        libxml_clear_errors();
+        libxml_use_internal_errors($anterior);
+        if (!$cargado) {
+            return null;
+        }
+
+        $xpath = new \DOMXPath($documento);
+        $comprobante = $xpath->query('/*[local-name()="Comprobante"]')->item(0);
+        if (!$comprobante instanceof \DOMElement) {
+            return null;
+        }
+        // Solo un CFDI de pago lleva complemento de pagos con DoctoRelacionado.
+        $pagos = $xpath->query('//*[local-name()="Pagos"]/*[local-name()="Pago"]');
+        if ($pagos->length === 0) {
+            return null;
+        }
+
+        $atributo = static fn (?\DOMNode $nodo, string $nombre): string =>
+            $nodo instanceof \DOMElement ? trim($nodo->getAttribute($nombre)) : '';
+
+        $primero = static fn (string ...$valores): string => array_reduce(
+            $valores,
+            static fn (string $acumulado, string $valor): string => $acumulado !== '' ? $acumulado : $valor,
+            ''
+        );
+
+        $primerPago = $pagos->item(0);
+        $resultado = [
+            'fecha_pago' => $atributo($primerPago, 'FechaPago'),
+            'monto'      => $atributo($primerPago, 'Monto'),
+            'moneda'     => $primero($atributo($primerPago, 'MonedaP'), 'MXN'),
+            'forma_pago' => $atributo($primerPago, 'FormaPagoP'),
+            'doctos'     => [],
+        ];
+        // La fecha del complemento también puede estar en el Comprobante (si hay varios pagos).
+        if ($resultado['fecha_pago'] === '') {
+            $resultado['fecha_pago'] = $primero(
+                $atributo($comprobante, 'Fecha'),
+                $atributo($comprobante, 'fecha')
+            );
+        }
+
+        $doctos = $xpath->query('//*[local-name()="DoctoRelacionado"]');
+        foreach ($doctos as $docto) {
+            $uuid = strtoupper($atributo($docto, 'IdDocumento'));
+            if ($uuid !== '' && !preg_match('/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/', $uuid)) {
+                continue; // un DoctoRelacionado sin UUID válido no sirve para localizar la factura.
+            }
+            $resultado['doctos'][] = [
+                'uuid'            => $uuid,
+                'serie'           => $atributo($docto, 'Serie'),
+                'folio'           => $atributo($docto, 'Folio'),
+                'moneda'          => $primero($atributo($docto, 'MonedaDR'), 'MXN'),
+                'num_parcialidad' => $atributo($docto, 'NumParcialidad'),
+                'saldo_anterior'  => $atributo($docto, 'ImpSaldoAnt'),
+                'importe_pagado'  => $atributo($docto, 'ImpPagado'),
+                // Si la versión del complemento los trae (retenidos / IVA del DR).
+                'iva'             => $primero($atributo($docto, 'ImpIVA'), $atributo($docto, 'IVA')),
+                'retencion_isr'   => $atributo($docto, 'ImpRetencionISR'),
+                'retencion_iva'   => $atributo($docto, 'ImpRetencionIVA'),
+            ];
+        }
+
+        return $resultado['doctos'] === [] ? null : $resultado;
     }
 }

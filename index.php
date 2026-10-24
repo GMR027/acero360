@@ -211,6 +211,13 @@ $router->post('/admin/ventas/editar',   'views/admin/ventas/editar.php',     'so
 $router->get('/admin/ventas/devolucion',  'views/admin/ventas/devolucion.php', 'soloAdmin');
 $router->post('/admin/ventas/devolucion', 'views/admin/ventas/devolucion.php', 'soloAdmin');
 $router->post('/admin/ventas/cambio',     'views/admin/ventas/cambio.php',     'soloAdmin');
+// Validación previa y emisión de la venta (FASE 5): sólo POST. Sin PAC no se simula timbrado.
+$router->post('/admin/ventas/fiscal',     'views/admin/ventas/fiscal.php',      'soloAdmin');
+// Complementos de pago de clientes (FASE 6): se registran y se relacionan con los cobros.
+$router->get('/admin/ventas/complemento',          'views/admin/ventas/complemento.php',           'soloAdmin');
+$router->post('/admin/ventas/complemento',         'views/admin/ventas/complemento.php',           'soloAdmin');
+$router->get('/admin/ventas/complemento/revision', 'views/admin/ventas/complemento-revision.php',  'soloAdmin');
+$router->post('/admin/ventas/complemento/accion',  'views/admin/ventas/complemento-accion.php',    'soloAdmin');
 $router->get('/admin/ventas/pdf',       'views/admin/ventas/pdf.php',        'soloAdmin');
 // Baja de una venta directa: sólo POST y con confirmación (devuelve el stock).
 $router->post('/admin/ventas/eliminar', 'views/admin/ventas/eliminar.php',   'soloAdmin');
@@ -293,6 +300,9 @@ $router->get('/admin/fiscal/resumen',               'views/admin/fiscal/resumen.
 $router->post('/admin/fiscal/resumen',              'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->get('/admin/fiscal/configuracion',         'views/admin/fiscal/configuracion.php',         'soloAdmin');
 $router->post('/admin/fiscal/configuracion',        'views/admin/fiscal/configuracion.php',         'soloAdmin');
+// Retenciones, ajustes y declaraciones: captura de los datos que lee MotorFiscal (FASE 7).
+$router->get('/admin/fiscal/registros',             'views/admin/fiscal/registros.php',             'soloAdmin');
+$router->post('/admin/fiscal/registros',            'views/admin/fiscal/registros.php',             'soloAdmin');
 
 // --- Pantalla de entrega (Etapa 4) ---
 $router->get('/admin/entregas',          'views/admin/entregas/index.php',    'soloAdmin');
@@ -321,6 +331,16 @@ $router->post('/admin/compras/catalogo/editar',  'views/admin/compras/catalogo/e
 $router->get('/admin/compras/catalogo/detalle',  'views/admin/compras/catalogo/detalle.php', 'soloAdmin');
 $router->post('/admin/compras/catalogo/accion',  'views/admin/compras/catalogo/accion.php',  'soloAdmin');
 $router->post('/admin/compras/comprobante', 'views/admin/compras/comprobante.php', 'soloAdmin');
+// Compras Inteligentes: leer el XML de una factura y decidir su destino.
+$router->get('/admin/compras/inteligente',          'views/admin/compras/inteligente.php',           'soloAdmin');
+$router->post('/admin/compras/inteligente',         'views/admin/compras/inteligente.php',           'soloAdmin');
+$router->get('/admin/compras/inteligente/revision', 'views/admin/compras/inteligente-revision.php',  'soloAdmin');
+$router->post('/admin/compras/inteligente/accion',  'views/admin/compras/inteligente-accion.php',    'soloAdmin');
+// Complementos de pago (CFDI tipo «P») recibidos de proveedores.
+$router->get('/admin/compras/complemento',          'views/admin/compras/complemento.php',           'soloAdmin');
+$router->post('/admin/compras/complemento',         'views/admin/compras/complemento.php',           'soloAdmin');
+$router->get('/admin/compras/complemento/revision', 'views/admin/compras/complemento-revision.php',  'soloAdmin');
+$router->post('/admin/compras/complemento/accion',  'views/admin/compras/complemento-accion.php',    'soloAdmin');
 $router->get('/admin/compras/pagos',    'views/admin/compras/pagos.php',   'soloAdmin');
 $router->post('/admin/compras/pago',    'views/admin/compras/pago.php',    'soloAdmin');
 $router->get('/admin/compras/crear',    'views/admin/compras/crear.php',   'soloAdmin');

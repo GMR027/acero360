@@ -52,6 +52,12 @@ foreach ([[${c1},1,2],[${c2},3,1]] as [$cl,$n,$emp]) {
   App\\Ventas::crear(['empresa_id'=>$emp,'cliente_id'=>$cl,'fecha'=>date('Y-m-d'),'aplica_iva'=>1,'descuento_pct'=>0],[37=>$l($n)],${usuario});
 }`], { env: { ...process.env, DB_NAME: DB } });
 
+// FASE 5 · validación previa a facturar: la venta que se marca como «Facturada»
+// necesita emisor y receptor con datos fiscales y método/forma de pago declarados.
+sql('UPDATE empresas SET cp = IF(cp IS NULL OR cp = "", "45678", cp)');
+sql(`UPDATE clientes SET rfc = IF(rfc IS NULL OR rfc = "", "XAXX010101000", rfc), codigo_postal = "45678", regimen_fiscal = "601", uso_cfdi = "G03" WHERE id IN (${c1}, ${c2})`);
+sql('UPDATE ingresos SET metodo_pago = "PUE", forma_pago = "03" WHERE venta_id IS NOT NULL');
+
 const tmp = mkdtempSync(join(tmpdir(), 'e5-'));
 const pdf = join(tmp, 'Factura 1.pdf'); writeFileSync(pdf, '%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n');
 const rfc = sql('SELECT rfc FROM contribuyentes LIMIT 1');

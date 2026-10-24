@@ -107,7 +107,7 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/cierre', 'periodo'
                 <div class="campo campo--completo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="motivo">Motivo de la reapertura</label>
                     <input class="control" type="text" id="motivo" name="motivo" required minlength="10" maxlength="200"></div>
                 <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="contrasena">Tu contraseña</label>
-                    <input class="control" type="password" id="contrasena" name="contrasena" required autocomplete="current-password"></div>
+                    <div class="campo__caja"><input class="control" type="password" id="contrasena" name="contrasena" required autocomplete="current-password" data-ver-contrasena></div></div>
             </div>
             <div class="formulario__acciones"><button class="btn btn--peligro" type="submit">Reabrir el mes</button></div>
         </form>

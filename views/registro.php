@@ -114,14 +114,18 @@ template('header', [
 
         <div class="campo">
             <label class="campo__etiqueta campo__etiqueta--obligatorio" for="contrasena">Contraseña</label>
-            <input class="control" type="password" id="contrasena" name="contrasena" required
-                   minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+            <div class="campo__caja">
+                <input class="control" type="password" id="contrasena" name="contrasena" required
+                       minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres" data-ver-contrasena>
+            </div>
         </div>
 
         <div class="campo">
             <label class="campo__etiqueta campo__etiqueta--obligatorio" for="repetir">Repetir contraseña</label>
-            <input class="control" type="password" id="repetir" name="repetir" required
-                   minlength="8" autocomplete="new-password" data-comparar="contrasena">
+            <div class="campo__caja">
+                <input class="control" type="password" id="repetir" name="repetir" required
+                       minlength="8" autocomplete="new-password" data-comparar="contrasena" data-ver-contrasena>
+            </div>
         </div>
 
         <button class="btn btn--primario btn--bloque" type="submit">Crear cuenta</button>

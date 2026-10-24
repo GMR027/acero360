@@ -24,6 +24,9 @@ if ($esEnvio) {
     $cliente->nombre_empresa = trim($_POST['nombre_empresa'] ?? '');
     $cliente->alias          = trim($_POST['alias'] ?? '');
     $cliente->rfc            = trim($_POST['rfc'] ?? '');
+    $cliente->codigo_postal  = trim($_POST['codigo_postal'] ?? '');
+    $cliente->regimen_fiscal = trim($_POST['regimen_fiscal'] ?? '');
+    $cliente->uso_cfdi       = trim($_POST['uso_cfdi'] ?? '');
     $cliente->telefono       = trim($_POST['telefono'] ?? '');
     $cliente->email          = trim($_POST['email'] ?? '');
     $cliente->ubicacion      = trim($_POST['ubicacion'] ?? '');

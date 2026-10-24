@@ -25,8 +25,8 @@ class Clientes
 
     /** Columnas que se persisten en la base de datos (sin el id). */
     protected static $columnasDB = [
-        'id', 'nombre', 'nombre_empresa', 'alias', 'rfc', 'telefono',
-        'email', 'ubicacion', 'foto', 'vip', 'descuento_pct', 'notas',
+        'id', 'nombre', 'nombre_empresa', 'alias', 'rfc', 'codigo_postal', 'regimen_fiscal', 'uso_cfdi',
+        'telefono', 'email', 'ubicacion', 'foto', 'vip', 'descuento_pct', 'notas',
     ];
 
     /** @var string[] Mensajes de validación de la última operación. */
@@ -37,6 +37,10 @@ class Clientes
     public $nombre_empresa;
     public $alias;
     public $rfc;
+    /** Datos fiscales del receptor para el CFDI (migración 035). */
+    public $codigo_postal;
+    public $regimen_fiscal;
+    public $uso_cfdi;
     public $telefono;
     public $email;
     public $ubicacion;
@@ -47,12 +51,15 @@ class Clientes
 
     public function __construct(array $args = [])
     {
-        $this->id            = $args['id'] ?? null;
-        $this->nombre        = $args['nombre'] ?? '';
+        $this->id             = $args['id'] ?? null;
+        $this->nombre         = $args['nombre'] ?? '';
         $this->nombre_empresa = $args['nombre_empresa'] ?? '';
-        $this->alias         = $args['alias'] ?? '';
-        $this->rfc           = $args['rfc'] ?? '';
-        $this->telefono      = $args['telefono'] ?? '';
+        $this->alias          = $args['alias'] ?? '';
+        $this->rfc            = $args['rfc'] ?? '';
+        $this->codigo_postal  = $args['codigo_postal'] ?? '';
+        $this->regimen_fiscal = $args['regimen_fiscal'] ?? '';
+        $this->uso_cfdi       = $args['uso_cfdi'] ?? '';
+        $this->telefono       = $args['telefono'] ?? '';
         $this->email         = $args['email'] ?? '';
         $this->ubicacion     = $args['ubicacion'] ?? '';
         $this->foto          = $args['foto'] ?? '';
@@ -397,6 +404,35 @@ class Clientes
         }
         if ((float) $this->descuento_pct < 0 || (float) $this->descuento_pct > 100) {
             self::$errores[] = 'El descuento debe estar entre 0 y 100 por ciento.';
+        }
+
+        /* --- Datos fiscales del receptor para facturar (FASE 5) --- */
+        $rfc = VentasFiscal::normalizarRfc((string) $this->rfc);
+        if ($rfc !== '') {
+            if (!VentasFiscal::rfcConFormato($rfc)) {
+                self::$errores[] = 'El RFC "' . $rfc . '" no tiene el formato de un RFC.';
+            } else {
+                // Un solo cliente por RFC: se reutiliza la ficha existente en vez de duplicarla.
+                $duplicado = VentasFiscal::buscarClientePorRfc($rfc, (int) ($this->id ?? 0));
+                if ($duplicado !== null) {
+                    $nombre = trim((string) ($duplicado['nombre_empresa'] ?: $duplicado['nombre']));
+                    self::$errores[] = 'El RFC "' . $rfc . '" ya está registrado al cliente «' . $nombre
+                        . '» (ficha #' . (int) $duplicado['id'] . '). Edita esa ficha en lugar de crear un duplicado.';
+                }
+            }
+        }
+
+        $cp = trim((string) $this->codigo_postal);
+        if ($cp !== '' && preg_match('/^\d{5}$/', $cp) !== 1) {
+            self::$errores[] = 'El código postal fiscal debe tener 5 dígitos.';
+        }
+        $regimen = mb_strtoupper(trim((string) $this->regimen_fiscal));
+        if ($regimen !== '' && preg_match('/^[0-9A-Z]{3,4}$/', $regimen) !== 1) {
+            self::$errores[] = 'El régimen fiscal "' . $regimen . '" no es una clave del catálogo SAT.';
+        }
+        $uso = mb_strtoupper(trim((string) $this->uso_cfdi));
+        if ($uso !== '' && preg_match('/^[0-9A-Z]{3,4}$/', $uso) !== 1) {
+            self::$errores[] = 'El uso del CFDI "' . $uso . '" no es una clave del catálogo SAT.';
         }
 
         return self::$errores;

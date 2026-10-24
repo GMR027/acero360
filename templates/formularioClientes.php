@@ -77,6 +77,37 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
                value="<?= escaparValores($cliente->rfc) ?>">
     </div>
 
+    <!-- Datos fiscales del receptor: sin ellos no se puede emitir un CFDI (FASE 5). -->
+    <div class="campo<?= $claseError('código postal') ?>">
+        <label class="campo__etiqueta" for="codigo_postal">Código postal fiscal</label>
+        <input class="control" type="text" id="codigo_postal" name="codigo_postal" maxlength="5"
+               inputmode="numeric" placeholder="00000" value="<?= escaparValores((string) $cliente->codigo_postal) ?>">
+        <span class="campo__ayuda">Domicilio fiscal del receptor para el CFDI (5 dígitos).</span>
+    </div>
+
+    <div class="campo<?= $claseError('régimen fiscal') ?>">
+        <label class="campo__etiqueta" for="regimen_fiscal">Régimen fiscal</label>
+        <select class="control" id="regimen_fiscal" name="regimen_fiscal">
+            <option value="">— Sin definir —</option>
+            <?php foreach (\App\VentasFiscal::REGIMENES as $clave) : ?>
+                <option value="<?= $clave ?>"<?= mb_strtoupper(trim((string) $cliente->regimen_fiscal)) === $clave ? ' selected' : '' ?>><?= $clave ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda">Clave del régimen del receptor en el catálogo del SAT (p. ej. 601).</span>
+    </div>
+
+    <div class="campo<?= $claseError('uso del CFDI') ?>">
+        <label class="campo__etiqueta" for="uso_cfdi">Uso del CFDI</label>
+        <select class="control" id="uso_cfdi" name="uso_cfdi">
+            <option value="">— Sin definir —</option>
+            <?php foreach (\App\VentasFiscal::USOS_CFDI as $clave) : ?>
+                <?php $texto = \App\Gastos::USOS_CFDI[$clave] ?? $clave; ?>
+                <option value="<?= $clave ?>"<?= mb_strtoupper(trim((string) $cliente->uso_cfdi)) === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda">Uso habitual del CFDI que se le emite a este cliente.</span>
+    </div>
+
     <!-- Foto de perfil redonda (cuadro 500×500 px). -->
     <?php template('campoRetrato', [
         'foto'     => $cliente->foto ?? '',

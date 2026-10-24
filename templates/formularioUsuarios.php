@@ -83,10 +83,12 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
 
     <div class="campo<?= $claseError('contraseña') ?>">
         <label class="campo__etiqueta <?= $esAlta ? 'campo__etiqueta--obligatorio' : '' ?>" for="contrasena">Contraseña</label>
-        <input class="control" type="password" id="contrasena" name="contrasena" minlength="8"
-               autocomplete="<?= $esAlta ? 'new-password' : 'new-password' ?>"
-               placeholder="<?= $esAlta ? 'Mínimo 8 caracteres' : 'Déjala vacía para no cambiarla' ?>"
-               value="">
+        <div class="campo__caja">
+            <input class="control" type="password" id="contrasena" name="contrasena" minlength="8"
+                   autocomplete="<?= $esAlta ? 'new-password' : 'new-password' ?>"
+                   placeholder="<?= $esAlta ? 'Mínimo 8 caracteres' : 'Déjala vacía para no cambiarla' ?>"
+                   value="" data-ver-contrasena>
+        </div>
         <span class="campo__ayuda">
             <?= $esAlta
                 ? 'Se guarda cifrada con bcrypt; nunca se muestra en texto plano.'

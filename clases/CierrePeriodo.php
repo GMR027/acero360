@@ -310,14 +310,19 @@ class CierrePeriodo
                 return false;
             }
 
-            $estimacion = ResumenFiscal::anual($contribuyente, $anio)['meses'][$mes];
+            $anualFiscal = ResumenFiscal::anual($contribuyente, $anio);
+            $estimacion = $anualFiscal['meses'][$mes];
             $snapshot = [
                 'periodo' => sprintf('%04d-%02d', $anio, $mes),
                 'cerrado_por' => $usuarioId,
                 'cerrado_en' => date('Y-m-d H:i:s'),
                 'nota' => trim($nota) ?: null,
                 'contabilidad' => Contabilidad::resumenPeriodo($anio, $mes),
-                'fiscal' => array_intersect_key($estimacion, array_flip(['facturado', 'pagos', 'iva_por_pagar', 'isr_por_pagar', 'impuestos'])),
+                'fiscal' => array_intersect_key($estimacion, array_flip(['facturado', 'pagos', 'iva_por_pagar', 'isr_por_pagar', 'impuestos', 'habilitado'])),
+                // Origen de las cifras cerradas: un solo motor con sus reglas versionadas (auditable).
+                'fiscal_motor' => $anualFiscal['motor'] ?? 'MotorFiscal',
+                'fiscal_versiones' => $anualFiscal['versiones'] ?? null,
+                'fiscal_avisos' => array_values((array) ($anualFiscal['avisos'] ?? [])),
                 'verificaciones' => $verificaciones,
                 'avisos_reconocidos' => array_values(array_intersect($reconocidos, array_column($avisos, 'codigo'))),
             ];

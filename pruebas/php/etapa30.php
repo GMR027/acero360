@@ -16,6 +16,17 @@
  *     se marque pagado; los tres aparecen en el «Detalle» de movimientos();
  *   · el cierre de mes guarda en su fotografía la estimación con esta regla.
  *
+ * FASE 7 (integración con MotorFiscal): desde entonces el resumen sale de UN solo motor.
+ * Lo que esta etapa valida cambió respecto a la versión anterior (y aquí se documenta):
+ *   · el contribuyente necesita CONFIGURACIÓN FISCAL vigente (régimen + flujo de efectivo):
+ *     sin ella el motor no calcula en vez de inventar cifras;
+ *   · «facturas_sin_pagar» ahora declara lo que FALTA por cobrar (no el total de la factura);
+ *   · una factura cobrada entra aunque no esté marcada como facturada (flujo de efectivo);
+ *   · el ISR usa la TARIFA progresiva del catálogo art. 106 (acumulado del año),
+ *     no la tasa plana configurable de antes;
+ *   · la fotografía del cierre añade motor, versiones y «habilitado» a sus columnas.
+ * Los movimientos() y el detalle por método de pago no cambian: siguen siendo los mismos.
+ *
  * Trabaja sobre un contribuyente PROPIO (rfc T30FISCAL01): no toca los datos de las demás pruebas.
  *
  * Los nombres llevan el «30» para no chocar con los de las otras etapas.
@@ -31,7 +42,9 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 require __DIR__ . '/../../includes/app.php';
 @session_start();
 
+use App\CatalogoFiscal;
 use App\CierrePeriodo;
+use App\MotorFiscal;
 use App\ResumenFiscal;
 
 $fallos = 0;
@@ -71,6 +84,14 @@ $db->query("INSERT INTO empresas (nombre, contribuyente_id, activa) VALUES ('T30
 $empresa = (int) $db->insert_id;
 $db->query("INSERT INTO clientes (nombre) VALUES ('T30 Cliente')");
 $cliente = (int) $db->insert_id;
+// FASE 7: sin configuración fiscal vigente (régimen y base) el motor NO calcula.
+$db->query("INSERT INTO configuracion_fiscal (contribuyente_id, vigente_desde, tipo_persona, regimen, base_ingresos,
+            confirmada_con_contador, motivo_cambio, usuario_id)
+            VALUES ($contrib, '2026-01-01', 'fisica', 'Actividades Empresariales y Profesionales', 'flujo_efectivo', 1,
+            'Configuración de la etapa 30', $usuario)");
+// Tarifa art. 106 del catálogo activo (para las expectativas de ISR de esta etapa).
+$tarifa = fn (int $mes): array => CatalogoFiscal::activa('isr_pagos_provisionales_art106', 2026)['doc']['tarifas'][(string) $mes] ?? [];
+$isrEsperado = fn (int $utilidadPesos, int $mes): float => MotorFiscal::impuestoSegunTarifa((int) round($utilidadPesos * 100), $tarifa($mes)) / 100;
 
 /** Factura emitida (ingreso) con su importe desglosado. */
 $factura = function (string $folio, string $fecha, float $sub, float $iva, string $facturacion) use ($db, $contrib, $empresa, $cliente): int {
@@ -123,22 +144,23 @@ echo "Facturado: sólo lo cobrado al 100 %\n";
 $r = ResumenFiscal::anual($contrib, 2026);
 $mar = $r['meses'][3];
 $prueba('marzo: sólo la factura pagada cuenta (2,320)', $ig($mar['facturado'], 2320), $num($mar['facturado']));
-$prueba('  las otras 2 salen excluidas: 11,600 + 5,800 = 17,400', $mar['facturas_sin_pagar_n'] === 2 && $ig($mar['facturas_sin_pagar'], 17400),
+$prueba('  las otras 2 salen excluidas por lo que FALTA cobrar: 11,600 + 2,900 = 14,500',
+    $mar['facturas_sin_pagar_n'] === 2 && $ig($mar['facturas_sin_pagar'], 14500),
     $mar['facturas_sin_pagar_n'] . ' / ' . $num($mar['facturas_sin_pagar']));
 $prueba('  IVA facturado sólo del cobrado (320) y acreditable sólo del pagado (160) → 160 por pagar',
     $ig($mar['iva_facturado'], 320) && $ig($mar['iva_acreditado'], 160) && $ig($mar['iva_por_pagar'], 160),
     $num($mar['iva_facturado']) . '/' . $num($mar['iva_acreditado']));
-$prueba('abril: la factura no facturada NO suma ni se cuenta como excluida (4,640)',
-    $ig($r['meses'][4]['facturado'], 4640) && $r['meses'][4]['facturas_sin_pagar_n'] === 0, $num($r['meses'][4]['facturado']));
-$prueba('los excluidos se acumulan en el total del año (17,400)', $ig($r['total']['facturas_sin_pagar'], 17400), $num($r['total']['facturas_sin_pagar']));
+$prueba('abril: la cobrada cuenta aunque no esté marcada como facturada (4,640 + 1,160 = 5,800) y no aparece excluida',
+    $ig($r['meses'][4]['facturado'], 5800) && $r['meses'][4]['facturas_sin_pagar_n'] === 0, $num($r['meses'][4]['facturado']));
+$prueba('los excluidos se acumulan en el total del año (14,500 por cobrar)', $ig($r['total']['facturas_sin_pagar'], 14500), $num($r['total']['facturas_sin_pagar']));
 $prueba('ninguna factura queda «sin clasificar»', $r['sin_clasificar'] === 0);
 
 echo "Gastos: sólo los pagados descuentan\n";
 $prueba('marzo: pagos y gastos = 1,160 (el gasto pendiente no descuenta)', $ig($mar['pagos'], 1160), $num($mar['pagos']));
 $prueba('  el gasto por pagar sale excluido (2,320)', $mar['gastos_no_pagados_n'] === 1 && $ig($mar['gastos_no_pagados'], 2320),
     $mar['gastos_no_pagados_n'] . ' / ' . $num($mar['gastos_no_pagados']));
-$prueba('  ISR del mes: (2,000 − 1,000) × ' . ResumenFiscal::tasaIsr() . ' % = ' . $num(1000 * ResumenFiscal::tasaIsr() / 100),
-    $ig($mar['isr_por_pagar'], 1000 * ResumenFiscal::tasaIsr() / 100), $num($mar['isr_por_pagar']));
+$prueba('  ISR del mes con la TARIFA art. 106 del catálogo sobre la utilidad acumulada (2,000 − 1,000)',
+    $ig($mar['isr_por_pagar'], $isrEsperado(1000, 3)), $num($mar['isr_por_pagar']) . ' vs ' . $num($isrEsperado(1000, 3)));
 $prueba('impuestosDelPeriodo(3) devuelve la misma estimación', $ig(ResumenFiscal::impuestosDelPeriodo($contrib, 2026, 3)['facturado'], 2320));
 
 echo "Al confirmarse el pago, la factura entra en su mes\n";
@@ -182,14 +204,14 @@ $db->query("UPDATE gastos SET metodo_pago_sat = 'POR' WHERE id = $gPOR");
 
 $r3 = ResumenFiscal::anual($contrib, 2026);
 $abr = $r3['meses'][4];
-$prueba('la factura al 0 % entra con su base completa (3,000) y IVA 0: no se inventa el 16 %',
-    $ig($abr['facturado'], 7640) && $ig($abr['iva_facturado'], 640) && $ig($abr['facturado_sin_iva'], 7000),
+$prueba('la factura al 0 % entra con su base completa y IVA 0: no se inventa el 16 % (con la cobrada: 8,800 / 800 / 8,000)',
+    $ig($abr['facturado'], 8800) && $ig($abr['iva_facturado'], 800) && $ig($abr['facturado_sin_iva'], 8000),
     $num($abr['facturado']) . ' / ' . $num($abr['iva_facturado']) . ' / ' . $num($abr['facturado_sin_iva']));
 $prueba('PPD y «por definir» sin pagar: los dos quedan fuera (928)',
     $abr['gastos_no_pagados_n'] === 2 && $ig($abr['gastos_no_pagados'], 928),
     $abr['gastos_no_pagados_n'] . ' / ' . $num($abr['gastos_no_pagados']));
-$prueba('las fórmulas cuadran: IVA = facturado − acreditable e ISR = (base − base) × tasa',
-    $ig($abr['iva_por_pagar'], 640) && $ig($abr['isr_por_pagar'], 7000 * ResumenFiscal::tasaIsr() / 100),
+$prueba('las fórmulas cuadran: IVA = cobrado − acreditable (800 − 0) e ISR con la tarifa art. 106 (utilidad 14,000)',
+    $ig($abr['iva_por_pagar'], 800) && $ig($abr['isr_por_pagar'], $isrEsperado(14000, 4)),
     $num($abr['iva_por_pagar']) . ' / ' . $num($abr['isr_por_pagar']));
 
 $db->query("UPDATE gastos SET estado_pago = 'pagado', fecha_pago = '2026-04-24' WHERE id = $gPPD");
@@ -198,8 +220,8 @@ $abr2 = $r4['meses'][4];
 $prueba('al pagarse el PPD sí descuenta (580 con 80 de IVA) y el «por definir» sigue fuera',
     $ig($abr2['pagos'], 580) && $ig($abr2['iva_acreditado'], 80) && $abr2['gastos_no_pagados_n'] === 1,
     $num($abr2['pagos']) . ' / ' . $num($abr2['iva_acreditado']));
-$prueba('  el ISR baja a (7,000 − 500) × ' . ResumenFiscal::tasaIsr() . ' %',
-    $ig($abr2['isr_por_pagar'], 6500 * ResumenFiscal::tasaIsr() / 100), $num($abr2['isr_por_pagar']));
+$prueba('  el ISR baja al pagar el PPD (utilidad acumulada 15,000 − 1,500 = 13,500 con tarifa art. 106)',
+    $ig($abr2['isr_por_pagar'], $isrEsperado(13500, 4)), $num($abr2['isr_por_pagar']));
 
 $d2 = ResumenFiscal::movimientos($contrib, 2026, 4);
 $porRef = [];
@@ -222,9 +244,9 @@ $abr3 = $r5['meses'][4];
 $prueba('PUE (una sola exhibición) descuenta desde su registro: no pide nada más para entrar',
     $ig($abr3['pagos'], 1740) && $ig($abr3['iva_acreditado'], 240),
     $num($abr3['pagos']) . ' / ' . $num($abr3['iva_acreditado']));
-$prueba('  con PUE, PPD pagado y POR fuera, el ISR queda en (7,000 − 1,500) × ' . ResumenFiscal::tasaIsr() . ' %',
-    $ig($abr3['isr_por_pagar'], 5500 * ResumenFiscal::tasaIsr() / 100), $num($abr3['isr_por_pagar']));
-$prueba('  el IVA por pagar baja a 640 − 240 = 400', $ig($abr3['iva_por_pagar'], 400), $num($abr3['iva_por_pagar']));
+$prueba('  con PUE, PPD pagado y POR fuera, el ISR queda en la tarifa art. 106 sobre la utilidad 12,500',
+    $ig($abr3['isr_por_pagar'], $isrEsperado(12500, 4)), $num($abr3['isr_por_pagar']));
+$prueba('  el IVA por pagar baja a 800 − 240 = 560', $ig($abr3['iva_por_pagar'], 560), $num($abr3['iva_por_pagar']));
 $prueba('  y sigue quedando 1 gasto fuera: el «por definir» (348)',
     $abr3['gastos_no_pagados_n'] === 1 && $ig($abr3['gastos_no_pagados'], 348),
     $abr3['gastos_no_pagados_n'] . ' / ' . $num($abr3['gastos_no_pagados']));
@@ -259,7 +281,7 @@ $prueba('cerrar marzo (reconociendo facturas sin adjuntar)', CierrePeriodo::cerr
 $snap = CierrePeriodo::periodo($contrib, 2026, 3)['snapshot']['fiscal'] ?? [];
 $prueba('la foto guarda el facturado con las facturas ya cobradas (8,120)', $ig($snap['facturado'] ?? -1, 8120), $num($snap['facturado'] ?? -1));
 $prueba('  y los «pagos y gastos» sólo con lo pagado (1,160)', $ig($snap['pagos'] ?? -1, 1160), $num($snap['pagos'] ?? -1));
-$esperado = ['facturado', 'pagos', 'iva_por_pagar', 'isr_por_pagar', 'impuestos'];
+$esperado = ['facturado', 'pagos', 'habilitado', 'iva_por_pagar', 'isr_por_pagar', 'impuestos'];
 $prueba('  la foto conserva sus columnas de siempre (y nada más)', count($snap) === count($esperado)
     && !array_diff(array_keys($snap), $esperado) && !array_diff($esperado, array_keys($snap)), implode(',', array_keys($snap)));
 

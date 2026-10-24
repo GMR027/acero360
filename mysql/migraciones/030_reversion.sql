@@ -8,3 +8,5 @@ DELETE FROM papelera WHERE tipo = 'gasto';
 
 ALTER TABLE papelera
     MODIFY COLUMN tipo ENUM('venta', 'cotizacion') NOT NULL;
+-- Quita el registro para que `scripts/migrar.php` vuelva a aplicar la migración (patrón de 001-027).
+DELETE FROM schema_migraciones WHERE nombre = '030_papelera_gastos.sql';

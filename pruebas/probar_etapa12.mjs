@@ -30,6 +30,12 @@ foreach ([1, 0] as $iva) {
   App\\Ventas::crear(['empresa_id'=>1,'cliente_id'=>${cliente},'fecha'=>date('Y-m-d'),'aplica_iva'=>$iva,'descuento_pct'=>0],[37=>['cantidad'=>1,'precio'=>100,'descuento_pct'=>0,'no_recordar'=>1]],${usuario});
 }`], { env: { ...process.env, DB_NAME: DB } });
 const [vIva, vSin] = sql("SELECT id FROM ventas ORDER BY id").split('\n');
+// FASE 5 · validación previa a facturar: para marcar una venta como «Facturada»
+// el emisor y el receptor deben traer sus datos fiscales y la venta su método y
+// forma de pago (eso es lo que completa la pantalla «Revisar y facturar»).
+sql('UPDATE empresas SET cp = IF(cp IS NULL OR cp = "", "45678", cp)');
+sql(`UPDATE clientes SET rfc = IF(rfc IS NULL OR rfc = "", "XAXX010101000", rfc), codigo_postal = "45678", regimen_fiscal = "601", uso_cfdi = "G03" WHERE id = ${cliente}`);
+sql('UPDATE ingresos SET metodo_pago = "PUE", forma_pago = "03" WHERE venta_id IS NOT NULL');
 
 const navegador = await chromium.launch();
 try {

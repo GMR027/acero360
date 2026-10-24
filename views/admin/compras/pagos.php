@@ -55,9 +55,10 @@ template('tabsCompras', ['tab' => 'pagos']);
             <caption class="solo-lectores">Compras con saldo</caption>
             <thead><tr><th scope="col">Compra</th><th scope="col">Proveedor</th><th scope="col">Fecha</th>
                 <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--numerica">Pagado</th>
-                <th scope="col" class="tabla--numerica">Saldo</th><th scope="col" class="tabla--centro">Pago</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+                <th scope="col" class="tabla--numerica">Saldo</th><th scope="col" class="tabla--centro">Pago</th>
+                <th scope="col" class="tabla--centro">Factura</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
             <tbody>
-            <?php foreach ($conSaldo as $o) : $pe = \App\PagosCompra::ESTADOS[$o['estado_pago']]; ?>
+            <?php foreach ($conSaldo as $o) : $pe = \App\PagosCompra::ESTADOS[$o['estado_pago']]; $ciclo = \App\PagosCompra::ciclo($o); ?>
                 <tr>
                     <td><a href="/admin/compras/detalle?id=<?= (int) $o['id'] ?>#pagos"><strong><?= escaparValores($o['folio']) ?></strong></a></td>
                     <td><?= escaparValores($o['proveedor_nombre']) ?></td>
@@ -66,6 +67,7 @@ template('tabsCompras', ['tab' => 'pagos']);
                     <td class="tabla--numerica cifra"><?= formatoMoneda($o['pagado']) ?></td>
                     <td class="tabla--numerica cifra"><strong><?= formatoMoneda($o['saldo']) ?></strong></td>
                     <td class="tabla--centro"><span class="badge <?= $pe['clase'] ?>"><?= escaparValores($pe['etiqueta']) ?></span></td>
+                    <td class="tabla--centro"><span class="badge <?= $ciclo['clase'] ?>"><?= escaparValores($ciclo['etiqueta']) ?></span></td>
                     <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/compras/detalle?id=<?= (int) $o['id'] ?>#pagos">Pagar</a></td>
                 </tr>
             <?php endforeach; ?>

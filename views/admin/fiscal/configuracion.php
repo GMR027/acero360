@@ -10,16 +10,19 @@ $contrib = \App\Contabilidad::contribuyentePrincipal();
 $c       = \App\Contabilidad::contribuyente($contrib);
 $errores = [];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'tasa_isr') {
-    $tasa = str_replace([',', '%', ' '], '', (string) ($_POST['tasa_isr'] ?? ''));
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'activar_catalogo') {
+    // Activar una versión validada: exige contraseña de autorización y motivo (quién y por qué).
     if (!consumirToken($_POST['token'] ?? null)) {
-        redirigir('/admin/fiscal/configuracion', 'error', 'Este formulario ya se envió; no se guardó dos veces.');
+        redirigir('/admin/fiscal/configuracion', 'error', 'Este formulario ya se envió; no se activó dos veces.');
     }
-    if (!is_numeric($tasa) || (float) $tasa < 0 || (float) $tasa > 100) {
-        redirigir('/admin/fiscal/configuracion', 'error', 'El porcentaje de ISR debe ser un número entre 0 y 100.');
+    if (\App\CatalogoFiscal::activar(
+        (int) ($_POST['catalogo'] ?? 0), (int) ($_SESSION['id'] ?? 0),
+        (string) ($_POST['contrasena'] ?? ''), (string) ($_POST['motivo'] ?? '')
+    )) {
+        redirigir('/admin/fiscal/configuracion', 'exito', 'Catálogo activado: los cálculos usarán esta versión a partir de ahora.');
     }
-    \App\Configuracion::guardar('isr_tasa_simple', (string) round((float) $tasa, 2), (int) ($_SESSION['id'] ?? 0));
-    redirigir('/admin/fiscal/configuracion', 'exito', 'Porcentaje de ISR actualizado para el Resumen del año.');
+    redirigir('/admin/fiscal/configuracion', 'error',
+        implode(' · ', \App\CatalogoFiscal::getErrores()) ?: 'No fue posible activar el catálogo.');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
@@ -35,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 $vigente   = \App\RegistrosFiscales::configuracion($contrib);
 $historial = \App\RegistrosFiscales::historialConfiguracion($contrib);
 $empresas  = \App\Empresas::mostrarTodos(100, 0);
+$catalogos = \App\CatalogoFiscal::listar();
 
 template('header', ['titulo' => 'Configuración fiscal', 'subtitulo' => 'Fiscal', 'rutaActiva' => '/admin/ajustes']);
 template('tabsAjustes', ['tab' => 'fiscal']);
@@ -59,18 +63,63 @@ template('tabsAjustes', ['tab' => 'fiscal']);
 </section>
 
 <section class="tarjeta mb-lg">
-    <h2 class="titulo-5 mb-md">Porcentaje de ISR del resumen</h2>
-    <form class="formulario" action="/admin/fiscal/configuracion" method="post" novalidate>
-        <input type="hidden" name="accion" value="tasa_isr">
-        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-        <div class="formulario__rejilla">
-            <div class="campo"><label class="campo__etiqueta" data-ayuda="Se aplica a (facturado sin IVA − pagos sin IVA) en el Resumen del año. Pregunta a tu contador cuál usar." for="tasa_isr">ISR (%)</label>
-                <input class="control" type="number" id="tasa_isr" name="tasa_isr" min="0" max="100" step="0.01" inputmode="decimal"
-                       value="<?= escaparValores(rtrim(rtrim(number_format(\App\ResumenFiscal::tasaIsr(), 2, '.', ''), '0'), '.')) ?>">
-                <span class="campo__ayuda">Solo afecta la estimación rápida del «Resumen del año». Por defecto 32 %.</span></div>
-        </div>
-        <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar porcentaje</button></div>
-    </form>
+    <h2 class="titulo-5 mb-md">Catálogos fiscales (versionados)</h2>
+    <p class="campo__ayuda mb-md">El motor fiscal sólo usa catálogos con <strong>fuente oficial</strong> y en estado
+        <strong>«activa»</strong>: sin una versión activa, los cálculos quedan <strong>deshabilitados</strong> y no se
+        inventa ninguna tasa. Activar una versión validada conserva la anterior como «reemplazada» (nunca se edita la
+        activa) y queda en el historial con motivo y autorización.
+        <br><span class="texto-secundario">Nota de transición: la tasa plana de ISR que se capturaba aquí ya no dirige
+            ningún cálculo; con catálogo activo el ISR usa la tarifa progresiva del art. 106.</span></p>
+
+    <div class="tabla-contenedor"><table class="tabla">
+        <caption class="solo-lectores">Catálogos fiscales importados</caption>
+        <thead><tr><th scope="col">Catálogo</th><th scope="col">Ejercicio</th><th scope="col">Versión</th>
+            <th scope="col" class="tabla--centro">Estado</th><th scope="col">Vigencia</th><th scope="col">Fuente</th>
+            <th scope="col">Activación</th></tr></thead>
+        <tbody>
+        <?php
+        $etiquetasTipo = [
+            'isr_pagos_provisionales_art106' => 'Tarifa ISR (art. 106 LISR)',
+            'iva_tasas'                      => 'Tasas de IVA',
+            'reglas_plataforma'              => 'Criterios de la plataforma',
+        ];
+        $clasesEstado = ['activa' => 'badge--aprobado', 'validada' => 'badge--pendiente', 'borrador' => 'badge--neutro', 'reemplazada' => 'badge--neutro'];
+        foreach ($catalogos as $cat) :
+            $esValidada = (string) $cat['estado'] === 'validada'; ?>
+            <tr<?= $cat['estado'] === 'reemplazada' ? ' style="opacity:.6"' : '' ?>>
+                <td><?= escaparValores($etiquetasTipo[$cat['tipo']] ?? $cat['tipo']) ?></td>
+                <td><?= (int) $cat['ejercicio'] ?></td>
+                <td>v<?= (int) $cat['version'] ?></td>
+                <td class="tabla--centro"><span class="badge <?= $clasesEstado[$cat['estado']] ?? 'badge--neutro' ?>">
+                    <?= escaparValores($cat['estado']) ?></span></td>
+                <td class="texto-sm"><?= date('d/m/Y', strtotime((string) $cat['vigencia_desde'])) ?> – <?= date('d/m/Y', strtotime((string) $cat['vigencia_hasta'])) ?></td>
+                <td class="texto-sm"><?php if (!empty($cat['fuente_url'])) : ?><a href="<?= escaparValores($cat['fuente_url']) ?>" target="_blank" rel="noopener">fuente oficial</a><?php else : ?>—<?php endif; ?></td>
+                <td>
+                    <?php if ($esValidada) : ?>
+                        <form action="/admin/fiscal/configuracion" method="post" style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
+                            <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                            <input type="hidden" name="accion" value="activar_catalogo">
+                            <input type="hidden" name="catalogo" value="<?= (int) $cat['id'] ?>">
+                            <label class="solo-lectores" for="cat-pw-<?= (int) $cat['id'] ?>">Contraseña</label>
+                            <input class="control control--compacto" type="password" id="cat-pw-<?= (int) $cat['id'] ?>"
+                                   name="contrasena" placeholder="Contraseña" autocomplete="current-password" required>
+                            <label class="solo-lectores" for="cat-mot-<?= (int) $cat['id'] ?>">Motivo</label>
+                            <input class="control control--compacto" type="text" id="cat-mot-<?= (int) $cat['id'] ?>"
+                                   name="motivo" placeholder="Motivo (10+)" maxlength="255" required minlength="10">
+                            <button class="btn btn--secundario btn--sm" type="submit">Activar</button>
+                        </form>
+                    <?php else : ?>
+                        <span class="texto-xs texto-secundario"><?= $cat['estado'] === 'activa' ? 'en uso' : '—' ?></span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table></div>
+    <?php if (!array_filter($catalogos, static fn ($x) => $x['estado'] === 'activa')) : ?>
+        <p class="nota nota--advertencia mt-md" role="alert"><span class="material-symbols-outlined nota__icono" aria-hidden="true">warning</span>
+            <span><strong>No hay ningún catálogo activo</strong>: los cálculos de impuestos quedan deshabilitados hasta que actives una versión validada.</span></p>
+    <?php endif; ?>
 </section>
 
 <section class="tarjeta mb-lg">
@@ -93,7 +142,7 @@ template('tabsAjustes', ['tab' => 'fiscal']);
             <div class="campo campo--completo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="motivo">Motivo del cambio</label>
                 <input class="control" type="text" id="motivo" name="motivo" required minlength="10" maxlength="200" value="<?= escaparValores($_POST['motivo'] ?? '') ?>"></div>
             <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="contrasena">Tu contraseña</label>
-                <input class="control" type="password" id="contrasena" name="contrasena" required autocomplete="current-password"></div>
+                <div class="campo__caja"><input class="control" type="password" id="contrasena" name="contrasena" required autocomplete="current-password" data-ver-contrasena></div></div>
         </div>
         <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar configuración</button></div>
     </form>

@@ -47,6 +47,39 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
         <p class="mt-md texto-secundario">Reparto interno (el total contable no cambia):
             <?php foreach ($gasto['reparto'] as $r) : ?><?= escaparValores($r['nombre']) ?> <?= rtrim(rtrim(number_format($r['porcentaje'], 2), '0'), '.') ?> % · <?php endforeach; ?></p>
     <?php endif; ?>
+
+    <?php /* Este gasto nació de una compra: aquí se ve el dinero realmente pagado al proveedor
+             (trazabilidad de pagos_compra), no solo la bandera «pagado» del gasto. */ ?>
+    <?php $orden = \App\CompraContable::ordenDeGasto($id);
+    if ($orden) :
+        $totalC = \App\PagosCompra::totalCompra($orden);
+        $pagadoC = \App\PagosCompra::pagado((int) $orden['id']);
+        $estadoPagoC = \App\PagosCompra::estado($totalC, $pagadoC);
+        $cicloC = \App\PagosCompra::ciclo($orden + ['estado_pago' => $estadoPagoC]);
+        $pagosC = \App\PagosCompra::deOrden((int) $orden['id']); ?>
+        <div class="nota mt-md" role="note">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">local_shipping</span>
+            <span><strong>Compra de origen:</strong>
+                <a href="/admin/compras/detalle?id=<?= (int) $orden['id'] ?>"><?= escaparValores($orden['folio']) ?></a>
+                · <?= escaparValores($orden['proveedor_nombre']) ?>
+                · <span class="badge <?= $cicloC['clase'] ?>"><?= escaparValores($cicloC['etiqueta']) ?></span>
+                <br>De <strong class="cifra"><?= formatoMoneda($totalC / 100) ?></strong> se han pagado
+                <strong class="cifra"><?= formatoMoneda($pagadoC / 100) ?></strong>
+                · saldo <strong class="cifra"><?= formatoMoneda(($totalC - $pagadoC) / 100) ?></strong>
+                <?php if ($pagosC) : ?>
+                    <br><span class="texto-xs">Pagos registrados:
+                        <?php foreach ($pagosC as $pg) : ?>
+                            <?php if ((string) $pg['estado'] !== 'vigente') continue; ?>
+                            <span class="badge badge--neutro"><?= formatoMoneda((float) $pg['importe']) ?>
+                                · <?= date('d/m/Y', strtotime($pg['fecha'])) ?>
+                                <?= $pg['metodo'] ? '· ' . escaparValores($pg['metodo']) : '' ?>
+                                <?= $pg['referencia'] ? '· ' . escaparValores($pg['referencia']) : '' ?></span>
+                        <?php endforeach; ?>
+                    </span>
+                <?php endif; ?>
+            </span>
+        </div>
+    <?php endif; ?>
     <?php if ($gasto['observaciones']) : ?><p class="texto-secundario mt-md"><?= nl2br(escaparValores($gasto['observaciones'])) ?></p><?php endif; ?>
     <?php if (!$vigente) : ?><p class="nota nota--advertencia mt-md"><span>Cancelado: <?= escaparValores((string) $gasto['motivo_cancelacion']) ?></span></p><?php endif; ?>
 

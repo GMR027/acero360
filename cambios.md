@@ -1273,3 +1273,27 @@ Tres cambios de presentación pedidos juntos: iconos más grandes y rellenos, la
 - **Botón «Ver» por día:** un botón con icono de ojo, **sin texto** (con `aria-label`), que abre el detalle de ese día en **ventana modal**: los marcadores con sus cifras y el conteo de recordatorios, más un botón «Ver en el calendario». Los datos viajan en el atributo `data-agenda-dia` de la propia tarjeta y el modal se construye con `createElement`, sin `innerHTML`, como mantiene el resto de la aplicación.
 - **Sincronización:** al cargar con un día elegido, la página baja hasta su tarjeta de la Agenda y la resalta (sólo si no se ve completa, para no mover la pantalla debajo del usuario). El día elegido queda con `agenda-dia--elegido`.
 - **Pruebas:** `probar_calendario.mjs` pasa de 47 a **56 casos** (icono clásico, tamaño, Agenda que lista y excluye días, botón «Ver», modal de detalle). Se corrigieron los selectores que aún apuntaban al panel eliminado y se hizo **idempotente**: la sección de marcadores limpiaba a medias, y al volver a correr chocaba con el índice único de folio y token. `etapa27.php` sin cambios. Regresión completa en verde. Sin migraciones.
+
+---
+
+## Ronda — Login: botón para mostrar la contraseña (2026-10-24)
+
+En el formulario de acceso el campo de contraseña no tenía forma de revisar lo que se escribió: un signo de más o de menos pasaba desapercibido hasta que el servidor devolvía «El correo o la contraseña no son correctos».
+
+- **Dónde:** en la tarjeta de `views/login.php`, un botón con icono de ojo al interior del campo (`visibility` / `visibility_off`, Material Symbols, ya cargado en `templates/header.php`).
+- **Opt-in, no global:** el botón sólo se construye en los `<input type="password">` que llevan el atributo `data-ver-contrasena`; agregarlo a otro formulario es envolver el input en `.campo__caja` y poner el atributo, sin tocar el JavaScript.
+- **Espacio:** nuevo envoltorio `.campo__caja` (posición relativa) con `padding-right` de 2.5rem en `.control`, para que el texto no quede debajo del icono; `.campo__ojo` con `overflow: hidden` por si falla la fuente de iconos.
+- **Comportamiento:** sólo alterna el `type` del input entre `password` y `text`; **el valor escrito no se vuelve a tocar**, se conserva la posición del cursor (`selectionStart` / `selectionEnd`) y el foco regresa al campo. Botón `type="button"` sin `name`, así que nunca viaja en el envío. Etiqueta accesible y `title` que cambian con el estado, `aria-pressed` sincronizado e icono `aria-hidden`.
+- **Módulo nuevo:** `src/js/modulos/verContrasena.js`, sin `innerHTML` y sin `alert()`; se concatena en `build/js/app.js` y se llama desde `inicializarAplicacion()`. Recompilados `build/css/app.css` y `build/js/app.js` con `npx gulp css js`.
+- **Verificación:** con Chromium contra el servidor local, el botón aparece una sola vez, alterna tipo y etiqueta, conserva el texto escrito (`MiClave2026`), mantiene la posición del cursor, no se envía con el formulario y no hay errores de consola; el envío del formulario sigue funcionando. Sin migraciones.
+
+---
+
+## Ronda — El ojo de la contraseña llega al resto de los formularios (2026-10-24)
+
+Extiende a toda la aplicación lo que se agregó al login. El comportamiento es idéntico: un ojo dentro del campo que alterna `password` ↔ `text`, conserva lo escrito, no se envía con el formulario y trae etiqueta accesible y `aria-pressed`.
+
+- **Ahora lo tienen:** `/registro` (contraseña y repetir), `/admin/perfil` (nueva contraseña y repetir), `/admin/usuarios/crear` y `/editar` (contraseña), `/admin/fiscal/configuracion` y `/admin/contabilidad/cierre` («Tu contraseña» de la reapertura). En todos los casos se agregó el envoltorio `.campo__caja` y el atributo `data-ver-contrasena`; el texto de ayuda (`campo__ayuda`) y los mensajes de error siguen debajo del campo, sin moverse.
+- **No se tocó** el campo de la firma electrónica del redactor (`rd-sello-pass`): ese panel tiene su propio estilo, tamaño de fuente e iconos (Font Awesome), y ahí el ojo exigiría un diseño propio; queda pendiente por separado.
+- **Prueba permanente:** `pruebas/probar_ver_contrasena.mjs` (34 casos en 7 páginas). Crea un usuario temporal en la BD de pruebas, entra al panel y comprueba en cada formulario el número de botones, que alternan tipo y etiqueta, que el texto escrito no se pierde al ocultarlo y que el botón no tiene `name`. El periodo cerrado de `/admin/contabilidad/cierre` se busca en la BD y, si no hay ninguno, esa página se omite en vez de fallar. Se agregó a la lista de navegador de `pruebas/ejecutar_todo.sh`.
+- **Verificación:** con `BASE_URL` apuntando a un servidor local contra `cotizaciones_test` → 34 correctas, 0 fallos y sin errores de consola. `php -l` limpio en las seis vistas. Sin migraciones y **sin desplegar**: sólo quedaron los cambios en el código fuente y los assets compilados en `build/`.

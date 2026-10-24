@@ -28,6 +28,12 @@ $cajaAtr   = $interna ? '' : ' class="tarjeta tarjeta--sin-relleno mb-lg"';
         <span class="badge <?= $etiqueta['clase'] ?>"><?= escaparValores($etiqueta['etiqueta']) ?></span>
     </<?= $tituloTag ?>>
 
+    <p class="texto-sm mb-md">
+        Cada cobro es un dinero recibido (fecha, importe y referencia). Si cobraste en parcialidades, el SAT pide
+        un <strong>complemento de pago</strong> que los respalda:
+        <a href="/admin/ventas/complemento?ingreso=<?= (int) $ingreso['id'] ?>">cargar o ver complementos (XML)</a>.
+    </p>
+
     <?php if ($editable) : ?>
         <form action="/admin/contabilidad/ingresos/accion" method="post"<?= $interna ? ' class="mb-md"' : ' style="padding:1rem"' ?>>
             <input type="hidden" name="id" value="<?= (int) $ingreso['id'] ?>">
@@ -54,7 +60,9 @@ $cajaAtr   = $interna ? '' : ' class="tarjeta tarjeta--sin-relleno mb-lg"';
                             <td class="tabla--numerica cifra"><?= formatoMoneda($c['importe']) ?></td>
                             <td><?= escaparValores((string) $c['metodo']) ?></td>
                             <td><?= escaparValores((string) $c['referencia']) ?></td>
-                            <td><?= $c['estado'] === 'cancelado' ? '<span class="badge badge--error">Cancelado</span> ' . escaparValores((string) $c['motivo_cancelacion']) : '<span class="badge badge--aprobado">Vigente</span>' ?></td>
+                            <td><?= $c['estado'] === 'cancelado' ? '<span class="badge badge--error">Cancelado</span> ' . escaparValores((string) $c['motivo_cancelacion']) : '<span class="badge badge--aprobado">Vigente</span>' ?><?php if (!empty($c['complemento_uuid'])) : ?>
+                                    <span class="badge badge--info" title="Complemento <?= escaparValores($c['complemento_uuid']) ?>">Complemento <?= escaparValores(substr((string) $c['complemento_uuid'], 0, 8)) ?>…</span>
+                                <?php endif; ?></td>
                             <td class="tabla--numerica">
                                 <?php if ($c['estado'] === 'vigente') : ?>
                                     <form action="/admin/contabilidad/ingresos/accion" method="post" data-validar

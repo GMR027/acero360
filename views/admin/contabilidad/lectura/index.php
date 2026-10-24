@@ -54,7 +54,7 @@ $ocr = \App\LectorDocumental::ocrDisponible();
         <ul class="lista-simple">
             <?php foreach ($pendientes as $p) : ?>
                 <li><a href="/admin/contabilidad/lectura/revisar?id=<?= (int) $p['id'] ?>"><?= escaparValores($p['nombre_original']) ?></a>
-                    · <?= $p['destino'] === 'gasto' ? 'gasto' : 'venta' ?> · <?= escaparValores(\App\Lecturas::FUENTES[$p['fuente']] ?? $p['fuente']) ?>
+                    · <?= ['gasto' => 'gasto', 'venta' => 'venta', 'compra' => 'compra'][ $p['destino'] ] ?? $p['destino'] ?> · <?= escaparValores(\App\Lecturas::FUENTES[$p['fuente']] ?? $p['fuente']) ?>
                     · <?= date('d/m/Y H:i', strtotime($p['creado_en'])) ?></li>
             <?php endforeach; ?>
         </ul>

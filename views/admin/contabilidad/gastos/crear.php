@@ -8,12 +8,18 @@ soloAdmin();
 $errores = [];
 $gasto   = ['fecha' => date('Y-m-d'), 'iva_tasa' => '16', 'naturaleza' => 'gasto', 'estado_pago' => 'pendiente'];
 
-/* Factura cargada con el botón «Registro compra inteligente» (Contabilidad):
- * se precarga lo que el motor documental leyó y pudo cotejar. Nada se guarda
- * hasta que la persona revisa los campos y envía el formulario. */
+/* Factura cargada con el botón «Registro compra inteligente» (Contabilidad) o desde
+ * Compras Inteligentes (una factura que resultó ser un gasto): se precarga lo que el
+ * motor documental leyó y pudo cotejar. Nada se guarda hasta que la persona revisa
+ * los campos y envía el formulario. */
 $propuesta      = null;
 $lecturaId     = (int) ($_REQUEST['lectura'] ?? 0);
 $lecturaArchivo = $lecturaId > 0 ? \App\Lecturas::buscarID($lecturaId) : null;
+
+/* Requisito: una factura YA relacionada con una compra no puede generar también un
+ * gasto independiente (duplicaría el importe). Si el folio fiscal pertenece al gasto
+ * de una orden, se muestra la compra y no se ofrece el formulario. */
+$bloqueoCompra = null;
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null) {
     $propuesta = \App\Lecturas::propuesta($lecturaId, 'gasto');
@@ -21,6 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null) {
     if ($propuesta === null) {
         agregarAlerta('advertencia', 'No se encontró la lectura #' . $lecturaId . ': captura el gasto a mano.');
     } else {
+        if (!empty($propuesta['uuid'])) {
+            $operacion = \App\ComprasIntel::operacionPorUuid((string) $propuesta['uuid']);
+            if ($operacion !== null && $operacion['tipo'] === 'compra') {
+                $bloqueoCompra = $operacion;
+            }
+        }
+
         $formaSata = ['01' => 'Efectivo', '02' => 'Cheque', '03' => 'Transferencia', '04' => 'Tarjeta', '05' => 'Tarjeta', '06' => 'Tarjeta'];
 
         $proveedorId = $propuesta['proveedor'] ? (int) $propuesta['proveedor']['id'] : 0;
@@ -38,6 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null) {
             'categoria_id'       => $propuesta['categoria'] ? (int) $propuesta['categoria']['id'] : 0,
             'total'              => $propuesta['total'] > 0 ? number_format($propuesta['total'], 2, '.', '') : '',
             'iva_tasa'           => (string) (int) $propuesta['iva_tasa'],
+            // El XML solo dice CÓMO se va a pagar, no cuándo se pagó: el estado de pago
+            // arranca «pendiente» y la fecha de pago queda vacía para que la capture quien
+            // sepa cuándo salió el dinero (nunca se inventa ni se marca pagado solo).
+            'estado_pago'        => 'pendiente',
+            'fecha_pago'         => '',
             'comprobante_fiscal' => '1',
             'uuid_fiscal'        => $propuesta['uuid'],
             // Resto de los datos del CFDI: quedan guardados en el gasto (sirven, entre
@@ -67,6 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 
     // Gasto con factura y XML adjunto: se leen los datos que la persona dejó vacíos (nunca se pisa lo que escribió).
     $datos = $_POST;
+    // El enlace con la lectura que originó este gasto: sin él, la fila no recuerda de dónde salió
+    // (y una lectura de «compra» que terminó aquí no podría cerrarse).
+    if ($lecturaId > 0 && $lecturaArchivo !== null) {
+        $datos['lectura_id'] = $lecturaId;
+    }
     if (($datos['comprobante_fiscal'] ?? '') === '1') {
         foreach (\App\Archivos::listaDeSubidas($_FILES['archivo'] ?? null) as $archivo) {
             if (strtolower(pathinfo((string) $archivo['name'], PATHINFO_EXTENSION)) !== 'xml' || !is_readable((string) $archivo['tmp_name'])) {
@@ -124,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
             $fallosLectura = \App\Lecturas::adjuntar($lecturaArchivo, 'gasto', $nuevoId, (int) ($_SESSION['id'] ?? 0));
             $subidos += max(0, $esperados - count($fallosLectura));
             $fallos = array_merge($fallos, $fallosLectura);
+            // El cierre de la lectura (si era de «compra») lo hace Gastos::crear.
         }
 
         foreach (\App\Archivos::listaDeSubidas($_FILES['archivo'] ?? null) as $archivo) {
@@ -145,6 +169,20 @@ template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'r
 ?>
 
 <section class="tarjeta">
+    <?php if ($bloqueoCompra) : ?>
+        <!-- Factura ya relacionada con una compra: no se ofrece el formulario (req. de la fase 3)
+             para que no existan dos registros con el mismo importe. -->
+        <div class="nota nota--error mb-lg" role="alert">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
+            <span><strong>Esta factura ya pertenece a la compra <?= escaparValores($bloqueoCompra['orden']['folio'] ?? '') ?>.</strong>
+                Ya está registrada en contabilidad con ese importe, así que aquí NO se crea un gasto nuevo
+                (se duplicaría el gasto). Revisa la compra o su gasto desde los enlaces.</span>
+        </div>
+        <div class="formulario__acciones">
+            <a class="btn btn--primario" href="<?= escaparValores($bloqueoCompra['ruta']) ?>">Ver la operación relacionada</a>
+            <a class="btn btn--secundario" href="/admin/compras/inteligente">Volver a Compras inteligentes</a>
+        </div>
+    <?php else : ?>
     <?php if ($propuesta && !empty($propuesta['duplicados'])) : ?>
         <!-- Coincidencias que ya existen: las consume src/js/modulos/inteligente.js
              para abrir el aviso con su botón de «Ver gasto» / «Ver venta». -->
@@ -155,6 +193,18 @@ template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'r
     <?php endif; ?>
     <?php if ($propuesta) : ?>
         <?php template('avisoLectura', ['propuesta' => $propuesta, 'nombreDoc' => 'gasto']); ?>
+        <?php /* Distingue los tres tiempos del documento: la fecha del CFDI es de EMISIÓN,
+                 no de pago; el pago lo captura quien sepa cuándo salió el dinero. */ ?>
+        <div class="nota mb-lg" role="note">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">event</span>
+            <span><strong>Fechas y estados del documento:</strong>
+                emisión <strong><?= escaparValores($propuesta['fecha'] ?: 'sin detectar') ?></strong> (la del CFDI) ·
+                pago <strong><?= $gasto['estado_pago'] === 'pagado' && !empty($gasto['fecha_pago']) ? escaparValores($gasto['fecha_pago']) : 'sin registrar' ?></strong>
+                (la decide quien pague) ·
+                estado del gasto <strong><?= ($gasto['estado_pago'] ?? 'pendiente') === 'pagado' ? 'pagado' : 'por pagar' ?></strong>
+                · revisión fiscal: <strong>por validar</strong> (tener el XML no lo vuelve deducible; lo valida tu contador).
+            </span>
+        </div>
     <?php endif; ?>
     <form class="formulario" action="/admin/contabilidad/gastos/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
@@ -165,6 +215,7 @@ template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'r
             'reglasCategoria' => \App\CoincidenciasFactura::REGLAS_CATEGORIA,
         ]); ?>
     </form>
+    <?php endif; ?>
 </section>
 
 <?php template('footer'); ?>

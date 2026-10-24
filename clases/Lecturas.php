@@ -59,8 +59,8 @@ class Lecturas
     public static function preparar(array $archivos, string $destino, int $usuarioId, bool $esSubida = true): ?int
     {
         self::$errores = [];
-        if (!in_array($destino, ['gasto', 'venta'], true)) {
-            self::$errores[] = 'Elige si el documento es de un gasto o de una venta.';
+        if (!in_array($destino, ['gasto', 'venta', 'compra', 'complemento', 'complemento_venta'], true)) {
+            self::$errores[] = 'Elige si el documento es de un gasto, de una venta, de una compra, de un complemento de compra o de un complemento de venta.';
             return null;
         }
         if (!$archivos) {
@@ -190,7 +190,14 @@ class Lecturas
     public static function propuesta(int $id, string $destino): ?array
     {
         $lectura = self::buscarID($id);
-        if (!$lectura || !in_array((string) $lectura['destino'], ['gasto', 'venta'], true)) {
+        if (!$lectura) {
+            return null;
+        }
+        // Una factura de compra también puede proponerse como gasto (es el mismo
+        // cotejo: emisor = a quien le pagué). En sentido inverso no se permite.
+        $origen = (string) $lectura['destino'];
+        $compatible = $origen === $destino || ($destino === 'gasto' && $origen === 'compra');
+        if (!$compatible) {
             return null;
         }
 
@@ -379,6 +386,12 @@ class Lecturas
         $lectura = self::buscarID($id);
         if (!$lectura || $lectura['estado'] !== 'pendiente') {
             self::$errores[] = 'Esta lectura ya no está pendiente de revisión.';
+            return false;
+        }
+        // Una lectura de compra o de complemento NO se confirma aquí: su flujo es propio
+        // (Compras Inteligentes, Complementos de compra o de venta), nunca un gasto o venta sueltos.
+        if (in_array((string) $lectura['destino'], ['compra', 'complemento', 'complemento_venta'], true)) {
+            self::$errores[] = 'Esta factura se revisa en Compras Inteligentes o en Complementos de pago, no en la lectura de gastos.';
             return false;
         }
 
