@@ -614,4 +614,89 @@ class Lecturas
 
         return $filas;
     }
+
+    /* -------------------------------------------------------------------- *
+     * ALTA RÁPIDA DE CLIENTE DESDE UNA FACTURA (venta inteligente)
+     * ------------------------------------------------------------------ */
+
+    /** Datos del CFDI archivado en una lectura, releídos del XML original.
+     *  Devuelve el array `datos` de CfdiXml::leer() (con los campos fiscales del
+     *  receptor que el alta rápida usa) o null si la lectura no existe o su
+     *  archivo ya no se puede leer. */
+    public static function cfdi(int $id): ?array
+    {
+        $lectura = self::buscarID($id);
+        if (!$lectura) {
+            return null;
+        }
+        $ruta = Archivos::base() . '/' . (string) $lectura['archivo'];
+        if (!is_file($ruta)) {
+            return null;
+        }
+        $cfdi = CfdiXml::leer((string) file_get_contents($ruta));
+        return $cfdi['valido'] ? $cfdi['datos'] : null;
+    }
+
+    /**
+     * Alta rápida de cliente con los datos del RECEPTOR de una factura cargada
+     * con «Registro Venta Inteligente» (FASE 9). Nada se inventa: cada dato sale
+     * del XML o lo captura la persona en el modal; el RFC se coteja contra el
+     * documento para que no se pueda dar de alta a otra persona por error.
+     *
+     * @param array{nombre?:string, nombre_empresa?:string, rfc?:string, codigo_postal?:string,
+     *               regimen_fiscal?:string, uso_cfdi?:string, telefono?:string, email?:string,
+     *               ubicacion?:string} $datos
+     * @return array{ok: bool, cliente_id?: int, ya_existia?: bool, errores: string[]}
+     */
+    public static function altaClienteDesdeLectura(int $lecturaId, array $datos, int $usuarioId): array
+    {
+        $devolver = static fn (array $extra = []): array => $extra + ['ok' => false, 'errores' => []];
+
+        $cfdi = self::cfdi($lecturaId);
+        if ($cfdi === null) {
+            return $devolver(['errores' => ['La lectura ya no existe o su archivo XML no se pudo leer.']]);
+        }
+        $rfcDocumento = VentasFiscal::normalizarRfc((string) $cfdi['receptor_rfc']);
+        if ($rfcDocumento === '') {
+            return $devolver(['errores' => ['La factura no trae el RFC del receptor: no se puede dar de alta al cliente con ella.']]);
+        }
+        $rfc = VentasFiscal::normalizarRfc((string) ($datos['rfc'] ?? ''));
+        if ($rfc !== $rfcDocumento) {
+            return $devolver(['errores' => ['El RFC capturado no coincide con el receptor de la factura (' . $rfcDocumento . ').']]);
+        }
+
+        // El RFC ya registrado: NO se duplica la ficha, se reutiliza (la venta queda con ese cliente).
+        $existente = VentasFiscal::buscarClientePorRfc($rfc);
+        if ($existente !== null) {
+            return ['ok' => true, 'cliente_id' => (int) $existente['id'], 'ya_existia' => true, 'errores' => []];
+        }
+
+        $cliente = new Clientes([
+            // Si la persona no capturó nombre/razón social, se toman del RECEPTOR de la
+            // factura (los datos vienen del documento, no se inventan).
+            'nombre'         => trim((string) ($datos['nombre'] ?? '')) ?: trim((string) ($cfdi['receptor_nombre'] ?? '')),
+            'nombre_empresa' => trim((string) ($datos['nombre_empresa'] ?? '')) ?: trim((string) ($cfdi['receptor_nombre'] ?? '')),
+            'alias'          => trim((string) ($datos['alias'] ?? '')),
+            'rfc'            => $rfc,
+            'codigo_postal'  => trim((string) ($datos['codigo_postal'] ?? '')),
+            'regimen_fiscal' => trim((string) ($datos['regimen_fiscal'] ?? '')),
+            'uso_cfdi'       => trim((string) ($datos['uso_cfdi'] ?? '')),
+            'telefono'       => trim((string) ($datos['telefono'] ?? '')),
+            'email'          => trim((string) ($datos['email'] ?? '')),
+            'ubicacion'      => trim((string) ($datos['ubicacion'] ?? '')),
+            'notas'          => trim((string) ($datos['notas'] ?? '')) ?: null,
+        ]);
+        $errores = $cliente->validar();
+        if ($errores !== []) {
+            return $devolver(['errores' => $errores]);
+        }
+        if (!$cliente->crear()) {
+            return $devolver(['errores' => Clientes::getErrores() ?: ['No fue posible guardar el cliente.']]);
+        }
+
+        Auditoria::registrar('cliente', (int) $cliente->id, 'crear', $usuarioId,
+            'Alta rápida con los datos de la factura (venta inteligente)', ['rfc' => $rfc, 'lectura' => $lecturaId]);
+
+        return ['ok' => true, 'cliente_id' => (int) $cliente->id, 'ya_existia' => false, 'errores' => []];
+    }
 }

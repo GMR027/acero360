@@ -116,7 +116,26 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
     <div class="impuestos-movil__fila"><span>Cobrado en <?= escaparValores(mb_strtolower(nombreMes($mes))) ?></span><strong class="impuestos-movil__valor"><?= $m($actual['facturado']) ?></strong></div>
     <div class="impuestos-movil__fila"><span>Pagado (que entra) en <?= escaparValores(mb_strtolower(nombreMes($mes))) ?></span><strong class="impuestos-movil__valor"><?= $m($actual['pagos']) ?></strong></div>
     <div class="impuestos-movil__fila impuestos-movil__fila--destacada"><span><?= $aPagar >= 0 ? 'Impuestos por pagar' : 'Saldo a tu favor' ?></span><strong class="impuestos-movil__valor"><?= $m(abs($aPagar)) ?></strong></div>
+
+    
 </section>
+
+<?php /* FASE 9: mini-calendario de captura: qué meses del año ya tienen ventas y
+             gastos registrados (datos crudos, no cálculo). A simple vista se ve qué falta. */
+    $ventasMes = array_fill(1, 12, 0);
+    $gastosMes = array_fill(1, 12, 0);
+    foreach ($db->query("SELECT MONTH(fecha) m, COUNT(*) n FROM ingresos WHERE estado = 'vigente' AND contribuyente_id = $contrib AND YEAR(fecha) = $anio GROUP BY MONTH(fecha)") as $f) { $ventasMes[(int) $f['m']] = (int) $f['n']; }
+    foreach ($db->query("SELECT MONTH(fecha) m, COUNT(*) n FROM gastos WHERE estado = 'vigente' AND contribuyente_id = $contrib AND YEAR(fecha) = $anio GROUP BY MONTH(fecha)") as $f) { $gastosMes[(int) $f['m']] = (int) $f['n']; } ?>
+    <div class="nota mt-lg" role="status">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">calendar_month</span>
+        <span><strong>Meses con datos capturados <?= $anio ?>:</strong>
+            <?php for ($i = 1; $i <= 12; $i++) :
+                $clase = $ventasMes[$i] > 0 && $gastosMes[$i] > 0 ? 'badge--aprobado' : ($ventasMes[$i] > 0 || $gastosMes[$i] > 0 ? 'badge--pendiente' : 'badge--neutro'); ?>
+                <span class="badge <?= $clase ?><?= $i === $mes ? '" style="outline:2px solid var(--color-primario)' : '' ?>"
+                      title="<?= $ventasMes[$i] ?> venta(s), <?= $gastosMes[$i] ?> gasto(s)"><?= mb_substr(nombreMes($i), 0, 3) ?></span><?php endfor; ?>
+            · verde = ventas y gastos; amarillo = sólo uno; gris = sin capturar (la carga por lotes
+            llena los meses anteriores de una vez).</span>
+    </div>
 
 <section class="tarjeta mb-lg movil-oculto" aria-label="Impuestos del mes">
     <p class="texto-secundario"><?= $aPagar >= 0 ? 'Impuestos por pagar de' : 'Saldo a tu favor en' ?> <?= escaparValores(nombreMes($mes)) ?> <?= $anio ?></p>

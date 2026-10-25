@@ -12,6 +12,7 @@ $consulta = http_build_query(array_filter(
 $sufijo = $consulta !== '' ? '?' . $consulta : '';
 $secciones = [
     'resumen'  => ['/admin/contabilidad', 'Resumen del mes', 'dashboard'],
+    'lotes'    => ['/admin/contabilidad/lotes', 'Carga por lotes', 'upload_file'],
     'ingresos' => ['/admin/contabilidad/ingresos', 'Ventas y cobros', 'payments'],
     'gastos'   => ['/admin/contabilidad/gastos', 'Gastos', 'receipt'],
     'sin'      => ['/admin/contabilidad/sin-facturar', 'Pendientes de facturar', 'receipt_long'],

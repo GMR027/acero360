@@ -328,6 +328,15 @@ class CoincidenciasFactura
     /** @return array{id: int, nombre: string, criterio: string}|null */
     private static function cliente(string $rfc, string $nombre, ?array &$avisos = null): ?array
     {
+        // FASE 9: un cliente puede tener VARIOS RFC (persona física y empresa):
+        // el exacto del documento se busca primero en su registro de RFCs, para
+        // que un RFC secundario también identifique al cliente.
+        if (trim($rfc) !== '') {
+            $exacto = ClientesRfc::buscarClientePorRfc($rfc);
+            if ($exacto !== null) {
+                return $exacto;
+            }
+        }
         return self::cotejar(self::tabla('SELECT id, nombre, nombre_empresa, rfc FROM clientes ORDER BY nombre ASC'), $rfc, $nombre, $avisos);
     }
 

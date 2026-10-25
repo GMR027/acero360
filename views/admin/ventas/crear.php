@@ -172,6 +172,132 @@ template('header', [
              data-origen="Registro Venta Inteligente"></div>
     <?php endif; ?>
     <?php template('avisoLectura', ['propuesta' => $propuesta, 'nombreDoc' => 'venta']); ?>
+
+    <?php if (empty($propuesta['cliente'])) : ?>
+        <?php
+        /* FASE 9 · el receptor de la factura no existe como cliente: se ofrece el
+         * alta rápida en MODAL con los datos que el propio documento trae (RFC,
+         * razón social, CP, régimen y uso de CFDI). El RFC se coteja en el servidor
+         * contra el XML: no se puede dar de alta a otra persona por error. */
+        $alta = \App\Lecturas::cfdi((int) $lecturaId);
+        $altaRfc = $alta ? \App\VentasFiscal::normalizarRfc((string) $alta['receptor_rfc']) : '';
+        ?>
+        <?php if ($altaRfc !== '') : ?>
+            <section class="tarjeta mb-lg" data-alta-cliente>
+                <h2 class="titulo-5 mb-sm">
+                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                    El cliente de la factura todavía no está registrado
+                </h2>
+                <p class="campo__ayuda mb-md">
+                    «<?= escaparValores((string) ($alta['receptor_nombre'] ?? '')) ?>» (RFC <?= escaparValores($altaRfc) ?>)
+                    no tiene ficha de cliente. Regístralo aquí con los datos que ya trae la factura y la venta
+                    quedará con él seleccionado.
+                </p>
+                <button type="button" class="btn btn--primario" id="btn-alta-cliente">
+                    <span class="material-symbols-outlined" aria-hidden="true">how_to_reg</span><span>Registrar cliente con estos datos</span>
+                </button>
+
+                <!-- Formulario real: el modal sólo lo llena y lo envía (mismo patrón que la
+                     revisión previa a facturar). Sin JS queda disponible el alta manual. -->
+                <form id="form-alta-cliente" action="/admin/ventas/inteligente-cliente" method="post" style="display:none" aria-hidden="true">
+                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                    <input type="hidden" name="lectura" value="<?= (int) $lecturaId ?>">
+                    <input type="hidden" name="rfc" id="ac-rfc" value="<?= escaparValores($altaRfc) ?>">
+                    <input type="hidden" name="nombre" id="ac-nombre">
+                    <input type="hidden" name="nombre_empresa" id="ac-empresa">
+                    <input type="hidden" name="codigo_postal" id="ac-cp">
+                    <input type="hidden" name="regimen_fiscal" id="ac-regimen">
+                    <input type="hidden" name="uso_cfdi" id="ac-uso">
+                </form>
+
+                <template id="tpl-alta-cliente">
+                    <div>
+                        <p class="texto-sm mb-md">Se creará la ficha con los datos del receptor de la factura.
+                            Ajusta lo que haga falta: todo es editable después en el módulo de clientes.</p>
+                        <div class="formulario__rejilla">
+                            <div class="campo">
+                                <label class="campo__etiqueta campo__etiqueta--obligatorio" for="f-ac-rfc">RFC del receptor</label>
+                                <input class="control" type="text" id="f-ac-rfc" value="<?= escaparValores($altaRfc) ?>" readonly>
+                                <span class="campo__ayuda">Sale de la factura: no se puede cambiar (el servidor lo coteja).</span>
+                            </div>
+                            <div class="campo">
+                                <label class="campo__etiqueta campo__etiqueta--obligatorio" for="f-ac-nombre">Nombre del contacto</label>
+                                <input class="control" type="text" id="f-ac-nombre" maxlength="120"
+                                       value="<?= escaparValores((string) ($alta['receptor_nombre'] ?? '')) ?>">
+                            </div>
+                            <div class="campo">
+                                <label class="campo__etiqueta campo__etiqueta--obligatorio" for="f-ac-empresa">Nombre o razón social</label>
+                                <input class="control" type="text" id="f-ac-empresa" maxlength="150"
+                                       value="<?= escaparValores((string) ($alta['receptor_nombre'] ?? '')) ?>">
+                                <span class="campo__ayuda">Con la razón social de la factura basta; edítala si va a otro lado.</span>
+                            </div>
+                            <div class="campo">
+                                <label class="campo__etiqueta" for="f-ac-cp">Código postal fiscal</label>
+                                <input class="control" type="text" id="f-ac-cp" maxlength="5" inputmode="numeric"
+                                       value="<?= escaparValores((string) ($alta['receptor_cp'] ?? '')) ?>">
+                                <span class="campo__ayuda"><?= ($alta['receptor_cp'] ?? '') !== '' ? 'Leído de la factura.' : 'No venía en la factura: captúralo para poder facturar.' ?></span>
+                            </div>
+                            <div class="campo">
+                                <label class="campo__etiqueta" for="f-ac-regimen">Régimen fiscal</label>
+                                <input class="control" type="text" id="f-ac-regimen" maxlength="4" inputmode="numeric"
+                                       value="<?= escaparValores((string) ($alta['receptor_regimen'] ?? '')) ?>">
+                                <span class="campo__ayuda">Clave del catálogo SAT (p. ej. 612 actividades empresariales).</span>
+                            </div>
+                            <div class="campo">
+                                <label class="campo__etiqueta" for="f-ac-uso">Uso del CFDI</label>
+                                <input class="control" type="text" id="f-ac-uso" maxlength="4"
+                                       value="<?= escaparValores((string) ($alta['uso_cfdi'] ?? '')) ?>">
+                                <span class="campo__ayuda">Con el que viene la factura (p. ej. G03 gastos en general).</span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </section>
+            <script>
+            /* Alta rápida de cliente (FASE 9): el modal sólo llena el formulario real
+             * y lo envía. Sin JS el botón se oculta y queda el alta manual de siempre. */
+            (function () {
+                var boton = document.getElementById('btn-alta-cliente');
+                if (!boton) { return; }
+                if (typeof abrirModal !== 'function') {
+                    boton.hidden = true;
+                    var parrafo = document.createElement('p');
+                    parrafo.className = 'campo__ayuda';
+                    parrafo.textContent = 'Regístralo a mano en el módulo de clientes y regresa a esta venta.';
+                    boton.closest('section').appendChild(parrafo);
+                    return;
+                }
+                boton.addEventListener('click', function () {
+                    var cuerpo = document.getElementById('tpl-alta-cliente').content.cloneNode(true);
+                    abrirModal({
+                        sobreTitulo: 'Cliente de la factura',
+                        titulo: 'Registrar cliente',
+                        cuerpo: cuerpo,
+                        textoConfirmar: 'Crear cliente y volver a la venta',
+                        alConfirmar: function () {
+                            var copiar = function (de, a) {
+                                var o = document.getElementById(de), d = document.getElementById(a);
+                                if (o && d) { d.value = o.value; }
+                            };
+                            copiar('f-ac-rfc', 'ac-rfc');
+                            copiar('f-ac-nombre', 'ac-nombre');
+                            copiar('f-ac-empresa', 'ac-empresa');
+                            copiar('f-ac-cp', 'ac-cp');
+                            copiar('f-ac-regimen', 'ac-regimen');
+                            copiar('f-ac-uso', 'ac-uso');
+                            document.getElementById('form-alta-cliente').submit();
+                        }
+                    });
+                });
+            })();
+            </script>
+        <?php else : ?>
+            <p class="nota nota--advertencia mb-lg" role="status">
+                <span class="material-symbols-outlined nota__icono" aria-hidden="true">person_off</span>
+                <span>La factura no trae el RFC del receptor: captura el cliente a mano antes de guardar la venta.</span>
+            </p>
+        <?php endif; ?>
+    <?php endif; ?>
 <?php endif; ?>
 
 <section class="tarjeta tarjeta--sin-relleno">

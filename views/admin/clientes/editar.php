@@ -89,4 +89,92 @@ template('header', [
     </form>
 </section>
 
+<?php /* FASE 9: RFCs de facturación del cliente. clientes.rfc es el ACTIVO; aquí
+         se administran todos (p. ej. su persona física y su empresa). */ ?>
+<?php $rfcs = \App\ClientesRfc::de((int) $cliente->id); ?>
+<section class="tarjeta mb-lg" id="rfcs-facturacion">
+    <h2 class="titulo-5 mb-sm">
+        <span class="material-symbols-outlined" aria-hidden="true">badge</span>
+        RFCs de facturación (<?= count($rfcs) ?>)
+    </h2>
+    <p class="campo__ayuda mb-md">
+        El RFC con el que se factura es el marcado como <strong>activo</strong>. Un cliente puede tener varios
+        (p. ej. su persona física y su empresa): al facturar se elige cuál usar. No se puede duplicar un RFC
+        que ya pertenezca a otro cliente.
+    </p>
+
+    <?php if ($rfcs) : ?>
+        <div class="tabla-contenedor mb-md">
+            <table class="tabla">
+                <caption class="solo-lectores">RFCs registrados de <?= escaparValores(trim($cliente->nombre_empresa ?: $cliente->nombre)) ?></caption>
+                <thead><tr><th scope="col">RFC</th><th scope="col">Razón social</th><th scope="col">CP</th>
+                    <th scope="col">Régimen</th><th scope="col">Uso CFDI</th><th scope="col">Estado</th>
+                    <th scope="col"><span class="solo-lectores">Acción</span></th></tr></thead>
+                <tbody>
+                <?php foreach ($rfcs as $r) : ?>
+                    <tr>
+                        <td><strong><?= escaparValores((string) $r['rfc']) ?></strong></td>
+                        <td class="texto-sm"><?= escaparValores((string) ($r['razon_social'] ?? '—')) ?></td>
+                        <td><?= escaparValores((string) ($r['codigo_postal'] ?? '—')) ?></td>
+                        <td><?= escaparValores((string) ($r['regimen_fiscal'] ?? '—')) ?></td>
+                        <td><?= escaparValores((string) ($r['uso_cfdi'] ?? '—')) ?></td>
+                        <td><?= (int) $r['es_principal'] === 1
+                            ? '<span class="badge badge--aprobado">Activo para facturar</span>'
+                            : '<span class="badge badge--neutro">Secundario</span>' ?></td>
+                        <td class="tabla--numerica">
+                            <?php if ((int) $r['es_principal'] !== 1) : ?>
+                                <form action="/admin/clientes/rfc-accion" method="post" data-validar
+                                      data-confirmacion-sobre="RFC secundario"
+                                      data-confirmacion="¿Quitar el RFC <?= escaparValores((string) $r['rfc']) ?> de esta ficha?"
+                                      data-confirmacion-boton="Sí, quitar">
+                                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                                    <input type="hidden" name="accion" value="quitar">
+                                    <input type="hidden" name="rfc_id" value="<?= (int) $r['id'] ?>">
+                                    <input type="hidden" name="cliente" value="<?= (int) $cliente->id ?>">
+                                    <button class="btn btn--peligro btn--sm" type="submit">Quitar</button>
+                                </form>
+                            <?php else : ?>
+                                <span class="texto-xs texto-secundario">No se quita: es el activo.</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+
+    <form class="formulario" action="/admin/clientes/rfc-accion" method="post" novalidate>
+        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+        <input type="hidden" name="accion" value="agregar">
+        <input type="hidden" name="cliente" value="<?= (int) $cliente->id ?>">
+        <div class="formulario__rejilla">
+            <div class="campo">
+                <label class="campo__etiqueta campo__etiqueta--obligatorio" for="rfc-nuevo">RFC</label>
+                <input class="control" type="text" id="rfc-nuevo" name="rfc" maxlength="20" style="text-transform:uppercase" required>
+            </div>
+            <div class="campo">
+                <label class="campo__etiqueta" for="rfc-razon">Razón social de ese RFC</label>
+                <input class="control" type="text" id="rfc-razon" name="razon_social" maxlength="150"
+                       placeholder="Ej. la empresa del mismo cliente">
+            </div>
+            <div class="campo">
+                <label class="campo__etiqueta" for="rfc-cp">Código postal</label>
+                <input class="control" type="text" id="rfc-cp" name="codigo_postal" maxlength="5" inputmode="numeric">
+            </div>
+            <div class="campo">
+                <label class="campo__etiqueta" for="rfc-regimen">Régimen fiscal</label>
+                <input class="control" type="text" id="rfc-regimen" name="regimen_fiscal" maxlength="4" inputmode="numeric">
+            </div>
+            <div class="campo">
+                <label class="campo__etiqueta" for="rfc-uso">Uso del CFDI</label>
+                <input class="control" type="text" id="rfc-uso" name="uso_cfdi" maxlength="4" placeholder="G03">
+            </div>
+        </div>
+        <div class="formulario__acciones">
+            <button class="btn btn--secundario" type="submit">Agregar RFC a esta ficha</button>
+        </div>
+    </form>
+</section>
+
 <?php template('footer'); ?>

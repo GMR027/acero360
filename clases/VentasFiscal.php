@@ -148,6 +148,14 @@ class VentasFiscal
         if ($normalizado === '' || $excluirId < 0) {
             return null;
         }
+
+        // FASE 9: primero el registro de RFCs del cliente (un cliente puede tener
+        // varios: persona física y empresa). Si no está ahí, el RFC activo de la ficha.
+        $porRegistro = ClientesRfc::buscarClientePorRfc($normalizado, $excluirId);
+        if ($porRegistro !== null) {
+            return $porRegistro;
+        }
+
         // Se normaliza en la consulta igual que en el formulario: con espacios,
         // guiones o minúsculas debe dar el mismo resultado.
         $consulta = self::$db->prepare(
@@ -733,6 +741,19 @@ class VentasFiscal
             'antes'  => $antes,
             'despues' => $despues,
         ]);
+
+        // FASE 9: el RFC con el que se factura queda registrado en la ficha del
+        // cliente (con sus datos) y marcado como el ACTIVO; así un cliente puede
+        // facturar con varios RFC sin que se pierda ninguno.
+        $rfcActivo = $nuevoRfc !== null && $nuevoRfc !== '' ? $nuevoRfc : (string) ($cliente->rfc ?? '');
+        if ($rfcActivo !== '') {
+            ClientesRfc::sincronizarPrincipal($clienteId, $rfcActivo, [
+                'codigo_postal'  => (string) ($cliente->codigo_postal ?? ''),
+                'regimen_fiscal' => (string) ($cliente->regimen_fiscal ?? ''),
+                'uso_cfdi'       => (string) ($cliente->uso_cfdi ?? ''),
+            ], $usuarioId);
+        }
+
         return true;
     }
 

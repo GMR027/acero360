@@ -388,7 +388,7 @@ class MotorFiscal
         }
         if ($faltantes) {
             $avisos[] = 'No has anotado pagos de ISR de los meses ' . implode(', ', $faltantes)
-                . '. Si ya pagaste alguno, anótalo en «Pagos al SAT y ajustes»; si no, el ISR de este cálculo saldrá más alto de lo real.';
+                . '. Si ya pagaste alguno, anótalo en «Retenciones y declaraciones» → «Declaraciones y pagos al SAT»; si no, el ISR de este cálculo saldrá más alto de lo real.';
         }
 
         $isr = [

@@ -75,13 +75,22 @@ class CfdiXml
             'folio'           => $atributo($comprobante, 'Folio'),
             'emisor_rfc'      => strtoupper($primero($atributo($emisor, 'Rfc'), $atributo($emisor, 'rfc'))),
             'emisor_nombre'   => $primero($atributo($emisor, 'Nombre'), $atributo($emisor, 'nombre')),
+            'emisor_regimen'  => $atributo($emisor, 'RegimenFiscal'),
             'receptor_rfc'    => strtoupper($primero($atributo($receptor, 'Rfc'), $atributo($receptor, 'rfc'))),
             'receptor_nombre' => $primero($atributo($receptor, 'Nombre'), $atributo($receptor, 'nombre')),
+            // CFDI 4.0: la ficha fiscal del receptor (para pre-alta de clientes y validar facturación).
+            'receptor_cp'     => $primero($atributo($receptor, 'DomicilioFiscalReceptor'), $atributo($receptor, 'DomicilioFiscal')),
+            'receptor_regimen' => $atributo($receptor, 'RegimenFiscalReceptor'),
             'uso_cfdi'        => strtoupper($atributo($receptor, 'UsoCFDI')),
             'uuid'            => $uuid,
             'forma_pago'      => $primero($atributo($comprobante, 'FormaPago'), $atributo($comprobante, 'formaDePago')),
             'metodo_pago'     => $primero($atributo($comprobante, 'MetodoPago'), $atributo($comprobante, 'metodoDePago')),
             'descuento'       => $primero($atributo($comprobante, 'Descuento'), $atributo($comprobante, 'descuento')),
+            // Datos que el CFDI trae y el registro por lotes usa: cómo se pagó y dónde se expidió.
+            'condiciones_pago' => $atributo($comprobante, 'CondicionesDePago'),
+            'lugar_expedicion' => $atributo($comprobante, 'LugarExpedicion'),
+            'tipo_cambio'      => $primero($atributo($comprobante, 'TipoCambio'), $atributo($comprobante, 'TipoDeCambio')),
+            'exportacion'      => $atributo($comprobante, 'Exportacion'),
             'iva'             => self::iva($xpath, $atributo),
             // Otros impuestos trasladados (IEPS, ISR trasladado…) y retenidos (ISR/IVA retenido):
             // no entran al IVA, pero el contador los necesita para cuadrar la factura.
@@ -177,6 +186,11 @@ class CfdiXml
                 'valor_unitario' => $atributo($c, 'ValorUnitario'),
                 'importe'        => $atributo($c, 'Importe'),
                 'descuento'      => $atributo($c, 'Descuento'),
+                // Claves del catálogo SAT: sirven para clasificar el gasto (p. ej. acero →
+                // compra de material) y para emparejar con el catálogo interno de productos.
+                'clave_prod_serv' => $atributo($c, 'ClaveProdServ'),
+                'clave_unidad'   => $atributo($c, 'ClaveUnidad'),
+                'objeto_imp'     => $atributo($c, 'ObjetoImp'),
             ];
             if (count($lista) >= 100) {
                 break;

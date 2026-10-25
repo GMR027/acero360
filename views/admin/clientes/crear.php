@@ -45,8 +45,24 @@ if ($esEnvio) {
     }
 
     if (empty($errores) && $cliente->crear()) {
+        /* FASE 9: detección de «el mismo cliente con otro RFC»: si el nombre o el
+         * correo coinciden con una ficha existente se avisa (sin bloquear), porque
+         * lo correcto suele ser agregar el RFC a ESA ficha y no duplicar la persona. */
+        $duplicados = \App\ClientesRfc::posiblesDuplicados(
+            (string) $cliente->nombre, (string) $cliente->nombre_empresa, (string) $cliente->email, (int) $cliente->id
+        );
+        $mensaje = 'Cliente creado correctamente.';
+        if ($duplicados !== []) {
+            $nombres = array_map(
+                static fn (array $d): string => '«' . trim((string) ($d['nombre_empresa'] ?: $d['nombre'])) . '» (ficha #' . (int) $d['id'] . ')',
+                array_slice($duplicados, 0, 2)
+            );
+            $mensaje .= ' Ojo: parece coincidir con ' . implode(' y ', $nombres)
+                . ' por ' . ($duplicados[0]['por'] === 'correo' ? 'correo' : 'nombre')
+                . '. Si es el mismo cliente con otro RFC, agrégalo en SU ficha en vez de duplicar la persona.';
+        }
         // Éxito: alerta visual que se muestra al cargar la lista.
-        redirigir('/admin/clientes', 'exito', 'Cliente creado correctamente.');
+        redirigir('/admin/clientes', 'exito', $mensaje);
     }
 
     // Si llegamos aquí, la validación o la escritura fallaron.

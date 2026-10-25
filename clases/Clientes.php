@@ -141,6 +141,7 @@ class Clientes
 
             if ($correcto) {
                 $this->id = (int) self::$db->insert_id;
+                self::registrarRfcActivo();
                 return true;
             }
         } catch (\mysqli_sql_exception $excepcion) {
@@ -176,6 +177,7 @@ class Clientes
             $consulta->close();
 
             if ($correcto) {
+                self::registrarRfcActivo();
                 return true;
             }
         } catch (\mysqli_sql_exception $excepcion) {
@@ -184,6 +186,25 @@ class Clientes
 
         self::$errores[] = 'No fue posible actualizar el cliente.';
         return false;
+    }
+
+    /**
+     * FASE 9: mantiene coherente el registro de RFCs del cliente con su RFC
+     * ACTIVO (clientes.rfc). Se llama tras crear o actualizar la ficha: así el
+     * panel «RFCs de facturación» siempre ve el RFC con el que se factura, y
+     * cambiar de RFC en la ficha conserva el anterior como secundario.
+     */
+    private function registrarRfcActivo(): void
+    {
+        $rfc = trim((string) ($this->rfc ?? ''));
+        if ($rfc === '' || (int) $this->id <= 0) {
+            return;
+        }
+        ClientesRfc::sincronizarPrincipal((int) $this->id, $rfc, [
+            'codigo_postal'  => (string) ($this->codigo_postal ?? ''),
+            'regimen_fiscal' => (string) ($this->regimen_fiscal ?? ''),
+            'uso_cfdi'       => (string) ($this->uso_cfdi ?? ''),
+        ], 0);
     }
 
     /**

@@ -59,6 +59,13 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
      */
     $ventaFiscalId = (int) ($ingreso['venta_id'] ?? 0);
     $revisionFiscal = ($ventaFiscalId > 0 && $editable) ? \App\VentasFiscal::validar($ventaFiscalId) : null;
+    /* FASE 9: RFCs de facturación del cliente (persona física y empresa pueden
+     * convivir en la misma ficha). Con más de uno, el modal ofrece ELEGIR cuál
+     * usar y carga su CP, régimen y uso. El elegido queda como RFC activo. */
+    $rfcsCliente = [];
+    if ($revisionFiscal !== null && (int) ($revisionFiscal['cliente']['id'] ?? 0) > 0) {
+        $rfcsCliente = \App\ClientesRfc::de((int) $revisionFiscal['cliente']['id']);
+    }
     ?>
     <?php if ($revisionFiscal !== null) : $rv = $revisionFiscal; ?>
         <div class="mb-md" id="validacion-previa">
@@ -118,9 +125,25 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                 <h4 class="titulo-6 mt-md mb-sm">Datos fiscales</h4>
                 <div class="formulario__rejilla">
                     <div class="campo">
-                        <label class="campo__etiqueta" for="f-rfc">RFC del receptor</label>
-                        <input class="control" type="text" id="f-rfc" maxlength="20" style="text-transform:uppercase"
-                               value="<?= escaparValores((string) $rv['cliente']['rfc']) ?>">
+                        <label class="campo__etiqueta campo__etiqueta--obligatorio" for="f-rfc">RFC del receptor</label>
+                        <?php if (count($rfcsCliente) > 1) : ?>
+                            <?php $rfcActivo = \App\VentasFiscal::normalizarRfc((string) $rv['cliente']['rfc']); ?>
+                            <select class="control" id="f-rfc" data-multirfc>
+                                <?php foreach ($rfcsCliente as $rfcFila) : ?>
+                                    <option value="<?= escaparValores((string) $rfcFila['rfc']) ?>"
+                                            data-cp="<?= escaparValores((string) ($rfcFila['codigo_postal'] ?? '')) ?>"
+                                            data-regimen="<?= escaparValores((string) ($rfcFila['regimen_fiscal'] ?? '')) ?>"
+                                            data-uso="<?= escaparValores((string) ($rfcFila['uso_cfdi'] ?? '')) ?>"
+                                            <?= \App\VentasFiscal::normalizarRfc((string) $rfcFila['rfc']) === $rfcActivo ? 'selected' : '' ?>>
+                                        <?= escaparValores((string) $rfcFila['rfc']) ?><?= !empty($rfcFila['razon_social']) ? ' — ' . escaparValores((string) $rfcFila['razon_social']) : '' ?><?= (int) $rfcFila['es_principal'] === 1 ? ' (activo)' : '' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <span class="campo__ayuda">Este cliente tiene <?= count($rfcsCliente) ?> RFC: al elegir uno se cargan su CP, régimen y uso.</span>
+                        <?php else : ?>
+                            <input class="control" type="text" id="f-rfc" maxlength="20" style="text-transform:uppercase"
+                                   value="<?= escaparValores((string) $rv['cliente']['rfc']) ?>">
+                        <?php endif; ?>
                     </div>
                     <div class="campo">
                         <label class="campo__etiqueta" for="f-cp">Código postal fiscal</label>
@@ -328,6 +351,22 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                         document.getElementById('form-fiscal').submit();
                     }
                 });
+
+                /* FASE 9: si el cliente tiene varios RFC, elegir uno en el selector
+                 * carga su CP, régimen y uso en el modal (se pueden corregir a mano). */
+                var selectorRfc = document.getElementById('f-rfc');
+                if (selectorRfc && selectorRfc.tagName === 'SELECT') {
+                    selectorRfc.addEventListener('change', function () {
+                        var elegido = selectorRfc.options[selectorRfc.selectedIndex];
+                        var asignar = function (id, valor) {
+                            var campo = document.getElementById(id);
+                            if (campo && elegido) { campo.value = valor; }
+                        };
+                        asignar('f-cp', elegido.getAttribute('data-cp') || '');
+                        asignar('f-regimen', elegido.getAttribute('data-regimen') || '');
+                        asignar('f-uso', elegido.getAttribute('data-uso') || '');
+                    });
+                }
             });
         })();
         </script>

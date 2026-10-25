@@ -512,7 +512,8 @@ $sumas = static function (string $bd) use ($db): array {
     }
     return $r;
 };
-$migracionesNuevas = ['032_compras_inteligentes.sql', '034_complementos_pago.sql', '035_ventas_validacion.sql', '036_complementos_clientes.sql'];
+$migracionesNuevas = ['032_compras_inteligentes.sql', '034_complementos_pago.sql', '035_ventas_validacion.sql',
+    '036_complementos_clientes.sql', '037_clientes_rfc.sql'];
 $enMigraciones = static function (string $bd) use ($db, $migracionesNuevas): array {
     $in = "'" . implode("','", $migracionesNuevas) . "'";
     return array_column($db->query("SELECT nombre FROM `$bd`.schema_migraciones WHERE nombre IN ($in)")->fetch_all(MYSQLI_ASSOC), 'nombre');
@@ -525,8 +526,9 @@ $correr = static function (string $cmd) use ($raiz): array {
 /** Reversiones en orden inverso (036 → 035 → 034 → 032). Devuelve '' o el error. */
 $revertir = static function () use ($correr): string {
     $err = '';
-    foreach (['036_complementos_clientes_reversion.sql', '035_ventas_validacion_reversion.sql',
-              '034_complementos_pago_reversion.sql', '032_compras_inteligentes_reversion.sql'] as $archivo) {
+    foreach (['037_clientes_rfc_reversion.sql', '036_complementos_clientes_reversion.sql',
+              '035_ventas_validacion_reversion.sql', '034_complementos_pago_reversion.sql',
+              '032_compras_inteligentes_reversion.sql'] as $archivo) {
         [$cd, $sd] = $correr('mysql -uroot cotizaciones_mig_f8 < mysql/migraciones/' . escapeshellarg($archivo));
         if ($cd !== 0) {
             $err = "$archivo: $sd";
@@ -561,7 +563,7 @@ if ($preMigradas !== []) {
 
 [$c2, $salida2] = $correr("php scripts/migrar.php $scratch");
 $falta = array_filter($migracionesNuevas, static fn ($n) => !str_contains($salida2, $n));
-$prueba('migrar.php aplica las 4 migraciones pendientes sobre los datos', $c2 === 0 && $falta === [], json_encode($falta));
+$prueba('migrar.php aplica TODAS las migraciones pendientes sobre los datos', $c2 === 0 && $falta === [], json_encode($falta));
 
 $postConteos = $contarTodo($scratch);
 unset($postConteos['schema_migraciones']);
@@ -577,7 +579,7 @@ $prueba('cada tabla conserva EXACTAMENTE sus filas tras migrar', $conteosIguales
     json_encode(array_diff_assoc($postConteos, $preConteos)));
 $prueba('y todos los importes monetarios siguen idénticos (sin pérdida)', $preSumas === $postSumas,
     json_encode(['antes' => $preSumas, 'después' => $postSumas]));
-$prueba('las 4 quedaron registradas en schema_migraciones', count($enMigraciones($scratch)) === 4);
+$prueba('todas quedan registradas en schema_migraciones', count($enMigraciones($scratch)) === count($migracionesNuevas));
 $prueba('las columnas nuevas existen (clientes.codigo_postal / ingresos.metodo_pago)',
     (int) $db->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '$scratch' AND table_name = 'clientes' AND column_name = 'codigo_postal'")->fetch_row()[0] === 1
     && (int) $db->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '$scratch' AND table_name = 'ingresos' AND column_name = 'metodo_pago'")->fetch_row()[0] === 1);
@@ -585,7 +587,7 @@ $prueba('las columnas nuevas existen (clientes.codigo_postal / ingresos.metodo_p
 [$c3, $salida3] = $correr("php scripts/migrar.php $scratch");
 $prueba('volver a ejecutar migrar.php es un NO-OP (idempotente)',
     $c3 === 0 && !str_contains($salida3, '032_compras_inteligentes')
-    && count($enMigraciones($scratch)) === 4);
+    && count($enMigraciones($scratch)) === count($migracionesNuevas));
 
 $errReversion = $revertir();
 $prueba('las reversiones se aplican sin errores', $errReversion === '', $errReversion);

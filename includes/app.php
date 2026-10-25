@@ -78,6 +78,8 @@ $clasesConectadas = [
     App\ComplementosPago::class,
     App\ComplementosVenta::class,
     App\VentasFiscal::class,
+    App\ClientesRfc::class,
+    App\CargaLotes::class,
     App\ProductosProveedor::class,
     App\CoincidenciasFactura::class,
     App\EventosCalendario::class,

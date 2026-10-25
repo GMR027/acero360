@@ -62,6 +62,24 @@ $enlaceGastos = '/admin/contabilidad/gastos?' . http_build_query(['anio' => $per
         <span><strong>Este mes ya está cerrado.</strong> No se pueden cambiar sus ventas ni gastos.</span></p>
 <?php endif; ?>
 
+<?php /* FASE 9: compras con su factura XML adjunta pero SIN gasto en contabilidad
+         (pendiente del diagnóstico de la FASE 1): su importe no aparece en gastos ni
+         en impuestos hasta que se envíen a contabilidad. */
+$comprasSinGasto = (int) $db->query(
+    "SELECT COUNT(*) FROM ordenes_compra o
+      WHERE o.estado <> 'cancelada' AND o.estado_cfdi = 'con_cfdi'
+        AND YEAR(o.fecha_solicitud) = " . (int) $periodo['anio'] . "
+        AND (o.gasto_id IS NULL OR NOT EXISTS (SELECT 1 FROM gastos g WHERE g.id = o.gasto_id AND g.estado = 'vigente'))"
+)->fetch_row()[0]; ?>
+<?php if ($comprasSinGasto > 0) : ?>
+    <p class="nota nota--advertencia mb-lg" role="status">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">report</span>
+        <span><strong><?= $comprasSinGasto ?> compra(s) de <?= (int) $periodo['anio'] ?> tienen su factura XML adjunta pero
+            todavía no tienen gasto en contabilidad</strong>: su importe no aparece en los gastos ni en el cálculo de
+            impuestos. Revísalas en
+            <a href="/admin/compras?<?= http_build_query(['anio' => $periodo['anio']]) ?>">Compras</a> y ábreles su gasto.</span></p>
+<?php endif; ?>
+
 <?php
 template('resumenReporte', [
     'tarjetas' => [

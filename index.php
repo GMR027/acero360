@@ -77,6 +77,8 @@ $router->post('/admin/clientes/crear',  'views/admin/clientes/crear.php',   'sol
 $router->get('/admin/clientes/editar',  'views/admin/clientes/editar.php',  'soloAdmin');
 $router->post('/admin/clientes/editar', 'views/admin/clientes/editar.php',  'soloAdmin');
 $router->get('/admin/clientes/detalle', 'views/admin/clientes/detalle.php', 'soloAdmin');
+// FASE 9: RFCs de facturación de un cliente (varios RFC por ficha).
+$router->post('/admin/clientes/rfc-accion', 'views/admin/clientes/rfc-accion.php', 'soloAdmin');
 // El borrado sólo acepta POST: nunca se elimina con un simple enlace.
 $router->post('/admin/clientes/eliminar', 'views/admin/clientes/eliminar.php', 'soloAdmin');
 
@@ -213,6 +215,8 @@ $router->post('/admin/ventas/devolucion', 'views/admin/ventas/devolucion.php', '
 $router->post('/admin/ventas/cambio',     'views/admin/ventas/cambio.php',     'soloAdmin');
 // Validación previa y emisión de la venta (FASE 5): sólo POST. Sin PAC no se simula timbrado.
 $router->post('/admin/ventas/fiscal',     'views/admin/ventas/fiscal.php',      'soloAdmin');
+// FASE 9 · alta rápida de cliente con los datos de la factura (venta inteligente).
+$router->post('/admin/ventas/inteligente-cliente', 'views/admin/ventas/inteligente-cliente.php', 'soloAdmin');
 // Complementos de pago de clientes (FASE 6): se registran y se relacionan con los cobros.
 $router->get('/admin/ventas/complemento',          'views/admin/ventas/complemento.php',           'soloAdmin');
 $router->post('/admin/ventas/complemento',         'views/admin/ventas/complemento.php',           'soloAdmin');
@@ -244,6 +248,10 @@ $router->get('/admin/ajustes',  'views/admin/ajustes.php', 'soloAdmin');
 $router->post('/admin/ajustes', 'views/admin/ajustes.php', 'soloAdmin');
 $router->get('/admin/ayuda',                                'views/admin/ayuda.php',                             'soloAdmin');
 $router->get('/admin/contabilidad/mas',                     'views/admin/contabilidad/mas.php',                  'soloAdmin');
+// FASE 9: carga por lotes (facturas de proveedores y emitidas, por separado).
+$router->get('/admin/contabilidad/lotes',                   'views/admin/contabilidad/lotes.php',                'soloAdmin');
+$router->post('/admin/contabilidad/lotes',                  'views/admin/contabilidad/lotes.php',                'soloAdmin');
+$router->post('/admin/contabilidad/lotes-accion',           'views/admin/contabilidad/lotes-accion.php',         'soloAdmin');
 $router->get('/admin/contabilidad/ingresos',                'views/admin/contabilidad/ingresos/index.php',       'soloAdmin');
 $router->get('/admin/contabilidad/ingresos/detalle',        'views/admin/contabilidad/ingresos/detalle.php',     'soloAdmin');
 $router->post('/admin/contabilidad/ingresos/accion',        'views/admin/contabilidad/ingresos/accion.php',      'soloAdmin');

@@ -152,11 +152,17 @@ $cliB = new Clientes(['nombre' => 'T35 Contacto B', 'nombre_empresa' => 'T35 Rec
 $cliB->validar();
 $prueba('cliente B (sólo con RFC) se crea', $cliB->crear() === true && $cliB->id > 0, implode(' | ', Clientes::getErrores()));
 $cliBId = (int) $cliB->id;
-$cliCId = (int) $uno("SELECT id FROM clientes WHERE rfc <> '' AND rfc IS NOT NULL ORDER BY id LIMIT 1");
+/* Cliente C: con RFC pero SIN datos fiscales. Antes se tomaba «el primer cliente
+ * de la base», pero las suites de navegador le dejan datos fiscales cargados y la
+ * etapa dejaba de valer corrida sola: ahora el caso es propio y determinista. */
+$cliC = new Clientes(['nombre' => 'T35 Contacto C', 'nombre_empresa' => 'T35 Receptor C', 'rfc' => 'CCC940101CCC']);
+$cliC->validar();
+$cliC->crear();
+$cliCId = (int) $cliC->id;
 
 $ventaF = $crearVenta(2, $cliAId);   // feliz: receptor completo
 $ventaB = $crearVenta(2, $cliBId);   // sin datos fiscales
-$ventaC = $crearVenta(2, $cliCId);   // cliente preexistente de la base
+$ventaC = $crearVenta(2, $cliCId);   // con RFC pero sin datos fiscales
 $ingresoF = (int) $uno("SELECT id FROM ingresos WHERE venta_id = $ventaF");
 $ingresoB = (int) $uno("SELECT id FROM ingresos WHERE venta_id = $ventaB");
 
@@ -196,7 +202,7 @@ $prueba('quedaron guardados en el cliente',
 $prueba('la acción quedó auditada', (int) $uno("SELECT COUNT(*) FROM auditoria WHERE entidad = 'cliente' AND entidad_id = $cliBId AND accion = 'datos_fiscales'") >= 1);
 
 $revC = VentasFiscal::validar($ventaC);
-$prueba('un cliente PREEXISTENTE con RFC pero sin datos fiscales se bloquea',
+$prueba('un cliente con RFC pero sin datos fiscales se bloquea',
     $revC['puede_facturar'] === false && $contiene($revC['errores'], 'código postal fiscal del receptor'));
 
 // El código postal debe ser de 5 dígitos y el régimen una clave del catálogo.
