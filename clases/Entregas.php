@@ -673,6 +673,7 @@ class Entregas
             $renglon->close();
 
             self::avanzarPreparaciones($ventaId);
+            IncidenciasEntrega::actualizarEstado($ventaId);
             Auditoria::registrar('venta', $ventaId, 'entrega', $usuarioId, null, ['entrega_id' => $entregaId, 'piezas' => $piezas]);
 
             self::$db->commit();

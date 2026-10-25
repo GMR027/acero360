@@ -69,6 +69,17 @@ class Ventas
     public $comentarios;
     public $creado_en;
 
+    /* --- Seguimiento de entrega (módulo de seguimiento de entregas) ------ */
+    /** Fecha de entrega prometida o acordada con el cliente. */
+    public $entrega_fecha;
+    /** Observaciones del seguimiento de entrega (quién recibe, condiciones…). */
+    public $entrega_observaciones;
+    /** Estado general del seguimiento: pendiente, entregado, entregado con incidencias… */
+    public $entrega_estado;
+    /** Cuándo y por qué se cerró la entrega (una devolución cierra lo pendiente). */
+    public $entrega_cerrada_en;
+    public $entrega_cerrada_motivo;
+
     /* --- Datos de unión (sólo lectura, vienen del JOIN) ------------------ */
     public $empresa_nombre;
     public $empresa_rfc;

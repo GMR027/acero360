@@ -87,7 +87,7 @@ class Seguimiento
             'gasto_pago' => 'Abrir gasto', 'gasto_comp' => 'Abrir gasto', 'gasto_cfdi' => 'Abrir gasto',
             'compra_recibir' => 'Ver compra por recibir', 'compra_cfdi' => 'Abrir compra para facturar', 'compra_saldo' => 'Abrir compra',
             'entrada' => 'Abrir entrada', 'material' => 'Ver material',
-            'entrega' => 'Ver entrega pendiente', 'cambio' => 'Entregar cambio',
+            'entrega' => 'Ver entrega pendiente', 'cambio' => 'Entregar cambio', 'incidencia' => 'Abrir seguimiento de entrega',
             'stock' => 'Abrir producto', 'novedad' => 'Ver novedad',
         ][explode(':', $clave)[0]] ?? 'Abrir registro';
     }
@@ -353,6 +353,32 @@ class Seguimiento
                 'detalle' => self::nombreCliente($v) . ' · se deben ' . (int) $v['pendiente'] . ' pieza' . ((int) $v['pendiente'] === 1 ? '' : 's') . ' · venta ' . self::antiguedad($dias),
                 'fecha' => $v['fecha'], 'dias' => $dias, 'enlace' => '/admin/ventas/detalle?id=' . (int) $v['id'] . '#cambios',
                 'huella' => 'debe' . (int) $v['pendiente'],
+            ];
+        }
+
+        // Incidencias de entrega abiertas: producto faltante/dañado/incompleto, cambios, devoluciones y
+        // facturas por corregir que quedaron sin resolver en el seguimiento de la venta.
+        $incidencias = self::$db->query(
+            "SELECT v.id, v.folio, v.fecha, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                    COUNT(*) AS abiertas, SUM(e.factura_requerida) AS por_facturar, MAX(e.id) AS ultima_id
+               FROM entrega_incidencias e
+               JOIN ventas v ON v.id = e.venta_id
+               JOIN clientes cl ON cl.id = v.cliente_id
+              WHERE e.estado = 'abierta'
+              GROUP BY v.id, v.folio, v.fecha, cl.nombre, cl.nombre_empresa
+              ORDER BY v.fecha, v.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($incidencias as $f) {
+            $abiertas = (int) $f['abiertas'];
+            $factura = (int) $f['por_facturar'] > 0;
+            $dias = self::dias($f['fecha']);
+            $avisos[] = [
+                'clave' => 'incidencia:' . $f['venta_id'], 'categoria' => 'entrega', 'prioridad' => $factura ? 'alta' : 'normal',
+                'titulo' => ($abiertas === 1 ? 'Incidencia de entrega abierta · ' : $abiertas . ' incidencias de entrega abiertas · ') . $f['folio'],
+                'detalle' => self::nombreCliente($f) . ' · venta ' . self::antiguedad($dias)
+                    . ($factura ? ' · una de ellas exige cancelar la factura y subir la correcta.' : ''),
+                'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => '/admin/entregas-seguimiento/venta?id=' . (int) $f['venta_id'],
+                'huella' => 'abiertas' . $abiertas . ($factura ? ':factura' : ''),
             ];
         }
 

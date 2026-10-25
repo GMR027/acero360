@@ -212,6 +212,19 @@ class Inventario
     }
 
     /**
+     * Entrada por devolución de UNA incidencia de entrega (IncidenciasEntrega la
+     * llama dentro de su propia transacción: NO abre ni confirma). Igual que en
+     * registrarDevolucion(): el producto regresa con motivo «devolucion» ligado
+     * a la venta, para que el rastro del kardex quede explicado.
+     *
+     * @param array<int, int> $piezas producto_id => cantidad a regresar.
+     */
+    public static function devolucionPorIncidencia(array $piezas, int $ventaId, int $usuarioId, string $notas): bool
+    {
+        return self::mover($piezas, 'entrada', 0, $usuarioId, $notas, $ventaId, 0, 'devolucion');
+    }
+
+    /**
      * Suma al inventario lo realmente recibido de un proveedor.
      * NO abre transacción: la abre OrdenesCompra::recibir().
      *
@@ -553,6 +566,7 @@ class Inventario
 
             // Lo devuelto que no se había entregado deja de estar pendiente (ver Entregas::pendientesDeVentas).
             Entregas::avanzarPreparaciones($ventaId);
+            IncidenciasEntrega::actualizarEstado($ventaId);
 
             Auditoria::registrar('venta', $ventaId, 'devolucion', $usuarioId, $nota !== '' ? $nota : null, ['piezas' => $filtrados, 'fecha' => $fecha]);
             self::$db->commit();
@@ -665,6 +679,7 @@ class Inventario
             $entrega->close();
 
             Auditoria::registrar('venta', $ventaId, 'cambio_entregado', $usuarioId, null, ['producto_id' => $productoId, 'cantidad' => $cantidad, 'fecha' => $fecha]);
+            IncidenciasEntrega::actualizarEstado($ventaId);
             self::$db->commit();
             return true;
         } catch (\mysqli_sql_exception $excepcion) {

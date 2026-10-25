@@ -97,6 +97,14 @@ $enlaces = [
         'soloEscritorio' => true,
     ],
     [
+        'ruta'          => '/admin/entregas-seguimiento',
+        'icono'         => 'fact_check',
+        'texto'         => 'Seguimiento de entregas',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/ventas',
         'icono'         => 'assignment_return',
         'texto'         => 'Ventas y devoluciones',

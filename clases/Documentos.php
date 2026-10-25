@@ -310,6 +310,21 @@ class Documentos
         self::enviar($bytes, $nombre);
     }
 
+    /** PDF del Preliminar básico de impuestos (simulador con las facturas). Solo lectura. */
+    public static function descargarPreliminarFiscal(array $datos, string $nombre, string $volver): void
+    {
+        ob_start();
+        \template('pdfFiscalPreliminar', $datos);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'el preliminar', 'landscape');
+        if ($bytes === null) {
+            \redirigir($volver, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, $nombre);
+    }
+
     /** PDF de estadísticas. Solo lectura. */
     public static function descargarEstadisticas(array $reporte): void
     {

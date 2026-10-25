@@ -4,6 +4,8 @@
  *   tipo=impuestos    → impuestos por pagar del mes (o los 12 meses si mes=0)
  *   tipo=movimientos  → todas las ventas y gastos del periodo, con los impuestos por pagar al final
  *                     (PDF y Excel traen además la sección de proveedores: compras, pagos y saldo)
+ *   tipo=preliminar   → PDF del Preliminar básico: el cálculo del documento Fiscal 2026 con las
+ *                     facturas reales (tabla fiscal mes por mes + clientes y proveedores del mes)
  * Solo lectura: exportar no modifica ninguna cifra.
  */
 
@@ -14,11 +16,11 @@ $anio    = (int) ($_GET['anio'] ?? date('Y'));
 $anio    = ($anio >= 2000 && $anio <= 2100) ? $anio : (int) date('Y');
 $mes     = (int) ($_GET['mes'] ?? 0);
 $mes     = ($mes >= 0 && $mes <= 12) ? $mes : 0;
-$tipo    = ($_GET['tipo'] ?? '') === 'movimientos' ? 'movimientos' : 'impuestos';
+$tipo    = in_array($_GET['tipo'] ?? '', ['movimientos', 'preliminar'], true) ? $_GET['tipo'] : 'impuestos';
 $formato = in_array($_GET['formato'] ?? '', ['pdf', 'xlsx'], true) ? $_GET['formato'] : 'csv';
 $periodo = ($mes > 0 ? nombreMes($mes) . ' ' : '') . $anio;
 $sufijo  = $anio . ($mes > 0 ? sprintf('-%02d', $mes) : '');
-$volver  = '/admin/fiscal' . ($tipo === 'movimientos' ? '/movimientos' : '') . "?anio=$anio&mes=" . max(1, $mes);
+$volver  = '/admin/fiscal' . ($tipo === 'movimientos' ? '/movimientos' : ($tipo === 'preliminar' ? '/preliminar' : '')) . "?anio=$anio&mes=" . max(1, $mes);
 $r       = \App\ResumenFiscal::anual($contrib, $anio);
 $ver     = $r['versiones'] ?? [];
 $aviso   = 'Estimación administrativa de un solo motor (MotorFiscal) con los catálogos versionados: IVA v'
@@ -28,6 +30,28 @@ $aviso   = 'Estimación administrativa de un solo motor (MotorFiscal) con los ca
     . 'IVA por pagar = IVA cobrado − IVA acreditable − retenciones − saldo a favor − otros ajustes. ISR = tarifa oficial progresiva sobre la utilidad acumulada, contra pagos provisionales previos, retenciones y acreditamientos. '
     . 'Lo excluido (facturas en parcialidades, gastos sin comprobante o no deducibles) se lista en el reporte. Confírmala con tu contador.';
 $horizontal = false;
+
+/* Preliminar básico (tipo=preliminar): el cálculo del documento Fiscal 2026 con
+   las facturas reales de la base. Sólo PDF (así se ofrece en su pestaña); el
+   mes de los listados es 1-12 (la vista lo normaliza; aquí se defiende por si
+   alguien llama a mano con mes=0). */
+if ($tipo === 'preliminar') {
+    $mes = ($mes >= 1 && $mes <= 12) ? $mes : ($anio === (int) date('Y') ? (int) date('n') : 12);
+    $r        = \App\PreliminarFiscal::anual($contrib, $anio);
+    $clientes = \App\PreliminarFiscal::clientes($contrib, $anio, $mes);
+    $compras  = \App\PreliminarFiscal::compras($contrib, $anio, $mes);
+    $avisoPreliminar = 'Simulador básico del documento Fiscal 2026 con las facturas registradas: sólo entran las ventas '
+        . 'facturadas y los gastos con comprobante fiscal, cada uno con su IVA real (16 %, 8 % o 0 %). '
+        . 'IVA por pagar = IVA facturado - IVA acreditable. ISR = 32 % plano sobre la utilidad del mes, sin acumular. '
+        . 'El año suma los 12 meses. No usa cobros ni pagos: no sustituye a la estimación del motor (pestaña Impuestos) '
+        . 'ni a tu contador.';
+    \App\Documentos::descargarPreliminarFiscal(
+        ['titulo' => 'Preliminar básico de impuestos · ' . $anio, 'anio' => $anio, 'mes' => $mes,
+            'r' => $r, 'clientes' => $clientes, 'compras' => $compras, 'aviso' => $avisoPreliminar],
+        'preliminar-fiscal-' . $anio . sprintf('-%02d', $mes),
+        "/admin/fiscal/preliminar?anio=$anio&mes=$mes"
+    );
+}
 
 if ($tipo === 'impuestos' && $mes > 0) {
     $x = $r['meses'][$mes];

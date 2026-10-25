@@ -51,6 +51,7 @@ $clasesConectadas = [
     App\Auditoria::class,
     App\OrdenesCompra::class,
     App\Entregas::class,
+    App\IncidenciasEntrega::class,
     App\Contabilidad::class,
     App\Gastos::class,
     App\Archivos::class,
@@ -83,6 +84,7 @@ $clasesConectadas = [
     App\ProductosProveedor::class,
     App\CoincidenciasFactura::class,
     App\EventosCalendario::class,
+    App\PreliminarFiscal::class,
 ];
 
 foreach ($clasesConectadas as $clase) {

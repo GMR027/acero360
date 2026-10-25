@@ -1,0 +1,110 @@
+/* ==========================================================================
+   _entregas-seguimiento.scss — Módulo de seguimiento de entregas.
+   Bloques: resolución de incidencias (<details>), cierre resuelto y
+   línea de tiempo del historial de la entrega.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* Bloque plegable con los formularios de cierre de una incidencia. */
+.seguimiento-resolucion {
+  margin-top: $espacio-md;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+  background-color: $color-superficie-baja;
+  padding: $espacio-sm $espacio-md;
+
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: $espacio-xs 0;
+    user-select: none;
+
+    &:focus-visible {
+      outline: 2px solid $color-primario;
+      outline-offset: 2px;
+      border-radius: $radio-sm;
+    }
+  }
+
+  &[open] summary {
+    margin-bottom: $espacio-sm;
+    border-bottom: 1px solid $color-borde;
+    padding-bottom: $espacio-sm;
+  }
+
+  /* El segundo formulario (cancelar incidencia) queda separado del primero. */
+  .formulario + .formulario {
+    margin-top: $espacio-md;
+    border-top: 1px dashed $color-borde-fuerte;
+    padding-top: $espacio-md;
+  }
+}
+
+/* Resolución ya guardada (incidencia cerrada). */
+.seguimiento-cierre {
+  margin-top: $espacio-sm;
+  padding: $espacio-sm $espacio-md;
+  border-left: 3px solid $color-exito-borde;
+  background-color: $color-exito-claro;
+  border-radius: $radio-sm;
+}
+
+/* Línea de tiempo del historial de la venta. */
+.seguimiento-timeline {
+  list-style: none;
+  margin: $espacio-md 0 0;
+  padding: 0;
+  position: relative;
+
+  /* Riel vertical que conecta los eventos. */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    width: 2px;
+    background-color: $color-borde;
+  }
+
+  &__item {
+    position: relative;
+    padding: 0 0 $espacio-md 1.75rem;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0.25rem;
+      top: 0.4rem;
+      width: 0.625rem;
+      height: 0.625rem;
+      border-radius: $radio-full;
+      background-color: $color-primario;
+      border: 2px solid $color-fondo;
+      z-index: 1;
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+  }
+
+  &__cuerpo {
+    display: block;
+    padding-top: $espacio-xs;
+
+    strong {
+      display: block;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .seguimiento-timeline {
+    &__item {
+      padding-left: 1.5rem;
+    }
+  }
+}

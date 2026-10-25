@@ -303,6 +303,7 @@ $router->get('/admin/fiscal',                       'views/admin/fiscal/resumen.
 $router->post('/admin/fiscal',                      'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->get('/admin/fiscal/documentos',           'views/admin/fiscal/documentos.php',            'soloAdmin');
 $router->get('/admin/fiscal/movimientos',           'views/admin/fiscal/movimientos.php',           'soloAdmin');
+$router->get('/admin/fiscal/preliminar',            'views/admin/fiscal/preliminar.php',            'soloAdmin');
 $router->get('/admin/fiscal/exportar',              'views/admin/fiscal/exportar.php',              'soloAdmin');
 $router->get('/admin/fiscal/resumen',               'views/admin/fiscal/resumen.php',               'soloAdmin');
 $router->post('/admin/fiscal/resumen',              'views/admin/fiscal/resumen.php',               'soloAdmin');
@@ -323,6 +324,14 @@ $router->get('/admin/entregas/entregar', 'views/admin/entregas/entregar.php', 's
 $router->post('/admin/entregas/entregar','views/admin/entregas/entregar.php', 'soloAdmin');
 $router->get('/admin/entregas/pdf',      'views/admin/entregas/pdf.php',      'soloAdmin');
 $router->get('/admin/entregas/imprimir', 'views/admin/entregas/imprimir.php', 'soloAdmin');
+
+// --- Seguimiento de entregas: estado por venta, incidencias y corrección de la factura ---
+$router->get('/admin/entregas-seguimiento',           'views/admin/entregas-seguimiento/index.php',     'soloAdmin');
+$router->get('/admin/entregas-seguimiento/venta',     'views/admin/entregas-seguimiento/venta.php',     'soloAdmin');
+$router->post('/admin/entregas-seguimiento/venta',    'views/admin/entregas-seguimiento/venta.php',     'soloAdmin');
+$router->get('/admin/entregas-seguimiento/incidencia','views/admin/entregas-seguimiento/incidencia.php','soloAdmin');
+$router->post('/admin/entregas-seguimiento/incidencia','views/admin/entregas-seguimiento/incidencia.php','soloAdmin');
+$router->post('/admin/entregas-seguimiento/cerrar',   'views/admin/entregas-seguimiento/cerrar.php',    'soloAdmin');
 
 // --- Órdenes de compra y recepciones (Etapa 2) ---
 $router->get('/admin/compras',          'views/admin/compras/resumen.php', 'soloAdmin');

@@ -120,8 +120,27 @@ Las ventas vienen de una cotización vendida, o las anotas directamente si el cl
 1. En la lista de pedidos pulsa «Registrar entrega», escribe cuántas piezas entregaste (puede ser parcial) y confirma.
 2. Si el cliente devuelve algo, la venta se cierra como devuelta pero el ingreso se conserva.
 
+### Dar seguimiento a una entrega
+
+1. Menú «Seguimiento de entregas» (también como pestaña dentro de la pantalla de entrega): lista cada venta con su estado general —*Pendiente de entregar*, *Entregado*, *Entregado con incidencias pendientes* o *Entregado · incidencias resueltas*— con filtros por estado, texto y negocio.
+2. Al abrir una venta ves: la fecha de entrega y sus observaciones (se guardan ahí mismo, con «Guardar seguimiento»), los productos **vendidos vs. entregados vs. afectados por incidencias**, sus incidencias, las devoluciones y cambios, la facturación y el historial completo de todo lo que pasó (entregas, devoluciones, cambios y correcciones de factura).
+
+### Registrar una incidencia de entrega
+
+1. En el seguimiento de la venta, «Registrar incidencia». Elige el motivo: **producto faltante, producto dañado o defectuoso, producto incompleto, cambio o sustitución o devolución**, y escribe cuántas piezas de cada producto afecta.
+2. Al guardar, esas piezas **regresan al inventario** y dejan de estar pendientes de entrega si nunca se entregaron: la venta no cambia de importe ni se toca su factura todavía.
+3. Si el cliente debe recibir un reemplazo, márcalo como «requiere cambio» (en «Cambio o sustitución» se marca solo): queda como cambio pendiente y se descuenta del inventario cuando lo entregues con «Marcar cambio entregado» en el detalle de la venta.
+
+### Corregir la factura de la entrega
+
+1. Al registrar la incidencia, marca «hay que cancelar la factura y subir la correcta» (solo aparece si la venta ya está facturada).
+2. Al resolver la incidencia, adjunta la factura correcta en **PDF y XML**: los documentos anteriores quedan dados de baja y el ingreso en Contabilidad toma folio, UUID, fecha, subtotal, IVA y total del XML nuevo (si el periodo contable está cerrado, te lo avisa).
+3. Los cobros ya registrados no cambian: si quedaron por encima del nuevo total, la pantalla te avisa con enlace a los cobros de la venta para que los ajustes.
+
 > **Consejos**
 > - Se puede vender aunque el inventario esté en cero: queda en negativo y se corrige al recibir mercancía.
+> - Mientras haya una incidencia abierta, la venta aparece como *Entregado con incidencias pendientes* y sale un aviso en el Centro de seguimiento; al resolverla o cancelarla el estado se actualiza solo.
+> - La fecha de entrega y las observaciones no son fiscales: sirven para acordar y recordar qué se prometió al cliente.
 
 ---
 
@@ -336,6 +355,14 @@ Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT 
 ### Para tu contador
 
 - «¿Cómo se calcula?» muestra paso a paso la cuenta, con el IVA real de cada CFDI, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.
+
+### El preliminar básico (simulador con tus facturas)
+
+1. Impuestos → pestaña «Preliminar básico»: cuánto serían tus impuestos del año usando sólo las facturas registradas (ventas facturadas y gastos con comprobante fiscal). Es el cálculo del documento Fiscal 2026, sin motor ni catálogos.
+2. Cada mes: IVA real facturado − IVA real acreditable, y un ISR plano del 32 % sobre la utilidad del mes (puede salir a tu favor). El año suma los 12 meses tal cual.
+3. A diferencia de «Impuestos», aquí no importa si te pagaron o no: cada factura cuenta en el mes de su fecha de facturación. Con IVA 0 entra con IVA 0; con 8 %, con su 8 % real.
+4. Abajo del mes elegido ves quiénes generaron las cifras: tus clientes facturados y tus proveedores/compras con comprobante, cada uno con sus montos con y sin IVA.
+5. «Exportar PDF» (arriba a la derecha) baja el reporte: tabla fiscal del año + los dos listados del mes.
 
 > **Consejos**
 > - Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.
