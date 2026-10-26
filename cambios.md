@@ -1561,3 +1561,18 @@ Los botones «Exportar PDF» abrían el visor mientras Excel/CSV descargaban.
   - `desktop/test/integracion.mjs`: busca el producto antes de comprobar el cambio de precio (en el catálogo completo podía caer en otra página).
 - **Accesibilidad móvil (auditoría de 44 px):** `src/scss/layout/_movil.scss` sube a 44 × 44 px las casillas de selección de entregas (`#marcar-todas` y `.entregas-seleccion`) y el ojo de «ver contraseña» (`.campo__ojo`, con más espacio en el campo); `build/css/app.css` recompilado. La auditoría móvil queda en **0 hallazgos**.
 - **Sin migraciones nuevas** (la última sigue siendo `040_entrega_fotos.sql`; esquema y datos intactos).
+
+---
+
+## Ronda — Formulario de gastos: pago tomado del CFDI y «Más detalles» depurado (2026-10-26)
+
+Al cargar un gasto con **«Registro compra inteligente»** el formulario ya traía los cuatro datos del CFDI, pero el estado de pago siempre arrancaba en «pendiente» y «Más detalles» volvía a preguntar cosas que el comprobante ya dice.
+
+- **`views/admin/contabilidad/gastos/crear.php`:**
+  - **Forma de pago del CFDI:** se valida contra `VentasFiscal::FORMAS_PAGO` y se precarga la clave leída (01 efectivo, 03 transferencia…). Si el XML trae una clave fuera del catálogo, queda «Sin definir» para capturarla.
+  - **¿Ya se pagó?:** se deduce del comprobante. `MetodoPago=PUE` (pago en una sola exhibición) deja el gasto **pagado** con la fecha del CFDI; `PPD` (parcialidades/diferido) queda **pendiente**. Si el XML no trae método pero sí una forma concreta distinta de `99 · Por definir`, se considera pagado. El selector sigue visible para corregirlo antes de guardar.
+  - **Clasificación contable:** ya no se pregunta. Se deduce del uso del CFDI con el nuevo `Gastos::naturalezaDeUsoCfdi()`: `G01` → compra de mercancía, `I01–I08` → activo, el resto → gasto operativo.
+- **`templates/formularioGasto.php`:** se quitan de «Más detalles» el selector **«¿Cómo lo pagaste?»** (repetía la forma de pago del CFDI), la **«Fecha en que lo pagaste»** y la **«Clasificación contable»**. El resumen del bloque ahora dice «folio fiscal, reparto entre negocios y notas».
+- **`clases/Gastos.php`:** al editar se conservan `naturaleza`, `metodo_pago` y `fecha_pago` anteriores cuando el formulario ya no los envía; en un alta pagada sin fecha se sigue usando la fecha del gasto. No cambia el flujo fiscal: `fecha_pago` sigue alimentando el motor de flujo de efectivo.
+- **Sin migración:** las columnas `metodo_pago`, `fecha_pago` y `naturaleza` se conservan (las usa el motor fiscal y los registros históricos); sólo dejan de pedirse en la interfaz.
+- **Pruebas:** `pruebas/probar_inteligente.mjs` ahora comprueba que el gasto con PUE queda pagado, que los tres campos retirados no existen y que el gasto se guarda con `estado_pago=pagado` y la fecha del CFDI. Corrida ad-hoc con PUE, PPD, XML sin método y forma `99`: 28/28. `php pruebas/php/etapa44.php`: TODO OK.

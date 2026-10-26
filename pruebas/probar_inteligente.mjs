@@ -254,7 +254,10 @@ try {
   comprobar('la tasa de IVA se dedujo del documento', (await pagina.locator('#iva_tasa option:checked').getAttribute('value')) === '16');
   comprobar('quedó marcado como gasto con factura', (await pagina.locator('#comprobante_fiscal option:checked').getAttribute('value')) === '1');
   comprobar('el folio fiscal (UUID) quedó precargado', (await pagina.inputValue('#uuid_fiscal')) === uuidCompra);
-  comprobar('quedó clasificado como compra', (await pagina.locator('#naturaleza option:checked').getAttribute('value')) === 'compra');
+  comprobar('el CFDI con método PUE quedó marcado como pagado', (await pagina.locator('#estado_pago option:checked').getAttribute('value')) === 'pagado');
+  comprobar('ya no se pide la clasificación contable', (await pagina.locator('#naturaleza').count()) === 0);
+  comprobar('ya no se repite la forma de pago interna', (await pagina.locator('#metodo_pago').count()) === 0);
+  comprobar('ya no se pide la fecha de pago', (await pagina.locator('#fecha_pago').count()) === 0);
   comprobar('el concepto se armó con el emisor', (await pagina.inputValue('#concepto')).includes('Ferreteria de la Esquina'));
   comprobar('la categoría se sugirió por el proveedor', Number(await pagina.locator('#categoria_id option:checked').getAttribute('value')) > 0);
 
@@ -273,6 +276,7 @@ try {
   comprobar('el XML leído se adjuntó solo al gasto', Number(sql(`SELECT COUNT(*) FROM documentos WHERE entidad = 'gasto' AND entidad_id = ${gastoId}`)) === 1);
   comprobar('el gasto guarda el UUID del CFDI', sql(`SELECT uuid_fiscal FROM gastos WHERE id = ${gastoId}`) === uuidCompra);
   comprobar('el gasto guarda los datos del CFDI', sql(`SELECT COUNT(*) FROM documentos WHERE entidad = 'gasto' AND entidad_id = ${gastoId} AND datos_cfdi IS NOT NULL`) === '1');
+  comprobar('el gasto quedó pagado según el CFDI (PUE)', sql(`SELECT CONCAT(estado_pago, '|', IFNULL(fecha_pago, '-')) FROM gastos WHERE id = ${gastoId}`) === 'pagado|2026-10-18');
   comprobar('el gasto guarda los cuatro datos del CFDI',
     sql(`SELECT CONCAT(IFNULL(forma_pago_sat, '-'), '|', IFNULL(tipo_cfdi, '-'), '|', IFNULL(uso_cfdi, '-'), '|', IFNULL(metodo_pago_sat, '-')) FROM gastos WHERE id = ${gastoId}`) === '01|E|G03|PUE');
 

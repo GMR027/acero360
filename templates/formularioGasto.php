@@ -207,31 +207,11 @@ $numEmpresas = max(1, count($empresas));
 <?php endif; ?>
 
 <details class="mt-lg"<?= $errores || !empty($gasto['compartido']) ? ' open' : '' ?>>
-    <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — forma de pago, folio fiscal, notas</summary>
+    <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — folio fiscal, reparto entre negocios y notas</summary>
     <div class="formulario__rejilla mt-md">
-        <div class="campo"><label class="campo__etiqueta" data-ayuda="Efectivo, transferencia, tarjeta… solo para tu control." for="metodo_pago">¿Cómo lo pagaste?</label>
-            <select class="control" id="metodo_pago" name="metodo_pago">
-                <option value="">—</option>
-                <?php foreach (\App\Contabilidad::METODOS_PAGO as $m) : ?>
-                    <option<?= ($gasto['metodo_pago'] ?? '') === $m ? ' selected' : '' ?>><?= escaparValores($m) ?></option>
-                <?php endforeach; ?>
-            </select></div>
-
-        <div class="campo"><label class="campo__etiqueta" for="fecha_pago">Fecha en que lo pagaste</label>
-            <input class="control" type="date" id="fecha_pago" name="fecha_pago" value="<?= $v('fecha_pago') ?>">
-            <span class="campo__ayuda">Si la dejas vacía y ya está pagado, se usa la fecha del gasto.</span></div>
-
         <div class="campo"><label class="campo__etiqueta" data-ayuda="El folio único de la factura. Si subes el XML se llena solo." for="uuid_fiscal">Folio fiscal de la factura (UUID)</label>
             <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= $v('uuid_fiscal') ?>">
             <span class="campo__ayuda">Si subes el XML de la factura, se llena solo.</span></div>
-
-        <div class="campo"><label class="campo__etiqueta" data-ayuda="Déjalo en «Gasto» salvo que tu contador te diga otra cosa." for="naturaleza">Clasificación contable</label>
-            <select class="control" id="naturaleza" name="naturaleza">
-                <?php foreach (\App\Gastos::NATURALEZAS as $clave => $texto) : ?>
-                    <option value="<?= $clave ?>"<?= ($gasto['naturaleza'] ?? 'gasto') === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
-                <?php endforeach; ?>
-            </select>
-            <span class="campo__ayuda">Normalmente «Gasto». No lo cambies si no estás seguro.</span></div>
 
         <input type="hidden" name="revision_fiscal" value="<?= $v('revision_fiscal', 'por_validar') ?>">
 

@@ -41,13 +41,34 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null && $lectur
             }
         }
 
-        $formaSata = ['01' => 'Efectivo', '02' => 'Cheque', '03' => 'Transferencia', '04' => 'Tarjeta', '05' => 'Tarjeta', '06' => 'Tarjeta'];
-
         $proveedorId = $propuesta['proveedor'] ? (int) $propuesta['proveedor']['id'] : 0;
         $concepto = trim((string) ($propuesta['campos']['emisor_nombre']['valor'] ?? ''));
         if ($concepto === '' && $propuesta['sin_equivalente']) {
             $concepto = (string) $propuesta['sin_equivalente'][0]['descripcion'];
         }
+
+        /* Pago del CFDI: la forma de pago (01 efectivo, 03 transferencia…) y el método
+         * (PUE / PPD) vienen del comprobante. PUE significa que se pagó en una sola
+         * exhibición: el gasto se marca pagado y su fecha de pago es la del CFDI.
+         * PPD —o una factura sin método— queda por pagar. Si el XML no trae método
+         * pero sí una forma concreta (distinta de «99 · Por definir»), se considera
+         * pagado, que es lo que declara el comprobante. */
+        $metodoPagoCfdi = strtoupper(trim((string) ($propuesta['metodo_pago'] ?? '')));
+        if (!isset(\App\Gastos::METODOS_CFDI[$metodoPagoCfdi])) {
+            $metodoPagoCfdi = '';
+        }
+        $formaPagoCfdi = trim((string) ($propuesta['forma_pago'] ?? ''));
+        if ($formaPagoCfdi !== '' && !isset(\App\VentasFiscal::FORMAS_PAGO[$formaPagoCfdi])) {
+            $formaPagoCfdi = '';
+        }
+        $yaPagado = $metodoPagoCfdi === 'PUE'
+            || ($metodoPagoCfdi === '' && $formaPagoCfdi !== '' && $formaPagoCfdi !== '99');
+
+        /* Clasificación contable: se deduce del uso del CFDI que ya está arriba. */
+        $usoCfdi = in_array((string) ($propuesta['uso_cfdi'] ?? ''), array_keys(\App\Gastos::USOS_CFDI), true)
+            ? (string) $propuesta['uso_cfdi']
+            : '';
+        $naturaleza = \App\Gastos::naturalezaDeUsoCfdi($usoCfdi);
 
         $gasto = array_merge($gasto, [
             'fecha'              => $propuesta['fecha'],
@@ -58,11 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null && $lectur
             'categoria_id'       => $propuesta['categoria'] ? (int) $propuesta['categoria']['id'] : 0,
             'total'              => $propuesta['total'] > 0 ? number_format($propuesta['total'], 2, '.', '') : '',
             'iva_tasa'           => (string) (int) $propuesta['iva_tasa'],
-            // El XML solo dice CÓMO se va a pagar, no cuándo se pagó: el estado de pago
-            // arranca «pendiente» y la fecha de pago queda vacía para que la capture quien
-            // sepa cuándo salió el dinero (nunca se inventa ni se marca pagado solo).
-            'estado_pago'        => 'pendiente',
-            'fecha_pago'         => '',
+            // «Ya lo pagué» se deduce del CFDI: PUE es pago en una sola exhibición
+            // (pagado, con la fecha del comprobante); PPD queda por pagar.
+            'estado_pago'        => $yaPagado ? 'pagado' : 'pendiente',
+            'fecha_pago'         => $yaPagado ? (string) $propuesta['fecha'] : '',
             'comprobante_fiscal' => '1',
             'uuid_fiscal'        => $propuesta['uuid'],
             // Resto de los datos del CFDI: quedan guardados en el gasto (sirven, entre
@@ -71,14 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null && $lectur
             'rfc_emisor'         => (string) ($propuesta['campos']['emisor_rfc']['valor'] ?? ''),
             'rfc_receptor'       => (string) ($propuesta['campos']['receptor_rfc']['valor'] ?? ''),
             'moneda'             => $propuesta['moneda'] !== '' ? $propuesta['moneda'] : 'MXN',
-            'forma_pago_sat'     => $propuesta['forma_pago'],
-            'metodo_pago_sat'    => $propuesta['metodo_pago'],
-            'metodo_pago'        => $formaSata[substr($propuesta['forma_pago'], 0, 2)] ?? '',
+            'forma_pago_sat'     => $formaPagoCfdi,
+            'metodo_pago_sat'    => $metodoPagoCfdi,
             /* Los cuatro datos del CFDI van juntos y se autocompletan aunque no se haya
              * reconocido al proveedor ni a un producto: son datos del comprobante. */
-            'uso_cfdi'           => in_array($propuesta['uso_cfdi'] ?? '', array_keys(\App\Gastos::USOS_CFDI), true) ? $propuesta['uso_cfdi'] : '',
+            'uso_cfdi'           => $usoCfdi,
             'tipo_cfdi'          => in_array($propuesta['tipo_cfdi'] ?? '', array_keys(\App\Contabilidad::TIPOS_CFDI), true) ? $propuesta['tipo_cfdi'] : '',
-            'naturaleza'         => 'compra',
+            'naturaleza'         => $naturaleza,
             'revision_fiscal'    => 'por_validar',
             'empresa_id'         => $propuesta['empresa'] ? (int) $propuesta['empresa']['id'] : 0,
         ]);
@@ -267,14 +286,15 @@ if (($gasto['beneficiario_tipo'] ?? '') === 'proveedor' && (int) ($gasto['provee
             'propuesta' => $propuesta, 'nombreDoc' => 'gasto',
             'proveedorId' => $proveedorElegido, 'proveedorNombre' => $proveedorNombre,
         ]); ?>
-        <?php /* Distingue los tres tiempos del documento: la fecha del CFDI es de EMISIÓN,
-                 no de pago; el pago lo captura quien sepa cuándo salió el dinero. */ ?>
+        <?php /* La fecha del CFDI es la de emisión. El estado de pago y la forma de pago
+                 salen del propio comprobante (PUE/PPD y clave SAT), y se pueden corregir
+                 abajo antes de guardar. */ ?>
         <div class="nota mb-lg" role="note">
             <span class="material-symbols-outlined nota__icono" aria-hidden="true">event</span>
             <span><strong>Fechas y estados del documento:</strong>
                 emisión <strong><?= escaparValores($propuesta['fecha'] ?: 'sin detectar') ?></strong> (la del CFDI) ·
                 pago <strong><?= $gasto['estado_pago'] === 'pagado' && !empty($gasto['fecha_pago']) ? escaparValores($gasto['fecha_pago']) : 'sin registrar' ?></strong>
-                (la decide quien pague) ·
+                (PUE: pagado con la fecha del CFDI; PPD: queda por pagar) ·
                 estado del gasto <strong><?= ($gasto['estado_pago'] ?? 'pendiente') === 'pagado' ? 'pagado' : 'por pagar' ?></strong>
                 · revisión fiscal: <strong>por validar</strong> (tener el XML no lo vuelve deducible; lo valida tu contador).
             </span>

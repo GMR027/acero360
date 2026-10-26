@@ -37,6 +37,24 @@ class Gastos
         'proveedor' => 'Proveedor', 'estacion' => 'Estación de servicio', 'otro' => 'Otro',
     ];
 
+    /**
+     * Clasificación contable que se deduce del uso del CFDI.
+     *
+     * El formulario ya no pregunta la clasificación: el uso del comprobante dice si
+     * se trata de mercancía (G01), de activo (I01–I08) o de un gasto operativo.
+     */
+    public static function naturalezaDeUsoCfdi(string $uso): string
+    {
+        $uso = strtoupper(trim($uso));
+        if ($uso === 'G01') {
+            return 'compra';
+        }
+        if (preg_match('/^I0[1-8]$/', $uso) === 1) {
+            return 'activo';
+        }
+        return 'gasto';
+    }
+
     public const REVISION = [
         'por_validar'  => ['etiqueta' => 'Por validar', 'clase' => 'badge--pendiente'],
         'validado'     => ['etiqueta' => 'Validado',    'clase' => 'badge--aprobado'],
@@ -408,9 +426,12 @@ class Gastos
                 $d['subtotal'] = number_format(round((float) $totalCapturado / (1 + $tasaCapturada / 100), 2), 2, '.', '');
             }
         }
-        // «Ya lo pagué» sin fecha de pago: se toma la fecha del gasto.
+        // «Ya lo pagué» sin fecha de pago: se conserva la que ya tenía el gasto (el
+        // formulario ya no pide fecha de pago) o, en un alta, se toma la fecha del gasto.
         if (($d['estado_pago'] ?? '') === 'pagado' && trim((string) ($d['fecha_pago'] ?? '')) === '') {
-            $d['fecha_pago'] = (string) ($d['fecha'] ?? '');
+            $d['fecha_pago'] = !array_key_exists('fecha_pago', $d) && !empty($previo['fecha_pago'])
+                ? (string) $previo['fecha_pago']
+                : (string) ($d['fecha'] ?? '');
         }
 
         $fecha = (string) ($d['fecha'] ?? '');
@@ -465,7 +486,14 @@ class Gastos
         }
         $importes = self::calcular($subtotal, $tasa);
 
-        $naturaleza = (string) ($d['naturaleza'] ?? 'gasto');
+        // La clasificación contable ya no se captura: en un alta se deduce del uso del
+        // CFDI y, al editar, se conserva la del gasto para no cambiarla sin querer.
+        $naturaleza = trim((string) ($d['naturaleza'] ?? ''));
+        if ($naturaleza === '') {
+            $naturaleza = $previo !== null
+                ? (string) ($previo['naturaleza'] ?? 'gasto')
+                : self::naturalezaDeUsoCfdi((string) ($d['uso_cfdi'] ?? ''));
+        }
         if (!isset(self::NATURALEZAS[$naturaleza])) {
             $errores[] = 'Naturaleza del gasto no reconocida.';
         }
@@ -571,7 +599,9 @@ class Gastos
             'subtotal' => $importes['subtotal'], 'iva_tasa' => number_format((float) $tasa, 2, '.', ''),
             'iva' => $importes['iva'], 'total' => $importes['total'],
             'estado_pago' => $pago, 'fecha_pago' => $fechaPago ?: null,
-            'metodo_pago' => trim((string) ($d['metodo_pago'] ?? '')) ?: null,
+            // El método de pago interno ya no se pide en el formulario (lo dice la forma
+            // de pago del CFDI): al editar se conserva el que tuviera el gasto.
+            'metodo_pago' => trim((string) ($d['metodo_pago'] ?? ($previo['metodo_pago'] ?? ''))) ?: null,
             'comprobante_fiscal' => (int) $factura,
             'uuid_fiscal' => $uuid ?: null, 'revision_fiscal' => $revision,
             'observaciones' => trim((string) ($d['observaciones'] ?? '')) ?: null,
