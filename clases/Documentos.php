@@ -461,7 +461,11 @@ class Documentos
     }
 
     /**
-     * Envía un PDF al navegador: lo muestra en pantalla para descargarlo.
+     * Envía un PDF al navegador como DESCARGA (igual que los CSV y el Excel).
+     *
+     * Antes se mandaba «inline»: el PDF se abría en el visor del navegador y el
+     * botón «Exportar PDF» no descargaba nada, mientras que CSV/Excel sí
+     * descargaban. Ahora todos los reportes se comportan igual.
      *
      * @param string $bytes  Contenido del PDF.
      * @param string $nombre Nombre del archivo sin extensión.
@@ -477,8 +481,9 @@ class Documentos
         }
 
         header('Content-Type: application/pdf; charset=utf-8');
-        header('Content-Disposition: inline; filename="' . $nombre . '.pdf"');
+        header('Content-Disposition: attachment; filename="' . $nombre . '.pdf"');
         header('Content-Length: ' . strlen($bytes));
+        header('X-Content-Type-Options: nosniff');
         header('Cache-Control: private, max-age=0, must-revalidate');
 
         echo $bytes;

@@ -47,7 +47,11 @@ try {
   const csv = await texto('/admin/inventario/exportar?tipo=inventario&formato=csv&estado=todos');
   verifica('CSV del inventario completo con costo, precio y valor', csv.x.status() === 200 && csv.x.headers()['content-type'].includes('text/csv') && csv.t.includes('Valor al costo') && csv.t.includes('RA-3'));
   const soloMinimo = await texto('/admin/inventario/exportar?tipo=inventario&formato=csv&estado=minimo');
-  verifica('el filtro «bajo el mínimo» reduce el reporte a 1 producto', soloMinimo.t.trim().split('\n').length === 2 && soloMinimo.t.includes('Bajo el mínimo'));
+  // La base real puede tener más de un producto en o bajo su mínimo: se compara
+  // contra la consulta, no contra un número fijo.
+  const enMinimo = Number(sql('SELECT COUNT(*) FROM productos WHERE activo = 1 AND stock_minimo IS NOT NULL AND stock <= stock_minimo'));
+  verifica('el filtro «bajo el mínimo» sólo trae productos en o bajo su mínimo',
+    soloMinimo.t.trim().split('\n').length === enMinimo + 1 && soloMinimo.t.includes('Bajo el mínimo'), `filas=${soloMinimo.t.trim().split('\n').length} bd=${enMinimo}`);
   const xlsx = await texto('/admin/inventario/exportar?tipo=inventario&formato=xlsx');
   verifica('Excel válido (ZIP)', xlsx.x.headers()['content-type'].includes('spreadsheetml') && xlsx.b.subarray(0, 2).toString() === 'PK');
   const pdf = await texto('/admin/inventario/exportar?tipo=inventario&formato=pdf&estado=minimo');

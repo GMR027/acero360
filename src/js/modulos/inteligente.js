@@ -194,7 +194,12 @@ function avisarDuplicado(coincidencias, ruta, origen) {
     acciones: acciones,
     textoConfirmar: 'Registrar de todos modos',
     alConfirmar: function () {
-      window.location.assign(ruta);
+      /* «De todos modos» NO registra nada aquí: abre el formulario sin el aviso
+       * (continuar=1). El servidor vuelve a comprobar el duplicado al guardar y,
+       * si el folio fiscal (UUID) coincide, lo rechaza con un mensaje claro.
+       * Antes sólo recargaba la misma ruta y el aviso reaparecía: un bucle. */
+      const separador = ruta.indexOf('?') === -1 ? '?' : '&';
+      window.location.assign(ruta + separador + 'continuar=1');
     },
   });
 }

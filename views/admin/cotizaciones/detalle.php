@@ -113,7 +113,7 @@ template('header', [
                 <span>Venta <?= escaparValores($ventaOrigen->folio) ?></span>
             </a>
         <?php endif; ?>
-        <a class="btn btn--secundario" href="/admin/cotizaciones/pdf?id=<?= $id ?>" target="_blank" rel="noopener">
+        <a class="btn btn--secundario" href="/admin/cotizaciones/pdf?id=<?= $id ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
             <span>Exportar PDF</span>
         </a>

@@ -1514,3 +1514,50 @@ El detalle de la venta (`/admin/ventas/detalle`) ya permitía adjuntar el CFDI y
   - Corrida ad-hoc sobre `cotizaciones_test` (servidor propio en `:8041`) con **18 comprobaciones, todas en verde**: existe el `input[type=file]` con etiqueta «Documentos Adjuntos», formulario `multipart` con `entidad=ingreso` y `tipo=comprobante_pago`, subida de un PNG y un PDF a la vez → 2 filas en `documentos` + 2 archivos en el almacén, los dos nombres visibles en la lista de la propia página, descarga en 200, repetir el mismo PDF **no lo duplica** y la consola queda sin errores.
   - En verde además: `pruebas/probar_etapa12.mjs` (**13/13**, la sección de facturación y cobro), `pruebas/probar_etapa5.mjs` (**51/51**, documentos y periodo cerrado), `php pruebas/php/etapa5.php`, `etapa12.php`, `etapa44.php` y `pruebas/probar_operacion.mjs` (**27/27**).
 - **Sin desplegar.**
+
+---
+
+## Ronda — Correcciones del recorrido completo como empleado (2026-10-25)
+
+Se recorrieron los cuatro grupos de operación (Operación Comercial, Productos e Inventario, Compras y Abastecimiento, Administración y Finanzas) con las dos empresas, en la base local. Salieron cinco hallazgos y aquí quedan corregidos; además se endurecieron cuatro pruebas de la suite que dependían del entorno o de datos reales.
+
+### 1. El precio acordado con el cliente no se aplicaba a los productos agregados después
+Al elegir primero al cliente (el orden natural del formulario) y después los productos, los renglones nuevos nacían con el **precio de lista** y el acuerdo se perdía en silencio; sólo se actualizaban los renglones ya cargados.
+
+- **`src/js/modulos/cotizador.js`:** nuevo caché `cotizadorPreciosCliente` (producto → precio acordado) y helper `precioCotizadorCliente()`. La consulta a `/admin/cotizaciones/precios-cliente` se movió a `cargarPreciosCliente(clienteId, aplicar)`: guarda siempre el caché y sólo reescribe los renglones existentes cuando cambia el cliente (`aplicar=true`).
+- `agregarLineaCotizador()` nace con `precioCotizadorCliente(producto.id, producto.precio)`.
+- Al abrir una cotización guardada (o con `?cliente=`) se traen los precios con `aplicar=false`: **no se pisan** los precios ya cotizados, pero un producto que se agregue después sí toma el acuerdo.
+- `build/js/app.js` recompilado con `npm run build`.
+
+### 2. Facturar una venta obligaba a un baile de dos pantallas sin explicarlo
+El selector «Facturada» remitía a «Revisar y facturar»; éste declaraba método/forma de pago y terminaba en «Validación aprobada, pero sin PAC», sin decir que había que volver al selector para dejar la confirmación manual.
+
+- **`views/admin/ventas/fiscal.php`:** el mensaje de `pendiente_pac` ahora dice **«La venta sigue PENDIENTE DE FACTURAR: marca «Facturada» en el selector «¿Ya se facturó?» de esta misma pantalla…»**. No se simula timbrado: sólo se explica el paso que falta.
+
+### 3. El «corregir factura» de una incidencia sólo lo forzaba el navegador
+La interfaz marca sola la casilla en *producto faltante/incompleto*, pero `IncidenciasEntrega::registrar()` sólo la forzaba si el ingreso tenía `uuid_fiscal`; en una venta facturada manualmente se podía desmarcar y no quedaba rastro de la corrección.
+
+- **`clases/IncidenciasEntrega.php`:** se fuerza cuando el ingreso está `vigente` y `estado_facturacion = 'facturada'`, **con o sin UUID**, igual que la interfaz (el comentario del código ya lo decía así).
+
+### 4. Gasto desde una lectura: aviso contradictorio y bucle en «Registrar de todos modos»
+El formulario `/admin/contabilidad/gastos/crear?lectura=N` seguía ofreciéndose para una lectura ya confirmada (con la nota «nada se ha registrado todavía») y el botón «Registrar de todos modos» **recargaba la misma página**, así que el aviso de duplicado reaparecía sin registrar nada.
+
+- **`views/admin/contabilidad/gastos/crear.php`:** si la lectura no está `pendiente`, se bloquea el formulario con un aviso claro («Esta lectura ya fue confirmada/descartada…») y enlaces a egresos/lectura; además el POST con una lectura usada se rechaza. El aviso de duplicado sólo se emite con la lectura pendiente y sin `continuar=1`; con `continuar=1` se muestra una advertencia y el servidor vuelve a comprobar el UUID (mensaje «Ese UUID ya está registrado en otro gasto»).
+- **`src/js/modulos/inteligente.js`:** «Registrar de todos modos» navega a la ruta con `continuar=1` (sale del bucle). `build/js/app.js` recompilado.
+
+### 5. Los PDF se servían `inline` y el CSV/Excel `attachment`
+Los botones «Exportar PDF» abrían el visor mientras Excel/CSV descargaban.
+
+- **`clases/Documentos.php`:** `Content-Disposition: attachment` en todos los PDF (+ `X-Content-Type-Options: nosniff`). Se quitaron los `target="_blank"` de los enlaces PDF que ya no tenían sentido (cotización, venta, catálogo, estadísticas, preliminar fiscal, inventario: fotos y movimientos).
+
+### Pruebas
+- **Verificación de las correcciones:** 23/23 (A/B del precio, edición que conserva precios, mensaje sin PAC y facturación posterior, incidencia forzada sin UUID, lectura usada bloqueada, `continuar=1` + rechazo de UUID repetido, y seis rutas PDF como descarga). Sin errores de consola.
+- **Regresión completa `pruebas/ejecutar_todo.sh --rapido`: 73 suites, 0 fallos.**
+- **Pruebas endurecidas (dependían del entorno o de datos reales):**
+  - `pruebas/php/etapa10.php` y `pruebas/probar_etapa10.mjs`: el filtro «bajo el mínimo» ya no exige un número fijo de productos; se compara contra la base.
+  - `pruebas/php/etapa27.php`: el «día sin operaciones» se busca (el 25 ya podía tener movimientos del día real); si el mes está lleno usa el día 1 del siguiente.
+  - `pruebas/php/etapa38.php`: `clientes_rfc` entra en las tablas que la reversión de su migración elimina por diseño.
+  - `pruebas/probar_duplicados.mjs`: genera su propio PDF con el folio y el UUID de prueba (antes dependía de un PDF descargado en `~/Descargas`).
+  - `desktop/test/integracion.mjs`: busca el producto antes de comprobar el cambio de precio (en el catálogo completo podía caer en otra página).
+- **Accesibilidad móvil (auditoría de 44 px):** `src/scss/layout/_movil.scss` sube a 44 × 44 px las casillas de selección de entregas (`#marcar-todas` y `.entregas-seleccion`) y el ojo de «ver contraseña» (`.campo__ojo`, con más espacio en el campo); `build/css/app.css` recompilado. La auditoría móvil queda en **0 hallazgos**.
+- **Sin migraciones nuevas** (la última sigue siendo `040_entrega_fotos.sql`; esquema y datos intactos).

@@ -51,7 +51,7 @@ template('header', [
     'titulo'    => 'Preliminar básico',
     'subtitulo' => 'Simulador con las facturas registradas · ' . $anio,
     'rutaActiva' => '/admin/fiscal',
-    'acciones'  => '<a class="btn btn--primario" href="/admin/fiscal/exportar?' . escaparValores($consultaExp) . '&amp;tipo=preliminar&amp;formato=pdf" target="_blank" rel="noopener">'
+    'acciones'  => '<a class="btn btn--primario" href="/admin/fiscal/exportar?' . escaparValores($consultaExp) . '&amp;tipo=preliminar&amp;formato=pdf">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span><span>Exportar PDF</span></a>',
 ]);
 template('tabsFiscal', ['tab' => 'preliminar', 'periodo' => ['anio' => $anio, 'mes' => $mes]]);

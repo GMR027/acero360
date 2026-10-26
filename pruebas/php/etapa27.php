@@ -172,7 +172,33 @@ $clienteMarc = (int) $db->insert_id;
 
 $diaMarc = min(20, (int) date('t'));
 $fechaMarc = $base . sprintf('%02d', $diaMarc);
-$fechaVacia = $base . sprintf('%02d', min(25, (int) date('t')));
+
+/**
+ * Día del mes SIN operaciones: se busca uno en vez de fijar un número, porque
+ * con datos reales (o de otras pruebas del mismo día) ese día puede tener
+ * movimientos y el marcador dejaría de estar vacío.
+ */
+$fechaVacia = '';
+for ($dia = 1; $dia <= (int) date('t'); $dia++) {
+    if ($dia === $diaMarc) {
+        continue;   // ese día lo usan los marcadores de esta misma prueba
+    }
+    $candidata = $base . sprintf('%02d', $dia);
+    $operaciones = (int) $uno("SELECT
+        (SELECT COUNT(*) FROM ventas WHERE fecha = '$candidata') +
+        (SELECT COUNT(*) FROM gastos WHERE fecha = '$candidata') +
+        (SELECT COUNT(*) FROM recepciones WHERE fecha = '$candidata') +
+        (SELECT COUNT(*) FROM proveedor_entradas WHERE fecha = '$candidata') +
+        (SELECT COUNT(*) FROM ingresos WHERE fecha = '$candidata')");
+    if ($operaciones === 0) {
+        $fechaVacia = $candidata;
+        break;
+    }
+}
+if ($fechaVacia === '') {
+    // Mes lleno de operaciones: se usa el día 1 del mes siguiente (no hay datos ahí).
+    $fechaVacia = date('Y-m-d', strtotime($base . '01 +1 month'));
+}
 
 // Venta registrada ese día.
 $db->query("INSERT INTO ventas (empresa_id, cliente_id, usuario_id, fecha, folio, estado, subtotal, total)

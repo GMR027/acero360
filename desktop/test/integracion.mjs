@@ -97,6 +97,9 @@ try {
   await navegadorWeb.close();
   verifica('el catálogo de productos es idéntico en escritorio y en la web (mismas filas y datos)', enEscritorio.filas > 0 && JSON.stringify(enEscritorio) === JSON.stringify(enWeb), JSON.stringify([enEscritorio.filas, enWeb.filas]));
   const idProducto = sql("SELECT id FROM productos WHERE sku='RA-3'");
+  // Se busca el producto antes de comprobarlo: en el catálogo completo puede caer
+  // en otra página según el orden y los datos reales de la base.
+  await ventana.goto(BASE + '/admin/productos?q=RA-3');
   sql(`UPDATE productos SET precio = precio + 1 WHERE id = ${idProducto}`);
   await ventana.reload();
   const precioNuevo = sql(`SELECT precio FROM productos WHERE id = ${idProducto}`);

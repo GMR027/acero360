@@ -16,12 +16,19 @@ $propuesta      = null;
 $lecturaId     = (int) ($_REQUEST['lectura'] ?? 0);
 $lecturaArchivo = $lecturaId > 0 ? \App\Lecturas::buscarID($lecturaId) : null;
 
+/* Una lectura sólo sirve UNA vez. Si ya se confirmó (o se descartó), no se
+ * vuelve a precargar el formulario: antes se mostraba con la nota «nada se ha
+ * registrado todavía» y el botón de guardar, lo que invitaba a duplicar. */
+$lecturaUsada = ($lecturaArchivo !== null && (string) ($lecturaArchivo['estado'] ?? '') !== 'pendiente')
+    ? (string) $lecturaArchivo['estado']
+    : null;
+
 /* Requisito: una factura YA relacionada con una compra no puede generar también un
  * gasto independiente (duplicaría el importe). Si el folio fiscal pertenece al gasto
  * de una orden, se muestra la compra y no se ofrece el formulario. */
 $bloqueoCompra = null;
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null && $lecturaUsada === null) {
     $propuesta = \App\Lecturas::propuesta($lecturaId, 'gasto');
 
     if ($propuesta === null) {
@@ -89,6 +96,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $proveedorNuevo > 0 && \App\Proveed
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
+    if ($lecturaUsada !== null) {
+        redirigir(
+            '/admin/contabilidad/gastos',
+            'error',
+            'Esa lectura ya fue ' . $lecturaUsada . ': no se puede volver a usar para otro gasto. '
+            . 'Captura el gasto a mano o sube la factura de nuevo.'
+        );
+    }
     $gasto = $_POST;
     $gasto['reparto'] = array_map(static fn ($e, $p) => ['empresa_id' => (int) $e, 'porcentaje' => (float) $p],
         array_keys((array) ($_POST['reparto'] ?? [])), array_values((array) ($_POST['reparto'] ?? [])));
@@ -217,8 +232,29 @@ if (($gasto['beneficiario_tipo'] ?? '') === 'proveedor' && (int) ($gasto['provee
             <a class="btn btn--primario" href="<?= escaparValores($bloqueoCompra['ruta']) ?>">Ver la operación relacionada</a>
             <a class="btn btn--secundario" href="/admin/compras/inteligente">Volver a Compras inteligentes</a>
         </div>
+    <?php elseif ($lecturaUsada !== null) : ?>
+        <!-- La lectura ya se usó: no se ofrece el formulario para no duplicar el gasto. -->
+        <div class="nota nota--error mb-lg" role="alert">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
+            <span><strong>Esta lectura ya fue <?= escaparValores($lecturaUsada === 'confirmada' ? 'confirmada' : 'descartada') ?>.</strong>
+                Cada factura leída se registra una sola vez: este formulario ya no está disponible para evitar un gasto duplicado.
+                <?php if ($lecturaUsada === 'confirmada') : ?>Consulta el gasto que se creó desde la lista de egresos.<?php endif; ?></span>
+        </div>
+        <div class="formulario__acciones">
+            <a class="btn btn--primario" href="/admin/contabilidad/gastos">Ver los gastos</a>
+            <a class="btn btn--secundario" href="/admin/contabilidad/lectura">Subir otra factura</a>
+        </div>
     <?php else : ?>
-    <?php if ($propuesta && !empty($propuesta['duplicados'])) : ?>
+    <?php if (!empty($_GET['continuar']) && $propuesta && !empty($propuesta['duplicados'])) : ?>
+        <!-- La persona eligió «Registrar de todos modos»: se abre el formulario sin el aviso,
+             pero con la advertencia a la vista. El servidor vuelve a comprobar el duplicado. -->
+        <div class="nota nota--advertencia mb-lg" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">warning</span>
+            <span><strong>Continuaste con un documento que ya tiene registro.</strong>
+                Al guardar se comprobará otra vez: si el folio fiscal (UUID) coincide con otro gasto, no se permitirá duplicarlo.</span>
+        </div>
+    <?php endif; ?>
+    <?php if ($propuesta && !empty($propuesta['duplicados']) && empty($_GET['continuar'])) : ?>
         <!-- Coincidencias que ya existen: las consume src/js/modulos/inteligente.js
              para abrir el aviso con su botón de «Ver gasto» / «Ver venta». -->
         <div hidden

@@ -105,7 +105,7 @@ template('header', [
                 <span>Operación de esta venta</span>
             </a>
         <?php endif; ?>
-        <a class="btn btn--primario" href="/admin/ventas/pdf?id=<?= $id ?>" target="_blank" rel="noopener">
+        <a class="btn btn--primario" href="/admin/ventas/pdf?id=<?= $id ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
             <span>Exportar PDF</span>
         </a>

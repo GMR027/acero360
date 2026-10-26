@@ -57,7 +57,13 @@ $f36 = array_values(array_filter($filas, fn ($f) => $f[0] === $uno('SELECT sku F
 $prueba('producto bajo el mínimo marcado: «Bajo el mínimo»', $f36[6] === 'Bajo el mínimo', json_encode($f36));
 $prueba('valor al costo = existencias × costo', $f36[9] === round($f36[4] * 40, 2));
 [, $soloMinimo] = InventarioReportes::filasActual(InventarioReportes::actual(['estado' => 'minimo']));
-$prueba('filtro «bajo el mínimo»: solo ese producto', count($soloMinimo) === 1);
+// La base puede tener otros productos con mínimo definido (datos reales): se
+// compara contra la consulta, no contra un número fijo.
+$enMinimo = (int) $uno("SELECT COUNT(*) FROM productos WHERE activo = 1 AND stock_minimo IS NOT NULL AND stock <= stock_minimo");
+$skusMinimo = array_map(static fn ($f) => $f[0], $soloMinimo);
+$prueba('filtro «bajo el mínimo»: sólo productos en o bajo su mínimo (incluye el de la prueba)',
+    count($soloMinimo) === $enMinimo && in_array($uno('SELECT sku FROM productos WHERE id = 36'), $skusMinimo, true),
+    'filtro=' . count($soloMinimo) . ' bd=' . $enMinimo);
 [, $neg2] = InventarioReportes::filasActual(InventarioReportes::actual(['empresa' => 2]));
 $prueba('filtro por negocio', count($neg2) === (int) $uno('SELECT COUNT(DISTINCT producto_id) FROM producto_empresa WHERE empresa_id = 2'));
 [, $busca] = InventarioReportes::filasActual(InventarioReportes::actual(['q' => 'RA-3']));

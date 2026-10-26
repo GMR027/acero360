@@ -1149,6 +1149,15 @@ let cotizadorLineas = [];
 let cotizadorDescuento = 0;
 let cotizadorIva = true;
 
+/**
+ * Precios acordados con el cliente elegido, indexados por producto_id.
+ *
+ * El servidor los devuelve al cambiar el cliente. Se guardan aparte de los
+ * renglones porque un producto puede agregarse DESPUÉS de elegir al cliente y
+ * también tiene que nacer con el precio acordado (antes nacía con el de lista).
+ */
+let cotizadorPreciosCliente = {};
+
 /** Mapa producto_id → datos del catálogo (precio de lista, imagen, etc.). */
 let cotizadorCatalogo = new Map();
 
@@ -1280,6 +1289,16 @@ function lineaCotizador(productoId) {
   });
 }
 
+/**
+ * Precio con el que nace un renglón: el acordado con el cliente si ya se
+ * consultó, o el de lista cuando no hay acuerdo.
+ */
+function precioCotizadorCliente(productoId, precioLista) {
+  const especial = cotizadorPreciosCliente[String(productoId)];
+  const numero = Number(especial);
+  return especial !== undefined && Number.isFinite(numero) ? numero : precioLista;
+}
+
 /** Agrega un producto del catálogo como renglón de la cotización. */
 function agregarLineaCotizador(producto) {
   if (!producto) {
@@ -1300,7 +1319,7 @@ function agregarLineaCotizador(producto) {
     imagen: producto.imagen,
     precio_lista: producto.precio,
     cantidad: 1,
-    precio: producto.precio,
+    precio: precioCotizadorCliente(producto.id, producto.precio),
     descuento_pct: 0,
     no_recordar: false,
   });
@@ -1607,30 +1626,26 @@ function leerCampoLinea(campo, atributo) {
 }
 
 /**
- * Cuando cambia el cliente se piden sus precios acordados al servidor.
+ * Pide al servidor los precios acordados del cliente y los deja en caché.
  *
  * Se usa fetch + JSON: la respuesta no contiene HTML, sólo datos, de modo
- * que las filas se reconstruyen con createElement().
+ * que las filas se reconstruyen con createElement(). La caché sirve para que
+ * los productos que se agreguen DESPUÉS también nazcan con el precio acordado;
+ * `aplicar` decide si además se actualizan los renglones ya cargados (al cambiar
+ * de cliente sí; al abrir una cotización guardada no, porque sus precios manda).
+ *
+ * @param {number}  clienteId
+ * @param {boolean} aplicar
  */
-function actualizarClienteCotizador() {
-  if (!cotizadorNodos) {
+function cargarPreciosCliente(clienteId, aplicar) {
+  if (!cotizadorNodos || clienteId <= 0) {
     return;
   }
 
-  const selector = cotizadorNodos.cliente;
-  const clienteId = Number.parseInt(selector.value, 10) || 0;
-  const opcion = selector.options[selector.selectedIndex];
-
-  // Descuento por defecto tomado de la ficha del cliente.
-  const descuentoFicha = opcion ? Number.parseFloat(opcion.getAttribute('data-descuento')) : NaN;
-  cotizadorDescuento = Number.isFinite(descuentoFicha) ? descuentoFicha : 0;
-  cotizadorNodos.descuento.value = String(cotizadorDescuento);
-
-  if (clienteId === 0) {
+  const ruta = cotizadorNodos.estado ? cotizadorNodos.estado.getAttribute('data-ruta-precios') : '';
+  if (!ruta) {
     return;
   }
-
-  const ruta = cotizadorNodos.estado.getAttribute('data-ruta-precios');
 
   fetch(ruta + '?cliente=' + clienteId, { credentials: 'same-origin' })
     .then(function (respuesta) {
@@ -1641,8 +1656,13 @@ function actualizarClienteCotizador() {
     })
     .then(function (datos) {
       const precios = datos && datos.precios ? datos.precios : {};
-      let actualizados = 0;
+      cotizadorPreciosCliente = precios;
 
+      if (!aplicar) {
+        return;
+      }
+
+      let actualizados = 0;
       cotizadorLineas.forEach(function (linea) {
         const especial = precios[String(linea.id)];
         const nuevo = especial !== undefined ? Number(especial) : linea.precio_lista;
@@ -1660,8 +1680,39 @@ function actualizarClienteCotizador() {
       }
     })
     .catch(function () {
-      crearAlerta('advertencia', 'No se pudieron consultar los precios del cliente.');
+      // Sin datos no se inventa nada: los productos nuevos usan el precio de lista.
+      cotizadorPreciosCliente = {};
+      if (aplicar) {
+        crearAlerta('advertencia', 'No se pudieron consultar los precios del cliente.');
+      }
     });
+}
+
+/**
+ * Cuando cambia el cliente se piden sus precios acordados al servidor.
+ */
+function actualizarClienteCotizador() {
+  if (!cotizadorNodos) {
+    return;
+  }
+
+  const selector = cotizadorNodos.cliente;
+  const clienteId = Number.parseInt(selector.value, 10) || 0;
+  const opcion = selector.options[selector.selectedIndex];
+
+  // Descuento por defecto tomado de la ficha del cliente.
+  const descuentoFicha = opcion ? Number.parseFloat(opcion.getAttribute('data-descuento')) : NaN;
+  cotizadorDescuento = Number.isFinite(descuentoFicha) ? descuentoFicha : 0;
+  cotizadorNodos.descuento.value = String(cotizadorDescuento);
+
+  // Los acuerdos del cliente anterior dejan de valer en cuanto cambia la ficha.
+  cotizadorPreciosCliente = {};
+
+  if (clienteId === 0) {
+    return;
+  }
+
+  cargarPreciosCliente(clienteId, true);
 }
 
 /**
@@ -1794,6 +1845,15 @@ function inicializarCotizador() {
 
   catalogoCotizador();
   estadoInicialCotizador();
+
+  /* Cliente precargado (al editar una cotización o al abrir el formulario con
+   * ?cliente=): se traen sus precios acordados para que los productos que se
+   * agreguen después también nazcan con ese precio. NO se aplican a los
+   * renglones ya guardados: conservan lo que se cotizó en su momento. */
+  const clienteInicial = cotizadorNodos.cliente ? Number.parseInt(cotizadorNodos.cliente.value, 10) || 0 : 0;
+  if (clienteInicial > 0) {
+    cargarPreciosCliente(clienteInicial, false);
+  }
 
   if (cotizadorNodos.descuento) {
     cotizadorNodos.descuento.value = String(cotizadorDescuento);
@@ -3115,7 +3175,12 @@ function avisarDuplicado(coincidencias, ruta, origen) {
     acciones: acciones,
     textoConfirmar: 'Registrar de todos modos',
     alConfirmar: function () {
-      window.location.assign(ruta);
+      /* «De todos modos» NO registra nada aquí: abre el formulario sin el aviso
+       * (continuar=1). El servidor vuelve a comprobar el duplicado al guardar y,
+       * si el folio fiscal (UUID) coincide, lo rechaza con un mensaje claro.
+       * Antes sólo recargaba la misma ruta y el aviso reaparecía: un bucle. */
+      const separador = ruta.indexOf('?') === -1 ? '?' : '&';
+      window.location.assign(ruta + separador + 'continuar=1');
     },
   });
 }

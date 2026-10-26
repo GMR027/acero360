@@ -538,7 +538,10 @@ $revertir = static function () use ($correr): string {
     return $err;
 };
 /** Tablas que LAS PROPIAS migraciones crean: al revertir desaparecen por diseño. */
-$creadasPorMigracion = ['complementos_pago', 'complemento_doctos', 'complemento_pagos', 'complemento_cobros'];
+// 037_clientes_rfc.sql crea `clientes_rfc` y su reversión la elimina a propósito
+// (el registro de RFCs por cliente es parte de esa migración). Estaba fuera de
+// esta lista: la prueba fallaba en cuanto la tabla tuviera filas.
+$creadasPorMigracion = ['complementos_pago', 'complemento_doctos', 'complemento_pagos', 'complemento_cobros', 'clientes_rfc'];
 
 [$c0] = $correr("mysql -uroot -e \"DROP DATABASE IF EXISTS $scratch; CREATE DATABASE $scratch CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci\"");
 [$c1, $salida1] = $correr("mysqldump -uroot --single-transaction cotizaciones | mysql -uroot $scratch");

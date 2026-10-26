@@ -22,8 +22,8 @@
  */
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync, unlinkSync, readdirSync, existsSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { writeFileSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -154,6 +154,51 @@ async function subir(pagina, rutaArchivo, destino = 'gasto') {
   await pagina.click('[data-confirmar-modal]');
 }
 
+/**
+ * PDF mínimo con el texto de una factura (folio y UUID del gasto ya registrado).
+ * Se genera al vuelo para que la prueba no dependa de un PDF descargado en la
+ * computadora (antes buscaba uno en ~/Descargas y, si no estaba, se caía).
+ */
+function pdfFacturaPrueba() {
+  const lineas = [
+    'FACTURA DE PROVEEDOR',
+    `FOLIO: ${FOLIO_DUP}`,
+    'FECHA: 2026-10-21',
+    'RFC EMISOR: AAA010101AAA',
+    'SUBTOTAL: 100.00 IVA: 16.00 TOTAL: 116.00',
+    `UUID: ${UUID_DUP}`,
+  ];
+  const flujo = 'BT /F1 12 Tf 50 740 Td 16 TL\n' + lineas.map((linea) => `(${linea}) Tj T*`).join('\n') + '\nET';
+  const objetos = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(flujo, 'latin1')} >>\nstream\n${flujo}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+
+  const partes = [];
+  let posicion = 0;
+  const empujar = (texto) => {
+    const trozo = Buffer.from(texto, 'latin1');
+    partes.push(trozo);
+    posicion += trozo.length;
+  };
+
+  empujar('%PDF-1.4\n');
+  const offsets = [];
+  objetos.forEach((objeto, indice) => {
+    offsets.push(posicion);
+    empujar(`${indice + 1} 0 obj\n${objeto}\nendobj\n`);
+  });
+  const inicioXref = posicion;
+  empujar(`xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`);
+  offsets.forEach((offset) => empujar(`${String(offset).padStart(10, '0')} 00000 n \n`));
+  empujar(`trailer\n<< /Size ${objetos.length + 1} /Root 1 0 R >>\nstartxref\n${inicioXref}\n%%EOF\n`);
+
+  return Buffer.concat(partes);
+}
+
 let gastoId = 0;
 
 /**
@@ -200,13 +245,11 @@ try {
 
   await login(pagina);
 
-  // El PDF se localiza en la carpeta de descargas buscando por folio: en el
-  // código no se escribe la ruta con el RFC del proveedor (dato de terceros).
-  const dirDescargas = join(homedir(), 'Descargas', 'gastos');
-  const pdfDuplicado = existsSync(dirDescargas)
-    ? readdirSync(dirDescargas).find((nombre) => nombre.endsWith('.pdf') && nombre.includes('21324'))
-    : undefined;
-  await subir(pagina, join(dirDescargas, pdfDuplicado ?? 'no-existe.pdf'));
+  // El PDF de prueba (con el folio y el UUID del gasto ya registrado) se genera
+  // aquí: así la prueba funciona en cualquier equipo, sin depender de descargas.
+  const rutaPdf = join(carpeta, 'factura-21324.pdf');
+  writeFileSync(rutaPdf, pdfFacturaPrueba());
+  await subir(pagina, rutaPdf);
   await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 20000 });
 
   const titulo = (await pagina.locator('#modal-titulo').textContent()).trim();

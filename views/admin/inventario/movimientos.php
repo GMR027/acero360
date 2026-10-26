@@ -20,7 +20,7 @@ $consulta = http_build_query($parametros);
 
 template('header', [
     'titulo' => 'Historial de movimientos', 'subtitulo' => 'Inventario', 'rutaActiva' => '/admin/inventario',
-    'acciones' => '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=movimientos&formato=pdf&' . escaparValores($consulta) . '" target="_blank" rel="noopener">PDF</a>'
+    'acciones' => '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=movimientos&formato=pdf&' . escaparValores($consulta) . '">PDF</a>'
         . '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=movimientos&formato=xlsx&' . escaparValores($consulta) . '">Excel</a>'
         . '<a class="btn btn--secundario" href="/admin/inventario/exportar?tipo=movimientos&formato=csv&' . escaparValores($consulta) . '">CSV</a>',
 ]);

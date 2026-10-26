@@ -4656,9 +4656,22 @@ input:focus-visible ~ .interruptor__pista {
     height: 1.375rem;
     flex-shrink: 0;
   }
-  .entregas-seleccion {
-    width: 1.5rem;
-    height: 1.5rem;
+  /* Casillas de selección: 44 × 44 px de área táctil (regla del proyecto).
+     Aplica a la de «seleccionar todas» y a las de cada venta del listado. */
+  .entregas-seleccion,
+  #marcar-todas {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  /* Ojo de «ver contraseña»: mismo mínimo táctil, con espacio para el icono. */
+  .campo__caja .control {
+    padding-right: 3.25rem;
+  }
+  .campo__ojo {
+    width: 2.75rem;
+    height: 2.75rem;
   }
   /* --- Tablas como tarjetas ---------------------------------------------- */
   .tabla-contenedor:not(.tabla-contenedor--scroll) > .tabla {

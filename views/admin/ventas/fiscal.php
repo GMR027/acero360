@@ -69,6 +69,15 @@ if (!empty($resultado['ok'])) {
     redirigir($destino, 'exito', $resultado['mensaje'] ?? 'Operación de facturación completada.');
 }
 if (!empty($resultado['pendiente_pac'])) {
-    redirigir($destino, 'error', 'Validación aprobada, pero sin PAC: ' . $resultado['errores'][0]);
+    // Sin PAC no se timbra: se deja claro QUÉ falta y CÓMO terminar la clasificación
+    // (marcar «Facturada» en el propio detalle = confirmación manual). Antes el mensaje
+    // sólo decía «sin PAC» y parecía que la venta ya había quedado facturada.
+    redirigir(
+        $destino,
+        'error',
+        'Validación aprobada, pero sin PAC: ' . $resultado['errores'][0]
+        . ' La venta sigue PENDIENTE DE FACTURAR: marca «Facturada» en el selector «¿Ya se facturó?» de esta misma pantalla '
+        . 'para dejar la confirmación manual (no se simula ningún timbrado).'
+    );
 }
 redirigir($destino, 'error', implode(' · ', $resultado['errores'] ?? ['No fue posible facturar la venta.']));

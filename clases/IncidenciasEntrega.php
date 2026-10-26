@@ -209,14 +209,15 @@ class IncidenciasEntrega
                 $entregaId = null;
             }
 
-            // Faltante/incompleto de una venta YA facturada: la corrección de
-            // factura se fuerza (hay que cancelar el CFDI actual y subir el
-            // correcto), aunque el formulario no haya marcado la casilla.
+            // Faltante/incompleto de una venta YA facturada (con o sin UUID: una
+            // «confirmación manual» también tiene factura emitida fuera): la
+            // corrección se fuerza aunque el formulario no marque la casilla.
+            // Así el servidor hace lo mismo que la interfaz, que ya la marca sola.
             if (in_array($motivo, self::MOTIVOS_CORRECCION, true) && !$facturaRequerida) {
                 $facturada = self::$db->prepare(
                     "SELECT 1 FROM ingresos
                       WHERE venta_id = ? AND estado = 'vigente'
-                        AND estado_facturacion = 'facturada' AND uuid_fiscal <> ''"
+                        AND estado_facturacion = 'facturada'"
                 );
                 $facturada->bind_param('i', $ventaId);
                 $facturada->execute();

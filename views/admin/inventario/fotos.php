@@ -69,7 +69,7 @@ template('header', ['titulo' => 'Fotografías mensuales del inventario', 'subtit
         <div class="tabla-toolbar">
             <h2 class="titulo-5">Comparación: <?= nombreMes((int) $corte['mes']) ?> <?= (int) $corte['anio'] ?> contra hoy</h2>
             <span>
-                <a class="btn btn--secundario btn--sm" href="/admin/inventario/exportar?tipo=corte&id=<?= $id ?>&formato=pdf" target="_blank" rel="noopener">PDF</a>
+                <a class="btn btn--secundario btn--sm" href="/admin/inventario/exportar?tipo=corte&id=<?= $id ?>&formato=pdf">PDF</a>
                 <a class="btn btn--secundario btn--sm" href="/admin/inventario/exportar?tipo=corte&id=<?= $id ?>&formato=xlsx">Excel</a>
                 <a class="btn btn--secundario btn--sm" href="/admin/inventario/exportar?tipo=corte&id=<?= $id ?>&formato=csv">CSV</a>
             </span>
