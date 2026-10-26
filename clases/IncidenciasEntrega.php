@@ -51,6 +51,22 @@ class IncidenciasEntrega
         'devolucion'         => ['etiqueta' => 'Devolución',                   'icono' => 'assignment_return', 'clase' => 'badge--neutro'],
     ];
 
+    /**
+     * Motivos que SÍ devuelven piezas al inventario: lo que no salió completo
+     * del almacén (faltante/incompleto) se corrige con una entrada de
+     * inventario ligada a la venta. Los demás motivos (dañado, cambio,
+     * devolución) sólo se NOTIFICAN: no mueven inventario.
+     */
+    public const MOTIVOS_INVENTARIO = ['producto_faltante', 'producto_incompleto'];
+
+    /**
+     * Motivos que exigen corregir la factura: si la venta ya está facturada,
+     * hay que cancelar el CFDI actual y subir la correcta sólo por lo
+     * entregado (p. ej. 8 de 10 piezas vendidas). La casilla se fuerza en
+     * `registrar()` aunque el formulario no la mande.
+     */
+    public const MOTIVOS_CORRECCION = ['producto_faltante', 'producto_incompleto'];
+
     /** Estado de la incidencia. */
     public const ESTADOS = [
         'abierta'   => ['etiqueta' => 'Abierta',   'icono' => 'pending',  'clase' => 'badge--pendiente'],
@@ -86,11 +102,19 @@ class IncidenciasEntrega
      * ------------------------------------------------------------------ */
 
     /**
-     * Registra una incidencia de entrega de una venta y ajusta el inventario.
+     * Registra una incidencia de entrega de una venta.
      *
      * Renglones: producto_id => ['cantidad' => int, 'cambio' => bool|int].
-     * De cada cantidad se hace entrada al inventario (motivo devolucion); la
-     * parte marcada «cambio» queda como deuda de reemplazo al cliente.
+     *
+     * Regla de negocio por motivo:
+     *   · **faltante / incompleto** → las piezas vuelven al inventario (entrada
+     *     por devolución ligada a la venta) y, si la venta ya está facturada,
+     *     la corrección de factura queda OBLIGATORIA (cancelar y subir la
+     *     correcta sólo por lo entregado);
+     *   · **dañado / cambio / devolución** → sólo NOTIFICACIÓN: no se mueve
+     *     inventario.
+     * En todos los motivos queda anotado en `venta_devoluciones`, de modo que
+     * el pendiente de entrega se ajusta solo.
      *
      * @return bool false revierte todo (el llamador no debe continuar).
      */
@@ -185,6 +209,23 @@ class IncidenciasEntrega
                 $entregaId = null;
             }
 
+            // Faltante/incompleto de una venta YA facturada: la corrección de
+            // factura se fuerza (hay que cancelar el CFDI actual y subir el
+            // correcto), aunque el formulario no haya marcado la casilla.
+            if (in_array($motivo, self::MOTIVOS_CORRECCION, true) && !$facturaRequerida) {
+                $facturada = self::$db->prepare(
+                    "SELECT 1 FROM ingresos
+                      WHERE venta_id = ? AND estado = 'vigente'
+                        AND estado_facturacion = 'facturada' AND uuid_fiscal <> ''"
+                );
+                $facturada->bind_param('i', $ventaId);
+                $facturada->execute();
+                if ($facturada->get_result()->num_rows > 0) {
+                    $facturaRequerida = true;
+                }
+                $facturada->close();
+            }
+
             $crear = self::$db->prepare(
                 'INSERT INTO entrega_incidencias (venta_id, entrega_id, motivo, estado, notas, factura_requerida, usuario_id)
                  VALUES (?, ?, ?, "abierta", ?, ?, ?)'
@@ -212,16 +253,21 @@ class IncidenciasEntrega
             }
             $renglon->close();
 
-            // El producto regresa al inventario (entrada por devolución, ligada a la venta)…
-            $piezas = array_map(static fn ($r) => $r['cantidad'], $filtrados);
-            if (!Inventario::devolucionPorIncidencia($piezas, $ventaId, $usuarioId, 'Incidencia de entrega · ' . $venta['folio'])) {
-                self::$db->rollBack();
-                self::$errores = array_merge(self::$errores, Inventario::getErrores());
-                self::$errores[] = 'No fue posible devolver el producto al inventario.';
-                return false;
+            // Sólo faltante/incompleto devuelven piezas al inventario (lo que no
+            // salió completo); dañado, cambio y devolución son sólo notificación.
+            if (in_array($motivo, self::MOTIVOS_INVENTARIO, true)) {
+                $piezas = array_map(static fn ($r) => $r['cantidad'], $filtrados);
+                if (!Inventario::devolucionPorIncidencia($piezas, $ventaId, $usuarioId, 'Incidencia de entrega · ' . $venta['folio'])) {
+                    self::$db->rollBack();
+                    self::$errores = array_merge(self::$errores, Inventario::getErrores());
+                    self::$errores[] = 'No fue posible devolver el producto al inventario.';
+                    return false;
+                }
             }
 
-            // … y queda anotado como devolución, así el pendiente de entrega se ajusta solo.
+            // En TODOS los motivos queda anotado como devolución (lo afectado),
+            // así el pendiente de entrega se ajusta solo y el sistema sabe qué
+            // piezas ya no se pueden volver a afectar.
             $guardar = self::$db->prepare(
                 'INSERT INTO venta_devoluciones (venta_id, producto_id, fecha, cantidad_devuelta, cantidad_cambio, nota, usuario_id)
                  VALUES (?, ?, CURDATE(), ?, ?, ?, ?)'

@@ -261,6 +261,121 @@ function buscarEnCatalogo(descripcion) {
   crearAlerta('info', 'Buscador lleno con la descripción del documento: elige el producto que corresponda.');
 }
 
+/**
+ * Da de alta un concepto sin equivalente en el catálogo del proveedor emisor.
+ *
+ * NO recarga la pantalla: aquí se está capturando un gasto y un refresco
+ * perdería todo lo que ya se escribió. El servidor contesta JSON y, en la misma
+ * celda, el botón se sustituye por el resultado.
+ *
+ * @param {HTMLElement} boton [data-agregar-proveedor] de la fila
+ */
+function agregarAlProveedor(boton) {
+  const meta = document.querySelector('meta[name="csrf"]');
+  const datos = new FormData();
+  datos.append('proveedor_id', boton.getAttribute('data-proveedor-id') || '');
+  datos.append('descripcion', boton.getAttribute('data-descripcion') || '');
+  datos.append('sku', boton.getAttribute('data-sku') || '');
+  datos.append('nota', boton.getAttribute('data-nota') || '');
+  datos.append('costo', boton.getAttribute('data-costo') || '0');
+
+  boton.disabled = true;
+  quitarErrorConcepto(boton);
+
+  fetch('/admin/compras/catalogo/agregar', {
+    method: 'POST',
+    body: datos,
+    credentials: 'same-origin',
+    headers: { 'X-CSRF-Token': meta ? meta.content : '' },
+  })
+    .then(function (respuesta) {
+      return respuesta
+        .json()
+        .catch(function () {
+          return { ok: false, error: 'El servidor no respondió como se esperaba (' + respuesta.status + ').' };
+        })
+        .then(function (cuerpo) {
+          if (!respuesta.ok || !cuerpo.ok) {
+            throw new Error(cuerpo.error || 'No fue posible agregar el concepto.');
+          }
+          return cuerpo;
+        });
+    })
+    .then(function (cuerpo) {
+      marcarAgregado(boton, cuerpo);
+    })
+    .catch(function (error) {
+      boton.disabled = false;
+      avisarErrorConcepto(boton, error.message || 'No fue posible agregar el concepto.');
+    });
+}
+
+/**
+ * Sustituye el botón por el resultado: alta hecha, o aviso de que ya existía.
+ *
+ * @param {HTMLElement} boton
+ * @param {object}      cuerpo {estado, nombre, proveedor, ruta_listado, activo}
+ */
+function marcarAgregado(boton, cuerpo) {
+  const celda = boton.closest('[data-acciones-concepto]');
+  if (!celda) {
+    return;
+  }
+
+  const inexistente = cuerpo.estado === 'existente' && Number(cuerpo.activo) !== 1;
+  const etiqueta = cuerpo.estado === 'creado'
+    ? 'Agregado al catálogo de ' + cuerpo.proveedor
+    : (inexistente
+      ? 'Ya estaba en el catálogo de ' + cuerpo.proveedor + ' (inactivo)'
+      : 'Ya estaba en el catálogo de ' + cuerpo.proveedor);
+
+  const insignia = document.createElement('span');
+  insignia.className = 'badge ' + (cuerpo.estado === 'creado' ? 'badge--aprobado' : 'badge--neutro');
+  insignia.textContent = etiqueta;
+
+  const enlace = document.createElement('a');
+  enlace.className = 'texto-xs';
+  enlace.href = cuerpo.ruta_listado;
+  enlace.textContent = 'Ver catálogo';
+
+  boton.remove();
+  celda.appendChild(insignia);
+  celda.appendChild(enlace);
+  crearAlerta(
+    cuerpo.estado === 'creado' ? 'exito' : 'info',
+    cuerpo.estado === 'creado'
+      ? '«' + cuerpo.nombre + '» quedó en el catálogo de ' + cuerpo.proveedor + ': la próxima factura suya ya lo reconoce.'
+      : '«' + cuerpo.nombre + '» ya estaba en el catálogo de ' + cuerpo.proveedor + '.',
+    'Catálogo del proveedor'
+  );
+}
+
+/** Muestra el error del servidor bajo las acciones de la fila (una sola vez). */
+function avisarErrorConcepto(boton, mensaje) {
+  const celda = boton.closest('[data-acciones-concepto]');
+  if (!celda) {
+    return;
+  }
+  quitarErrorConcepto(boton);
+
+  const nodo = document.createElement('span');
+  nodo.className = 'campo__error';
+  nodo.setAttribute('data-error-concepto', '');
+  nodo.textContent = mensaje;
+  celda.appendChild(nodo);
+}
+
+/** Quita el mensaje de error previo de esa misma fila. */
+function quitarErrorConcepto(boton) {
+  const celda = boton.closest('[data-acciones-concepto]');
+  if (!celda) {
+    return;
+  }
+  celda.querySelectorAll('[data-error-concepto]').forEach(function (nodo) {
+    nodo.remove();
+  });
+}
+
 /** Abre el diálogo de carga desde cualquiera de los botones [data-inteligente]. */
 document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('click', function (evento) {
@@ -279,6 +394,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (buscador) {
       evento.preventDefault();
       buscarEnCatalogo(buscador.getAttribute('data-cargar-busqueda') || '');
+      return;
+    }
+
+    const proveedor = evento.target.closest('[data-agregar-proveedor]');
+    if (proveedor) {
+      evento.preventDefault();
+      agregarAlProveedor(proveedor);
     }
   });
 

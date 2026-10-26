@@ -12,6 +12,11 @@
  *   7. Ninguna pantalla con desbordamiento horizontal (1440 y 390 px).
  *   10. Panel: tarjetas con los productos más vendidos del mes (código, nombre, imagen e
  *       importe de venta) y con las existencias bajas (negativas, agotadas o bajo el mínimo).
+ *   11. Panel: el orden del «Resumen general» (negocios → impuestos → pendientes →
+ *       productos → últimos documentos → indicadores), las ventas de cada negocio
+ *       como única cifra grande (sin ganancias), el preliminar con los impuestos por
+ *       pagar en la misma tarjeta, los cuatro listados de pendientes con su acción
+ *       directa y el PDF de las últimas cinco cotizaciones y ventas.
  *
  * Uso: node pruebas/probar_ronda.mjs
  */
@@ -63,6 +68,30 @@ function prepararUsuarioPrueba() {
       `VALUES ('Prueba de ronda', '${EMAIL}', '${hash}', '', 1)`
   );
   return Number(sql(`SELECT id FROM usuarios WHERE email = '${EMAIL}'`));
+}
+
+/**
+ * Gasto con el pago PENDIENTE para ver la tarjeta del panel con datos reales
+ * (nombre de quién cobra + total con IVA). Se borra apenas se comprueba.
+ */
+function crearGastoPendiente(usuarioId) {
+  const contribuyente = Number(sql('SELECT MIN(id) FROM contribuyentes WHERE activo = 1'));
+  sql(
+    `INSERT INTO gastos (contribuyente_id, fecha, beneficiario, concepto, subtotal, iva, total, usuario_id)
+     VALUES (${contribuyente}, CURDATE(), 'Proveedor Ronda Panel', 'Material de la ronda', 100.00, 16.00, 116.00, ${usuarioId})`
+  );
+  return Number(sql(`SELECT id FROM gastos WHERE beneficiario = 'Proveedor Ronda Panel' ORDER BY id DESC LIMIT 1`));
+}
+
+/** Incidencia de entrega ABIERTA sobre una venta registrada, para ver ese listado con datos. */
+function crearIncidenciaAbierta(usuarioId) {
+  const venta = Number(sql(`SELECT id FROM ventas WHERE estado = 'registrada' ORDER BY id LIMIT 1`));
+  if (!venta) return 0;
+  sql(
+    `INSERT INTO entrega_incidencias (venta_id, motivo, estado, notas, usuario_id)
+     VALUES (${venta}, 'producto_danado', 'abierta', 'Incidencia de la ronda', ${usuarioId})`
+  );
+  return Number(sql(`SELECT id FROM entrega_incidencias WHERE notas = 'Incidencia de la ronda' ORDER BY id DESC LIMIT 1`));
 }
 
 let correctas = 0;
@@ -210,6 +239,8 @@ const navegador = await chromium.launch();
 const page = await navegador.newPage({ viewport: { width: 1440, height: 900 } });
 let cotizacionPropia = 0;
 let usuarioPrueba = 0;
+let gastoPrueba = 0;
+let incidenciaPrueba = 0;
 
 try {
   usuarioPrueba = prepararUsuarioPrueba();
@@ -537,11 +568,196 @@ try {
   } else {
     comprobar('sin productos en alerta se avisa', (await seccionStock.innerText()).includes('Ningún producto'));
   }
+
+  /* --------------------------------------- 11. Resumen general del panel */
+  console.log('\n11. Panel: resumen general, pendientes y últimos documentos');
+  // Un gasto con el pago pendiente y una incidencia abierta para ver esos
+  // listados con datos reales; se borran apenas se comprueban para no
+  // influir en las demás pruebas.
+  gastoPrueba = crearGastoPendiente(usuarioPrueba);
+  incidenciaPrueba = crearIncidenciaAbierta(usuarioPrueba);
+
+  await page.goto(BASE + '/admin', { waitUntil: 'domcontentloaded' });
+
+  const panel = await page.evaluate(() => {
+    const seccion = (id) => document.querySelector(`section[aria-labelledby="${id}"]`);
+    const texto = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+    const href = (el) => (el ? el.getAttribute('href') || '' : '');
+    /** Tarjetas de una sección: título, enlaces de su cabecera, filas y acciones de fila. */
+    const tarjetas = (id) =>
+      [...(seccion(id) ? seccion(id).querySelectorAll('article') : [])].map((c) => ({
+        titulo: texto(c.querySelector('.tarjeta__titulo')),
+        cabecera: [...c.querySelectorAll('.tarjeta__cabecera a')].map((a) => href(a)),
+        filas: [...c.querySelectorAll('.actividad__fila')].map((f) => texto(f)),
+        acciones: [...c.querySelectorAll('li a.btn')].map((b) => href(b)),
+      }));
+    const cuerpo = texto(document.body);
+
+    return {
+      orden: [...document.querySelectorAll('main section[aria-labelledby]')].map((s) => s.getAttribute('aria-labelledby')),
+      negociosTitulo: texto(seccion('titulo-negocios') ? seccion('titulo-negocios').querySelector('h2') : null),
+      negocios: [...(seccion('titulo-negocios') ? seccion('titulo-negocios').querySelectorAll('article.ganancia') : [])].map((n) => ({
+        etiqueta: texto(n.querySelector('.ganancia__etiqueta')),
+        cifra: texto(n.querySelector('.ganancia__valor')),
+        sinGanancias: !texto(n).includes('Ganancias'),
+        enlace: href(n.querySelector('a[href*="/admin/ventas?empresa="]')),
+      })),
+      impuestos: (() => {
+        const tarjeta = seccion('titulo-impuestos') ? seccion('titulo-impuestos').querySelector('article') : null;
+        return {
+          titulo: texto(tarjeta ? tarjeta.querySelector('.tarjeta__titulo') : null),
+          cifra: texto(tarjeta ? tarjeta.querySelector('.ganancia__valor') : null),
+          preliminar: texto(tarjeta).includes('Preliminar de impuestos'),
+          pagar: /Impuestos por pagar|Saldo a tu favor/.test(texto(tarjeta)),
+          enlaces: [...(seccion('titulo-impuestos') ? seccion('titulo-impuestos').querySelectorAll('a') : [])].map((a) => href(a)),
+        };
+      })(),
+      pendientes: tarjetas('titulo-pendientes'),
+      documentos: tarjetas('titulo-actividad'),
+      indicadores: seccion('titulo-indicadores')
+        ? seccion('titulo-indicadores').querySelectorAll('.stat').length
+        : 0,
+      retirados: {
+        accesos: cuerpo.includes('¿Qué quieres hacer hoy?'),
+        devoluciones: cuerpo.includes('Devoluciones recientes'),
+        sinFactura: cuerpo.includes('Cotizaciones vendidas sin factura'),
+      },
+    };
+  });
+
+  const ordenEsperado = [
+    'titulo-negocios', 'titulo-impuestos', 'titulo-pendientes', 'titulo-mas-vendidos',
+    'titulo-stock-bajo', 'titulo-actividad', 'titulo-indicadores',
+  ];
+  comprobar(
+    'el resumen general se ordena como se atiende',
+    JSON.stringify(panel.orden) === JSON.stringify(ordenEsperado),
+    panel.orden.join(' → ')
+  );
+
+  comprobar(
+    'cada negocio enseña sus ventas del periodo con IVA y ya no las ganancias',
+    panel.negocios.length > 0 && panel.negocios.every((n) =>
+      n.etiqueta.includes('Ventas del periodo (con IVA)') && n.cifra.includes('$') && n.sinGanancias),
+    JSON.stringify(panel.negocios)
+  );
+  comprobar('la sección se llama «Ventas por negocio»', panel.negociosTitulo === 'Ventas por negocio',
+    panel.negociosTitulo);
+  comprobar(
+    'y enlaza al detalle de las ventas de ese negocio',
+    panel.negocios.length > 0 && panel.negocios.every((n) => n.enlace.includes('/admin/ventas?empresa=')),
+    JSON.stringify(panel.negocios.map((n) => n.enlace))
+  );
+
+  comprobar(
+    'el preliminar de impuestos y los impuestos por pagar van en la misma tarjeta',
+    panel.impuestos.preliminar && panel.impuestos.pagar && panel.impuestos.cifra.includes('$'),
+    `${panel.impuestos.titulo} · ${panel.impuestos.cifra}`
+  );
+  comprobar(
+    'la tarjeta de impuestos enlaza al preliminar y al detalle',
+    panel.impuestos.enlaces.some((h) => h.includes('/admin/fiscal/preliminar?anio=')) &&
+      panel.impuestos.enlaces.some((h) => h.includes('/admin/fiscal?anio=')),
+    JSON.stringify(panel.impuestos.enlaces)
+  );
+
+  const tarjetaDe = (textoBuscado) => panel.pendientes.find((c) => c.titulo.includes(textoBuscado))
+    || { cabecera: [], filas: [], acciones: [] };
+  comprobar('los cuatro pendientes comparten su tarjeta', panel.pendientes.length === 4,
+    panel.pendientes.map((c) => c.titulo).join(' | '));
+  for (const tituloEsperado of ['Ventas pendientes de pago o por facturar', 'Gastos pendientes por pagar',
+    'Ventas pendientes por entregar', 'Incidencias de logística o entrega']) {
+    comprobar(`el listado «${tituloEsperado}»`, panel.pendientes.some((c) => c.titulo.includes(tituloEsperado)));
+  }
+
+  const pendVentas = tarjetaDe('Ventas pendientes de pago');
+  comprobar(
+    'cada venta pendiente muestra el cliente o alias y el importe con IVA',
+    pendVentas.filas.every((f) => f.includes('$') && f.length > 12),
+    JSON.stringify(pendVentas.filas)
+  );
+  comprobar(
+    'la tarjeta de ventas abre sus dos listados (por cobrar y por facturar)',
+    pendVentas.cabecera.some((h) => h.includes('cobro=pendiente')) &&
+      pendVentas.cabecera.some((h) => h.includes('sin_clasificar')),
+    JSON.stringify(pendVentas.cabecera)
+  );
+
+  const pendGastos = tarjetaDe('Gastos pendientes por pagar');
+  comprobar('el gasto pendiente se lista con su nombre, su concepto y su importe',
+    pendGastos.filas.some((f) => f.includes('Proveedor Ronda Panel') && f.includes('Material de la ronda') && f.includes('$')),
+    JSON.stringify(pendGastos.filas));
+  comprobar('la tarjeta de gastos abre su listado de pagos pendientes',
+    pendGastos.cabecera.some((h) => h.includes('gastos?pago=pendiente')),
+    JSON.stringify(pendGastos.cabecera));
+
+  const pendEntregas = tarjetaDe('Ventas pendientes por entregar');
+  comprobar('cada entrega pendiente lleva su botón directo de seguimiento',
+    pendEntregas.acciones.length === pendEntregas.filas.length &&
+      pendEntregas.acciones.every((h) => h.includes('/admin/entregas-seguimiento/venta?id=')),
+    JSON.stringify(pendEntregas.acciones));
+
+  const pendIncidencias = tarjetaDe('Incidencias de logística');
+  comprobar('cada incidencia se lista con su motivo y su botón directo para atenderla',
+    pendIncidencias.acciones.length === pendIncidencias.filas.length &&
+      pendIncidencias.acciones.every((h) => h.includes('#incidencias')) &&
+      (incidenciaPrueba === 0 || pendIncidencias.filas.some((f) => f.includes('Producto dañado o defectuoso'))),
+    JSON.stringify(pendIncidencias.filas));
+
+  const cotizacionesRecientes = panel.documentos.find((d) => d.titulo.includes('Últimas cotizaciones'))
+    || { filas: [], acciones: [] };
+  const ventasRecientes = panel.documentos.find((d) => d.titulo.includes('Últimas ventas'))
+    || { filas: [], acciones: [] };
+  comprobar('las últimas cotizaciones se quedan en cinco y cada una trae su PDF',
+    cotizacionesRecientes.filas.length <= 5 &&
+      cotizacionesRecientes.acciones.length === cotizacionesRecientes.filas.length &&
+      cotizacionesRecientes.acciones.every((h) => h.includes('/admin/cotizaciones/pdf?id=')),
+    `${cotizacionesRecientes.filas.length} filas`);
+  comprobar('las últimas ventas se quedan en cinco y cada una trae su PDF',
+    ventasRecientes.filas.length <= 5 &&
+      ventasRecientes.acciones.length === ventasRecientes.filas.length &&
+      ventasRecientes.acciones.every((h) => h.includes('/admin/ventas/pdf?id=')),
+    `${ventasRecientes.filas.length} filas`);
+
+  comprobar('los indicadores del periodo cierran el resumen', panel.indicadores === 8, `${panel.indicadores}`);
+  comprobar('ya no están los accesos rápidos, las devoluciones ni las cotizaciones sin factura',
+    !panel.retirados.accesos && !panel.retirados.devoluciones && !panel.retirados.sinFactura);
+
+  // Los datos de prueba ya cumplieron: se retiran de inmediato.
+  if (gastoPrueba > 0) {
+    sql(`DELETE FROM gastos WHERE id = ${gastoPrueba}`);
+    gastoPrueba = 0;
+  }
+  if (incidenciaPrueba > 0) {
+    sql(`DELETE FROM entrega_incidencias WHERE id = ${incidenciaPrueba}`);
+    incidenciaPrueba = 0;
+  }
+
+  await sinDesborde(page, '/admin', 1440);
+  await sinDesborde(page, '/admin', 390);
 } catch (error) {
   fallos++;
   console.error('\nERROR DE EJECUCIÓN:', error.message);
 } finally {
   // Limpieza: sólo lo que creó la prueba. La base queda como estaba.
+  if (incidenciaPrueba > 0) {
+    try {
+      sql(`DELETE FROM entrega_incidencias WHERE id = ${incidenciaPrueba}`);
+      console.log(`\nIncidencia de prueba id=${incidenciaPrueba} eliminada.`);
+    } catch (e) {
+      comprobar('la incidencia de prueba se eliminó', false, e.message.slice(0, 80));
+    }
+  }
+
+  if (gastoPrueba > 0) {
+    try {
+      sql(`DELETE FROM gastos WHERE id = ${gastoPrueba}`);
+      console.log(`\nGasto de prueba id=${gastoPrueba} eliminado.`);
+    } catch (e) {
+      comprobar('el gasto de prueba se eliminó', false, e.message.slice(0, 80));
+    }
+  }
+
   if (cotizacionPropia > 0) {
     await postCsrf(page, `${BASE}/admin/cotizaciones/eliminar`, {
       maxRedirects: 0,

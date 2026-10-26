@@ -24,6 +24,12 @@
     justify-content: space-between;
     gap: $espacio-sm;
     margin-bottom: $espacio-md;
+
+    /* Si la cabecera se parte en dos líneas, la acción se queda a la derecha
+       en lugar de colgarse debajo del título. */
+    > .fila {
+      margin-left: auto;
+    }
   }
 
   &__titulo {
@@ -71,7 +77,7 @@
     }
   }
 
-  /* Variante usada como enlace (accesos rápidos del panel). */
+  /* Variante usada cuando la tarjeta entera es el enlace. */
   &--enlace {
     text-decoration: none;
     color: inherit;
@@ -197,6 +203,25 @@
   list-style: none;
   margin: 0;
   padding: 0;
+
+  /* Fila con su acción directa al lado (PDF, seguimiento, atender): el enlace
+     de la fila abre el detalle y el botón va derecho a la acción. */
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    border-top: 1px solid $color-borde;
+
+    .actividad__fila {
+      flex: 1;
+      min-width: 0;
+      border-top: 0;
+    }
+
+    .btn {
+      flex-shrink: 0;
+    }
+  }
 
   &__fila {
     display: flex;

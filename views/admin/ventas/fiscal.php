@@ -45,6 +45,12 @@ if (!\App\VentasFiscal::guardarPago($ventaId, (string) ($_POST['metodo_pago'] ??
     redirigir($destino, 'error', implode(' · ', \App\VentasFiscal::getErrores()));
 }
 
+/* 2b. Tipo de comprobante (I, E, N, P, T): dato del documento que se leyó con el
+ * botón inteligente; vacío = se queda el que ya tuviera la venta. */
+if (array_key_exists('tipo_cfdi', $_POST) && !\App\VentasFiscal::guardarDatosLeidos($ventaId, ['tipo_cfdi' => (string) $_POST['tipo_cfdi']], $usuario)) {
+    redirigir($destino, 'error', implode(' · ', \App\VentasFiscal::getErrores()));
+}
+
 /* 3. Revalidación integral: no se avanza con errores obligatorios. */
 $revision = \App\VentasFiscal::validar($ventaId);
 if ($revision === null) {

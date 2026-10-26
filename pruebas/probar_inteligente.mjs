@@ -6,8 +6,11 @@
  *   2. leen un CFDI y abren /admin/ventas/crear con el cliente, la fecha y los
  *      renglones que sí se cotejaron con el catálogo;
  *   3. dejan los conceptos sin equivalente en su propia lista, sin tocar el catálogo;
- *   4. abren /admin/contabilidad/gastos/crear con proveedor, total, IVA y UUID;
- *   5. guardan el gasto y adjuntan solos el XML que se leyó.
+ *   4. abren /admin/contabilidad/gastos/crear con proveedor, total, IVA y UUID,
+ *      más los cuatro datos del CFDI (forma, tipo, uso y método) autocompletados;
+ *   5. guardan el gasto y adjuntan solos el XML que se leyó;
+ *   6. registran la venta con la lectura y dejan esos cuatro datos en su ingreso,
+ *      que la revisión previa a facturar trae ya precargados.
  *
  * Uso: node pruebas/probar_inteligente.mjs
  */
@@ -71,7 +74,7 @@ function cfdiVenta(uuid) {
   Version="4.0" Serie="A" Folio="101" Fecha="2026-10-15T09:30:00" SubTotal="1370.00" Total="1589.20"
   Moneda="MXN" FormaPago="03" MetodoPago="PUE" TipoDeComprobante="I">
   <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Soluciones en Acero" RegimenFiscal="601"/>
-  <cfdi:Receptor Rfc="XAXX010101000" Nombre="Cliente Demo 1" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="XAXX010101000" Nombre="Cliente Demo 1" RegimenFiscal="601" UsoCFDI="G03"/>
   <cfdi:Conceptos>
     <cfdi:Concepto NoIdentificacion="RA-1" Cantidad="2" Unidad="pza" Descripcion="Registro de angulo 40x40 cm" ValorUnitario="360.00" Importe="720.00"/>
     <cfdi:Concepto Cantidad="1" Unidad="pza" Descripcion="Barra de acero inoxidable 1/2 pulg" ValorUnitario="650.00" Importe="650.00"/>
@@ -90,7 +93,7 @@ function cfdiCompra(uuid) {
   Version="4.0" Serie="B" Folio="55" Fecha="2026-10-18T12:00:00" SubTotal="650.00" Total="754.00"
   Moneda="MXN" FormaPago="01" MetodoPago="PUE" TipoDeComprobante="E">
   <cfdi:Emisor Rfc="XAXX010101000" Nombre="Ferreteria de la Esquina" RegimenFiscal="601"/>
-  <cfdi:Receptor Rfc="DEMO000101A01" Nombre="Mi Taller" RegimenFiscal="601"/>
+  <cfdi:Receptor Rfc="DEMO000101A01" Nombre="Mi Taller" RegimenFiscal="601" UsoCFDI="G03"/>
   <cfdi:Conceptos>
     <cfdi:Concepto NoIdentificacion="TM-1" Cantidad="1" Unidad="pza" Descripcion="Tapa metalica 60x60 sencilla" ValorUnitario="650.00" Importe="650.00"/>
   </cfdi:Conceptos>
@@ -156,6 +159,9 @@ pagina.on('console', (mensaje) => {
   }
 });
 
+/** Venta creada durante la corrida (se borra al final, con su ingreso y sus renglones). */
+let ventaCreada = 0;
+
 try {
   writeFileSync(rutaVenta, cfdiVenta(uuidVenta));
   writeFileSync(rutaCompra, cfdiCompra(uuidCompra));
@@ -205,8 +211,32 @@ try {
   comprobar('no se creó ningún producto en el catálogo', Number(sql('SELECT COUNT(*) FROM productos WHERE nombre LIKE "%inoxidable%"')) === 0);
   comprobar('el aviso aclara que nada se ha guardado todavía', (await pagina.locator('[data-lectura-cargada]').textContent()).includes('nada se ha registrado'));
 
+  comprobar('el formulario de venta conserva la lectura al enviar',
+    ((await pagina.getAttribute('form.cotizador', 'action')) || '').includes('lectura='));
+
   await pagina.click('[data-cargar-busqueda]');
   comprobar('el botón llena el buscador del catálogo', (await pagina.inputValue('#buscar-producto')).includes('inoxidable'));
+
+  // Se REGISTRA la venta: los cuatro datos del CFDI pasan al ingreso y la
+  // revisión previa a facturar los trae precargados (la ficha del cliente no
+  // trae uso de CFDI, así que lo que se ve viene del documento).
+  await Promise.all([
+    pagina.waitForURL(/\/admin\/ventas\/detalle\?id=\d+/, { timeout: 20000 }),
+    pagina.click('[data-cotizador-guardar]'),
+  ]);
+  ventaCreada = Number(new URL(pagina.url()).searchParams.get('id'));
+  comprobar('el formulario registra la venta con la lectura cargada', ventaCreada > 0, pagina.url());
+  comprobar('los cuatro datos del CFDI pasan al ingreso de la venta',
+    sql(`SELECT CONCAT(IFNULL(forma_pago, '-'), '|', IFNULL(tipo_cfdi, '-'), '|', IFNULL(uso_cfdi, '-'), '|', IFNULL(metodo_pago, '-')) FROM ingresos WHERE venta_id = ${ventaCreada}`) === '03|I|G03|PUE');
+
+  await pagina.click('#btn-revision-fiscal');
+  await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 5000 });
+  const valorDe = async (id) => pagina.locator(`#${id} option:checked`).getAttribute('value');
+  comprobar('la revisión previa trae uso, método, forma y tipo precargados',
+    (await valorDe('f-uso')) === 'G03' && (await valorDe('f-metodo')) === 'PUE'
+    && (await valorDe('f-forma')) === '03' && (await valorDe('f-tipo')) === 'I',
+    `uso=${await valorDe('f-uso')} metodo=${await valorDe('f-metodo')} forma=${await valorDe('f-forma')} tipo=${await valorDe('f-tipo')}`);
+  await pagina.keyboard.press('Escape');
 
   console.log('\n3. Registro compra inteligente');
   await pagina.goto(`${BASE}/admin/contabilidad`, { waitUntil: 'domcontentloaded' });
@@ -228,6 +258,12 @@ try {
   comprobar('el concepto se armó con el emisor', (await pagina.inputValue('#concepto')).includes('Ferreteria de la Esquina'));
   comprobar('la categoría se sugirió por el proveedor', Number(await pagina.locator('#categoria_id option:checked').getAttribute('value')) > 0);
 
+  // Los cuatro datos del CFDI se autocompletan solos, en sus propios campos visibles.
+  comprobar('la forma de pago quedó precargada y visible', (await pagina.locator('#forma_pago_sat option:checked').getAttribute('value')) === '01');
+  comprobar('el tipo de comprobante quedó precargado', (await pagina.locator('#tipo_cfdi option:checked').getAttribute('value')) === 'E');
+  comprobar('el uso del CFDI quedó precargado', (await pagina.locator('#uso_cfdi option:checked').getAttribute('value')) === 'G03');
+  comprobar('el método de pago quedó precargado', (await pagina.locator('#metodo_pago_sat option:checked').getAttribute('value')) === 'PUE');
+
   const gastosAntes = Number(sql('SELECT COUNT(*) FROM gastos'));
   await pagina.click('button[type="submit"]');
   await pagina.waitForURL(/\/admin\/contabilidad\/gastos\/detalle\?id=\d+/, { timeout: 20000 });
@@ -237,6 +273,8 @@ try {
   comprobar('el XML leído se adjuntó solo al gasto', Number(sql(`SELECT COUNT(*) FROM documentos WHERE entidad = 'gasto' AND entidad_id = ${gastoId}`)) === 1);
   comprobar('el gasto guarda el UUID del CFDI', sql(`SELECT uuid_fiscal FROM gastos WHERE id = ${gastoId}`) === uuidCompra);
   comprobar('el gasto guarda los datos del CFDI', sql(`SELECT COUNT(*) FROM documentos WHERE entidad = 'gasto' AND entidad_id = ${gastoId} AND datos_cfdi IS NOT NULL`) === '1');
+  comprobar('el gasto guarda los cuatro datos del CFDI',
+    sql(`SELECT CONCAT(IFNULL(forma_pago_sat, '-'), '|', IFNULL(tipo_cfdi, '-'), '|', IFNULL(uso_cfdi, '-'), '|', IFNULL(metodo_pago_sat, '-')) FROM gastos WHERE id = ${gastoId}`) === '01|E|G03|PUE');
 
   console.log('\n4. Foto de factura (OCR)');
   const rutaFoto = `${carpeta}/factura.png`;
@@ -283,6 +321,15 @@ try {
     }
   }
   sql(`DELETE FROM lecturas_documentales WHERE creado_por = ${usuarioId}`);
+  // La venta creada en el paso 2 se borra con todo lo que cuelga de ella.
+  if (ventaCreada > 0) {
+    sql(`DELETE FROM cobros WHERE ingreso_id IN (SELECT id FROM ingresos WHERE venta_id = ${ventaCreada})`);
+    sql(`DELETE FROM documentos WHERE entidad = 'ingreso' AND entidad_id IN (SELECT id FROM ingresos WHERE venta_id = ${ventaCreada})`);
+    sql(`DELETE FROM ingresos WHERE venta_id = ${ventaCreada}`);
+    sql(`DELETE FROM venta_detalles WHERE venta_id = ${ventaCreada}`);
+    sql(`DELETE FROM movimientos_inventario WHERE venta_id = ${ventaCreada}`);
+    sql(`DELETE FROM ventas WHERE id = ${ventaCreada}`);
+  }
   limpiarDePrueba();
   sql(`DELETE FROM usuarios WHERE id = ${usuarioId}`);
 }

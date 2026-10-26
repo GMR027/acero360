@@ -27,7 +27,11 @@ $coincide = static function (string $ruta, string $exacta, string $prefijo = '')
 
 $activoInicio    = $rutaNav === '/admin';
 $activoNueva     = $rutaNav === '/admin/cotizaciones/crear' || $rutaNav === '/admin/ventas/crear';
-$activoEntregas  = $coincide($rutaNav, '/admin/entregas', '/admin/entregas/');
+// Operación Comercial (sección única): preparación, seguimiento y ventas viven
+// en el mismo botón de la barra inferior; «Nueva venta» se queda en su botón.
+$activoEntregas  = $coincide($rutaNav, '/admin/entregas', '/admin/entregas/')
+    || $coincide($rutaNav, '/admin/entregas-seguimiento', '/admin/entregas-seguimiento/')
+    || (!$activoNueva && $coincide($rutaNav, '/admin/ventas', '/admin/ventas/'));
 $activoInventario = $coincide($rutaNav, '/admin/inventario', '/admin/inventario/');
 // Configuración fiscal es una pestaña de Ajustes, no de Impuestos.
 $activoImpuestos = $rutaNav !== '/admin/fiscal/configuracion'
@@ -36,7 +40,6 @@ $activoImpuestos = $rutaNav !== '/admin/fiscal/configuracion'
 // El botón "Más" queda activo cuando la pantalla pertenece al cajón lateral
 // (incluye el perfil del usuario, que se abre desde "Usuarios y perfil").
 $activoMas = (!$activoNueva && $coincide($rutaNav, '/admin/cotizaciones', '/admin/cotizaciones/'))
-    || $coincide($rutaNav, '/admin/ventas', '/admin/ventas/')
     || $coincide($rutaNav, '/admin/clientes', '/admin/clientes/')
     || $coincide($rutaNav, '/admin/notas', '/admin/notas/')
     || $coincide($rutaNav, '/admin/calendario', '/admin/calendario/')
@@ -68,7 +71,7 @@ $ariaActivo = static function (bool $activo): string {
     </a>
 
     <a class="bottomnav__item<?= $claseActivo($activoEntregas) ?>"<?= $ariaActivo($activoEntregas) ?>
-       href="/admin/entregas" aria-label="Pantalla de entrega" title="Pantalla de entrega">
+       href="/admin/entregas" aria-label="Operación Comercial" title="Operación Comercial">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">package_2</span>
     </a>
 

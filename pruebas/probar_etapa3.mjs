@@ -67,19 +67,25 @@ try {
   verifica('aparece 1 sola vez la operación', (await pagina.locator('tbody tr').count()) === 1);
   verifica('etiquetada como cotización', (await pagina.locator('tbody .badge:has-text("Cotización")').count()) === 1);
 
-  console.log('Devolución desde la venta');
+  console.log('Devolución desde la hoja de Operación Comercial (modal)');
   const ventaId = sql(`SELECT id FROM ventas WHERE cotizacion_id=${cot}`);
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${ventaId}`);
   verifica('indica «Desde cotización» y no ofrece editar', (await pagina.locator('.badge:has-text("Desde cotización")').count()) === 1
     && (await pagina.locator('a[href*="/admin/ventas/editar"]').count()) === 0);
-  await pagina.click('a:has-text("Devolución")');
-  await pagina.fill(`input[name="cantidad[37]"]`, '9');
-  await Promise.all([pagina.waitForNavigation(), pagina.click('button[type=submit]')]);
+  verifica('el detalle enlaza a la hoja de operación de la venta',
+    (await pagina.locator(`a[href*="entregas-seguimiento/venta?id=${ventaId}"]`).count()) >= 1);
+  await pagina.click(`a[href*="entregas-seguimiento/venta?id=${ventaId}"]`);
+  await pagina.waitForURL(`**/admin/entregas-seguimiento/venta?id=${ventaId}`);
+  await pagina.click('a[data-modal-form="tpl-devolucion"]');
+  await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 5000 });
+  await pagina.fill('#modal-cuerpo input[name="cantidad[37]"]', '9');
+  await Promise.all([pagina.waitForURL(/\/admin\/ventas\/devolucion/), pagina.click('[data-confirmar-modal]')]);
   verifica('rechaza devolver más de lo vendido', (await pagina.content()).includes('No se pueden devolver más piezas'));
   await pagina.fill(`input[name="cantidad[37]"]`, '1');
-  await Promise.all([pagina.waitForURL('**/admin/ventas/detalle?id=*'), pagina.click('button[type=submit]')]);
-  verifica('devolución suma 1 al stock', sql('SELECT stock FROM productos WHERE id=37') === '97');
-  verifica('movimiento «devolucion» ligado a la venta', sql(`SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id=${ventaId} AND motivo='devolucion'`) === '1');
+  await Promise.all([pagina.waitForURL(/\/admin\/entregas-seguimiento\/venta\?id=\d+/), pagina.click('button[type=submit]')]);
+  verifica('la devolución NO mueve el inventario (sólo notificación)', sql('SELECT stock FROM productos WHERE id=37') === '96', sql('SELECT stock FROM productos WHERE id=37'));
+  verifica('sin movimiento «devolucion» en el kardex', sql(`SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id=${ventaId} AND motivo='devolucion'`) === '0');
+  verifica('quedó anotada en venta_devoluciones', sql(`SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id=${ventaId}`) === '1');
 
   console.log('Móvil');
   await pagina.setViewportSize({ width: 390, height: 800 });

@@ -7,6 +7,9 @@
  */
 $errores = $errores ?? [];
 $reglasCategoria = $reglasCategoria ?? [];
+/* Sólo el alta de un gasto ofrece registrar ahí mismo un proveedor que aún no
+ * existe en el directorio (en la edición no: el gasto ya tiene lo suyo). */
+$permiteAltaProveedor = !empty($permiteAltaProveedor);
 $reparto = [];
 foreach ($gasto['reparto'] ?? [] as $r) {
     $reparto[$r['empresa_id']] = $r['porcentaje'];
@@ -28,7 +31,7 @@ $numEmpresas = max(1, count($empresas));
                placeholder="Ej. Lámina calibre 18, gasolina, renta de bodega"></div>
 
     <?php $tipoBen = (string) ($gasto['beneficiario_tipo'] ?? (!empty($gasto['proveedor_id']) ? 'proveedor' : '')); ?>
-    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="¿A quién le pagaste? Solo elige «Proveedor» si ya lo tienes en tu directorio; si no, usa «Estación de servicio» u «Otro»." for="beneficiario_tipo">Pagado a</label>
+    <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="¿A quién le pagaste? Escribe para buscar en tu directorio por nombre o RFC; si todavía no lo tienes, regístralo con el botón que aparece debajo." for="beneficiario_tipo">Pagado a</label>
         <select class="control" id="beneficiario_tipo" name="beneficiario_tipo" data-beneficiario-tipo required>
             <option value="">— Elige —</option>
             <?php foreach (\App\Gastos::BENEFICIARIOS as $clave => $texto) : ?>
@@ -37,12 +40,31 @@ $numEmpresas = max(1, count($empresas));
         </select></div>
 
     <div class="campo" data-ben-proveedor<?= $tipoBen === 'proveedor' ? '' : ' hidden' ?>><label class="campo__etiqueta campo__etiqueta--obligatorio" for="proveedor_id">Proveedor</label>
-        <select class="control" id="proveedor_id" name="proveedor_id">
+        <?php if ($permiteAltaProveedor) : ?>
+            <!-- Botón que sólo aparece cuando lo escrito no coincide con ningún proveedor:
+                 lleva el texto capturado a /admin/proveedores/crear y de ahí se vuelve
+                 aquí con el gasto precargado. Lo maneja gastoProveedor.js.
+                 Va ENCIMA del campo: la lista desplegable del buscador se abre hacia
+                 abajo y taparía el botón. -->
+            <button class="btn btn--secundario btn--sm mt-sm mb-sm" type="button" data-registrar-proveedor hidden></button>
+        <?php endif; ?>
+        <!-- data-buscador: src/js/modulos/selectorBusqueda.js convierte este <select> en
+             un campo de búsqueda con lista filtrada por NOMBRE y RFC (los dos datos que
+             también se muestran en cada opción). Sin JavaScript queda el selector normal:
+             el <select> real se mantiene en el DOM y viaja en el envío. -->
+        <select class="control" id="proveedor_id" name="proveedor_id"
+                data-buscador
+                data-buscador-entidad="proveedor"
+                data-buscador-placeholder="Escribe para buscar por nombre o RFC…">
             <option value="">— Elige un proveedor —</option>
             <?php foreach ($proveedores as $p) : ?>
-                <option value="<?= (int) $p['id'] ?>"<?= (int) ($gasto['proveedor_id'] ?? 0) === (int) $p['id'] ? ' selected' : '' ?>><?= escaparValores($p['nombre'] ?? $p['etiqueta']) ?></option>
+                <option value="<?= (int) $p['id'] ?>"<?= (int) ($gasto['proveedor_id'] ?? 0) === (int) $p['id'] ? ' selected' : '' ?>
+                        data-rfc="<?= escaparValores((string) ($p['rfc'] ?? '')) ?>"><?= escaparValores((string) ($p['etiqueta'] ?? ($p['nombre'] ?? ''))) ?></option>
             <?php endforeach; ?>
-        </select></div>
+        </select>
+        <!-- RFC del proveedor elegido (lo completa src/js/modulos/gastoProveedor.js). -->
+        <span class="campo__ayuda" data-proveedor-rfc hidden></span>
+    </div>
 
     <div class="campo" data-ben-texto<?= in_array($tipoBen, ['estacion', 'otro'], true) ? '' : ' hidden' ?>><label class="campo__etiqueta" for="beneficiario" data-ben-etiqueta>Descripción</label>
         <input class="control" type="text" id="beneficiario" name="beneficiario" maxlength="150" value="<?= $tipoBen === 'proveedor' ? '' : $v('beneficiario') ?>"
@@ -98,11 +120,21 @@ $numEmpresas = max(1, count($empresas));
         <span class="campo__ayuda">Una foto del ticket no es una factura: aunque la adjuntes, el gasto no será deducible.</span></div>
 
     <?php
-    /* Datos del comprobante: sólo existen si el gasto lleva factura (lo oculta y limpia el script). */
+    /* Los cuatro datos del CFDI: sólo existen si el gasto lleva factura (los oculta y
+       limpia el script). Vienen del documento —la lectura inteligente o el XML que
+       subas en el mismo formulario— y se autocompletan solos. */
     $usoCfdi = strtoupper(trim((string) ($gasto['uso_cfdi'] ?? '')));
     $metodoCfdi = strtoupper(trim((string) ($gasto['metodo_pago_sat'] ?? '')));
     if (!isset(\App\Gastos::METODOS_CFDI[$metodoCfdi])) {
         $metodoCfdi = 'POR';   // sin dato guardado: la factura está «por definir»
+    }
+    $formaCfdi = trim((string) ($gasto['forma_pago_sat'] ?? ''));
+    if ($formaCfdi !== '' && !isset(\App\VentasFiscal::FORMAS_PAGO[$formaCfdi])) {
+        $formaCfdi = '';   // clave fuera del catálogo: se captura de nuevo
+    }
+    $tipoCfdi = strtoupper(trim((string) ($gasto['tipo_cfdi'] ?? '')));
+    if ($tipoCfdi !== '' && !isset(\App\Contabilidad::TIPOS_CFDI[$tipoCfdi])) {
+        $tipoCfdi = '';
     }
     ?>
     <div class="campo" data-cfdi<?= $factura === '1' ? '' : ' hidden' ?>><label class="campo__etiqueta" data-ayuda="Para qué se usó la factura, según el catálogo del SAT." for="uso_cfdi">Uso del CFDI</label>
@@ -122,6 +154,24 @@ $numEmpresas = max(1, count($empresas));
         </select>
         <span class="campo__ayuda">Si eliges «PPD · Pago en parcialidades» o «Por definir», el Centro de seguimiento lo vigila hasta que quede claro.</span></div>
 
+    <div class="campo" data-cfdi<?= $factura === '1' ? '' : ' hidden' ?>><label class="campo__etiqueta" data-ayuda="Con qué se pagó, tal como lo declara la factura (efectivo, transferencia, tarjeta…)." for="forma_pago_sat">Forma de pago del CFDI</label>
+        <select class="control" id="forma_pago_sat" name="forma_pago_sat">
+            <option value="">— Sin definir —</option>
+            <?php foreach (\App\VentasFiscal::FORMAS_PAGO as $clave => $texto) : ?>
+                <option value="<?= $clave ?>"<?= $formaCfdi === $clave ? ' selected' : '' ?>><?= escaparValores($clave . ' · ' . $texto) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda">La clave SAT que trae el comprobante: 01 efectivo, 03 transferencia, 04 tarjeta de crédito…</span></div>
+
+    <div class="campo" data-cfdi<?= $factura === '1' ? '' : ' hidden' ?>><label class="campo__etiqueta" data-ayuda="Qué clase de comprobante es: una factura normal es «Ingreso»." for="tipo_cfdi">Tipo de comprobante (CFDI)</label>
+        <select class="control" id="tipo_cfdi" name="tipo_cfdi">
+            <option value="">— Elige el tipo —</option>
+            <?php foreach (\App\Contabilidad::TIPOS_CFDI as $clave => $texto) : ?>
+                <option value="<?= $clave ?>"<?= $tipoCfdi === $clave ? ' selected' : '' ?>><?= escaparValores($texto) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda">Una factura de compra normal es «I · Ingreso»; una nota de crédito es «E · Egreso».</span></div>
+
     <?php if (count($empresas) > 1) : ?>
         <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige el negocio al que corresponde. «Para todos» si sirve a ambos." for="empresa_id">¿Para cuál negocio fue?</label>
             <select class="control" id="empresa_id" name="empresa_id" data-bloque-empresa>
@@ -134,9 +184,24 @@ $numEmpresas = max(1, count($empresas));
 </div>
 
 <?php if (!empty($permiteArchivos)) : ?>
+    <!-- Con JavaScript el archivo se elige en la ventana modal (el mismo modal__panel que
+         «Registro Venta Inteligente») y el campo de abajo desaparece; sin JavaScript queda
+         en línea, tal cual. El input conserva form="form-gasto" para enviarse con el
+         formulario aunque el módulo lo mueva dentro del diálogo. -->
     <div class="campo campo--completo mt-lg">
+        <span class="campo__etiqueta">Archivo de la factura o comprobante (opcional)</span>
+        <button class="btn btn--secundario" type="button" hidden
+                data-archivo-modal="doc-nuevo"
+                data-archivo-sobre="Alta de gasto"
+                data-archivo-titulo="Archivo de la factura o comprobante">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">upload_file</span>
+            <span>Elegir archivos</span>
+        </button>
+        <span class="campo__ayuda" data-archivo-resumen hidden></span>
+    </div>
+    <div class="campo campo--completo" data-archivo-linea>
         <label class="campo__etiqueta" data-ayuda="Sube aquí la factura (PDF y XML) o la foto del ticket. Puedes elegir varios archivos a la vez." for="doc-nuevo">Archivo de la factura o comprobante (opcional)</label>
-        <input class="control" type="file" id="doc-nuevo" name="archivo[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
+        <input class="control" type="file" id="doc-nuevo" name="archivo[]" form="form-gasto" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
         <span class="campo__ayuda" data-ayuda-archivo>Sube el XML (de él se leen el folio fiscal y el total si los dejas vacíos), el PDF o la imagen. También podrás agregarlos después.</span>
     </div>
 <?php endif; ?>
@@ -172,12 +237,12 @@ $numEmpresas = max(1, count($empresas));
 
         <!-- Datos del CFDI que se leen del documento (los trae la lectura inteligente y los
              guarda el servidor al crear el gasto; en la edición no se modifican, por eso van ocultos).
-             El uso del CFDI y el método de pago NO van aquí: se capturan arriba, visibles. -->
+             Los cuatro datos visibles del CFDI —uso, método, forma y tipo de comprobante— van
+             arriba, en el bloque que sólo aparece cuando el gasto tiene factura. -->
         <input type="hidden" name="folio_comercial" value="<?= $v('folio_comercial') ?>">
         <input type="hidden" name="rfc_emisor" value="<?= $v('rfc_emisor') ?>">
         <input type="hidden" name="rfc_receptor" value="<?= $v('rfc_receptor') ?>">
         <input type="hidden" name="moneda" value="<?= $v('moneda', 'MXN') ?>">
-        <input type="hidden" name="forma_pago_sat" value="<?= $v('forma_pago_sat') ?>">
 
         <fieldset class="campo campo--completo">
             <legend class="campo__etiqueta">¿Se reparte entre varios negocios?</legend>

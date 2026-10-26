@@ -48,36 +48,42 @@ $_SESSION['rol'] = 1;
 $correlativo = bin2hex(random_bytes(3));
 
 /* -------------------------------------------------------------------- *
- * ENTORNO: primera venta registrada con producto devolvible. Se prefiere
- * una con 2+ piezas (la etapa registra dos incidencias sobre el mismo
- * producto); con sólo 1 pieza la segunda incidencia se omite y la
- * sustitución de factura no corre (en la regresión la base se siembra
- * desde la real, donde siempre hay).
+ * ENTORNO: venta PROPIA de la etapa (5 piezas del producto con más stock),
+ * creada aquí y borrada en la limpieza. Antes se reusaba una venta real de
+ * la base y, cuando no tenía 2 piezas disponibles, la sustitución de factura
+ * se omitía: prueba no determinista.
  * ------------------------------------------------------------------ */
-$ventaId = 0;
-$productoId = 0;
-$disponible = 0;
-foreach ($db->query("SELECT id FROM ventas WHERE estado = 'registrada' ORDER BY id")->fetch_all(MYSQLI_ASSOC) as $v) {
-    foreach (Inventario::devolvibles((int) $v['id']) as $pid => $d) {
-        if ($d['disponible'] > $disponible) {
-            $ventaId = (int) $v['id'];
-            $productoId = (int) $pid;
-            $disponible = (int) $d['disponible'];
-        }
-        if ($disponible >= 2) {
-            break 2;
-        }
-    }
-}
-$prueba('hay una venta con producto devolvible', $ventaId > 0 && $productoId > 0, "venta #$ventaId producto #$productoId ($disponible piezas)");
-if ($ventaId <= 0) {
+$empresaId = (int) $uno('SELECT id FROM empresas ORDER BY id LIMIT 1');
+$clienteId = (int) $uno('SELECT id FROM clientes ORDER BY id LIMIT 1');
+$producto = $db->query('SELECT id, stock FROM productos ORDER BY stock DESC LIMIT 1')->fetch_assoc();
+$prueba('hay un producto con stock para la etapa', $producto !== null && (int) $producto['stock'] >= 10,
+    $producto ? ('stock ' . $producto['stock']) : 'sin productos');
+if ($producto === null || (int) $producto['stock'] < 10) {
     exit(1);
 }
+$productoId   = (int) $producto['id'];
+$stockOriginal = (int) $producto['stock'];   // el de la base, que se restaura al final
+$db->query("UPDATE productos SET stock = 100 WHERE id = $productoId");
+
+$piezas = 5;
+$creada = Ventas::crear([
+    'empresa_id' => $empresaId, 'cliente_id' => $clienteId, 'fecha' => date('Y-m-d'),
+    'aplica_iva' => 0, 'descuento_pct' => 0,
+], [$productoId => ['cantidad' => $piezas, 'precio' => 100, 'descuento_pct' => 0, 'no_recordar' => 1]], $usuario);
+$ventaId = (int) Ventas::$ultimoId;
+$prueba('venta propia de la etapa creada', $creada && $ventaId > 0, implode(' · ', Ventas::getErrores()));
+if (!$creada || $ventaId <= 0) {
+    exit(1);
+}
+
+/* La venta queda marcada como facturada: así el motivo «faltante» fuerza la
+ * corrección de factura (IncidenciasEntrega::MOTIVOS_CORRECCION). */
+$db->query("UPDATE ingresos SET estado_facturacion = 'facturada', uuid_fiscal = 'T43-FACT-"
+    . $db->real_escape_string($correlativo) . "' WHERE venta_id = $ventaId");
+
 $venta = Ventas::buscarID($ventaId);
-$stockAntes = (int) $uno("SELECT stock FROM productos WHERE id = $productoId");
-$estadoAntes = (string) $venta->entrega_estado;
-$fechaAntes = $venta->entrega_fecha;
-$obsAntes = $venta->entrega_observaciones;
+$stockAntes = (int) $uno("SELECT stock FROM productos WHERE id = $productoId");   // tras el descuento de la venta
+$fechaVentaAntes = (string) $venta->fecha;
 $ingreso = Contabilidad::ingresoDeVenta($ventaId);
 $ingresoId = $ingreso ? (int) $ingreso['id'] : 0;
 
@@ -111,6 +117,8 @@ $prueba('kardex: entrada con motivo devolucion',
     (int) $uno("SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id = $ventaId AND producto_id = $productoId AND tipo = 'entrada' AND motivo = 'devolucion' AND notas LIKE 'Incidencia de entrega%'") > 0);
 $prueba('anotado en venta_devoluciones',
     (int) $uno("SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id = $ventaId AND producto_id = $productoId AND nota LIKE 'Incidencia de entrega%'") > 0);
+$prueba('faltante en venta facturada fuerza la corrección de factura',
+    (int) $uno("SELECT factura_requerida FROM entrega_incidencias WHERE id = $incidenciaId") === 1);
 $prueba('la incidencia queda abierta con su renglón',
     (int) $uno("SELECT COUNT(*) FROM entrega_incidencias WHERE id = $incidenciaId AND estado = 'abierta'") === 1
     && (int) $uno("SELECT COUNT(*) FROM entrega_incidencia_renglones WHERE incidencia_id = $incidenciaId") === 1);
@@ -151,6 +159,30 @@ $prueba('resolver la incidencia funciona',
     IncidenciasEntrega::cerrar($incidenciaId, 'resuelta', 'T43 se resolvió', false, [], $usuario), implode(' · ', IncidenciasEntrega::getErrores()));
 $prueba('rechaza cerrar dos veces',
     !IncidenciasEntrega::cerrar($incidenciaId, 'cancelada', 'Ya cerrada', false, [], $usuario));
+
+/* -------------------------------------------------------------------- *
+ * 4b. NOTIFICACIÓN SIN INVENTARIO (devolución / dañado / cambio)
+ *     Sólo faltante e incompleto devuelven piezas al almacén; el resto
+ *     sólo queda anotado en la venta.
+ * ------------------------------------------------------------------ */
+echo "— notificación sin inventario —\n";
+$stockNotificado = (int) $uno("SELECT stock FROM productos WHERE id = $productoId");
+$kardexNotificado = (int) $uno("SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id = $ventaId");
+$registradaDevol = IncidenciasEntrega::registrar(
+    $ventaId, 'devolucion', [$productoId => ['cantidad' => 1, 'cambio' => 0]],
+    'T43 devolución notificada ' . $correlativo, false, $usuario
+);
+$incDevol = IncidenciasEntrega::$ultimoId;
+$prueba('la devolución se registra como notificación', $registradaDevol, implode(' · ', IncidenciasEntrega::getErrores()));
+$prueba('NO mueve el inventario (stock)',
+    (int) $uno("SELECT stock FROM productos WHERE id = $productoId") === $stockNotificado,
+    $stockNotificado . ' → ' . $uno("SELECT stock FROM productos WHERE id = $productoId"));
+$prueba('NO mueve el inventario (kardex)',
+    (int) $uno("SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id = $ventaId") === $kardexNotificado);
+$prueba('queda anotada en venta_devoluciones',
+    (int) $uno("SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id = $ventaId AND producto_id = $productoId AND nota LIKE 'Incidencia de entrega (Devolución)%'") > 0);
+$prueba('en devolución NO se fuerza la corrección de factura',
+    (int) $uno("SELECT factura_requerida FROM entrega_incidencias WHERE id = $incDevol") === 0);
 
 /* -------------------------------------------------------------------- *
  * 5. HISTORIAL Y CENTRO DE SEGUIMIENTO
@@ -244,6 +276,29 @@ if (!$ingreso || $ingreso['estado'] !== 'vigente') {
     $prueba('la incidencia quedó resuelta con su documento',
         (int) $uno("SELECT COUNT(*) FROM entrega_incidencias WHERE id = $incFactura AND estado = 'resuelta' AND factura_documento_id IS NOT NULL") === 1);
 
+    /* Editar la venta después (aquí, cambiarle la fecha) ya NO pisa los montos
+     * corregidos por la factura sustituida: se sincroniza lo demás y se avisa. */
+    Contabilidad::getAvisos();   // limpia avisos previos
+    $db->query("UPDATE ventas SET fecha = DATE_ADD(fecha, INTERVAL 1 DAY) WHERE id = $ventaId");
+    $sincronizada = Contabilidad::sincronizarIngreso($ventaId, $usuario);
+    $trasEdicion = Contabilidad::ingresoDeVenta($ventaId);
+    $avisosEdicion = Contabilidad::getAvisos();
+    $prueba('sincronizar la venta editada no falla', $sincronizada, implode(' · ', Contabilidad::getErrores()));
+    $prueba('los montos de la factura sobreviven a la edición de la venta',
+        $trasEdicion !== null
+        && Contabilidad::centavos($trasEdicion['total']) === Contabilidad::centavos('100.00')
+        && Contabilidad::centavos($trasEdicion['subtotal']) === Contabilidad::centavos('86.21'),
+        $trasEdicion ? ($trasEdicion['subtotal'] . ' / ' . $trasEdicion['total']) : 'sin ingreso');
+    $prueba('la fecha de la venta SÍ se propagó al ingreso',
+        $trasEdicion !== null && $trasEdicion['fecha'] === date('Y-m-d', strtotime($fechaVentaAntes . ' +1 day')),
+        $trasEdicion ? (string) $trasEdicion['fecha'] : 'sin ingreso');
+    $prueba('dejó el aviso de importes distintos',
+        count($avisosEdicion) === 1 && str_contains($avisosEdicion[0], 'importes distintos'),
+        implode(' | ', $avisosEdicion));
+    $db->query("UPDATE ventas SET fecha = '" . $db->real_escape_string($fechaVentaAntes) . "' WHERE id = $ventaId");
+    Contabilidad::sincronizarIngreso($ventaId, $usuario);   // la fecha del ingreso vuelve a su sitio
+    Contabilidad::getAvisos();                              // (el aviso de montos se descarta aquí)
+
     // Restauración contable: la etapa no deja rastro en el ingreso.
     $db->begin_transaction();
     $db->query("UPDATE ingresos SET subtotal = '" . $origen['subtotal'] . "', descuento = '" . $origen['descuento']
@@ -267,35 +322,34 @@ if (!$ingreso || $ingreso['estado'] !== 'vigente') {
 }
 
 /* -------------------------------------------------------------------- *
- * LIMPIEZA Y VERIFICACIÓN FINAL
+ * LIMPIEZA Y VERIFICACIÓN FINAL (la venta es de la etapa: se borra entera)
  * ------------------------------------------------------------------ */
 $db->begin_transaction();
 $db->query("DELETE r FROM entrega_incidencia_renglones r JOIN entrega_incidencias i ON i.id = r.incidencia_id WHERE i.venta_id = $ventaId");
 $db->query("DELETE FROM entrega_incidencias WHERE venta_id = $ventaId");
-$db->query("DELETE FROM venta_devoluciones WHERE venta_id = $ventaId AND producto_id = $productoId AND nota LIKE 'Incidencia de entrega%'");
-$db->query("DELETE FROM movimientos_inventario WHERE venta_id = $ventaId AND producto_id = $productoId AND motivo = 'devolucion' AND notas LIKE 'Incidencia de entrega%'");
+$db->query("DELETE FROM venta_devoluciones WHERE venta_id = $ventaId");
+$db->query("DELETE FROM movimientos_inventario WHERE venta_id = $ventaId");
 $db->query("DELETE FROM auditoria WHERE entidad = 'seguimiento'
-    OR (entidad = 'venta' AND entidad_id = $ventaId AND accion IN ('incidencia','seguimiento'))
-    OR (entidad = 'ingreso' AND entidad_id = $ingresoId AND accion IN ('sustitucion','facturacion') AND creado_en >= DATE_SUB(NOW(), INTERVAL 30 MINUTE))");
+    OR (entidad = 'venta' AND entidad_id = $ventaId)
+    OR (entidad = 'ingreso' AND entidad_id = $ingresoId)");
+$db->query("DELETE FROM venta_detalles WHERE venta_id = $ventaId");
+$db->query("DELETE FROM ingresos WHERE venta_id = $ventaId");
+$db->query("DELETE FROM ventas WHERE id = $ventaId");
 $db->commit();
-$db->query("UPDATE productos SET stock = $stockAntes WHERE id = $productoId");
-$db->query("UPDATE ventas SET entrega_estado = '" . $db->real_escape_string($estadoAntes ?: 'pendiente') . "'"
-    . ", entrega_fecha = " . ($fechaAntes === null ? 'NULL' : "'" . $fechaAntes . "'")
-    . ", entrega_observaciones = " . ($obsAntes === null ? 'NULL' : "'" . $db->real_escape_string($obsAntes) . "'")
-    . " WHERE id = $ventaId");
+$db->query("UPDATE productos SET stock = $stockOriginal WHERE id = $productoId");
 
 echo "— limpieza —\n";
-$prueba('stock restaurado', (int) $uno("SELECT stock FROM productos WHERE id = $productoId") === $stockAntes);
+$prueba('stock restaurado al original', (int) $uno("SELECT stock FROM productos WHERE id = $productoId") === $stockOriginal);
 $prueba('sin incidencias ni renglones', (int) $uno('SELECT COUNT(*) FROM entrega_incidencias') === 0
     && (int) $uno('SELECT COUNT(*) FROM entrega_incidencia_renglones') === 0);
 $prueba('sin devoluciones ni movimientos residuales',
-    (int) $uno("SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id = $ventaId AND nota LIKE 'Incidencia de entrega%'") === 0
-    && (int) $uno("SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id = $ventaId AND notas LIKE 'Incidencia de entrega%'") === 0);
+    (int) $uno("SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id = $ventaId") === 0
+    && (int) $uno("SELECT COUNT(*) FROM movimientos_inventario WHERE venta_id = $ventaId") === 0);
 $prueba('sin documentos de prueba en contabilidad',
     (int) $uno("SELECT COUNT(*) FROM documentos WHERE entidad = 'ingreso' AND nombre_original LIKE '%t43%'") === 0);
-$prueba('estado y seguimiento de la venta restaurados',
-    (string) $uno("SELECT CONCAT(entrega_estado, '|', IFNULL(entrega_fecha, '-'), '|', IFNULL(entrega_observaciones, '-')) FROM ventas WHERE id = $ventaId")
-    === ($estadoAntes ?: 'pendiente') . '|' . ($fechaAntes ?: '-') . '|' . ($obsAntes ?: '-'));
+$prueba('la venta propia de la etapa quedó borrada con su ingreso',
+    (int) $uno("SELECT COUNT(*) FROM ventas WHERE id = $ventaId") === 0
+    && (int) $uno("SELECT COUNT(*) FROM ingresos WHERE venta_id = $ventaId") === 0);
 
 echo $fallos ? "\nFALLAS: $fallos\n" : "\nEtapa 43: todas las pruebas correctas\n";
 exit($fallos ? 1 : 0);

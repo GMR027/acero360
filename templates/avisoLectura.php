@@ -7,7 +7,10 @@
  * No guarda ni modifica nada: sólo cuenta qué se precargó, qué campos hay que
  * revisar a mano y qué conceptos del documento no se reconocieron.
  *
- * Variables: $propuesta (salida de Lecturas::propuesta()), $nombreDoc ('venta' | 'gasto')
+ * Variables: $propuesta (salida de Lecturas::propuesta()), $nombreDoc ('venta' | 'gasto'),
+ *            $proveedorId y $proveedorNombre (opcionales: el proveedor ya elegido en
+ *            el formulario; con ellos se ofrece agregar cada concepto sin equivalente
+ *            directo a su catálogo — ver templates/sinEquivalente.php)
  */
 
 $propuesta = $propuesta ?? null;
@@ -43,52 +46,14 @@ $etiqueta = $nombreDoc === 'venta' ? 'de esta venta' : 'de esta compra';
     </div>
 
     <?php if ($propuesta['sin_equivalente']) : ?>
-        <div class="tarjeta mb-md">
-            <h2 class="titulo-5 mb-md">
-                <span class="material-symbols-outlined" aria-hidden="true">rule</span>
-                Conceptos sin producto equivalente (<?= number_format(count($propuesta['sin_equivalente'])) ?>)
-            </h2>
-            <p class="campo__ayuda mb-md">
-                Estos renglones del documento no coinciden con tu catálogo, así que no entraron a la
-                <?= escaparValores($nombreDoc) ?>. Búscalos a mano con el botón de búsqueda, o agrega el
-                producto al catálogo y vuelve a cargar la factura.
-            </p>
-            <div class="tabla-contenedor">
-                <table class="tabla">
-                    <caption class="solo-lectores">Conceptos de la factura sin producto en el catálogo</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Descripción del documento</th>
-                            <th scope="col" class="tabla--numerica">Cantidad</th>
-                            <th scope="col" class="tabla--numerica">Precio unitario</th>
-                            <th scope="col" class="tabla--numerica">Importe</th>
-                            <th scope="col" class="tabla--centro"><span class="solo-lectores">Acción</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($propuesta['sin_equivalente'] as $concepto) : ?>
-                            <tr>
-                                <td data-label="Descripción"><?= escaparValores($concepto['descripcion']) ?>
-                                    <?php if (!empty($concepto['nota'])) : ?>
-                                        <br><span class="texto-secundario"><?= escaparValores($concepto['nota']) ?></span>
-                                    <?php endif; ?></td>
-                                <td class="tabla--numerica cifra" data-label="Cantidad"><?= escaparValores(number_format($concepto['cantidad'], 2)) ?></td>
-                                <td class="tabla--numerica cifra" data-label="Precio unitario"><?= $concepto['valor_unitario'] > 0 ? formatoMoneda($concepto['valor_unitario']) : '—' ?></td>
-                                <td class="tabla--numerica cifra" data-label="Importe"><?= $concepto['importe'] > 0 ? formatoMoneda($concepto['importe']) : '—' ?></td>
-                                <td class="tabla--centro" data-label="">
-                                    <button type="button" class="btn btn--secundario btn--sm"
-                                            data-cargar-busqueda="<?= escaparValores($concepto['descripcion']) ?>"
-                                            title="Escribe esta descripción en el buscador del catálogo">
-                                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">search</span>
-                                        <span>Buscar en el catálogo</span>
-                                    </button>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <?php /* La tabla es compartida con Compras Inteligentes: aquí el proveedor viene del
+                 propio documento (o del que ya eligió la persona en «Pagado a»). */ ?>
+        <?php template('sinEquivalente', [
+            'conceptos'       => $propuesta['sin_equivalente'],
+            'nombreDoc'       => $nombreDoc,
+            'proveedorId'     => (int) ($proveedorId ?? 0),
+            'proveedorNombre' => (string) ($proveedorNombre ?? ($propuesta['proveedor']['nombre'] ?? '')),
+        ]); ?>
     <?php endif; ?>
 
     <?php if ($porRevisar) : ?>

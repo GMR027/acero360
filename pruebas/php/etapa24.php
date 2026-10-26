@@ -201,7 +201,7 @@ file_put_contents("$tmp/cero.xml", $ivaCero);
 $prueba('un comprobante sin IVA queda en 0 %', CoincidenciasFactura::analizar(LectorDocumental::leer("$tmp/cero.xml", 'xml'), 'gasto')['iva_tasa'] === 0.0);
 
 echo "\nTabla con el orden de columnas de un facturador en línea\n";
-// Mismo formato que la factura real EJE100707AA3: otra disposición de columnas,
+// Mismo formato que una factura real (ejemplo): otra disposición de columnas,
 // conceptos que ocupan dos líneas, clave SAT, tipo de impuesto e impuesto por renglón.
 $textoFacturador = <<<'TEXTO'
   Cantidad          Unidad                             Concepto                      Descuento            Impuesto           Precio Unitario          Importe

@@ -81,6 +81,10 @@ class CoincidenciasFactura
             'moneda'       => $campos('moneda'),
             'forma_pago'   => $campos('forma_pago'),
             'metodo_pago'  => $campos('metodo_pago'),
+            // Los cuatro datos del CFDI viajan aparte del cotejo: no dependen de
+            // que se haya reconocido al cliente, al proveedor ni a un producto.
+            'uso_cfdi'     => strtoupper($campos('uso_cfdi')),
+            'tipo_cfdi'    => strtoupper($campos('tipo_cfdi')),
             'folio'        => $campos('folio_comercial'),
             'uuid'         => strtoupper($campos('uuid')),
             'empresa'      => null,
@@ -137,15 +141,87 @@ class CoincidenciasFactura
 
         $resultado['conceptos'] = self::conceptos((array) ($lectura['conceptos'] ?? []), $resultado['empresa']);
 
-        foreach ($resultado['conceptos'] as $concepto) {
-            if ($concepto['producto'] === null) {
+        /* 2ª PASADA: lo que no casó con el catálogo PROPIO se coteja con el
+         * catálogo del PROVEEDOR reconocido (proveedor_productos). Sólo aplica a
+         * facturas que me dieron: en una venta emitida por mí el emisor soy yo,
+         * así que `$resultado['proveedor']` sigue siendo null y no se entra aquí.
+         * Gracias a esto, un concepto ya registrado al proveedor deja de salir en
+         * «sin equivalente» en la próxima lectura de su factura. */
+        if ($resultado['proveedor'] !== null) {
+            self::cotejarCatalogoDeProveedor($resultado, (int) $resultado['proveedor']['id']);
+        }
+        self::repartirConceptos($resultado);
+
+        return $resultado;
+    }
+
+    /**
+     * Segunda pasada del cotejo: recupera de «sin equivalente» los conceptos que
+     * sí existen en el catálogo de UN proveedor concreto.
+     *
+     * Es pública y recibe el resultado ya armado porque ComprasIntel resuelve al
+     * proveedor DESPUÉS del motor (búsqueda directa por RFC, que no filtra por
+     * `activo = 1`): en ese caso vuelve a correr la pasada con el proveedor que
+     * acaba de encontrar. Idempotente: sólo mira conceptos aún sin producto.
+     *
+     * @param array<string, mixed> $resultado modificado por referencia
+     */
+    public static function cotejarCatalogoDeProveedor(array &$resultado, int $proveedorId): void
+    {
+        if ($proveedorId <= 0 || empty($resultado['conceptos'])) {
+            return;
+        }
+
+        $catalogo = self::catalogoProveedor($proveedorId);
+        if (!$catalogo) {
+            return;
+        }
+
+        $cambio = false;
+        foreach ($resultado['conceptos'] as $indice => $concepto) {
+            if (!is_array($concepto) || ($concepto['producto'] ?? null) !== null) {
+                continue;
+            }
+
+            $parado = self::buscarProducto(
+                $catalogo,
+                (string) ($concepto['sku'] ?? ''),
+                (string) ($concepto['descripcion'] ?? '')
+            );
+            if ($parado === null) {
+                continue;
+            }
+
+            [$producto, $criterio] = $parado;
+            $resultado['conceptos'][$indice]['producto']  = $producto;
+            $resultado['conceptos'][$indice]['criterio']  = 'catálogo del proveedor · ' . $criterio;
+            $resultado['conceptos'][$indice]['confianza'] = (string) ($concepto['confianza_lectura'] ?? 'media');
+            $cambio = true;
+        }
+
+        if ($cambio) {
+            self::repartirConceptos($resultado);
+        }
+    }
+
+    /**
+     * Divide los conceptos cotejados en los dos destinos que consume la app:
+     * renglones con producto equivalente y los que siguen sin coincidencia.
+     *
+     * @param array<string, mixed> $resultado modificado por referencia
+     */
+    private static function repartirConceptos(array &$resultado): void
+    {
+        $resultado['sin_equivalente'] = [];
+        $resultado['lineas']          = [];
+
+        foreach ((array) ($resultado['conceptos'] ?? []) as $concepto) {
+            if (($concepto['producto'] ?? null) === null) {
                 $resultado['sin_equivalente'][] = $concepto;
             } else {
                 $resultado['lineas'][] = self::lineaDelConcepto($concepto);
             }
         }
-
-        return $resultado;
     }
 
     /* --------------------------------------------------------------------
@@ -173,23 +249,10 @@ class CoincidenciasFactura
             $producto = null;
             $criterio = '';
 
-            // 1. SKU exacto del documento contra el del catálogo.
-            if ($sku !== '') {
-                foreach ($catalogo as $candidato) {
-                    if ($candidato['sku'] !== '' && $candidato['sku'] === $sku) {
-                        $producto = $candidato;
-                        $criterio = 'SKU ' . $sku;
-                        break;
-                    }
-                }
-            }
-
-            // 2. Nombre exacto y 3. nombre parecido.
-            if ($producto === null) {
-                $parado = self::productoParecido($catalogo, $descripcion);
-                if ($parado !== null) {
-                    [$producto, $criterio] = $parado;
-                }
+            // 1. SKU exacto del documento.  2. nombre exacto.  3. nombre parecido.
+            $parado = self::buscarProducto($catalogo, $sku, $descripcion);
+            if ($parado !== null) {
+                [$producto, $criterio] = $parado;
             }
 
             $cantidad    = self::numero((string) ($concepto['cantidad'] ?? ''));
@@ -205,13 +268,39 @@ class CoincidenciasFactura
                 'descuento'      => self::numero((string) ($concepto['descuento'] ?? '')),
                 // Nombre real del artículo que sigue a la clave del SAT (si la trae).
                 'nota'           => trim((string) ($concepto['nota'] ?? '')),
+                // El SKU del documento: sirve para llevarlo al `codigo` del catálogo
+                // del proveedor cuando se agrega el concepto desde la pantalla.
+                'sku'            => $sku,
                 'producto'       => $producto,
                 'criterio'       => $criterio,
                 'confianza'      => $producto !== null ? $confianza : 'baja',
+                // La confianza tal como vino del lector: la recupera la 2ª pasada.
+                'confianza_lectura' => $confianza,
             ];
         }
 
         return array_slice($lista, 0, 100);
+    }
+
+    /**
+     * Producto que corresponde a un concepto: primero por SKU exacto, después por
+     * nombre exacto y por nombre parecido. Devuelve [producto, criterio] o null.
+     *
+     * @param array<int, array<string, mixed>> $catalogo
+     * @return array{0: array<string, mixed>, 1: string}|null
+     */
+    private static function buscarProducto(array $catalogo, string $sku, string $descripcion): ?array
+    {
+        $sku = strtoupper(trim($sku));
+        if ($sku !== '') {
+            foreach ($catalogo as $candidato) {
+                if ($candidato['sku'] !== '' && $candidato['sku'] === $sku) {
+                    return [$candidato, 'SKU ' . $sku];
+                }
+            }
+        }
+
+        return self::productoParecido($catalogo, $descripcion);
     }
 
     /**
@@ -484,6 +573,45 @@ class CoincidenciasFactura
                 // Ficha técnica: sirve cuando el concepto de la factura es narrativo
                 // y el nombre corto no basta para cotejar («…MARCO. Ángulo de 1 1/4»).
                 'ficha'      => self::normalizar($nombre . ' ' . (string) ($registro['descripcion'] ?? '')),
+            ];
+        }
+
+        return $catalogo;
+    }
+
+    /**
+     * Catálogo que ofrece UN proveedor (proveedor_productos activos), en el MISMO
+     * formato que catálogo() para poder cotejar con exactamente las mismas reglas.
+     *
+     * Se distingue del catálogo propio con `proveedor_producto_id` y con un `id`
+     * en 0: un renglón así jamás debe confundirse con un producto propio, porque
+     * los dos viven en tablas distintas y sus claves no significan lo mismo.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function catalogoProveedor(int $proveedorId): array
+    {
+        $registros = self::tabla(
+            'SELECT id, nombre, codigo, costo_unitario, descripcion, imagen FROM proveedor_productos'
+            . ' WHERE activo = 1 AND proveedor_id = ' . (int) $proveedorId . ' ORDER BY nombre ASC'
+        );
+
+        $catalogo = [];
+        foreach ($registros as $registro) {
+            $nombre = (string) $registro['nombre'];
+            $catalogo[] = [
+                'id'         => 0,
+                'empresa_id' => 0,
+                'nombre'     => $nombre,
+                'sku'        => strtoupper(trim((string) ($registro['codigo'] ?? ''))),
+                'categoria'  => '',
+                'unidad'     => 'pza',
+                // Lo que el proveedor cobró la última vez: el costo de su catálogo.
+                'precio'     => (float) ($registro['costo_unitario'] ?? 0),
+                'imagen'     => (string) ($registro['imagen'] ?? ''),
+                'clave'      => self::normalizar($nombre),
+                'ficha'      => self::normalizar($nombre . ' ' . (string) ($registro['descripcion'] ?? '')),
+                'proveedor_producto_id' => (int) $registro['id'],
             ];
         }
 
@@ -936,8 +1064,14 @@ class CoincidenciasFactura
         return self::similitud(self::normalizar($a), self::normalizar($b));
     }
 
-    /** Texto comparable: minúsculas, sin acentos, sin puntuación. */
-    private static function normalizar(string $texto): string
+    /**
+     * Texto comparable: minúsculas, sin acentos, sin puntuación.
+     *
+     * Pública porque también define «¿es el mismo nombre?» fuera de este motor
+     * (ProductosProveedor::agregarDesdeFactura() no debe duplicar un producto del
+     * proveedor escrito con y sin acentos).
+     */
+    public static function normalizar(string $texto): string
     {
         $texto = mb_strtolower(trim($texto), 'UTF-8');
         $texto = strtr($texto, [

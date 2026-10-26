@@ -16,6 +16,12 @@ soloAdmin();
 $errores = [];
 $esEnvio = $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST);
 
+/* Factura cargada con «Registro Venta Inteligente» (Contabilidad): su lectura viaja
+ * en la URL del formulario —lo mismo que en el de gasto— para que al GUARDAR se
+ * puedan escribir en el ingreso los datos del CFDI que trae el documento. */
+$lecturaId = (int) ($_REQUEST['lectura'] ?? 0);
+$propuesta = null;
+
 /** Negocios activos (el que emite la venta). */
 $empresas = array_values(array_filter(
     \App\Empresas::mostrarTodos(500, 0, ''),
@@ -54,6 +60,21 @@ if ($esEnvio) {
         $nueva = \App\Ventas::buscarID(\App\Ventas::$ultimoId);
         $folio = $nueva ? $nueva->folio : '';
 
+        /* Los cuatro datos del CFDI (método, forma, uso y tipo de comprobante) que trae
+         * la factura leída se guardan en el ingreso: así la sección «Facturación y cobro»
+         * los trae precargados en vez de vacíos. Son datos del documento, no de la venta,
+         * y sólo se escriben si vienen en el catálogo del SAT. */
+        $propuestaVenta = $lecturaId > 0 ? \App\Lecturas::propuesta($lecturaId, 'venta') : null;
+        if ($propuestaVenta) {
+            \App\VentasFiscal::guardarDatosLeidos(\App\Ventas::$ultimoId, [
+                'metodo_pago' => $propuestaVenta['metodo_pago'],
+                'forma_pago'  => $propuestaVenta['forma_pago'],
+                'uso_cfdi'    => $propuestaVenta['uso_cfdi'],
+                'tipo_cfdi'   => $propuestaVenta['tipo_cfdi'],
+            ], (int) ($_SESSION['id'] ?? 0));
+            \App\VentasFiscal::getErrores();   // la venta ya está guardada: no se retrocede por esto
+        }
+
         if (!empty($faltantes)) {
             $partes = array_map(static function (array $f): string {
                 return sprintf('«%s» pidió %d y había %d', $f['nombre'], $f['requerido'], $f['disponible']);
@@ -85,8 +106,6 @@ if ($esEnvio) {
     /* Factura cargada con el botón «Registro Venta Inteligente» (Contabilidad):
      * se precarga lo que el motor documental leyó y pudo cotejar. Nada se guarda
      * hasta que la persona revisa los campos y envía el formulario. */
-    $propuesta = null;
-    $lecturaId = (int) ($_GET['lectura'] ?? 0);
     if ($lecturaId > 0) {
         $propuesta = \App\Lecturas::propuesta($lecturaId, 'venta');
         if ($propuesta === null) {
@@ -255,40 +274,52 @@ template('header', [
             </section>
             <script>
             /* Alta rápida de cliente (FASE 9): el modal sólo llena el formulario real
-             * y lo envía. Sin JS el botón se oculta y queda el alta manual de siempre. */
+             * y lo envía. Sin JS el botón se oculta y queda el alta manual de siempre.
+             *
+             * El guion se difiere a DOMContentLoaded porque abreModal() vive en
+             * build/js/app.js, que se carga AL FINAL del <body>: si esto corría al
+             * parsear la página, abrirModal todavía no existía y el botón quedaba
+             * visible pero sin comportamiento. */
             (function () {
-                var boton = document.getElementById('btn-alta-cliente');
-                if (!boton) { return; }
-                if (typeof abrirModal !== 'function') {
-                    boton.hidden = true;
-                    var parrafo = document.createElement('p');
-                    parrafo.className = 'campo__ayuda';
-                    parrafo.textContent = 'Regístralo a mano en el módulo de clientes y regresa a esta venta.';
-                    boton.closest('section').appendChild(parrafo);
-                    return;
-                }
-                boton.addEventListener('click', function () {
-                    var cuerpo = document.getElementById('tpl-alta-cliente').content.cloneNode(true);
-                    abrirModal({
-                        sobreTitulo: 'Cliente de la factura',
-                        titulo: 'Registrar cliente',
-                        cuerpo: cuerpo,
-                        textoConfirmar: 'Crear cliente y volver a la venta',
-                        alConfirmar: function () {
-                            var copiar = function (de, a) {
-                                var o = document.getElementById(de), d = document.getElementById(a);
-                                if (o && d) { d.value = o.value; }
-                            };
-                            copiar('f-ac-rfc', 'ac-rfc');
-                            copiar('f-ac-nombre', 'ac-nombre');
-                            copiar('f-ac-empresa', 'ac-empresa');
-                            copiar('f-ac-cp', 'ac-cp');
-                            copiar('f-ac-regimen', 'ac-regimen');
-                            copiar('f-ac-uso', 'ac-uso');
-                            document.getElementById('form-alta-cliente').submit();
-                        }
+                var preparar = function () {
+                    var boton = document.getElementById('btn-alta-cliente');
+                    if (!boton) { return; }
+                    if (typeof abrirModal !== 'function') {
+                        boton.hidden = true;
+                        var parrafo = document.createElement('p');
+                        parrafo.className = 'campo__ayuda';
+                        parrafo.textContent = 'Regístralo a mano en el módulo de clientes y regresa a esta venta.';
+                        boton.closest('section').appendChild(parrafo);
+                        return;
+                    }
+                    boton.addEventListener('click', function () {
+                        var cuerpo = document.getElementById('tpl-alta-cliente').content.cloneNode(true);
+                        abrirModal({
+                            sobreTitulo: 'Cliente de la factura',
+                            titulo: 'Registrar cliente',
+                            cuerpo: cuerpo,
+                            textoConfirmar: 'Crear cliente y volver a la venta',
+                            alConfirmar: function () {
+                                var copiar = function (de, a) {
+                                    var o = document.getElementById(de), d = document.getElementById(a);
+                                    if (o && d) { d.value = o.value; }
+                                };
+                                copiar('f-ac-rfc', 'ac-rfc');
+                                copiar('f-ac-nombre', 'ac-nombre');
+                                copiar('f-ac-empresa', 'ac-empresa');
+                                copiar('f-ac-cp', 'ac-cp');
+                                copiar('f-ac-regimen', 'ac-regimen');
+                                copiar('f-ac-uso', 'ac-uso');
+                                document.getElementById('form-alta-cliente').submit();
+                            }
+                        });
                     });
-                });
+                };
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', preparar);
+                } else {
+                    preparar();
+                }
             })();
             </script>
         <?php else : ?>
@@ -301,7 +332,7 @@ template('header', [
 <?php endif; ?>
 
 <section class="tarjeta tarjeta--sin-relleno">
-    <form class="formulario cotizador" action="/admin/ventas/crear" method="post"
+    <form class="formulario cotizador" action="/admin/ventas/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post"
           data-validar novalidate data-cotizador>
         <?php template('formularioCotizaciones', [
             'modo'            => 'crear',

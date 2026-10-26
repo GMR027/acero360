@@ -343,6 +343,8 @@ $router->get('/admin/compras/facturas', 'views/admin/compras/facturas.php', 'sol
 $router->get('/admin/compras/catalogo',          'views/admin/compras/catalogo/index.php',   'soloAdmin');
 $router->get('/admin/compras/catalogo/crear',    'views/admin/compras/catalogo/crear.php',   'soloAdmin');
 $router->post('/admin/compras/catalogo/crear',   'views/admin/compras/catalogo/crear.php',   'soloAdmin');
+// Alta rápida de un concepto leído en una factura al catálogo del proveedor (JSON).
+$router->post('/admin/compras/catalogo/agregar', 'views/admin/compras/catalogo/agregar.php', 'soloAdmin');
 $router->get('/admin/compras/catalogo/editar',   'views/admin/compras/catalogo/editar.php',  'soloAdmin');
 $router->post('/admin/compras/catalogo/editar',  'views/admin/compras/catalogo/editar.php',  'soloAdmin');
 $router->get('/admin/compras/catalogo/detalle',  'views/admin/compras/catalogo/detalle.php', 'soloAdmin');

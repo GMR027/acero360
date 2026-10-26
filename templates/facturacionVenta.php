@@ -41,6 +41,21 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
     </p>
 
     <?php
+    /* Diferencia factura vs. venta (p. ej. tras sustituir la factura por un
+     * monto menor): en contabilidad manda la factura y así se avisa. */
+    $ventaDif = !empty($ingreso['venta_id']) ? \App\Ventas::buscarID((int) $ingreso['venta_id']) : null;
+    ?>
+    <?php if ($ventaDif && \App\Contabilidad::centavos($ingreso['total']) !== \App\Contabilidad::centavos($ventaDif->total)) : ?>
+        <p class="nota nota--advertencia" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">receipt_long</span>
+            <span>La factura es por <strong><?= formatoMoneda((float) $ingreso['total']) ?></strong> y la venta por
+                <strong><?= formatoMoneda((float) $ventaDif->total) ?></strong>: en contabilidad se registra la factura.
+                Para cambiarla, sustituye el CFDI desde
+                <a href="/admin/entregas-seguimiento/venta?id=<?= (int) $ingreso['venta_id'] ?>">la operación de la venta</a>.</span>
+        </p>
+    <?php endif; ?>
+
+    <?php
     /* -----------------------------------------------------------------------
      * VALIDACIÓN PREVIA A FACTURAR (FASE 5)
      *
@@ -161,11 +176,13 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                     </div>
                     <div class="campo">
                         <label class="campo__etiqueta" for="f-uso">Uso del CFDI</label>
+                        <?php /* El uso que declaró la factura leída (si la hubo) manda sobre el de la ficha. */
+                        $usoActual = mb_strtoupper(trim((string) (($rv['ingreso']['uso_cfdi'] ?? '') ?: $rv['cliente']['uso_cfdi']))); ?>
                         <select class="control" id="f-uso">
                             <option value="">— Sin definir —</option>
                             <?php foreach (\App\VentasFiscal::USOS_CFDI as $claveU) : ?>
                                 <?php $textoU = \App\Gastos::USOS_CFDI[$claveU] ?? $claveU; ?>
-                                <option value="<?= $claveU ?>"<?= mb_strtoupper(trim((string) $rv['cliente']['uso_cfdi'])) === $claveU ? ' selected' : '' ?>><?= escaparValores($textoU) ?></option>
+                                <option value="<?= $claveU ?>"<?= $usoActual === $claveU ? ' selected' : '' ?>><?= escaparValores($textoU) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -190,6 +207,17 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                             <?php endforeach; ?>
                         </select>
                         <span class="campo__ayuda">Propuesta por la operación: <?= escaparValores($rv['propuestas']['forma'] . ' · ' . (\App\VentasFiscal::FORMAS_PAGO[$rv['propuestas']['forma']] ?? '')) ?></span>
+                    </div>
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="f-tipo">Tipo de comprobante</label>
+                        <?php /* El tipo que trae la factura leída; si no, una venta se emite como «Ingreso». */
+                        $tipoActual = mb_strtoupper(trim((string) (($rv['ingreso']['tipo_cfdi'] ?? '') ?: 'I'))); ?>
+                        <select class="control" id="f-tipo">
+                            <?php foreach (\App\Contabilidad::TIPOS_CFDI as $claveT => $textoT) : ?>
+                                <option value="<?= $claveT ?>"<?= $tipoActual === $claveT ? ' selected' : '' ?>><?= escaparValores($textoT) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="campo__ayuda">Una venta normal es «I · Ingreso»; «E» sólo si es una nota de crédito.</span>
                     </div>
                 </div>
                 <p class="campo__ayuda mt-sm">
@@ -279,6 +307,7 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
             <input type="hidden" id="env-uso" name="uso_cfdi" value="">
             <input type="hidden" id="env-metodo" name="metodo_pago" value="">
             <input type="hidden" id="env-forma" name="forma_pago" value="">
+            <input type="hidden" id="env-tipo" name="tipo_cfdi" value="">
             <input type="hidden" id="env-sustitucion" name="sustitucion" value="">
             <input type="hidden" id="env-motivo" name="motivo_sustitucion" value="">
         </form>
@@ -288,8 +317,13 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
          * Abre la revisión clasificada; sólo envía si los campos indispensables
          * están completos (el servidor vuelve a validar todo antes de avanzar).
          * Sin JS el resumen de arriba sigue visible y el formulario de
-         * facturación queda bloqueado en el servidor si hay errores. */
+         * facturación queda bloqueado en el servidor si hay errores.
+         *
+         * Se difiere a DOMContentLoaded porque abrirModal() vive en
+         * build/js/app.js, que se carga al final del <body>: al parsear la
+         * página aún no existe y el botón quedaba visible pero sin comportamiento. */
         (function () {
+            var preparar = function () {
             var boton = document.getElementById('btn-revision-fiscal');
             if (!boton) { return; }
             if (typeof abrirModal !== 'function') { boton.hidden = true; return; }
@@ -346,14 +380,17 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                         copiar('f-uso', 'env-uso');
                         copiar('f-metodo', 'env-metodo');
                         copiar('f-forma', 'env-forma');
+                        copiar('f-tipo', 'env-tipo');
                         if (sustitucion) { document.getElementById('env-sustitucion').value = sustitucion.checked ? '1' : ''; }
                         if (motivo) { document.getElementById('env-motivo').value = motivo.value; }
                         document.getElementById('form-fiscal').submit();
                     }
                 });
+            });
 
                 /* FASE 9: si el cliente tiene varios RFC, elegir uno en el selector
-                 * carga su CP, régimen y uso en el modal (se pueden corregir a mano). */
+                 * carga su CP, régimen y uso en el modal (se pueden corregir a mano).
+                 * (Fuera del listener del botón: se registra UNA vez, no en cada clic.) */
                 var selectorRfc = document.getElementById('f-rfc');
                 if (selectorRfc && selectorRfc.tagName === 'SELECT') {
                     selectorRfc.addEventListener('change', function () {
@@ -367,13 +404,18 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                         asignar('f-uso', elegido.getAttribute('data-uso') || '');
                     });
                 }
-            });
+            };
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', preparar);
+            } else {
+                preparar();
+            }
         })();
         </script>
     <?php endif; ?>
 
     <?php if ($editable) : ?>
-        <form class="formulario" action="/admin/contabilidad/ingresos/accion" method="post" enctype="multipart/form-data" novalidate>
+        <form class="formulario" id="form-facturacion" action="/admin/contabilidad/ingresos/accion" method="post" enctype="multipart/form-data" novalidate>
             <input type="hidden" name="id" value="<?= (int) $ingreso['id'] ?>">
             <input type="hidden" name="accion" value="facturacion">
             <input type="hidden" name="volver" value="<?= escaparValores($volver) ?>">
@@ -387,8 +429,24 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
                     </select>
                 </div>
                 <div class="campo">
+                    <!-- Con JavaScript el archivo se elige en la ventana modal (el mismo
+                         modal__panel que «Registro Venta Inteligente»); sin JavaScript queda
+                         el campo de abajo, en línea. El input conserva form="form-facturacion"
+                         para enviarse con este formulario aunque esté dentro del diálogo. -->
+                    <span class="campo__etiqueta">Subir factura (PDF y/o XML)</span>
+                    <button class="btn btn--secundario" type="button" hidden
+                            data-archivo-modal="doc-archivo"
+                            data-archivo-sobre="Facturación y cobro"
+                            data-archivo-titulo="Subir factura (PDF y/o XML)">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">upload_file</span>
+                        <span>Elegir archivos</span>
+                    </button>
+                    <span class="campo__ayuda" data-archivo-resumen hidden></span>
+                </div>
+                <div class="campo" data-archivo-linea>
                     <label class="campo__etiqueta" for="doc-archivo">Subir factura (PDF y/o XML)</label>
-                    <input class="control" type="file" id="doc-archivo" name="archivo[]" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
+                    <input class="control" type="file" id="doc-archivo" name="archivo[]" form="form-facturacion"
+                           multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
                     <span class="campo__ayuda">Varios a la vez: PDF, XML o foto (JPG, PNG, WebP) · máx. <?= $maxMb ?> MB cada uno.</span>
                 </div>
             </div>
@@ -441,6 +499,50 @@ $etiquetas = static fn (?string $e): string => $e !== null && isset(\App\Contabi
 
     <hr class="divisor mt-lg mb-md">
 
+    <?php
+    /* ------------------------------------------------------------------
+     * DOCUMENTOS ADJUNTOS — comprobante de pago (fotos o PDF).
+     *
+     * Subida directa desde el detalle de la venta: el archivo se guarda con
+     * el tipo «comprobante_pago» y aparece en la lista de «Facturas y
+     * comprobantes» de abajo (ahí se descarga o se da de baja).
+     *
+     * Es SÓLO un respaldo informativo del pago: adjuntarlo no cambia el
+     * estado de facturación, el de cobro ni ningún importe, y no se pide
+     * para facturar. Como cualquier documento de la operación, se bloquea
+     * si el periodo contable está cerrado o el ingreso está cancelado.
+     */
+    $adjuntosBloqueados = $cerrado || $ingreso['estado'] === 'cancelado';
+    ?>
+    <?php if ($adjuntosBloqueados) : ?>
+        <p class="nota nota--advertencia mb-md" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">lock</span>
+            <span>No se pueden adjuntar documentos<?= $cerrado ? ': el periodo contable está cerrado' : ': el ingreso está cancelado' ?>.</span>
+        </p>
+    <?php else : ?>
+        <form class="formulario mb-md" action="/admin/contabilidad/documentos/subir" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="entidad" value="ingreso">
+            <input type="hidden" name="entidad_id" value="<?= (int) $ingreso['id'] ?>">
+            <input type="hidden" name="retorno" value="<?= escaparValores($volver) ?>">
+            <input type="hidden" name="tipo" value="comprobante_pago">
+            <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+            <div class="campo">
+                <label class="campo__etiqueta" for="adj-archivo">Documentos Adjuntos</label>
+                <input class="control" type="file" id="adj-archivo" name="archivo[]" required
+                       multiple accept=".pdf,.jpg,.jpeg,.png,.webp">
+                <span class="campo__ayuda">Fotos o PDF del comprobante de pago: JPG, PNG, WebP o PDF · puedes elegir varios a la vez ·
+                    máx. <?= $maxMb ?> MB cada uno. Es sólo de carácter informativo (un respaldo del pago):
+                    no cambia la facturación, el estado de cobro ni los importes.</span>
+            </div>
+            <div class="formulario__acciones">
+                <button class="btn btn--primario" type="submit">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">upload_file</span>
+                    <span>Subir archivos</span>
+                </button>
+            </div>
+        </form>
+    <?php endif; ?>
+
     <?php template('documentosOperacion', ['entidad' => 'ingreso', 'entidadId' => (int) $ingreso['id'], 'retorno' => $volver,
-        'bloqueado' => $cerrado || $ingreso['estado'] === 'cancelado', 'sinSubida' => true, 'interna' => true]); ?>
+        'bloqueado' => $adjuntosBloqueados, 'sinSubida' => true, 'interna' => true]); ?>
 </section>

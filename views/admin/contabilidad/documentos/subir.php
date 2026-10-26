@@ -10,9 +10,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     paginaNoEncontrada();
 }
 
-/** Solo rutas internas del módulo (sin esquemas ni //). */
+/** Solo rutas internas: el módulo de contabilidad o el detalle de una venta (sin esquemas ni //). */
 $retorno = (string) ($_POST['retorno'] ?? '');
-if (strpos($retorno, '/admin/contabilidad') !== 0 || strpos($retorno, '//') !== false) {
+$retornoValido = strpos($retorno, '//') === false
+    && (strpos($retorno, '/admin/contabilidad') === 0 || preg_match('#^/admin/ventas/detalle\?id=\d+$#', $retorno) === 1);
+if (!$retornoValido) {
     $retorno = '/admin/contabilidad/documentos';
 }
 

@@ -1,5 +1,11 @@
 -- ===========================================================================
 -- cotizaciones.sql
+--
+-- ⚠️  RECREA LA BASE DESDE CERO: la línea 33 hace  DROP DATABASE cotizaciones;
+--     importarlo contra una instancia con datos reales los BORRA TODOS.
+--     Antes de importar cualquier archivo de este directorio, respalda:
+--         mysqldump --single-transaction --routines --triggers cotizaciones > respaldo.sql
+--
 -- Base de datos de la aplicación de cotizaciones (MySQL 8 / utf8mb4)
 --
 -- Uso:
@@ -407,7 +413,14 @@ INSERT INTO empresas (nombre, rfc, regimen, direccion, ciudad, estado, cp, telef
  'Los precios están expresados en pesos mexicanos (MXN) y pueden modificarse sin previo aviso.');
 
 -- Usuario administrador inicial.
--- Sin contraseña: el instalador la asigna (ver GUIA.md, sección 2 "Primer usuario administrador").
+-- La contraseña viene VACÍA: nadie puede iniciar sesión con esta cuenta hasta
+-- que el instalador defina una (ninguna credencial viaja en el repositorio).
+-- Opción A — terminal (genera el hash y lo asigna):
+--   php -r "echo password_hash('TuContraseñaSegura', PASSWORD_BCRYPT), PHP_EOL;"
+--   mysql -uroot cotizaciones -e "UPDATE usuarios SET contrasena='<el hash>' \
+--     WHERE email='admin@cotizaciones.local';"
+-- Opción B — sin tocar la base: pon REGISTRO_ABIERTO=1 en .env, regístrate en
+--   /registro (crea un administrador) y vuelve a REGISTRO_ABIERTO=0.
 INSERT INTO usuarios (nombre, email, contrasena, telefono, rol) VALUES
 ('Administrador', 'admin@cotizaciones.local',
  '',

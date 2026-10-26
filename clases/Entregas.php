@@ -17,6 +17,9 @@ namespace App;
  *     Pendiente = vendido − entregado, por producto.
  *   • Una venta no se agrega a dos preparaciones activas sin advertirlo:
  *     crearPreparacion() devuelve los conflictos y exige confirmación.
+ *   • Fotos: cada entrega admite una o varias fotografías del acta
+ *     (tabla entrega_fotos); los archivos viven en public/image y aquí sólo
+ *     se registra a qué entrega pertenecen.
  */
 class Entregas
 {
@@ -25,6 +28,9 @@ class Entregas
 
     /** @var string[] Mensajes de la última operación. */
     protected static $errores = [];
+
+    /** @var int Fotografías guardadas en la última entrega registrada. */
+    public static int $fotosGuardadas = 0;
 
     /** @var array<int, array{venta: string, preparaciones: string}> Ventas ya incluidas en otra preparación activa. */
     public static $conflictos = [];
@@ -43,6 +49,18 @@ class Entregas
 
     /** Estados en los que la preparación sigue viva. */
     public const ACTIVOS = ['pendiente', 'en_preparacion', 'preparada', 'en_reparto'];
+
+    /** Fotografías del acta admisibles en UNA entrega (lo mismo que el texto de ayuda del formulario). */
+    public const MAX_FOTOS = 8;
+
+    /**
+     * Peso total admisible de las fotos de UNA entrega, en MB.
+     *
+     * El tope real lo pone el servidor (ingress 20 m y post_max_size 25 M en
+     * el despliegue): validar aquí da un mensaje claro en vez de un cuerpo
+     * descartado por PHP.
+     */
+    public const MAX_FOTOS_TOTAL_MB = 20;
 
     public static function setDB($database): void
     {
@@ -588,7 +606,12 @@ class Entregas
      * Registra las piezas entregadas de una venta. Nunca más que lo pendiente.
      * No toca el inventario. El token impide duplicar al reenviar el formulario.
      *
+     * Las fotos del acta (opcional) se procesan DENTRO de la misma operación:
+     * o se guardan todas con la entrega o no se guarda nada (los archivos ya
+     * escritos se retiran del disco).
+     *
      * @param array<int, int> $piezas producto_id => cantidad entregada ahora.
+     * @param array<int, array> $fotos entradas de $_FILES['fotos'] ya separadas por archivo.
      */
     public static function registrarEntrega(
         int $ventaId,
@@ -597,10 +620,13 @@ class Entregas
         string $fecha,
         string $token,
         string $notas,
-        int $usuarioId
+        int $usuarioId,
+        array $fotos = []
     ): bool {
         self::$errores = [];
+        self::$fotosGuardadas = 0;
         $piezas = array_filter(array_map('intval', $piezas), static fn ($c) => $c > 0);
+        $fotos  = array_values(array_filter($fotos, 'is_array'));
 
         if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
             self::$errores[] = 'El formulario de entrega no es válido. Vuelve a abrirlo.';
@@ -614,7 +640,27 @@ class Entregas
             self::$errores[] = 'Captura al menos una pieza entregada.';
             return false;
         }
+        if (count($fotos) > self::MAX_FOTOS) {
+            self::$errores[] = 'Se admiten como máximo ' . self::MAX_FOTOS . ' fotos por entrega: reduce la selección.';
+            return false;
+        }
+        $pesoFotos = array_sum(array_map(static fn ($f) => (int) ($f['size'] ?? 0), $fotos));
+        if ($pesoFotos > self::MAX_FOTOS_TOTAL_MB * 1048576) {
+            self::$errores[] = 'Las fotos suman ' . round($pesoFotos / 1048576, 1) . ' MB y el máximo por entrega es de '
+                . self::MAX_FOTOS_TOTAL_MB . ' MB: reduce la cantidad o el tamaño.';
+            return false;
+        }
+        // Rechazo temprano de tamaño y tipo; el contenido real lo comprueba
+        // Imagenes::subir al procesar cada archivo, también dentro de la operación.
+        foreach ($fotos as $foto) {
+            $motivo = Imagenes::validarArchivo($foto);
+            if ($motivo !== '') {
+                self::$errores[] = $motivo;
+                return false;
+            }
+        }
 
+        $archivosFotos = [];   // nombres escritos en public/image (se retiran si algo falla).
         try {
             self::$db->begin_transaction();
 
@@ -672,17 +718,75 @@ class Entregas
             }
             $renglon->close();
 
+            // Fotos del acta: se procesan y registran con la misma entrega.
+            self::guardarFotos($entregaId, $fotos, $usuarioId, $archivosFotos);
+
             self::avanzarPreparaciones($ventaId);
             IncidenciasEntrega::actualizarEstado($ventaId);
-            Auditoria::registrar('venta', $ventaId, 'entrega', $usuarioId, null, ['entrega_id' => $entregaId, 'piezas' => $piezas]);
+            Auditoria::registrar('venta', $ventaId, 'entrega', $usuarioId, null, [
+                'entrega_id' => $entregaId, 'piezas' => $piezas, 'fotos' => count($archivosFotos),
+            ]);
 
             self::$db->commit();
+            self::$fotosGuardadas = count($archivosFotos);
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
+            // mysqli_sql_exception es una RuntimeException: se captura ANTES que
+            // el rechazo de una foto para no confundir un error de base de datos.
             self::$db->rollBack();
+            self::borrarFotos($archivosFotos);
             error_log('[Entregas::registrarEntrega] ' . $excepcion->getMessage());
             self::$errores[] = 'No fue posible registrar la entrega.';
             return false;
+        } catch (\RuntimeException $rechazo) {
+            // Una de las fotos no pudo guardarse: se revierte la entrega entera
+            // y se retiran del disco los archivos que ya se habían escrito.
+            self::$db->rollBack();
+            self::borrarFotos($archivosFotos);
+            self::$errores[] = $rechazo->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * Procesa las fotos del acta y las registra contra la entrega.
+     *
+     * Cada archivo se guarda en public/image con nombre generado por el
+     * servidor (Imagenes, modo «informe») y se anota en entrega_fotos. Si
+     * alguna falla lanza RuntimeException; los archivos ya escritos los retira
+     * el que llama (borrarFotos), manteniendo un único punto de limpieza.
+     *
+     * @param array<int, array> $fotos       entradas de $_FILES ya separadas.
+     * @param array<int, string> $guardadas  nombres escritos, por referencia.
+     */
+    private static function guardarFotos(int $entregaId, array $fotos, int $usuarioId, array &$guardadas): void
+    {
+        $insertar = self::$db->prepare('INSERT INTO entrega_fotos (entrega_id, archivo, usuario_id) VALUES (?, ?, ?)');
+
+        foreach ($fotos as $foto) {
+            if (empty($foto['tmp_name'])) {
+                continue;   // campo sin archivo: no es un error.
+            }
+
+            $nombre = Imagenes::subir($foto, 'entrega', 'informe');
+            if ($nombre === null) {
+                $insertar->close();
+                throw new \RuntimeException(Imagenes::ultimoError() ?: 'No fue posible guardar una de las fotos de la entrega.');
+            }
+
+            $guardadas[] = $nombre;
+            $insertar->bind_param('isi', $entregaId, $nombre, $usuarioId);
+            $insertar->execute();
+        }
+
+        $insertar->close();
+    }
+
+    /** Retira del disco las fotos ya escritas (se llama al revertir la entrega). */
+    private static function borrarFotos(array $archivos): void
+    {
+        foreach ($archivos as $archivo) {
+            Imagenes::eliminar($archivo);
         }
     }
 
@@ -718,7 +822,8 @@ class Entregas
     }
 
     /**
-     * Historial de entregas de una venta.
+     * Historial de entregas de una venta, cada una con sus renglones y sus
+     * fotografías del acta (vacío si no se adjuntó ninguna).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -733,6 +838,7 @@ class Entregas
         $entregas = [];
         foreach ($consulta->get_result() as $fila) {
             $fila['renglones'] = [];
+            $fila['fotos']     = [];
             $entregas[(int) $fila['id']] = $fila;
         }
         $consulta->close();
@@ -747,6 +853,19 @@ class Entregas
             $consulta->execute();
             foreach ($consulta->get_result() as $fila) {
                 $entregas[(int) $fila['entrega_id']]['renglones'][] = $fila;
+            }
+            $consulta->close();
+
+            $consulta = self::$db->prepare(
+                'SELECT f.*, u.nombre AS usuario_nombre FROM entrega_fotos f
+                   JOIN entregas en ON en.id = f.entrega_id
+                   LEFT JOIN usuarios u ON u.id = f.usuario_id
+                  WHERE en.venta_id = ? ORDER BY f.id'
+            );
+            $consulta->bind_param('i', $ventaId);
+            $consulta->execute();
+            foreach ($consulta->get_result() as $fila) {
+                $entregas[(int) $fila['entrega_id']]['fotos'][] = $fila;
             }
             $consulta->close();
         }

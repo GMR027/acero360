@@ -110,7 +110,13 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
 
         <div class="campo">
             <label class="campo__etiqueta campo__etiqueta--obligatorio" for="cliente_id">Cliente</label>
+            <!-- data-buscador: src/js/modulos/selectorBusqueda.js convierte este
+                 <select> en un input de búsqueda con lista filtrada (por nombre,
+                 empresa, alias o RFC). Sin JavaScript queda el selector normal:
+                 el <select> real se mantiene en el DOM y viaja en el envío. -->
             <select class="control" id="cliente_id" name="cliente_id" required
+                    data-buscador
+                    data-buscador-placeholder="Busca por nombre, empresa, alias o RFC…"
                     data-descuento-cliente>
                 <option value="">Selecciona un cliente…</option>
                 <?php foreach ($clientes as $cliente) :
@@ -123,13 +129,15 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
                     }
                     ?>
                     <option value="<?= (int) $cliente->id ?>"
+                        data-rfc="<?= escaparValores(trim((string) ($cliente->rfc ?? ''))) ?>"
+                        data-alias="<?= escaparValores(trim((string) ($cliente->alias ?? ''))) ?>"
                         data-descuento="<?= (float) $cliente->descuento_pct ?>"
                         <?= (int) $cotizacion->cliente_id === (int) $cliente->id ? 'selected' : '' ?>>
                         <?= escaparValores($etiqueta) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
-            <p class="campo__ayuda">El descuento de la ficha se precarga en el resumen.</p>
+            <p class="campo__ayuda">Escribe y elige de la lista; el descuento de la ficha se precarga en el resumen.</p>
         </div>
 
         <div class="campo">

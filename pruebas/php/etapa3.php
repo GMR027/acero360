@@ -95,7 +95,7 @@ $prueba('devolver más de lo vendido se rechaza', !Inventario::devolverDeVenta($
 Inventario::getErrores();
 $prueba('devolución sin motivo se acepta (el motivo es opcional)', Inventario::devolverDeVenta($ventaId, [37 => 1], '', $usuario), implode('|', Inventario::getErrores()));
 $prueba('devolver 1 más (2 en total)', Inventario::devolverDeVenta($ventaId, [37 => 1], 'Pieza defectuosa', $usuario), implode('|', Inventario::getErrores()));
-$prueba('stock +2', $stock(37) === $base - 3, (string) $stock(37));
+$prueba('la devolución NO mueve el stock (sólo notificación)', $stock(37) === $base - 5, (string) $stock(37));
 $prueba('no se puede devolver más del saldo (quedan 3)', !Inventario::devolverDeVenta($ventaId, [37 => 4], 'otra vez', $usuario));
 Inventario::getErrores();
 $prueba('devolvibles: 5 vendidas, 2 devueltas', Inventario::devolvibles($ventaId)[37] === ['vendido' => 5, 'devuelto' => 2, 'disponible' => 3]);
@@ -105,7 +105,7 @@ $prueba('corrección sin motivo se rechaza', !Inventario::corregir(37, 50, '', $
 Inventario::getErrores();
 $prueba('corrección con motivo', Inventario::corregir(37, $stock(37) + 1, 'Conteo físico', $usuario));
 $prueba('queda con motivo «correccion»', (int) $uno("SELECT COUNT(*) FROM movimientos_inventario WHERE producto_id = 37 AND motivo = 'correccion'") === 1);
-$db->query("UPDATE productos SET stock = " . ($base - 5 + 2) . " WHERE id = 37"); // quita la corrección de prueba
+$db->query("UPDATE productos SET stock = " . ($base - 5) . " WHERE id = 37"); // quita la corrección de prueba (el stock sólo lo bajó la venta)
 
 echo "Revertir y volver a vender\n";
 $antes = $stock(37);

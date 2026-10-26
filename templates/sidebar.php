@@ -89,29 +89,15 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        // Sección única «Operación Comercial»: preparación de pedidos, seguimiento
+        // de entregas y ventas son un solo flujo (pestañas compartidas) y aquí se
+        // marcan como activas las tres familias de rutas.
         'ruta'          => '/admin/entregas',
-        'icono'         => 'package_2',
-        'texto'         => 'Pantalla de entrega',
+        'icono'         => 'local_shipping',
+        'texto'         => 'Operación Comercial',
         'subrutas'      => true,
-        'excluir'       => [],
-        'soloEscritorio' => true,
-    ],
-    [
-        'ruta'          => '/admin/entregas-seguimiento',
-        'icono'         => 'fact_check',
-        'texto'         => 'Seguimiento de entregas',
-        'subrutas'      => true,
-        'excluir'       => [],
-        'soloEscritorio' => false,
-    ],
-    [
-        'ruta'          => '/admin/ventas',
-        'icono'         => 'assignment_return',
-        'texto'         => 'Ventas y devoluciones',
-        'subrutas'      => true,
+        'prefijos'      => ['/admin/entregas-seguimiento', '/admin/ventas'],
         'excluir'       => ['/admin/ventas/crear'],
-        // Las devoluciones se registran desde el detalle de cada venta.
-        'prefijos'      => [],
         'soloEscritorio' => false,
     ],
     [

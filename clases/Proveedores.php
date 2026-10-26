@@ -293,7 +293,7 @@ class Proveedores
     /**
      * Selector para poblar un <select>.
      *
-     * @return array<int, array{id: int, etiqueta: string}>
+     * @return array<int, array{id: int, nombre: string, rfc: string, activo: bool, etiqueta: string}>
      */
     /**
      * Proveedores para un selector. Por defecto solo los activos (compras nuevas); con $incluirInactivos
@@ -311,6 +311,9 @@ class Proveedores
             $lista[] = [
                 'id'       => (int) $fila['id'],
                 'nombre'   => $fila['nombre'],
+                // El RFC va aparte (y también dentro de `etiqueta`) para que los
+                // selectores con búsqueda puedan filtrar y mostrarlo por separado.
+                'rfc'      => (string) ($fila['rfc'] ?? ''),
                 'activo'   => (int) $fila['activo'] === 1,
                 'etiqueta' => $fila['nombre'] . ($fila['rfc'] ? ' · ' . $fila['rfc'] : '') . ((int) $fila['activo'] === 1 ? '' : ' (inactivo)'),
             ];

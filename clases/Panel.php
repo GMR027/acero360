@@ -10,8 +10,13 @@ namespace App;
  *
  * Criterios:
  *   - Ventas y gastos del periodo: registros vigentes cuya fecha cae en el periodo elegido.
- *   - Pendientes (cotizaciones, cobro, facturación, entregas): todo lo abierto a hoy, sin importar la fecha.
+ *   - Pendientes (cotizaciones, cobro, facturación, gastos por pagar, entregas, incidencias): todo lo
+ *     abierto a hoy, sin importar la fecha.
  *   - «Pendiente de facturación» = venta vigente sin indicar si se factura (igual que el Centro de seguimiento).
+ *   - «Ventas pendientes de pago o por facturar» = UNA sola lista con la unión de las dos: el ingreso
+ *     vigente con saldo por cobrar y/o sin clasificar en facturación; cada fila trae los dos avisos.
+ *   - «Gastos pendientes por pagar» = gastos vigentes con estado_pago «pendiente», con su total CON IVA.
+ *   - «Incidencias abiertas» = entrega_incidencias en estado «abierta» de las ventas todavía registradas.
  *   - «Devoluciones»: movimientos de inventario de devolución de cliente. La plataforma no maneja cambios
  *     de producto ni un estado «pendiente» de la devolución, así que se muestran las registradas.
  *   - «Productos más vendidos»: importe de renglones (sin IVA) del periodo que se le pida; el panel usa
@@ -142,47 +147,98 @@ class Panel
         );
     }
 
-    /** Ventas con saldo por cobrar, las más antiguas primero (las que más urge cobrar). */
-    public static function ventasPorCobrar(int $limite = 6): array
+    /** Condición SQL compartida: ingreso vigente con saldo por cobrar y/o sin clasificar en facturación. */
+    private const POR_ATENDER = "(ROUND(i.total * 100) > COALESCE(k.cobrado, 0) OR i.estado_facturacion = 'sin_clasificar')";
+
+    /**
+     * Ventas pendientes de pago o por facturar, en UNA sola lista: lo que urge
+     * atender primero (los dos avisos a la vez) y después lo de un solo aviso,
+     * y dentro de cada grupo lo más antiguo. Cada fila trae el total CON IVA y
+     * el saldo que falta cobrar; el cliente se muestra por ALIAS si lo tiene.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function ventasPendientesPago(int $limite = 6): array
     {
         return self::varias(
-            "SELECT i.id, i.venta_id, i.folio, i.fecha, cl.nombre AS cliente, (ROUND(i.total * 100) - COALESCE(k.cobrado, 0)) / 100 AS saldo
-               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id " . self::COBRADO . " 
-              WHERE i.estado = 'vigente' AND ROUND(i.total * 100) > COALESCE(k.cobrado, 0)
-              ORDER BY i.fecha, i.id LIMIT $limite"
+            "SELECT i.id, i.venta_id, i.folio, i.fecha, i.total, i.estado_facturacion,
+                    (ROUND(i.total * 100) - COALESCE(k.cobrado, 0)) / 100 AS saldo,
+                    ROUND(i.total * 100) > COALESCE(k.cobrado, 0) AS por_cobrar,
+                    i.estado_facturacion = 'sin_clasificar' AS por_facturar,
+                    CASE WHEN IFNULL(cl.alias, '') <> '' THEN cl.alias ELSE cl.nombre END AS cliente
+               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id " . self::COBRADO . "
+              WHERE i.estado = 'vigente' AND " . self::POR_ATENDER . "
+              ORDER BY (ROUND(i.total * 100) > COALESCE(k.cobrado, 0)) + (i.estado_facturacion = 'sin_clasificar') DESC,
+                       i.fecha, i.id
+              LIMIT " . max(1, $limite)
         );
     }
 
-    /** Ventas sin indicar si se facturan, las más antiguas primero. */
-    public static function ventasPorFacturar(int $limite = 6): array
-    {
-        return self::varias(
-            "SELECT i.id, i.venta_id, i.folio, i.fecha, i.total, cl.nombre AS cliente
-               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id
-              WHERE i.estado = 'vigente' AND i.estado_facturacion = 'sin_clasificar'
-              ORDER BY i.fecha, i.id LIMIT $limite"
-        );
-    }
-
-    /** Cotizaciones convertidas en venta cuyo ingreso aún no está marcado como facturado. */
-    public static function convertidasSinFactura(int $limite = 6): array
-    {
-        return self::varias(
-            "SELECT i.id, v.id AS venta_id, c.folio, i.fecha, i.total, i.estado_facturacion, cl.nombre AS cliente
-               FROM ventas v
-               JOIN cotizaciones c ON c.id = v.cotizacion_id
-               JOIN ingresos i ON i.venta_id = v.id AND i.estado = 'vigente'
-               JOIN clientes cl ON cl.id = v.cliente_id
-              WHERE v.estado = 'registrada' AND i.estado_facturacion <> 'facturada'
-              ORDER BY i.fecha, i.id LIMIT $limite"
-        );
-    }
-
-    public static function contarConvertidasSinFactura(): int
+    /** Cuántas ventas están en esa lista (los dos avisos cuentan una sola vez). */
+    public static function contarVentasPendientesPago(): int
     {
         return (int) self::uno(
-            "SELECT COUNT(*) AS n FROM ventas v JOIN ingresos i ON i.venta_id = v.id AND i.estado = 'vigente'
-              WHERE v.estado = 'registrada' AND v.cotizacion_id IS NOT NULL AND i.estado_facturacion <> 'facturada'"
+            'SELECT COUNT(*) AS n FROM ingresos i ' . self::COBRADO
+            . " WHERE i.estado = 'vigente' AND " . self::POR_ATENDER
+        )['n'];
+    }
+
+    /**
+     * Gastos pendientes de pagar, los más antiguos primero: con el nombre de
+     * quién cobra (beneficiario) y su total CON IVA.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function gastosPorPagar(int $limite = 6): array
+    {
+        return self::varias(
+            'SELECT g.id, g.fecha, g.beneficiario, g.concepto, g.total
+               FROM gastos g
+              WHERE g.estado = \'vigente\' AND g.estado_pago = \'pendiente\'
+              ORDER BY g.fecha, g.id LIMIT ' . max(1, $limite)
+        );
+    }
+
+    /** Cuántos gastos y cuánto se les debe (todos, sin importar la fecha). */
+    public static function resumenGastosPorPagar(): array
+    {
+        $f = self::uno(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(ROUND(g.total * 100)), 0) AS monto
+               FROM gastos g WHERE g.estado = 'vigente' AND g.estado_pago = 'pendiente'"
+        );
+
+        return ['n' => (int) $f['n'], 'monto' => ((int) $f['monto']) / 100];
+    }
+
+    /**
+     * Incidencias de logística o entrega todavía ABIERTAS (producto faltante,
+     * dañado, incompleto, cambio o devolución), con su venta, cliente y piezas.
+     * Las más recientes primero.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function incidenciasAbiertas(int $limite = 6): array
+    {
+        return self::varias(
+            'SELECT ei.id, ei.venta_id, ei.motivo, ei.factura_requerida, ei.creado_en,
+                    v.folio, v.fecha,
+                    CASE WHEN IFNULL(cl.alias, \'\') <> \'\' THEN cl.alias ELSE cl.nombre END AS cliente,
+                    (SELECT COUNT(*) FROM entrega_incidencia_renglones r WHERE r.incidencia_id = ei.id) AS renglones,
+                    (SELECT COALESCE(SUM(r.cantidad), 0) FROM entrega_incidencia_renglones r WHERE r.incidencia_id = ei.id) AS piezas
+               FROM entrega_incidencias ei
+               JOIN ventas v ON v.id = ei.venta_id AND v.estado = \'registrada\'
+               JOIN clientes cl ON cl.id = v.cliente_id
+              WHERE ei.estado = \'abierta\'
+              ORDER BY ei.creado_en DESC, ei.id DESC LIMIT ' . max(1, $limite)
+        );
+    }
+
+    /** Cuántas incidencias de entrega siguen abiertas. */
+    public static function contarIncidenciasAbiertas(): int
+    {
+        return (int) self::uno(
+            "SELECT COUNT(*) AS n FROM entrega_incidencias ei JOIN ventas v ON v.id = ei.venta_id
+              WHERE ei.estado = 'abierta' AND v.estado = 'registrada'"
         )['n'];
     }
 
@@ -193,19 +249,6 @@ class Panel
         usort($filas, static fn ($a, $b) => [$a['fecha'], $a['id']] <=> [$b['fecha'], $b['id']]);
 
         return array_slice($filas, 0, $limite);
-    }
-
-    /** Devoluciones de cliente recientes (una fila por venta y día, con las piezas devueltas). */
-    public static function devolucionesRecientes(int $limite = 6): array
-    {
-        return self::varias(
-            "SELECT m.venta_id, IF(v.cotizacion_id IS NULL, v.folio, c.folio) AS folio, DATE(m.creado_en) AS fecha, SUM(m.cantidad) AS piezas, cl.nombre AS cliente
-               FROM movimientos_inventario m
-               JOIN ventas v ON v.id = m.venta_id JOIN clientes cl ON cl.id = v.cliente_id LEFT JOIN cotizaciones c ON c.id = v.cotizacion_id
-              WHERE m.motivo = 'devolucion'
-              GROUP BY m.venta_id, folio, DATE(m.creado_en), cl.nombre
-              ORDER BY MAX(m.creado_en) DESC LIMIT $limite"
-        );
     }
 
     /**

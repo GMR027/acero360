@@ -201,9 +201,14 @@ class Lecturas
             return null;
         }
 
+        // Los cuatro datos del CFDI se leen del XML aunque la lectura guardada
+        // no los traiga (hecha con una versión anterior del motor, o cuando el
+        // resto del documento vino de un PDF): son del comprobante, no del cotejo.
+        $campos = self::datosCfdi($lectura);
+
         $analisis = CoincidenciasFactura::analizar([
             'fuente'    => (string) $lectura['fuente'],
-            'campos'    => (array) ($lectura['leidos']['campos'] ?? []),
+            'campos'    => $campos,
             'conceptos' => (array) ($lectura['leidos']['conceptos'] ?? []),
             'avisos'    => (array) ($lectura['avisos_lista'] ?? []),
             // Con la huella del archivo se detecta también el mismo PDF/XML ya adjunto.
@@ -219,6 +224,55 @@ class Lecturas
             'archivo'    => (string) $lectura['archivo'],
             'mime'       => (string) $lectura['mime'],
         ];
+    }
+
+    /**
+     * Campos leídos, con los cuatro datos del CFDI (método, forma, uso y tipo de
+     * comprobante) completados desde el XML original cuando falten.
+     *
+     * Son el único grupo que se lee DIRECTAMENTE del comprobante: no depende del
+     * resto de la lectura ni de que el motor haya reconocido a nadie. Así una
+     * lectura guardada antes de que estos campos existieran (o una hecha sobre un
+     * PDF) también los trae al formulario.
+     *
+     * @param array<string, mixed> $lectura fila de lecturas_documentales
+     * @return array<string, array{valor: string, confianza: string, origen: string}>
+     */
+    private static function datosCfdi(array $lectura): array
+    {
+        $campos = (array) ($lectura['leidos']['campos'] ?? []);
+
+        // Firma del motor anterior: la lectura no trae los dos campos nuevos. Sólo
+        // entonces se relee el XML; si ya se leyeron y salieron vacíos, es que el
+        // documento no trae el dato y no hay nada que reintentar.
+        $legado = !array_key_exists('uso_cfdi', $campos) || !array_key_exists('tipo_cfdi', $campos);
+        $faltan = array_filter(
+            ['uso_cfdi', 'tipo_cfdi', 'forma_pago', 'metodo_pago'],
+            static fn (string $clave): bool => trim((string) ($campos[$clave]['valor'] ?? '')) === ''
+        );
+        if (!$legado || !$faltan || (string) ($lectura['leidos']['familia'] ?? '') !== 'xml') {
+            return $campos;
+        }
+
+        $ruta = Archivos::base() . '/' . (string) $lectura['archivo'];
+        if (!is_file($ruta)) {
+            return $campos;
+        }
+        $cfdi = CfdiXml::leer((string) file_get_contents($ruta));
+        if (!$cfdi['valido']) {
+            return $campos;
+        }
+
+        $mapa = ['uso_cfdi' => 'uso_cfdi', 'tipo_cfdi' => 'tipo', 'forma_pago' => 'forma_pago', 'metodo_pago' => 'metodo_pago'];
+        foreach ($mapa as $clave => $origen) {
+            if (!in_array($clave, $faltan, true)) {
+                continue;
+            }
+            $valor = trim((string) ($cfdi['datos'][$origen] ?? ''));
+            $campos[$clave] = ['valor' => $valor, 'confianza' => $valor === '' ? 'baja' : 'alta', 'origen' => 'XML del CFDI'];
+        }
+
+        return $campos;
     }
 
     /* --------------------------------------------------------------------
@@ -476,11 +530,15 @@ class Lecturas
                 'UPDATE gastos SET uuid_fiscal = COALESCE(uuid_fiscal, NULLIF(?, "")), folio_comercial = COALESCE(folio_comercial, NULLIF(?, "")),
                         rfc_emisor = COALESCE(rfc_emisor, NULLIF(?, "")), rfc_receptor = COALESCE(rfc_receptor, NULLIF(?, "")),
                         forma_pago_sat = COALESCE(forma_pago_sat, NULLIF(?, "")), metodo_pago_sat = COALESCE(metodo_pago_sat, NULLIF(?, "")),
+                        uso_cfdi = COALESCE(uso_cfdi, NULLIF(?, "")), tipo_cfdi = COALESCE(tipo_cfdi, NULLIF(?, "")),
                         comprobante_fiscal = 1, lectura_id = COALESCE(lectura_id, ?) WHERE id = ?'
             );
             $metodo = in_array($v['metodo_pago'], ['PUE', 'PPD'], true) ? $v['metodo_pago'] : '';
+            $uso    = isset(Gastos::USOS_CFDI[$v['uso_cfdi'] ?? '']) ? $v['uso_cfdi'] : '';
+            $tipo   = isset(Contabilidad::TIPOS_CFDI[$v['tipo_cfdi'] ?? '']) ? $v['tipo_cfdi'] : '';
             $lid = (int) $lectura['id'];
-            $q->bind_param('ssssssii', $v['uuid'], $v['folio_comercial'], $v['emisor_rfc'], $v['receptor_rfc'], $v['forma_pago'], $metodo, $lid, $objetivo);
+            $q->bind_param('ssssssssii', $v['uuid'], $v['folio_comercial'], $v['emisor_rfc'], $v['receptor_rfc'],
+                $v['forma_pago'], $metodo, $uso, $tipo, $lid, $objetivo);
             $q->execute();
             $q->close();
             if (Contabilidad::centavos($gasto['total']) !== Contabilidad::centavos($v['total'] ?: '0')) {
@@ -512,7 +570,8 @@ class Lecturas
             'estado_pago' => ($p['estado_pago'] ?? '') === 'pagado' ? 'pagado' : 'pendiente', 'fecha_pago' => $v['fecha'],
             'comprobante_fiscal' => 1, 'uuid_fiscal' => $v['uuid'], 'folio_comercial' => $v['folio_comercial'], 'moneda' => $v['moneda'],
             'forma_pago_sat' => $v['forma_pago'], 'metodo_pago_sat' => $v['metodo_pago'], 'rfc_emisor' => $v['emisor_rfc'],
-            'rfc_receptor' => $v['receptor_rfc'], 'lectura_id' => (int) $lectura['id'],
+            'rfc_receptor' => $v['receptor_rfc'], 'uso_cfdi' => $v['uso_cfdi'] ?? '', 'tipo_cfdi' => $v['tipo_cfdi'] ?? '',
+            'lectura_id' => (int) $lectura['id'],
             'observaciones' => 'Capturado con lectura de documento #' . (int) $lectura['id'] . ' (' . (self::FUENTES[$lectura['fuente']] ?? $lectura['fuente']) . '), revisado por una persona.',
         ];
         if (!Gastos::crear($datos, $usuarioId)) {

@@ -1,3 +1,11 @@
+-- ===========================================================================
+-- ATENCIÓN — LEER ANTES DE IMPORTAR
+-- Este volcado trae  USE `cotizaciones`;  dentro, así que escribe SIEMPRE en la
+-- base `cotizaciones` de la instancia destino, sin importar lo que se pase en la
+-- línea de comandos (mysql otra_base < este_archivo escribe en `cotizaciones`).
+-- Nunca lo importes contra una instancia con datos reales sin respaldo previo:
+--     mysqldump --single-transaction --routines --triggers cotizaciones > respaldo.sql
+-- ===========================================================================
 -- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
 --
 -- Host: localhost    Database: cotizaciones

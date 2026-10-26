@@ -536,12 +536,15 @@ class Cotizaciones
     }
 
     /**
-     * Ganancias de un negocio dentro de un periodo.
+     * Ganancias y ventas de un negocio dentro de un periodo.
      *
-     * "Ganancias" es la suma del TOTAL de las cotizaciones con estado
-     * "vendido": es el dinero efectivamente ganado por el negocio. Las demás
-     * cifras acompañan para dar contexto (lo que sigue en cartera y lo que se
-     * ha cotizado en general) sin tener que salir del panel.
+     * "Ganancias" es el TOTAL de las ventas registradas del negocio en el
+     * periodo (directas y nacidas de una cotización): es el dinero efectivamente
+     * ganado. A la vez se devuelve `ventas` (el mismo importe CON IVA) y
+     * `ventas_n` (cuántas ventas lo suman), que es lo que la tarjeta del panel
+     * enseña como «Ventas del periodo». Las demás cifras acompañan para dar
+     * contexto (lo que sigue en cartera y lo que se ha cotizado en general)
+     * sin tener que salir del panel.
      *
      * @param  string $desde Límite inferior 'Y-m-d' o '' para no filtrar.
      * @param  string $hasta Límite superior 'Y-m-d' o '' para no filtrar.
@@ -594,6 +597,8 @@ class Cotizaciones
             'vendidas'     => (int) ($fila['vendidas'] ?? 0),
             'canceladas'   => (int) ($fila['canceladas'] ?? 0),
             'directas'     => $ventas['directas'],
+            'ventas'       => $ventas['monto'],
+            'ventas_n'     => $ventas['cantidad'],
             'ganancias'    => $ventas['monto'],
             'cartera'      => (float) ($fila['cartera'] ?? 0),
             'cotizado'     => (float) ($fila['cotizado'] ?? 0),

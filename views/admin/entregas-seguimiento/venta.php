@@ -3,9 +3,10 @@
  * views/admin/entregas-seguimiento/venta.php — Seguimiento de entregas de UNA venta.
  *
  * Reúne todo lo que pasó después de la venta: fecha y observaciones de entrega,
- * productos vendidos vs. entregados, incidencias (con sus renglones y cierre:
- * resolución o cancelación, con sustitución de factura si aplica), devoluciones
- * y cambios, y la línea de tiempo del historial (auditoría).
+ * fotos del acta adjuntas en cada entrega, productos vendidos vs.
+ * entregados, incidencias (con sus renglones y cierre: resolución o cancelación,
+ * con sustitución de factura si aplica), devoluciones y cambios, y la línea de
+ * tiempo del historial (auditoría).
  */
 
 soloAdmin();
@@ -36,6 +37,7 @@ $entregas   = \App\Entregas::entregasDeVenta($id);
 $incidencias = \App\IncidenciasEntrega::deVenta($id);
 $historial   = \App\IncidenciasEntrega::historial($id);
 $ingreso     = \App\Contabilidad::ingresoDeVenta($id);
+$disponibles = \App\Inventario::devolvibles($id);   // para los modales de incidencia y devolución
 $registrada  = $venta->estado === 'registrada';
 
 $definicion = \App\IncidenciasEntrega::ESTADOS_ENTREGA[$venta->entrega_estado] ?? null;
@@ -56,6 +58,7 @@ foreach ($incidencias as $incidencia) {
 }
 
 $cobradoExtra = $ingreso && \App\Contabilidad::centavos($ingreso['cobrado']) > \App\Contabilidad::centavos($ingreso['total']);
+$facturada    = $ingreso && $ingreso['estado'] === 'vigente' && $ingreso['estado_facturacion'] === 'facturada';
 
 template('header', ['titulo' => 'Seguimiento · ' . $venta->folio, 'subtitulo' => 'Seguimiento de entregas', 'rutaActiva' => '/admin/entregas-seguimiento']);
 template('tabsEntregas', ['tab' => 'seguimiento']);
@@ -90,7 +93,12 @@ template('tabsEntregas', ['tab' => 'seguimiento']);
             </p>
         </div>
         <?php if ($registrada && $faltan > 0) : ?>
-            <a class="btn btn--secundario" href="/admin/entregas/entregar?id=<?= $id ?>">
+            <!-- Sin JS el enlace navega a la página suelta; con JS abre el modal del hub. -->
+            <a class="btn btn--secundario" href="/admin/entregas/entregar?venta=<?= $id ?>"
+               data-modal-form="tpl-entrega"
+               data-modal-sobre-titulo="Venta <?= escaparValores($venta->folio) ?>"
+               data-modal-titulo="Registrar entrega"
+               data-modal-confirmar="Confirmar entrega">
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">local_shipping</span>
                 <span>Registrar entrega</span>
             </a>
@@ -129,12 +137,53 @@ template('tabsEntregas', ['tab' => 'seguimiento']);
     </form>
 </section>
 
+<?php
+// Fotos del acta: las que se adjuntaron al registrar cada entrega (si no hay, no se pinta la sección).
+$entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empty($e['fotos'])));
+?>
+<?php if ($entregasConFotos) : ?>
+    <section class="tarjeta mb-lg">
+        <div class="tabla-toolbar">
+            <h2 class="titulo-5">Fotos de la entrega</h2>
+            <span class="texto-secundario texto-sm">Adjuntadas al registrar cada entrega. Se abren a tamaño completo.</span>
+        </div>
+
+        <?php foreach ($entregasConFotos as $e) : $fechaE = date('d/m/Y', strtotime($e['fecha'])); $nFotos = count($e['fotos']); ?>
+            <div class="seguimiento-fotos">
+                <p class="texto-sm mb-0">
+                    <strong>Entrega del <?= $fechaE ?></strong>
+                    <span class="texto-secundario">
+                        · <?= $nFotos ?> foto<?= $nFotos === 1 ? '' : 's' ?> · registró <?= escaparValores($e['usuario_nombre'] ?? '—') ?>
+                    </span>
+                </p>
+                <ul class="seguimiento-fotos__lista">
+                    <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); ?>
+                        <li class="seguimiento-fotos__item">
+                            <a class="seguimiento-fotos__enlace" href="<?= escaparValores($rutaFoto) ?>"
+                               target="_blank" rel="noopener noreferrer"
+                               title="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?> (se abre en otra pestaña)">
+                                <img class="seguimiento-fotos__imagen" src="<?= escaparValores($rutaFoto) ?>"
+                                     alt="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                     loading="lazy">
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endforeach; ?>
+    </section>
+<?php endif; ?>
+
 <!-- Productos: vendido vs entregado vs incidencias -->
 <section class="tarjeta mb-lg">
     <div class="tabla-toolbar">
         <h2 class="titulo-5">Productos de la venta</h2>
         <?php if ($registrada) : ?>
-            <a class="btn btn--primario btn--sm" href="/admin/entregas-seguimiento/incidencia?id=<?= $id ?>">
+            <a class="btn btn--primario btn--sm" href="/admin/entregas-seguimiento/incidencia?id=<?= $id ?>"
+               data-modal-form="tpl-incidencia"
+               data-modal-sobre-titulo="Venta <?= escaparValores($venta->folio) ?>"
+               data-modal-titulo="Registrar incidencia"
+               data-modal-confirmar="Registrar incidencia">
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">report</span>
                 <span>Registrar incidencia</span>
             </a>
@@ -178,7 +227,7 @@ template('tabsEntregas', ['tab' => 'seguimiento']);
 </section>
 
 <!-- Incidencias -->
-<section class="tarjeta mb-lg">
+<section class="tarjeta mb-lg" id="incidencias">
     <h2 class="titulo-5">Incidencias de entrega</h2>
 
     <?php if (!$incidencias) : ?>
@@ -342,6 +391,15 @@ template('tabsEntregas', ['tab' => 'seguimiento']);
                 <span>La venta tiene cobros por más del importe actual: <a href="/admin/ventas/detalle?id=<?= $id ?>#cobros">revisa los cobros</a> para cancelar los que sobren.</span>
             </p>
         <?php endif; ?>
+        <?php if (\App\Contabilidad::centavos($ingreso['total']) !== \App\Contabilidad::centavos($venta->total)) : ?>
+            <p class="nota nota--advertencia" role="status">
+                <span class="material-symbols-outlined nota__icono" aria-hidden="true">receipt_long</span>
+                <span>La factura de esta venta es por <strong class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['total'], 2)) ?></strong>
+                    y la venta es por <strong class="cifra"><?= escaparValores('$' . number_format((float) $venta->total, 2)) ?></strong>:
+                    en contabilidad manda la factura. Si cambió lo entregado, la corrección se hace desde una
+                    <a href="#incidencias">incidencia de entrega</a> (cancelar y subir la correcta).</span>
+            </p>
+        <?php endif; ?>
         <?php if ($incidencias && $abiertas > 0) : $primeraAbierta2 = 0; foreach ($incidencias as $inc) { if ($inc['estado'] === 'abierta') { $primeraAbierta2 = (int) $inc['id']; break; } } ?>
         <p class="texto-sm texto-secundario mb-0">
             La factura se corrige desde la <a href="#incidencia-<?= $primeraAbierta2 ?>">incidencia de entrega</a>
@@ -358,7 +416,7 @@ template('tabsEntregas', ['tab' => 'seguimiento']);
     </section>
 <?php endif; ?>
 
-<?php $ventaId = $id; template('devolucionesVenta', ['ventaId' => $ventaId, 'registrada' => $registrada]); ?>
+<?php $ventaId = $id; template('devolucionesVenta', ['ventaId' => $ventaId, 'registrada' => $registrada, 'botonDevolucion' => true]); ?>
 
 <!-- Historial -->
 <section class="tarjeta mb-lg">
@@ -385,6 +443,41 @@ template('tabsEntregas', ['tab' => 'seguimiento']);
     <p class="texto-secundario texto-sm">
         <a href="/admin/entregas-seguimiento">← Volver al seguimiento de entregas</a>
     </p>
+<?php endif; ?>
+
+<!-- Formularios de las ventanas modales del hub: los mismos que las páginas
+     sueltas (una sola marca de campos), que src/js/modulos/operacionComercial.js
+     mueve al modal y envía desde su pie. Sin JS, cada botón es un enlace normal. -->
+<template id="tpl-entrega">
+    <?php template('formEntregaVenta', [
+        'ventaId' => $id,
+        'lineas'  => array_values($pendientes),
+        'token'   => tokenFormulario(),
+        'volver'  => 'seguimiento',
+    ]); ?>
+</template>
+
+<?php if ($registrada) : ?>
+    <template id="tpl-incidencia">
+        <?php template('formIncidenciaVenta', [
+            'id'          => $id,
+            'pendientes'  => $pendientes,
+            'disponibles' => $disponibles,
+            'facturada'   => $facturada,
+            'ingreso'     => $ingreso,
+            'token'       => tokenFormulario(),
+        ]); ?>
+    </template>
+
+    <template id="tpl-devolucion">
+        <?php template('formDevolucionVenta', [
+            'ventaId'     => $id,
+            'devolvibles' => $disponibles,
+            'detalles'    => \App\Ventas::detalles($id),
+            'token'       => tokenFormulario(),
+            'volver'      => 'seguimiento',
+        ]); ?>
+    </template>
 <?php endif; ?>
 
 <script>

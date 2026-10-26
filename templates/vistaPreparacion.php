@@ -1,9 +1,17 @@
 <?php
 /**
  * templates/vistaPreparacion.php — Productos agrupados + pedidos, compartido por la pantalla de selección
- * y las vistas guardadas. Variables: $grupos, $ventas, $prepId (0 si aún no está guardada).
+ * y las vistas guardadas. Variables: $grupos, $ventas, $prepId (0 si aún no está guardada),
+ * $entregaHaciaSeguimiento (bool, por defecto false).
+ *
+ * Con $entregaHaciaSeguimiento el botón «Registrar entrega» no entra en la página suelta
+ * /admin/entregas/entregar (que al terminar volvería a preparación/clientes), sino que lleva al
+ * hub /admin/entregas-seguimiento/venta, único lugar con el modal de entrega, las incidencias,
+ * las devoluciones y el historial: registrar desde aquí sin pasar por el hub deja la venta sin
+ * seguimiento si algún producto llega a faltar.
  */
 $prepId = (int) ($prepId ?? 0);
+$entregaHaciaSeguimiento = (bool) ($entregaHaciaSeguimiento ?? false);
 ?>
 <section class="tarjeta mb-lg">
     <h2 class="titulo-5 mb-md">Productos a preparar (agrupados)</h2>
@@ -42,7 +50,9 @@ $prepId = (int) ($prepId ?? 0);
                 <th scope="col" class="tabla--numerica">Entregadas</th><th scope="col" class="tabla--numerica">Pendientes</th>
                 <th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
             <tbody>
-                <?php foreach ($ventas as $v) : ?>
+                <?php foreach ($ventas as $v) : $hrefEntrega = $entregaHaciaSeguimiento
+                    ? '/admin/entregas-seguimiento/venta?id=' . (int) $v['id']
+                    : '/admin/entregas/entregar?venta=' . (int) $v['id'] . ($prepId ? '&prep=' . $prepId : ''); ?>
                     <tr>
                         <td><a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a></td>
                         <td><?= escaparValores($v['cliente_empresa'] ?: $v['cliente_nombre']) ?>
@@ -51,7 +61,7 @@ $prepId = (int) ($prepId ?? 0);
                         <td class="tabla--numerica cifra"><?= (int) $v['pendientes'] ?></td>
                         <td class="tabla--numerica">
                             <?php if ((int) $v['pendientes'] > 0) : ?>
-                                <a class="btn btn--primario btn--sm" href="/admin/entregas/entregar?venta=<?= (int) $v['id'] ?><?= $prepId ? '&prep=' . $prepId : '' ?>">Registrar entrega</a>
+                                <a class="btn btn--primario btn--sm" href="<?= escaparValores($hrefEntrega) ?>">Registrar entrega</a>
                             <?php else : ?>
                                 <span class="badge badge--aprobado">Completa</span>
                             <?php endif; ?>

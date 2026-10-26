@@ -298,7 +298,13 @@ class VentasFiscal
             $agregar('receptor', 'regimen', 'correcto', 'Régimen fiscal del receptor: ' . $regimenReceptor . '.');
         }
 
-        $usoCfdi = strtoupper(trim((string) ($cliente['uso_cfdi'] ?? '')));
+        // El uso del CFDI que trae la factura emitida (si se leyó con «Registro Venta
+        // Inteligente») manda sobre el de la ficha del cliente: es el que declaró ESTE
+        // comprobante. Sin dato en el ingreso sigue mandando el del cliente.
+        $usoCfdi = $ingreso !== null ? strtoupper(trim((string) ($ingreso['uso_cfdi'] ?? ''))) : '';
+        if ($usoCfdi === '') {
+            $usoCfdi = strtoupper(trim((string) ($cliente['uso_cfdi'] ?? '')));
+        }
         if ($usoCfdi === '') {
             $agregar('receptor', 'uso', 'error', 'Falta el uso del CFDI del receptor (UsoCFDIReceptor).');
         } elseif (preg_match('/^[0-9A-Z]{3,4}$/', $usoCfdi) !== 1) {
@@ -803,6 +809,74 @@ class VentasFiscal
         Auditoria::registrar('ingreso', (int) $ingreso['id'], 'datos_cfdi', $usuarioId ?: null, 'Método y forma de pago declarados para el CFDI', [
             'antes' => $antes, 'despues' => ['metodo_pago' => $metodo, 'forma_pago' => $forma],
         ]);
+        return true;
+    }
+
+    /**
+     * Los cuatro datos del CFDI (método, forma, uso y tipo de comprobante) que
+     * trae un documento leído con «Registro Venta Inteligente», guardados en el
+     * ingreso de la venta creada con él.
+     *
+     * Aquí manda el DOCUMENTO, no la persona: sólo se escriben los valores que
+     * pertenezcan al catálogo del SAT, y un dato ilegible no bloquea nada (queda
+     * vacío y se captura a mano en «Revisar y facturar»). Las claves que no
+     * vengan en $datos no se tocan: lo que la persona ya haya declarado se conserva.
+     *
+     * @param array<string, mixed> $datos metodo_pago, forma_pago, uso_cfdi y/o tipo_cfdi
+     */
+    public static function guardarDatosLeidos(int $ventaId, array $datos, int $usuarioId = 0): bool
+    {
+        self::$errores = [];
+        $ingreso = Contabilidad::ingresoDeVenta($ventaId);
+        if (!$ingreso) {
+            self::$errores[] = 'La venta no tiene ingreso contable asociado.';
+            return false;
+        }
+        if ($ingreso['estado'] !== 'vigente') {
+            self::$errores[] = 'El ingreso de la venta está cancelado.';
+            return false;
+        }
+        if (Contabilidad::periodoCerrado((int) $ingreso['contribuyente_id'], (string) $ingreso['fecha'])) {
+            self::$errores[] = Contabilidad::mensajePeriodoCerrado((string) $ingreso['fecha']);
+            return false;
+        }
+
+        $catalogos = [
+            'metodo_pago' => self::METODOS,
+            'forma_pago'  => self::FORMAS_PAGO,
+            'uso_cfdi'    => self::USOS_CFDI,
+            'tipo_cfdi'   => Contabilidad::TIPOS_CFDI,
+        ];
+        $antes = [];
+        $despues = [];
+        foreach ($catalogos as $campo => $catalogo) {
+            if (!array_key_exists($campo, $datos)) {
+                continue;
+            }
+            $valor = strtoupper(trim((string) $datos[$campo]));
+            // Catálogo asociativo (clave => etiqueta) o lista simple de claves: los dos
+            // estilos ya conviven en este archivo (USOS_CFDI es lista, METODOS no).
+            $enCatalogo = $valor !== '' && (array_key_exists($valor, $catalogo) || in_array($valor, $catalogo, true));
+            if (!$enCatalogo || (string) ($ingreso[$campo] ?? '') === $valor) {
+                continue;   // vacío, fuera de catálogo o ya guardado: no se toca
+            }
+            $antes[$campo] = (string) ($ingreso[$campo] ?? '');
+            $despues[$campo] = $valor;
+        }
+        if (!$despues) {
+            return true;
+        }
+
+        $columnas = implode(', ', array_map(static fn (string $c): string => $c . ' = ?', array_keys($despues)));
+        $valores = array_values($despues);
+        $valores[] = (int) $ingreso['id'];
+        $q = self::$db->prepare("UPDATE ingresos SET $columnas WHERE id = ?");
+        $q->bind_param(str_repeat('s', count($despues)) . 'i', ...$valores);
+        $q->execute();
+        $q->close();
+
+        Auditoria::registrar('ingreso', (int) $ingreso['id'], 'datos_cfdi', $usuarioId ?: null,
+            'Datos del CFDI leídos de la factura', ['antes' => $antes, 'despues' => $despues]);
         return true;
     }
 

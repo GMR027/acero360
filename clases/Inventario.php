@@ -485,8 +485,12 @@ class Inventario
 
     /**
      * Registra una devolución (y, si se pide, cuántas de esas piezas requieren cambio) de UNA venta registrada.
-     *   • Las piezas devueltas suman al inventario en ese momento.
-     *   • Las piezas «a cambiar» quedan como deuda de la venta; se descuentan del inventario cuando se entrega el cambio.
+     *   • La devolución es una NOTIFICACIÓN: queda anotada en la venta y el
+     *     pendiente de entrega se ajusta, pero NO modifica el inventario (el
+     *     que corre al inventario es el motivo «producto faltante» del
+     *     seguimiento, cuando lo que no salió completo fue el envío).
+     *   • Las piezas «a cambiar» quedan como deuda de la venta; al marcar el
+     *     cambio como entregado tampoco se mueve inventario (sólo se registra).
      *   • Nunca se devuelve más de lo vendido menos lo ya devuelto; el cambio nunca supera lo devuelto en ese registro.
      *   • El motivo no es obligatorio (nota opcional).
      *
@@ -536,22 +540,15 @@ class Inventario
             }
 
             $disponibles = self::devolvibles($ventaId);
-            $piezas = [];
             foreach ($filtrados as $productoId => $c) {
                 if (!isset($disponibles[$productoId]) || $c['devuelta'] > $disponibles[$productoId]['disponible']) {
                     self::$db->rollBack();
                     self::$errores[] = 'No se pueden devolver más piezas de las vendidas (producto #' . $productoId . ').';
                     return false;
                 }
-                $piezas[$productoId] = $c['devuelta'];
             }
 
-            $texto = 'Devolución de ' . $venta['folio'] . ($nota !== '' ? ': ' . $nota : '');
-            if (!self::mover($piezas, 'entrada', 0, $usuarioId, $texto, $ventaId, 0, 'devolucion')) {
-                self::$db->rollBack();
-                return false;
-            }
-
+            // Sin movimiento de kardex: la devolución sólo se notifica en la venta.
             $guardar = self::$db->prepare(
                 'INSERT INTO venta_devoluciones (venta_id, producto_id, fecha, cantidad_devuelta, cantidad_cambio, nota, usuario_id)
                  VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -568,7 +565,8 @@ class Inventario
             Entregas::avanzarPreparaciones($ventaId);
             IncidenciasEntrega::actualizarEstado($ventaId);
 
-            Auditoria::registrar('venta', $ventaId, 'devolucion', $usuarioId, $nota !== '' ? $nota : null, ['piezas' => $filtrados, 'fecha' => $fecha]);
+            Auditoria::registrar('venta', $ventaId, 'devolucion', $usuarioId, $nota !== '' ? $nota : null,
+                ['piezas' => $filtrados, 'fecha' => $fecha, 'inventario' => 'sin movimiento (sólo notificación)']);
             self::$db->commit();
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
@@ -608,8 +606,10 @@ class Inventario
     }
 
     /**
-     * Entrega (parcial o total) de la pieza de reemplazo: se descuenta del inventario ahora.
-     * No se entrega más de lo que se debe; respeta la preferencia de stock negativo.
+     * Registra la entrega (parcial o total) de la pieza de reemplazo.
+     * Sólo notifica: queda anotada contra la deuda de cambio y NO modifica el
+     * inventario (regla de «Operación Comercial»: cambios y devoluciones no
+     * mueven almacén).
      */
     public static function entregarCambio(int $ventaId, int $productoId, int $cantidad, string $fecha, int $usuarioId): bool
     {
@@ -648,11 +648,7 @@ class Inventario
                 return false;
             }
 
-            if (!self::mover([$productoId => $cantidad], 'salida', 0, $usuarioId, 'Cambio entregado de ' . $venta['folio'], $ventaId, 0, 'cambio')) {
-                self::$db->rollBack();
-                return false;
-            }
-
+            // Sin kardex: entregar el cambio sólo salda la deuda con el cliente.
             // Reparte la entrega entre los registros de devolución, del más antiguo al más reciente.
             $registros = self::$db->prepare(
                 'SELECT d.id, d.cantidad_cambio - COALESCE((SELECT SUM(e.cantidad) FROM venta_cambios_entregados e WHERE e.devolucion_id = d.id), 0) AS falta

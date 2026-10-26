@@ -1,7 +1,7 @@
 /* ==========================================================================
    _entregas-seguimiento.scss — Módulo de seguimiento de entregas.
-   Bloques: resolución de incidencias (<details>), cierre resuelto y
-   línea de tiempo del historial de la entrega.
+   Bloques: resolución de incidencias (<details>), cierre resuelto,
+   galería de fotos del acta de entrega y línea de tiempo de la entrega.
    ========================================================================== */
 
 @use '../base/variables' as *;
@@ -49,6 +49,48 @@
   border-left: 3px solid $color-exito-borde;
   background-color: $color-exito-claro;
   border-radius: $radio-sm;
+}
+
+/* Fotos del acta de entrega: una fila de miniaturas por cada entrega. */
+.seguimiento-fotos {
+  /* Varias entregas seguidas quedan separadas sin margen al final. */
+  & + & {
+    margin-top: $espacio-md;
+  }
+
+  &__lista {
+    list-style: none;
+    margin: $espacio-sm 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: $espacio-sm;
+  }
+
+  &__enlace {
+    display: block;
+    border-radius: $radio-md;
+
+    &:focus-visible {
+      outline: 2px solid $color-primario;
+      outline-offset: 2px;
+    }
+  }
+
+  &__imagen {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+    transition: border-color 0.15s ease;
+
+    &:hover {
+      border-color: $color-primario;
+    }
+  }
 }
 
 /* Línea de tiempo del historial de la venta. */

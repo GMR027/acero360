@@ -58,6 +58,8 @@ class Seguimiento
 
     /** Novedades de la plataforma: [clave/versión, fecha, título, texto, enlace]. */
     public const NOVEDADES = [
+        ['1.5.0', '2026-10-25', 'Operación Comercial: un solo apartado',
+         'Preparación de pedidos, seguimiento de entregas y ventas ahora viven en un mismo menú con cuatro pestañas, y cada venta tiene su propia hoja para registrar entregas, incidencias y devoluciones en ventanas modales. Producto faltante o incompleto corrige inventario y factura; cambio o devolución sólo queda notificado.', '/admin/entregas'],
         ['1.4.0', '2026-10-23', 'Uso del CFDI y método de pago en los gastos',
          'Al anotar un gasto con factura ya puedes capturar su Uso del CFDI (adquisición de mercancías, gastos en general…) y su método de pago: PPD en parcialidades, PUE en una sola exhibición o por definir. El centro de seguimiento avisa de las facturas con pago en parcialidades o con el método aún por definir, y desde el aviso puedes definirlo.', '/admin/contabilidad/gastos/crear'],
         ['1.3.0', '2026-10-23', 'Seguimiento de compras, proveedores y materiales',
@@ -351,7 +353,7 @@ class Seguimiento
                 'clave' => 'cambio:' . $v['id'], 'categoria' => 'entrega', 'prioridad' => 'normal',
                 'titulo' => 'Cambio por entregar · ' . $v['folio'],
                 'detalle' => self::nombreCliente($v) . ' · se deben ' . (int) $v['pendiente'] . ' pieza' . ((int) $v['pendiente'] === 1 ? '' : 's') . ' · venta ' . self::antiguedad($dias),
-                'fecha' => $v['fecha'], 'dias' => $dias, 'enlace' => '/admin/ventas/detalle?id=' . (int) $v['id'] . '#cambios',
+                'fecha' => $v['fecha'], 'dias' => $dias, 'enlace' => '/admin/entregas-seguimiento/venta?id=' . (int) $v['id'] . '#cambios',
                 'huella' => 'debe' . (int) $v['pendiente'],
             ];
         }
@@ -359,7 +361,7 @@ class Seguimiento
         // Incidencias de entrega abiertas: producto faltante/dañado/incompleto, cambios, devoluciones y
         // facturas por corregir que quedaron sin resolver en el seguimiento de la venta.
         $incidencias = self::$db->query(
-            "SELECT v.id, v.folio, v.fecha, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+            "SELECT v.id AS venta_id, v.folio, v.fecha, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     COUNT(*) AS abiertas, SUM(e.factura_requerida) AS por_facturar, MAX(e.id) AS ultima_id
                FROM entrega_incidencias e
                JOIN ventas v ON v.id = e.venta_id

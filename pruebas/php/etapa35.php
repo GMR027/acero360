@@ -110,16 +110,29 @@ $db->query('UPDATE productos SET stock = 100 WHERE id IN (36, 37)');
  * 1. RFC NORMALIZADO Y REUTILIZACIÓN DE CLIENTES (requisito 2)
  * ================================================================== */
 echo "RFC y reutilización de clientes\n";
-$prueba('normaliza espacios, guiones y minúsculas', VentasFiscal::normalizarRfc('demo 000101-a01') === 'DEMO000101A01');
+
+// El RFC de prueba se TOMA de un cliente que ya exista en la base: así este
+// archivo nunca contiene un RFC real de terceros (dato personal). Se le
+// añaden espacios, guión y minúsculas para ejercitar la normalización.
+$rfcCliente = strtoupper((string) $uno(
+    "SELECT COALESCE(MAX(REPLACE(REPLACE(rfc, ' ', ''), '-', '')), '') FROM clientes"
+    . " WHERE REPLACE(REPLACE(COALESCE(rfc, ''), ' ', ''), '-', '') <> ''"
+));
+$sucio = $rfcCliente === ''
+    ? ''
+    : strtolower(substr($rfcCliente, 0, 4) . ' ' . substr($rfcCliente, 4, 6) . '-' . substr($rfcCliente, 10));
+
+$prueba('normaliza espacios, guiones y minúsculas', $rfcCliente !== '' && VentasFiscal::normalizarRfc($sucio) === $rfcCliente);
 $prueba('acepta un RFC con estructura válida', VentasFiscal::rfcConFormato('AAA940101AAA') === true);
 $prueba('acepta los RFCs genéricos del SAT', VentasFiscal::rfcConFormato('XAXX010101000') && VentasFiscal::rfcConFormato('xexx010101000'));
 $prueba('rechaza RFCs incompletos o con estructura rara',
     !VentasFiscal::rfcConFormato('AAA940101') && !VentasFiscal::rfcConFormato('AB12')
     && !VentasFiscal::rfcConFormato('AAA940101ABCD') && !VentasFiscal::rfcConFormato('1AAA940101AAA'));
 
-$existeRfc = (int) $uno("SELECT id FROM clientes WHERE UPPER(REPLACE(REPLACE(rfc, ' ', ''), '-', '')) = 'DEMO000101A01'");
-$encontrado = VentasFiscal::buscarClientePorRfc('demo 000101 a01');
-$prueba('encuentra un cliente EXISTENTE por RFC normalizado', $encontrado !== null && (int) $encontrado['id'] === $existeRfc);
+$existeRfc = (int) $uno("SELECT id FROM clientes WHERE UPPER(REPLACE(REPLACE(rfc, ' ', ''), '-', '')) = '"
+    . $db->real_escape_string($rfcCliente) . "' ORDER BY id LIMIT 1");
+$encontrado = $rfcCliente === '' ? null : VentasFiscal::buscarClientePorRfc($sucio);
+$prueba('encuentra un cliente EXISTENTE por RFC normalizado', $rfcCliente !== '' && $encontrado !== null && (int) $encontrado['id'] === $existeRfc && $existeRfc > 0);
 $prueba('un RFC desconocido no devuelve cliente', VentasFiscal::buscarClientePorRfc('ZZZ991231ZZZ') === null);
 
 // Cliente nuevo con todos los datos fiscales.

@@ -303,6 +303,76 @@ class ProductosProveedor
         }
     }
 
+    /**
+     * Alta rápida desde la lectura de una factura: agrega un concepto del
+     * documento al catálogo del PROVEEDOR que la emitió.
+     *
+     * A diferencia de crear(), el duplicado NO es un error: es la respuesta
+     * correcta cuando se intenta agregar dos veces el mismo concepto (dos filas
+     * de la misma factura, o la misma factura otra vez), así el botón de la
+     * pantalla puede decir «ya estaba» y seguir. Se compara sin acentos ni
+     * mayúsculas, porque «Manzana» y «MANZANA» son el mismo producto.
+     *
+     * @param array<string, mixed> $concepto  salida de CoincidenciasFactura
+     *                                        (descripcion, valor_unitario, sku, nota)
+     * @return array{estado: string, id: int, nombre: string, activo: int, error: string}
+     *         estado: 'creado' | 'existente' | 'error'
+     */
+    public static function agregarDesdeFactura(int $proveedorId, array $concepto, int $usuarioId): array
+    {
+        $nombre  = mb_substr(trim((string) ($concepto['descripcion'] ?? '')), 0, 150);
+        $codigo  = mb_substr(strtoupper(trim((string) ($concepto['sku'] ?? ''))), 0, 40);
+        $costo   = (float) ($concepto['valor_unitario'] ?? 0);
+        $detalle = mb_substr(trim((string) ($concepto['nota'] ?? '')), 0, 255);
+
+        $respuesta = static fn (string $estado, int $id = 0, string $nombreOut = '', int $activo = 1, string $error = ''): array => [
+            'estado' => $estado, 'id' => $id, 'nombre' => $nombreOut, 'activo' => $activo, 'error' => $error,
+        ];
+
+        if ($nombre === '') {
+            return $respuesta('error', 0, '', 1, 'El concepto no trae descripción: escríbele un nombre en el catálogo.');
+        }
+
+        // ¿Ya está en el catálogo de este proveedor? (comparación normalizada)
+        $normalizado = CoincidenciasFactura::normalizar($nombre);
+        $consulta = self::$db->prepare('SELECT id, nombre, codigo, activo FROM proveedor_productos WHERE proveedor_id = ?');
+        $consulta->bind_param('i', $proveedorId);
+        $consulta->execute();
+        $existentes = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        foreach ($existentes as $existente) {
+            $mismoNombre = CoincidenciasFactura::normalizar((string) $existente['nombre']) === $normalizado;
+            $mismoCodigo = $codigo !== '' && strtoupper((string) ($existente['codigo'] ?? '')) === $codigo;
+            if ($mismoNombre || $mismoCodigo) {
+                return $respuesta('existente', (int) $existente['id'], (string) $existente['nombre'], (int) $existente['activo']);
+            }
+        }
+
+        $datos = [
+            'proveedor_id'   => $proveedorId,
+            'nombre'         => $nombre,
+            'codigo'         => $codigo,
+            'descripcion'    => $detalle,
+            'costo_unitario' => number_format($costo, 2, '.', ''),
+            'activo'         => 1,
+        ];
+
+        if (self::crear($datos, $usuarioId)) {
+            return $respuesta('creado', self::$ultimoId, $nombre);
+        }
+
+        // Carrera entre dos pestañas: si entre la consulta y el INSERT apareció,
+        // sigue sin ser un error.
+        foreach ($existentes as $existente) {
+            if (CoincidenciasFactura::normalizar((string) $existente['nombre']) === $normalizado) {
+                return $respuesta('existente', (int) $existente['id'], (string) $existente['nombre'], (int) $existente['activo']);
+            }
+        }
+
+        return $respuesta('error', 0, $nombre, 1, self::$errores[0] ?? 'No fue posible guardar el producto.');
+    }
+
     public static function actualizar(int $id, array $datos, int $usuarioId): bool
     {
         $previo = self::buscarID($id);

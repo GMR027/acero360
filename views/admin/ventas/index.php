@@ -73,6 +73,7 @@ template('header', [
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">point_of_sale</span>'
         . '<span>Nueva venta</span></a>',
 ]);
+template('tabsEntregas', ['tab' => 'ventas']);
 ?>
 
 <section class="encabezado-pagina">

@@ -431,7 +431,7 @@ class Gastos
         $beneficiario = trim((string) ($d['beneficiario'] ?? ''));
         if ($tipoBen === 'proveedor') {
             if (!$proveedorId) {
-                $errores[] = 'Elige el proveedor de la lista (o cambia «Pagado a» a Otro).';
+                $errores[] = 'Busca el proveedor por nombre o RFC —o regístralo si todavía no existe— (o cambia «Pagado a» a Otro).';
             } else {
                 $consulta = self::$db->prepare('SELECT nombre FROM proveedores WHERE id = ?');
                 $consulta->bind_param('i', $proveedorId);
@@ -544,9 +544,23 @@ class Gastos
             }
             $usoCfdi = '';
         }
+        // Forma de pago y tipo de comprobante: los otros dos datos del CFDI. Se
+        // capturan en el formulario y también los trae la lectura inteligente.
+        $formaSat = trim((string) ($d['forma_pago_sat'] ?? ''));
+        if ($formaSat !== '' && !isset(VentasFiscal::FORMAS_PAGO[$formaSat])) {
+            $errores[] = 'La forma de pago "' . $formaSat . '" no es una clave del catálogo del SAT.';
+            $formaSat = '';
+        }
+        $tipoCfdi = strtoupper(trim((string) ($d['tipo_cfdi'] ?? '')));
+        if ($tipoCfdi !== '' && !isset(Contabilidad::TIPOS_CFDI[$tipoCfdi])) {
+            $errores[] = 'El tipo de comprobante "' . $tipoCfdi . '" no es una clave del catálogo del SAT.';
+            $tipoCfdi = '';
+        }
         if ($factura === '0') {
             $metodoSat = '';
             $usoCfdi = '';
+            $formaSat = '';
+            $tipoCfdi = '';
         }
 
         return [$errores, [
@@ -564,9 +578,10 @@ class Gastos
             // Datos de la factura (lectura documental). El folio comercial NO es el UUID.
             'folio_comercial' => mb_substr(trim((string) ($d['folio_comercial'] ?? '')), 0, 40) ?: null,
             'moneda' => preg_match('/^[A-Z]{3}$/', strtoupper(trim((string) ($d['moneda'] ?? '')))) ? strtoupper(trim((string) $d['moneda'])) : 'MXN',
-            'forma_pago_sat' => mb_substr(trim((string) ($d['forma_pago_sat'] ?? '')), 0, 3) ?: null,
+            'forma_pago_sat' => $formaSat ?: null,
             'metodo_pago_sat' => $metodoSat ?: null,
             'uso_cfdi' => $usoCfdi ?: null,
+            'tipo_cfdi' => $tipoCfdi ?: null,
             'rfc_emisor' => strtoupper(mb_substr(trim((string) ($d['rfc_emisor'] ?? '')), 0, 13)) ?: null,
             'rfc_receptor' => strtoupper(mb_substr(trim((string) ($d['rfc_receptor'] ?? '')), 0, 13)) ?: null,
             'lectura_id' => (int) ($d['lectura_id'] ?? 0) ?: null,
@@ -600,16 +615,17 @@ class Gastos
                 'INSERT INTO gastos (contribuyente_id, fecha, proveedor_id, beneficiario_tipo, beneficiario, concepto, categoria_id, naturaleza,
                         empresa_id, compartido, subtotal, iva_tasa, iva, total, estado_pago, fecha_pago, metodo_pago,
                         comprobante_fiscal, uuid_fiscal, revision_fiscal, observaciones, usuario_id,
-                        folio_comercial, moneda, forma_pago_sat, metodo_pago_sat, uso_cfdi, rfc_emisor, rfc_receptor, lectura_id)
-                 VALUES (' . implode(', ', array_fill(0, 30, '?')) . ')'
+                        folio_comercial, moneda, forma_pago_sat, metodo_pago_sat, uso_cfdi, tipo_cfdi, rfc_emisor, rfc_receptor, lectura_id)
+                 VALUES (' . implode(', ', array_fill(0, 31, '?')) . ')'
             );
             $consulta->bind_param(
-                'isisssisiisssssssisssi' . 'sssssssi',
+                'isisssisii' . 'sssssss' . 'isssi' . 'ssssssssi',
                 $contribuyente, $g['fecha'], $g['proveedor_id'], $g['beneficiario_tipo'], $g['beneficiario'], $g['concepto'], $g['categoria_id'],
                 $g['naturaleza'], $g['empresa_id'], $g['compartido'], $g['subtotal'], $g['iva_tasa'], $g['iva'], $g['total'],
                 $g['estado_pago'], $g['fecha_pago'], $g['metodo_pago'], $g['comprobante_fiscal'], $g['uuid_fiscal'],
                 $g['revision_fiscal'], $g['observaciones'], $usuarioId,
-                $g['folio_comercial'], $g['moneda'], $g['forma_pago_sat'], $g['metodo_pago_sat'], $g['uso_cfdi'], $g['rfc_emisor'], $g['rfc_receptor'], $g['lectura_id']
+                $g['folio_comercial'], $g['moneda'], $g['forma_pago_sat'], $g['metodo_pago_sat'], $g['uso_cfdi'], $g['tipo_cfdi'],
+                $g['rfc_emisor'], $g['rfc_receptor'], $g['lectura_id']
             );
             $consulta->execute();
             $id = (int) self::$db->insert_id;
@@ -673,14 +689,14 @@ class Gastos
                 'UPDATE gastos SET fecha = ?, proveedor_id = ?, beneficiario_tipo = ?, beneficiario = ?, concepto = ?, categoria_id = ?, naturaleza = ?,
                         empresa_id = ?, compartido = ?, subtotal = ?, iva_tasa = ?, iva = ?, total = ?, estado_pago = ?,
                         fecha_pago = ?, metodo_pago = ?, comprobante_fiscal = ?, uuid_fiscal = ?, revision_fiscal = ?,
-                        metodo_pago_sat = ?, uso_cfdi = ?, observaciones = ? WHERE id = ?'
+                        forma_pago_sat = ?, metodo_pago_sat = ?, uso_cfdi = ?, tipo_cfdi = ?, observaciones = ? WHERE id = ?'
             );
             $consulta->bind_param(
-                'sisssisiisssssssisssssi',
+                'sisssisiisssssssisssssssi',
                 $g['fecha'], $g['proveedor_id'], $g['beneficiario_tipo'], $g['beneficiario'], $g['concepto'], $g['categoria_id'], $g['naturaleza'],
                 $g['empresa_id'], $g['compartido'], $g['subtotal'], $g['iva_tasa'], $g['iva'], $g['total'],
                 $g['estado_pago'], $g['fecha_pago'], $g['metodo_pago'], $g['comprobante_fiscal'], $g['uuid_fiscal'],
-                $g['revision_fiscal'], $g['metodo_pago_sat'], $g['uso_cfdi'], $g['observaciones'], $id
+                $g['revision_fiscal'], $g['forma_pago_sat'], $g['metodo_pago_sat'], $g['uso_cfdi'], $g['tipo_cfdi'], $g['observaciones'], $id
             );
             $consulta->execute();
             $consulta->close();
@@ -688,7 +704,8 @@ class Gastos
             self::guardarReparto($id, $g['reparto']);
 
             $cambios = [];
-            foreach (['fecha', 'subtotal', 'iva', 'total', 'estado_pago', 'revision_fiscal', 'concepto', 'metodo_pago_sat', 'uso_cfdi'] as $campo) {
+            foreach (['fecha', 'subtotal', 'iva', 'total', 'estado_pago', 'revision_fiscal', 'concepto',
+                      'metodo_pago_sat', 'uso_cfdi', 'forma_pago_sat', 'tipo_cfdi'] as $campo) {
                 if ((string) $previo[$campo] !== (string) $g[$campo]) {
                     $cambios[$campo] = [$previo[$campo], $g[$campo]];
                 }

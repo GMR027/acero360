@@ -89,6 +89,15 @@ template('tabsCompras', ['tab' => 'inteligente']);
             </tbody>
         </table></div>
     <?php endif; ?>
+
+    <?php /* Los mismos conceptos sin equivalente que ya ofrece el formulario de gasto,
+             con el botón para agregarlos al catálogo del proveedor emisor. */ ?>
+    <?php template('sinEquivalente', [
+        'conceptos'       => (array) ($coincidencias['sin_equivalente'] ?? []),
+        'nombreDoc'       => 'compra',
+        'proveedorId'     => $proveedor ? (int) $proveedor['id'] : 0,
+        'proveedorNombre' => $proveedor ? (string) $proveedor['nombre'] : '',
+    ]); ?>
 </section>
 
 <?php if ($duplicado) : ?>

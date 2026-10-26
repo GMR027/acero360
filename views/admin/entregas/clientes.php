@@ -2,6 +2,8 @@
 /**
  * views/admin/entregas/clientes.php — Pantalla de entrega · Entregas por cliente o destino.
  * Todo lo que falta entregar, agrupado por cliente, con los productos sumados.
+ * «Registrar entrega» abre la hoja de seguimiento de la venta (/admin/entregas-seguimiento/venta),
+ * único lugar donde además quedan incidencias, devoluciones e historial.
  */
 
 soloAdmin();
@@ -62,7 +64,7 @@ template('tabsEntregas', ['tab' => 'clientes']);
                             <td><a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a></td>
                             <td class="tabla--numerica cifra"><?= (int) $v['piezas'] - (int) $v['entregadas'] ?></td>
                             <td><?= $v['en_preparaciones'] ? escaparValores($v['en_preparaciones']) : '—' ?></td>
-                            <td class="tabla--numerica"><a class="btn btn--primario btn--sm" href="/admin/entregas/entregar?venta=<?= (int) $v['id'] ?>">Registrar entrega</a></td>
+                            <td class="tabla--numerica"><a class="btn btn--primario btn--sm" href="/admin/entregas-seguimiento/venta?id=<?= (int) $v['id'] ?>">Registrar entrega</a></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

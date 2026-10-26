@@ -43,6 +43,21 @@ foreach ($detalles as $detalle) {
     }
 }
 
+/**
+ * Incidencias de entrega todavía abiertas (producto faltante, dañado, incompleto, cambio o
+ * devolución): aquí sólo se AVISAN —se resuelven en el hub de Operación Comercial—, pero el
+ * detalle de la venta las muestra para que no se pierdan de vista al facturar o al cobrar.
+ */
+$incidenciasAbiertas = array_values(array_filter(
+    \App\IncidenciasEntrega::deVenta($id),
+    static fn (array $incidencia): bool => ($incidencia['estado'] ?? '') === 'abierta'
+));
+$incidenciasCorreccion = array_filter($incidenciasAbiertas, static fn (array $i): bool => !empty($i['factura_requerida']));
+$motivosAbiertos = [];
+foreach ($incidenciasAbiertas as $incidencia) {
+    $motivosAbiertos[\App\IncidenciasEntrega::MOTIVOS[$incidencia['motivo']]['etiqueta'] ?? $incidencia['motivo']] = true;
+}
+
 template('header', [
     'titulo'            => $cotizacion->folio,
     'subtitulo'         => 'Detalle de venta',
@@ -85,9 +100,9 @@ template('header', [
             </a>
         <?php endif; ?>
         <?php if ($cotizacion->estado === 'registrada') : ?>
-            <a class="btn btn--secundario" href="/admin/ventas/devolucion?id=<?= $id ?>">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">assignment_return</span>
-                <span>Devolución</span>
+            <a class="btn btn--secundario" href="/admin/entregas-seguimiento/venta?id=<?= $id ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">fact_check</span>
+                <span>Operación de esta venta</span>
             </a>
         <?php endif; ?>
         <a class="btn btn--primario" href="/admin/ventas/pdf?id=<?= $id ?>" target="_blank" rel="noopener">
@@ -113,10 +128,24 @@ template('header', [
     </p>
 <?php endif; ?>
 
+<?php if ($incidenciasAbiertas) : $abiertas = count($incidenciasAbiertas); ?>
+    <p class="nota <?= $incidenciasCorreccion ? 'nota--error' : 'nota--advertencia' ?> mb-lg" <?= $incidenciasCorreccion ? 'role="alert"' : 'role="status"' ?>>
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">report</span>
+        <span>
+            <strong><?= $abiertas ?> incidencia<?= $abiertas === 1 ? '' : 's' ?> de entrega abierta<?= $abiertas === 1 ? '' : 's' ?></strong>
+            <?php if ($motivosAbiertos) : ?>(<?= escaparValores(implode(' · ', array_keys($motivosAbiertos))) ?>)<?php endif; ?><?= $incidenciasCorreccion ? ' · alguna exige corregir la factura' : '' ?>.
+            Se resuelven en <a href="/admin/entregas-seguimiento/venta?id=<?= $id ?>#incidencias">Operación de esta venta</a>.
+        </span>
+    </p>
+<?php endif; ?>
+
 <?php
 /**
  * Facturación y cobro: la única sección de la venta para decir si ya se facturó, adjuntar el CFDI
  * y registrar si ya se pagó. El detalle del ingreso (Contabilidad) redirige aquí.
+ * Devoluciones, entregas e incidencias viven en el hub de Operación Comercial
+ * (botón «Operación de esta venta»): aquí queda el enlace y el aviso de las
+ * incidencias de entrega que siguen abiertas.
  */
 $ingresoVenta = \App\Contabilidad::ingresoDeVenta($id);
 if ($ingresoVenta) {
@@ -124,7 +153,10 @@ if ($ingresoVenta) {
 }
 ?>
 
-<?php template('devolucionesVenta', ['ventaId' => $id, 'registrada' => $cotizacion->estado === 'registrada']); ?>
+<p class="texto-sm mb-lg">
+    Entregas, incidencias, devoluciones y cambios de esta venta se gestionan en
+    <a href="/admin/entregas-seguimiento/venta?id=<?= $id ?>">Operación de esta venta</a>.
+</p>
 
 <div class="cotizador-detalle">
     <!-- Documento -->

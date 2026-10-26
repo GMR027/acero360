@@ -81,7 +81,16 @@ $filaTabla = static function (array $i) use ($conmutador): string {
         <td><?= escaparValores($i['empresa_nombre']) ?></td>
         <td class="tabla--numerica cifra"><?= formatoMoneda((float) $i['subtotal'] - (float) $i['descuento']) ?></td>
         <td class="tabla--numerica cifra"><?= formatoMoneda($i['iva']) ?></td>
-        <td class="tabla--numerica cifra"><strong><?= formatoMoneda($i['total']) ?></strong></td>
+        <td class="tabla--numerica cifra">
+            <strong><?= formatoMoneda($i['total']) ?></strong>
+            <?php
+            // Ingreso facturado con importe distinto a su venta (p. ej. tras
+            // sustituir la factura por un monto menor): en contabilidad manda la factura.
+            if ($i['estado'] === 'vigente' && isset($i['venta_total']) && $i['venta_total'] !== null
+                && \App\Contabilidad::centavos($i['total']) !== \App\Contabilidad::centavos($i['venta_total'])) : ?>
+                <br><span class="badge badge--pendiente" title="La venta <?= escaparValores($i['folio']) ?> es por <?= formatoMoneda((float) $i['venta_total']) ?>; la factura es la que se registra">≠ venta <?= formatoMoneda((float) $i['venta_total']) ?></span>
+            <?php endif; ?>
+        </td>
         <td class="tabla--centro"><div class="celda-estado"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span>
             <?php if ($i['estado'] === 'vigente') :
                 $facturada = $i['estado_facturacion'] === 'facturada';

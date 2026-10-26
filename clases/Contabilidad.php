@@ -27,6 +27,9 @@ class Contabilidad
     /** @var string[] Mensajes de la última operación. */
     protected static $errores = [];
 
+    /** Avisos no bloqueantes (p. ej. «la factura difiere de la venta»); se drenan con getAvisos(). */
+    protected static $avisos = [];
+
     /** Id del último cobro registrado (antes de la auditoría, que también inserta). */
     public static int $ultimoId = 0;
 
@@ -39,6 +42,22 @@ class Contabilidad
 
     public const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Cheque', 'Tarjeta', 'Otro'];
 
+    /**
+     * Tipo de comprobante del CFDI (c_TipoDeComprobante).
+     *
+     * Es el ÚNICO catálogo del «tipo de CFDI»: lo comparten el formulario de
+     * gasto y la facturación de una venta, para no repetir la lista en dos
+     * clases y que las dos se desincronicen (el error que ya se pagó con las
+     * reglas de categoría del gasto).
+     */
+    public const TIPOS_CFDI = [
+        'I' => 'I · Ingreso (factura normal)',
+        'E' => 'E · Egreso (nota de crédito)',
+        'N' => 'N · Nómina',
+        'P' => 'P · Pago (complemento de pagos)',
+        'T' => 'T · Traslado',
+    ];
+
     public static function setDB($database): void
     {
         self::$db = $database;
@@ -49,6 +68,14 @@ class Contabilidad
         $errores = self::$errores;
         self::$errores = [];
         return $errores;
+    }
+
+    /** Devuelve los avisos pendientes y los limpia (sólo se leen una vez). @return string[] */
+    public static function getAvisos(): array
+    {
+        $avisos = self::$avisos;
+        self::$avisos = [];
+        return $avisos;
     }
 
     /** Pesos → centavos enteros. */
@@ -225,10 +252,29 @@ class Contabilidad
                 $cambios[$campo] = [$ingreso[$campo], $venta[$campo]];
             }
         }
+
+        /* Montos fijados por la factura emitida: una venta YA facturada no los
+         * pisa desde aquí (la corrección se hace sustituyendo el CFDI desde el
+         * seguimiento de la venta). Si factura y venta quedaron con importes
+         * distintos, no se bloquea nada: se encola un aviso visible. */
+        $conFactura = !empty($ingreso['factura_documento_id'])
+            || ((string) $ingreso['estado_facturacion'] === 'facturada' && trim((string) ($ingreso['uuid_fiscal'] ?? '')) !== '');
+
+        $montosDivergen = false;
         foreach (['subtotal', 'descuento', 'iva', 'total'] as $campo) {
-            if (self::centavos($ingreso[$campo]) !== self::centavos($venta[$campo])) {
+            if (self::centavos($ingreso[$campo]) === self::centavos($venta[$campo])) {
+                continue;
+            }
+            $montosDivergen = true;
+            if (!$conFactura) {
                 $cambios[$campo] = [$ingreso[$campo], $venta[$campo]];
             }
+        }
+        if ($conFactura && $montosDivergen && $estado === 'vigente' && $ingreso['estado'] === 'vigente') {
+            self::$avisos[] = 'La factura de la venta ' . $venta['folio'] . ' quedó con importes distintos a los de la venta: '
+                . 'facturado $' . number_format((float) $ingreso['total'], 2)
+                . ' · venta $' . number_format((float) $venta['total'], 2)
+                . '. El ingreso conserva los de la factura: para cambiarlos, sustituye el CFDI desde el seguimiento de la venta.';
         }
         if ($ingreso['estado'] !== $estado) {
             $cambios['estado'] = [$ingreso['estado'], $estado];
@@ -256,16 +302,27 @@ class Contabilidad
             }
         }
 
-        $actualizar = self::$db->prepare(
-            'UPDATE ingresos SET contribuyente_id = ?, empresa_id = ?, cliente_id = ?, fecha = ?, folio = ?, concepto = ?,
-                    subtotal = ?, descuento = ?, iva = ?, total = ?, estado = ? WHERE id = ?'
-        );
         $id = (int) $ingreso['id'];
-        $actualizar->bind_param(
-            'iiissssssssi',
-            $contribuyente, $venta['empresa_id'], $venta['cliente_id'], $venta['fecha'], $venta['folio'], $concepto,
-            $venta['subtotal'], $venta['descuento'], $venta['iva'], $venta['total'], $estado, $id
+        $camposMontos = $conFactura ? '' : ', subtotal = ?, descuento = ?, iva = ?, total = ?';
+        $actualizar = self::$db->prepare(
+            'UPDATE ingresos SET contribuyente_id = ?, empresa_id = ?, cliente_id = ?, fecha = ?, folio = ?, concepto = ?'
+            . $camposMontos . ', estado = ? WHERE id = ?'
         );
+        $parametros = [
+            $contribuyente, $venta['empresa_id'], $venta['cliente_id'], $venta['fecha'], $venta['folio'], $concepto,
+        ];
+        $tipos = 'iiisss';
+        if (!$conFactura) {
+            $parametros[] = $venta['subtotal'];
+            $parametros[] = $venta['descuento'];
+            $parametros[] = $venta['iva'];
+            $parametros[] = $venta['total'];
+            $tipos .= 'ssss';
+        }
+        $parametros[] = $estado;
+        $parametros[] = $id;
+        $tipos .= 'si';
+        $actualizar->bind_param($tipos, ...$parametros);
         $actualizar->execute();
         $actualizar->close();
 
@@ -795,11 +852,13 @@ class Contabilidad
 
         $consulta = self::$db->prepare(
             "SELECT i.*, e.nombre AS empresa_nombre, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa, cl.alias AS cliente_alias,
+                    v.total AS venta_total,
                     (SELECT COALESCE(SUM(ROUND(c.importe * 100)), 0) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente') AS cobrado_centavos,
                     (SELECT COUNT(*) FROM documentos d WHERE d.entidad = 'ingreso' AND d.entidad_id = i.id AND d.activo = 1) AS documentos
                FROM ingresos i
                JOIN empresas e  ON e.id  = i.empresa_id
                JOIN clientes cl ON cl.id = i.cliente_id
+               LEFT JOIN ventas v ON v.id = i.venta_id
               WHERE $donde ORDER BY i.fecha DESC, i.id DESC LIMIT ? OFFSET ?"
         );
         $valores[] = $limite;

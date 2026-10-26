@@ -3,6 +3,8 @@
  * views/admin/entregas/ver.php — Muestra en una sola pantalla los pedidos elegidos: productos agrupados
  * (para alistar) y pedidos por cliente (para entregar). No guarda nada ni toca el inventario;
  * «Guardar esta vista» la conserva para abrirla después.
+ * «Registrar entrega» no registra aquí: lleva a /admin/entregas-seguimiento/venta, donde el modal
+ * del hub deja rastro (incidencias, devoluciones e historial) si algún producto llega a faltar.
  */
 
 soloAdmin();
@@ -28,7 +30,7 @@ template('header', [
     'rutaActiva' => '/admin/entregas',
     'acciones'   => '<a class="btn btn--secundario" href="/admin/entregas">Volver a elegir</a>' . $exportar,
 ]);
-template('vistaPreparacion', ['grupos' => $grupos, 'ventas' => $ventas, 'prepId' => 0]);
+template('vistaPreparacion', ['grupos' => $grupos, 'ventas' => $ventas, 'prepId' => 0, 'entregaHaciaSeguimiento' => true]);
 ?>
 
 <section class="tarjeta mt-lg">

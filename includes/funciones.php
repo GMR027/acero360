@@ -601,7 +601,7 @@ function modoMovil(): string
     if (strpos($ruta, '/admin') !== 0 || $ruta === '/admin/fiscal/configuracion') {
         return 'completo';
     }
-    if (preg_match('#^/admin/(inventario|cotizaciones|ventas|entregas|compras|proveedores|ajustes|usuarios|perfil|empresas|escritorio|ayuda|calendario)(/|$)#', $ruta)) {
+    if (preg_match('#^/admin/(inventario|cotizaciones|ventas|entregas|entregas-seguimiento|compras|proveedores|ajustes|usuarios|perfil|empresas|escritorio|ayuda|calendario)(/|$)#', $ruta)) {
         return 'completo';
     }
     if (preg_match('#/(crear|editar|recibir|devolucion|cambio|pdf|exportar|subir|baja)$#', $ruta)) {

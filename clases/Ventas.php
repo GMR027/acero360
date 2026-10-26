@@ -977,11 +977,17 @@ class Ventas
 
             if (!Contabilidad::sincronizarIngreso($id, $usuarioId)) {
                 self::$errores = array_merge(self::$errores, Contabilidad::getErrores());
+                Contabilidad::getAvisos();   // descarta avisos de la sincronía revertida
                 self::$db->rollBack();
                 return false;
             }
 
             self::$db->commit();
+
+            // Aviso no bloqueante: factura emitida con importes distintos a la venta.
+            foreach (Contabilidad::getAvisos() as $aviso) {
+                agregarAlerta('advertencia', $aviso);
+            }
             return true;
         } catch (\mysqli_sql_exception $excepcion) {
             self::$db->rollBack();

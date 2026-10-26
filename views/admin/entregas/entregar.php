@@ -4,6 +4,11 @@
  *
  * No toca el inventario (la salida ya ocurrió con la venta). El token de un
  * solo uso evita duplicar la entrega si se reenvía el formulario.
+ * Junto con las piezas se adjuntan (opcional) una o varias fotos del acta:
+ * el campo múltiple llega como $_FILES['fotos'] y Entregas::registrarEntrega
+ * las guarda con la entrega, o no se guarda nada.
+ * Si viene `volver=seguimiento` (modal del hub de Operación Comercial), al
+ * terminar se regresa al seguimiento de la venta en vez de la ruta de preparación.
  */
 
 soloAdmin();
@@ -16,7 +21,10 @@ if (!$venta) {
     paginaNoEncontrada();
 }
 
-$volver = $prepId ? '/admin/entregas/detalle?id=' . $prepId : '/admin/entregas/clientes';
+$alSeguimiento = (string) ($_GET['volver'] ?? $_POST['volver'] ?? '') === 'seguimiento';
+$volver = $alSeguimiento
+    ? '/admin/entregas-seguimiento/venta?id=' . $ventaId
+    : ($prepId ? '/admin/entregas/detalle?id=' . $prepId : '/admin/entregas/clientes');
 
 if ($venta->estado !== 'registrada') {
     redirigir($volver, 'error', 'Solo se entregan ventas registradas.');
@@ -24,17 +32,29 @@ if ($venta->estado !== 'registrada') {
 
 $errores = [];
 
+// PHP descartó el cuerpo entero por post_max_size: llega un POST sin campos
+// (ni el token). Se explica en vez de reabrir el formulario como si nada.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+    $errores[] = 'La carga superó el límite del servidor: las fotos juntas no pueden exceder '
+        . \App\Entregas::MAX_FOTOS_TOTAL_MB . ' MB. Reduce la cantidad o el tamaño e inténtalo de nuevo.';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     $piezas = [];
     foreach ((array) ($_POST['cantidad'] ?? []) as $productoId => $cantidad) {
         $piezas[(int) $productoId] = (int) $cantidad;
     }
 
+    // Una o varias fotos del acta: el campo múltiple llega como $_FILES['fotos'].
+    $fotos = \App\Archivos::listaDeSubidas($_FILES['fotos'] ?? null);
+
     if (\App\Entregas::registrarEntrega(
         $ventaId, $prepId, $piezas, (string) ($_POST['fecha'] ?? ''), (string) ($_POST['token'] ?? ''),
-        (string) ($_POST['notas'] ?? ''), (int) ($_SESSION['id'] ?? 0)
+        (string) ($_POST['notas'] ?? ''), (int) ($_SESSION['id'] ?? 0), $fotos
     )) {
-        redirigir($volver, 'exito', 'Entrega registrada. El inventario no cambió.');
+        $conFotos = \App\Entregas::$fotosGuardadas;
+        redirigir($volver, 'exito', 'Entrega registrada. El inventario no cambió.'
+            . ($conFotos ? ' Se guardaron ' . $conFotos . ' foto' . ($conFotos === 1 ? '' : 's') . ' del acta.' : ''));
     }
     $errores = \App\Entregas::getErrores();
 }
@@ -54,48 +74,15 @@ template('header', ['titulo' => 'Entrega · ' . $venta->folio, 'subtitulo' => $v
         </div>
     <?php endif; ?>
 
-    <form class="formulario" action="/admin/entregas/entregar" method="post" novalidate>
-        <input type="hidden" name="venta" value="<?= $ventaId ?>">
-        <input type="hidden" name="prep" value="<?= (int) $prepId ?>">
-        <input type="hidden" name="token" value="<?= $token ?>">
-
-        <div class="campo">
-            <label class="campo__etiqueta campo__etiqueta--obligatorio" for="fecha">Fecha de entrega</label>
-            <input class="control" type="date" id="fecha" name="fecha" required value="<?= date('Y-m-d') ?>">
-        </div>
-
-        <p class="campo__ayuda mb-md">Captura lo que realmente se entregó. Lo que quede en 0 sigue pendiente.</p>
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <thead><tr><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Vendido</th>
-                    <th scope="col" class="tabla--numerica">Ya entregado</th><th scope="col" class="tabla--numerica">Pendiente</th>
-                    <th scope="col" class="tabla--numerica">Entregar ahora</th></tr></thead>
-                <tbody>
-                    <?php foreach ($lineas as $l) : ?>
-                        <tr>
-                            <td><strong><?= escaparValores($l['nombre']) ?></strong>
-                                <span class="texto-xs texto-secundario"><br><?= escaparValores((string) $l['sku']) ?></span></td>
-                            <td class="tabla--numerica cifra"><?= $l['vendido'] ?></td>
-                            <td class="tabla--numerica cifra"><?= $l['entregado'] ?></td>
-                            <td class="tabla--numerica cifra"><?= $l['pendiente'] ?></td>
-                            <td><input class="control" type="number" min="0" max="<?= $l['pendiente'] ?>" step="1" inputmode="numeric"
-                                       name="cantidad[<?= (int) $l['producto_id'] ?>]" value="<?= $l['pendiente'] ?>"
-                                       <?= $l['pendiente'] === 0 ? 'disabled' : '' ?>
-                                       aria-label="Piezas entregadas de <?= escaparValores($l['nombre']) ?>"></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <div class="campo campo--completo mt-lg">
-            <label class="campo__etiqueta" for="notas">Notas de la entrega</label>
-            <input class="control" type="text" id="notas" name="notas" maxlength="255" placeholder="Quién recibió, observaciones…">
-        </div>
-        <div class="formulario__acciones">
-            <a class="btn btn--secundario" href="<?= escaparValores($volver) ?>">Cancelar</a>
-            <button class="btn btn--primario" type="submit">Confirmar entrega</button>
-        </div>
-    </form>
+    <?php template('formEntregaVenta', [
+        'ventaId'      => $ventaId,
+        'lineas'       => $lineas,
+        'token'        => $token,
+        'volver'       => $alSeguimiento ? 'seguimiento' : '',
+        'prepId'       => (int) ($prepId ?? 0),
+        'conAcciones'  => true,
+        'hrefCancelar' => $volver,
+    ]); ?>
 </section>
 
 <?php if ($historial) : ?>

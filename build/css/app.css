@@ -234,6 +234,14 @@
   box-sizing: border-box;
 }
 
+/* El atributo [hidden] debe ganar SIEMPRE al display del componente: sin esto,
+   .btn { display: inline-flex } (y otras reglas parecidas) anulan el
+   display:none que el navegador da a [hidden] y dejan botones "ocultos"
+   pero visibles y muertos en la pantalla. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   /* Tamaño base 16px: todas las medidas de la app están en rem. */
   font-size: 1rem;
@@ -1377,6 +1385,71 @@ select.control {
   line-height: 1;
 }
 
+/* --- Selector con búsqueda (combobox) ------------------------------------ */
+/* Envoltorio del input de búsqueda de selectorBusqueda.js: da posición a la
+   lista desplegable, que cuelga bajo el campo y por eso necesita quedar por
+   encima del resto del contenido de la página. */
+.selector-busqueda {
+  position: relative;
+}
+
+.selector-busqueda__lista {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: min(16rem, 45vh);
+  margin: 0;
+  padding: 0.25rem;
+  overflow-y: auto;
+  list-style: none;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 0.25rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+}
+
+.selector-busqueda__opcion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.125rem;
+  cursor: pointer;
+}
+.selector-busqueda__opcion--activa, .selector-busqueda__opcion:hover {
+  background-color: var(--color-primario-claro);
+}
+.selector-busqueda__opcion--elegida {
+  font-weight: 600;
+}
+.selector-busqueda__opcion--elegida .selector-busqueda__nombre::after {
+  content: " ✓";
+  color: var(--color-primario-texto);
+}
+.selector-busqueda__opcion--vacia {
+  color: var(--color-texto-secundario);
+  cursor: default;
+}
+.selector-busqueda__opcion--vacia:hover {
+  background-color: transparent;
+}
+
+.selector-busqueda__rfc {
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+  font-variant-numeric: tabular-nums;
+}
+
+.selector-busqueda__pie {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+  border-top: 1px solid var(--color-borde);
+  margin-top: 0.25rem;
+}
+
 /* --- Rejilla de campos ---------------------------------------------------- */
 /* Campo que ocupa el ancho completo dentro de una rejilla de formulario. */
 .campo--completo {
@@ -1647,6 +1720,11 @@ button.badge {
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 1rem;
+  /* Si la cabecera se parte en dos líneas, la acción se queda a la derecha
+     en lugar de colgarse debajo del título. */
+}
+.tarjeta__cabecera > .fila {
+  margin-left: auto;
 }
 .tarjeta__titulo {
   display: flex;
@@ -1692,7 +1770,7 @@ button.badge {
   }
 }
 .tarjeta {
-  /* Variante usada como enlace (accesos rápidos del panel). */
+  /* Variante usada cuando la tarjeta entera es el enlace. */
 }
 .tarjeta--enlace {
   text-decoration: none;
@@ -1809,6 +1887,22 @@ button.badge {
   list-style: none;
   margin: 0;
   padding: 0;
+  /* Fila con su acción directa al lado (PDF, seguimiento, atender): el enlace
+     de la fila abre el detalle y el botón va derecho a la acción. */
+}
+.actividad__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-top: 1px solid var(--color-borde);
+}
+.actividad__item .actividad__fila {
+  flex: 1;
+  min-width: 0;
+  border-top: 0;
+}
+.actividad__item .btn {
+  flex-shrink: 0;
 }
 .actividad__fila {
   display: flex;
@@ -3956,8 +4050,8 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 }
 /* ==========================================================================
    _entregas-seguimiento.scss — Módulo de seguimiento de entregas.
-   Bloques: resolución de incidencias (<details>), cierre resuelto y
-   línea de tiempo del historial de la entrega.
+   Bloques: resolución de incidencias (<details>), cierre resuelto,
+   galería de fotos del acta de entrega y línea de tiempo de la entrega.
    ========================================================================== */
 /* Bloque plegable con los formularios de cierre de una incidencia. */
 .seguimiento-resolucion {
@@ -3999,6 +4093,43 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   border-left: 3px solid var(--color-exito-borde);
   background-color: var(--color-exito-claro);
   border-radius: 0.125rem;
+}
+
+/* Fotos del acta de entrega: una fila de miniaturas por cada entrega. */
+.seguimiento-fotos {
+  /* Varias entregas seguidas quedan separadas sin margen al final. */
+}
+.seguimiento-fotos + .seguimiento-fotos {
+  margin-top: 1rem;
+}
+.seguimiento-fotos__lista {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.5rem;
+}
+.seguimiento-fotos__enlace {
+  display: block;
+  border-radius: 0.375rem;
+}
+.seguimiento-fotos__enlace:focus-visible {
+  outline: 2px solid var(--color-primario);
+  outline-offset: 2px;
+}
+.seguimiento-fotos__imagen {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+  transition: border-color 0.15s ease;
+}
+.seguimiento-fotos__imagen:hover {
+  border-color: var(--color-primario);
 }
 
 /* Línea de tiempo del historial de la venta. */
@@ -5113,6 +5244,10 @@ input:focus-visible ~ .interruptor__pista {
 
 .mt-lg {
   margin-top: 1.5rem;
+}
+
+.mb-sm {
+  margin-bottom: 0.5rem;
 }
 
 .mb-md {

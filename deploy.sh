@@ -59,7 +59,19 @@ fi
 # --- Sincronizar dump SQL con el chart --------------------------------------
 # El ConfigMap embebe files/dump-inicial.sql; si hay un dump nuevo en mysql/,
 # lo copiamos para que un PRIMER install futuro use los datos más recientes.
+# OJO: ese archivo está VERSIONADO, así que sólo se copia si el dump no
+# arrastra datos personales (RFC real, correo personal o foto de perfil).
 if [[ -f "$ROOT_DIR/mysql/dump-inicial.sql" ]]; then
+    rfcs_sospechosos=$(grep -ohE '[A-ZÑ&]{4}[0-9]{6}[A-Z0-9]{3}' "$ROOT_DIR/mysql/dump-inicial.sql" 2>/dev/null \
+        | sort -u | grep -vE '^(XAXX010101000|XEXX010101000|DEMO000101A01|AAA|QQ[A-Z]|ZZ[A-Z])' || true)
+    if [[ -n "$rfcs_sospechosos" ]] \
+        || grep -qE '@(gmail|hotmail|outlook|yahoo|icloud|live)\.' "$ROOT_DIR/mysql/dump-inicial.sql" \
+        || grep -qE 'perfil-[0-9a-f]{8,}\.(jpg|png)' "$ROOT_DIR/mysql/dump-inicial.sql"; then
+        rojo "El dump mysql/dump-inicial.sql parece contener datos personales:"
+        [[ -n "$rfcs_sospechosos" ]] && rojo "   RFCs: $(echo $rfcs_sospechosos)"
+        rojo "No se copia al chart. Sanéalo antes (ver scripts/verificar_publicacion.sh)."
+        exit 1
+    fi
     cp "$ROOT_DIR/mysql/dump-inicial.sql" "$CHART_DIR/files/dump-inicial.sql"
 fi
 

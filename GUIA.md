@@ -12,10 +12,10 @@ escritorio Linux (`.deb`). Una sola base de datos: web y escritorio ven siempre 
 | Módulo | Ruta | Qué hace |
 |---|---|---|
 | Cotizaciones | `/admin/cotizaciones` | Folio, precio especial por cliente (no altera el catálogo), descuentos por renglón y global, IVA y PDF |
-| Ventas | `/admin/ventas` | Una sola tabla de ventas: directas y cotizaciones vendidas (una cotización = una venta). Devoluciones |
+| Ventas | `/admin/ventas` | Una sola tabla de ventas: directas y cotizaciones vendidas (una cotización = una venta). Pestaña de Operación Comercial; devoluciones e incidencias viven en la hoja de seguimiento de la venta |
 | Inventario | `/admin/inventario` | Existencias únicas compartidas, alertas de mínimo, historial de movimientos, fotografías mensuales, exportación PDF/Excel/CSV |
 | Órdenes de compra | `/admin/compras` | Orden → recepciones parciales (suman solo lo recibido) → cierre con faltantes → reporte antes del pago |
-| Pantalla de entrega | `/admin/entregas` | Preparación de pedidos (productos agrupados) y entregas por cliente; no toca el inventario |
+| Operación Comercial | `/admin/entregas` | Sección única con 4 pestañas: Preparación de pedidos (productos agrupados), Entregas por cliente, Seguimiento de entregas y Ventas. La hoja por venta concentra entrega, incidencias, devoluciones y corrección de factura en ventanas modales |
 | Contabilidad | `/admin/contabilidad` | Ingresos automáticos, cobros, gastos (compartidos una sola vez), documentos PDF/imagen/XML, ZIP mensual, ventas sin facturar, cierre mensual |
 | Fiscal | `/admin/fiscal` | Catálogo de reglas versionado (ISR art. 106, IVA), motor por flujo de efectivo, retenciones, ajustes, pagos reales |
 | Estadísticas | `/admin/estadisticas` | Comparaciones entre años, tendencias, rankings, gráficas, exportación PDF/Excel/CSV |
@@ -36,6 +36,17 @@ php -S 127.0.0.1:8017 index.php                # servidor de desarrollo
 ```
 Las migraciones se registran en `schema_migraciones` y cada una corre **una sola vez**. Una base vacía no se migra (el script se niega).
 
+**Primer usuario administrador.** El esquema sembrado no incluye ninguna contraseña (ninguna credencial viaja en el repositorio). Crea la cuenta con una de estas dos formas:
+
+```bash
+# Opción A: defines tú la contraseña del usuario sembrado
+php -r "echo password_hash('TuContraseñaSegura', PASSWORD_BCRYPT), PHP_EOL;"
+mysql -uroot cotizaciones -e "UPDATE usuarios SET contrasena='<el hash>' WHERE email='admin@cotizaciones.local'"
+
+# Opción B: sin tocar la base — abre el registro, regístrate y ciérralo otra vez
+#   .env → REGISTRO_ABIERTO=1   →  /registro  →  .env → REGISTRO_ABIERTO=0
+```
+
 ## 3. Configuración
 
 | Variable | Para qué | Por defecto |
@@ -55,7 +66,7 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
 1. **Vender:** cotización → *Vendido* (o venta directa). El inventario baja una vez y se crea el ingreso contable solo.
 2. **Cobrar y facturar:** *Ventas → abrir la venta* → en «Facturación y cobro» (arriba) registras cada cobro y marcas la **facturación** (facturada / no facturada) — es un dato explícito. *Contabilidad → Ingresos* lleva a esa misma pantalla.
 3. **Comprar:** *Órdenes de compra* → registrar recepción (parcial o total) → cerrar → PDF «solicitado vs recibido».
-4. **Entregar:** *Pantalla de entrega* → marcar ventas → crear preparación → registrar entregas (parciales permitidas).
+4. **Entregar y seguir:** *Operación Comercial* → «Preparación de pedidos» para alistar; en la venta, «Operación de esta venta» abre su hoja con entregas, incidencias, devoluciones y la corrección de factura (todo en ventanas modales).
 5. **Gastos:** *Contabilidad → Egresos*; adjunta CFDI (XML) y comprobantes; marca como pagado lo que ya pagaste (sólo eso entra en la estimación fiscal; el CFDI es el respaldo para tu contador).
 6. **Cada mes:** *Cierre del mes* (verificaciones, reconocer avisos, cerrar). Un mes cerrado bloquea cambios; se reabre solo con contraseña y motivo.
 7. **Fotografía del inventario:** *Inventario → Fotografías mensuales* (o automática con `scripts/foto_inventario.php`).

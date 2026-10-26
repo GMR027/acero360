@@ -8,8 +8,11 @@
 
 # Despliegue (secretos y estado local)
 /helm/cotizaciones/values.local.yaml
-/mysql/dump-inicial.sql
 .deploy-tag
+
+# Fotos de perfil subidas por los usuarios (datos personales; el avatar
+# genérico perfilSinfoto.jpg sí se versiona)
+/public/image/perfil-*.jpg
 
 # Aplicación de escritorio (Electron): dependencias y paquetes generados
 /desktop/node_modules/

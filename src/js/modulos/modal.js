@@ -118,8 +118,9 @@ function abrirModal(opciones) {
   modal.hidden = false;
   document.body.style.overflow = 'hidden';
 
-  // Coloca el foco en el primer control interactivo del diálogo.
-  const primerControl = modal.querySelector('button, [href], input, select, textarea');
+  // Coloca el foco en el primer control interactivo del diálogo (los inputs
+  // ocultos no reciben foco: se ignoran para que el foco no quede perdido).
+  const primerControl = modal.querySelector('button, [href], input:not([type="hidden"]), select, textarea');
   if (primerControl) {
     primerControl.focus();
   }

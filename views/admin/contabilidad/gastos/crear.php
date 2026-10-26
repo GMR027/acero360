@@ -67,11 +67,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null) {
             'forma_pago_sat'     => $propuesta['forma_pago'],
             'metodo_pago_sat'    => $propuesta['metodo_pago'],
             'metodo_pago'        => $formaSata[substr($propuesta['forma_pago'], 0, 2)] ?? '',
+            /* Los cuatro datos del CFDI van juntos y se autocompletan aunque no se haya
+             * reconocido al proveedor ni a un producto: son datos del comprobante. */
+            'uso_cfdi'           => in_array($propuesta['uso_cfdi'] ?? '', array_keys(\App\Gastos::USOS_CFDI), true) ? $propuesta['uso_cfdi'] : '',
+            'tipo_cfdi'          => in_array($propuesta['tipo_cfdi'] ?? '', array_keys(\App\Contabilidad::TIPOS_CFDI), true) ? $propuesta['tipo_cfdi'] : '',
             'naturaleza'         => 'compra',
             'revision_fiscal'    => 'por_validar',
             'empresa_id'         => $propuesta['empresa'] ? (int) $propuesta['empresa']['id'] : 0,
         ]);
     }
+}
+
+/* Regreso desde el alta rápida de un proveedor (botón «Regístralo» del propio
+ * formulario): el proveedor recién creado queda YA elegido en «Pagado a» y el
+ * resto de lo que se venía capturando lo restaura src/js/modulos/gastoProveedor.js
+ * con el borrador que guardó en sessionStorage antes de salir. */
+$proveedorNuevo = (int) ($_REQUEST['proveedor'] ?? 0);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $proveedorNuevo > 0 && \App\Proveedores::buscarID($proveedorNuevo) !== null) {
+    $gasto['beneficiario_tipo'] = 'proveedor';
+    $gasto['proveedor_id']      = $proveedorNuevo;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
@@ -130,6 +144,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
             if (trim((string) ($datos['uso_cfdi'] ?? '')) === '' && isset(\App\Gastos::USOS_CFDI[(string) ($x['uso_cfdi'] ?? '')])) {
                 $datos['uso_cfdi'] = $x['uso_cfdi'];
             }
+            // Forma de pago y tipo de comprobante: lo mismo, los otros dos datos del CFDI.
+            if (trim((string) ($datos['forma_pago_sat'] ?? '')) === '' && isset(\App\VentasFiscal::FORMAS_PAGO[(string) ($x['forma_pago'] ?? '')])) {
+                $datos['forma_pago_sat'] = $x['forma_pago'];
+            }
+            if (trim((string) ($datos['tipo_cfdi'] ?? '')) === '' && isset(\App\Contabilidad::TIPOS_CFDI[(string) ($x['tipo'] ?? '')])) {
+                $datos['tipo_cfdi'] = $x['tipo'];
+            }
             break;
         }
     }
@@ -166,6 +187,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 }
 
 template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
+
+/* Proveedor elegido en «Pagado a»: con él se ofrece, en la lista de «Conceptos sin
+ * producto equivalente», agregar cada renglón directo a SU catálogo (es lo que hace
+ * que la próxima lectura de una factura suya ya reconozca esos conceptos). Sólo si
+ * está activo: un proveedor desactivado no admite productos nuevos. */
+$proveedorElegido = 0;
+$proveedorNombre  = '';
+if (($gasto['beneficiario_tipo'] ?? '') === 'proveedor' && (int) ($gasto['proveedor_id'] ?? 0) > 0) {
+    $filaProveedor = \App\Proveedores::buscarID((int) $gasto['proveedor_id']);
+    if ($filaProveedor && (int) $filaProveedor->activo === 1) {
+        $proveedorElegido = (int) $filaProveedor->id;
+        $proveedorNombre  = (string) $filaProveedor->nombre;
+    }
+}
 ?>
 
 <section class="tarjeta">
@@ -192,7 +227,10 @@ template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'r
              data-origen="Registro compra inteligente"></div>
     <?php endif; ?>
     <?php if ($propuesta) : ?>
-        <?php template('avisoLectura', ['propuesta' => $propuesta, 'nombreDoc' => 'gasto']); ?>
+        <?php template('avisoLectura', [
+            'propuesta' => $propuesta, 'nombreDoc' => 'gasto',
+            'proveedorId' => $proveedorElegido, 'proveedorNombre' => $proveedorNombre,
+        ]); ?>
         <?php /* Distingue los tres tiempos del documento: la fecha del CFDI es de EMISIÓN,
                  no de pago; el pago lo captura quien sepa cuándo salió el dinero. */ ?>
         <div class="nota mb-lg" role="note">
@@ -206,12 +244,14 @@ template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'r
             </span>
         </div>
     <?php endif; ?>
-    <form class="formulario" action="/admin/contabilidad/gastos/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post" enctype="multipart/form-data" novalidate>
+    <form class="formulario" id="form-gasto" action="/admin/contabilidad/gastos/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
         <?php template('formularioGasto', [
             'gasto' => $gasto, 'errores' => $errores, 'proveedores' => \App\Proveedores::paraSelector(),
             'categorias' => \App\Gastos::categorias(), 'empresas' => \App\Empresas::mostrarTodos(100, 0),
             'cancelar' => '/admin/contabilidad/gastos', 'permiteArchivos' => true,
+            // Sólo aquí (y no en la edición) se ofrece registrar un proveedor que aún no existe.
+            'permiteAltaProveedor' => true,
             'reglasCategoria' => \App\CoincidenciasFactura::REGLAS_CATEGORIA,
         ]); ?>
     </form>

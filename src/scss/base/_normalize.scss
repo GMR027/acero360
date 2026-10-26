@@ -12,6 +12,14 @@
   box-sizing: border-box;
 }
 
+/* El atributo [hidden] debe ganar SIEMPRE al display del componente: sin esto,
+   .btn { display: inline-flex } (y otras reglas parecidas) anulan el
+   display:none que el navegador da a [hidden] y dejan botones "ocultos"
+   pero visibles y muertos en la pantalla. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   /* Tamaño base 16px: todas las medidas de la app están en rem. */
   font-size: $fuente-base;

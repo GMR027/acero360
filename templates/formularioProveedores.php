@@ -9,10 +9,13 @@
  * Variables esperadas:
  *   $proveedor — instancia de App\Proveedores (nueva o existente)
  *   $errores   — array de mensajes de validación del servidor
+ *   $cancelar  — (opcional) adónde va «Cancelar»; por defecto el directorio.
+ *                Se usa para volver al formulario que originó el alta.
  */
 
 $proveedor = $proveedor ?? new \App\Proveedores();
 $errores   = $errores ?? [];
+$cancelar  = $cancelar ?? '/admin/proveedores';
 
 /** Primer mensaje de error que menciona un campo concreto. */
 $errorDeCampo = static function (string $clave) use ($errores): string {
@@ -123,6 +126,6 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
 </fieldset>
 
 <div class="formulario__acciones">
-    <a class="btn btn--secundario" href="/admin/proveedores">Cancelar</a>
+    <a class="btn btn--secundario" href="<?= escaparValores($cancelar) ?>">Cancelar</a>
     <button class="btn btn--primario" type="submit">Guardar proveedor</button>
 </div>

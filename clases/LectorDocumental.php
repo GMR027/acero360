@@ -31,6 +31,8 @@ class LectorDocumental
         'moneda'          => 'Moneda',
         'forma_pago'      => 'Forma de pago',
         'metodo_pago'     => 'Método de pago',
+        'uso_cfdi'        => 'Uso del CFDI',
+        'tipo_cfdi'       => 'Tipo de comprobante',
     ];
 
     private const TIEMPO_MAXIMO = 40;
@@ -130,6 +132,8 @@ class LectorDocumental
             'moneda'          => $alta((string) $d['moneda']),
             'forma_pago'      => $alta((string) $d['forma_pago']),
             'metodo_pago'     => $alta((string) $d['metodo_pago']),
+            'uso_cfdi'        => $alta((string) $d['uso_cfdi']),
+            'tipo_cfdi'       => $alta((string) $d['tipo']),
         ];
         $resultado['conceptos'] = $d['conceptos'];
         if ($d['tipo'] !== '' && $d['tipo'] !== 'I') {
@@ -235,6 +239,19 @@ class LectorDocumental
             $metodo = $m[1];
         }
 
+        /* Los cuatro datos del CFDI (método, forma, uso y tipo de comprobante) se leen
+         * AQUÍ, aparte del cotejo contra la plataforma: son datos del comprobante, así
+         * que llegan al formulario aunque no se reconozca ni al cliente ni un producto.
+         * En un PDF salen con la confianza del resto del texto («media» o «baja»). */
+        $usoCfdi = '';
+        if (preg_match('/\buso\s*(?:del\s*)?cfdi\b[^\n]{0,40}?([A-Z][0-9A-Z]{2,3})\b/iu', $texto, $m)) {
+            $usoCfdi = strtoupper($m[1]);
+        }
+        $tipoCfdi = '';
+        if (preg_match('/\btipo\s*(?:de\s*)?(?:comprobante|cfdi)\b\s*[:\-]?\s*([^\n]{1,30})/iu', $texto, $m)) {
+            $tipoCfdi = self::tipoDesdeTexto($m[1]);
+        }
+
         return [
             'folio_comercial' => $campo($folio, $media),
             'uuid'            => $campo($uuid, $ocr ? 'baja' : 'alta'),
@@ -250,7 +267,30 @@ class LectorDocumental
             'moneda'          => $campo($moneda, $media),
             'forma_pago'      => $campo($forma, $media),
             'metodo_pago'     => $campo($metodo, $media),
+            'uso_cfdi'        => $campo($usoCfdi, $media),
+            'tipo_cfdi'       => $campo($tipoCfdi, $media),
         ];
+    }
+
+    /**
+     * Tipo de comprobante escrito en un PDF («Tipo de comprobante: Ingreso»).
+     *
+     * Acepta la clave suelta del SAT (I, E, N, P, T) o su nombre en español, con
+     * o sin acento; si no se reconoce devuelve '' y el campo queda vacío en vez
+     * de adivinar.
+     */
+    private static function tipoDesdeTexto(string $texto): string
+    {
+        $partes = preg_split('/[\s:;,.()]+/u', trim($texto)) ?: [''];
+        $primera = mb_strtolower((string) $partes[0], 'UTF-8');
+        if (preg_match('/^[a-z]$/', $primera) === 1) {
+            return strtoupper($primera);
+        }
+
+        $mapa = ['ingreso' => 'I', 'egreso' => 'E', 'nomina' => 'N', 'pago' => 'P', 'traslado' => 'T'];
+        $llana = strtr($primera, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n']);
+
+        return $mapa[$llana] ?? '';
     }
 
     /**
@@ -328,7 +368,7 @@ class LectorDocumental
             // Los PDF alinean las columnas con espacios: lo que sigue a la segunda
             // tanda de espacios ya pertenece a la columna de al lado.
             $valor = trim((string) preg_replace('/\s{2,}.*/u', '', $valor));
-            // «Nombre: GRUPO DEMO» conserva su etiqueta cuando viene de una línea suelta.
+            // «Nombre: EMPRESA DEMO» conserva su etiqueta cuando viene de una línea suelta.
             $valor = trim((string) preg_replace('/^(nombre|razón social|razon social)\s*[:\-]\s*/iu', '', $valor));
             if (mb_strlen($valor) < 3 || preg_match('/\b[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}\b/', $valor) || preg_match('/^\d+$/', $valor)) {
                 continue;

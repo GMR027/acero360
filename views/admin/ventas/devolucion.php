@@ -2,9 +2,14 @@
 /**
  * views/admin/ventas/devolucion.php — Devolución de piezas de una venta.
  *
- * Las piezas regresan al inventario (movimiento «devolucion» ligado a la
- * venta). No se pueden devolver más piezas de las vendidas. La venta y su
- * importe NO cambian aquí: el ajuste económico se maneja en contabilidad.
+ * La devolución es una NOTIFICACIÓN: queda anotada en la venta (ajusta el
+ * pendiente de entrega y lo que se le debe al cliente) pero NO modifica el
+ * inventario. Si lo que faltó en la entrega fue el producto, eso se reporta
+ * desde el seguimiento con el motivo «Producto faltante», que sí corrige
+ * inventario y factura.
+ *
+ * Si viene `volver=seguimiento` (modal del hub de Operación Comercial), al
+ * terminar se regresa al seguimiento de la venta.
  */
 
 soloAdmin();
@@ -15,8 +20,14 @@ $venta = \App\Ventas::buscarID($id);
 if (!$venta) {
     paginaNoEncontrada();
 }
+
+$alSeguimiento = (string) ($_GET['volver'] ?? $_POST['volver'] ?? '') === 'seguimiento';
+$volver = $alSeguimiento
+    ? '/admin/entregas-seguimiento/venta?id=' . $id
+    : '/admin/ventas/detalle?id=' . $id;
+
 if ($venta->estado !== 'registrada') {
-    redirigir('/admin/ventas/detalle?id=' . $id, 'error', 'Solo se pueden devolver piezas de una venta registrada.');
+    redirigir($volver, 'error', 'Solo se pueden devolver piezas de una venta registrada.');
 }
 
 $errores = [];
@@ -32,12 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 
     // Un solo envío por formulario: recargar o hacer doble clic no registra la devolución otra vez.
     if (!consumirToken($_POST['token'] ?? null)) {
-        redirigir('/admin/ventas/detalle?id=' . $id, 'error', 'Este formulario ya se envió; la devolución no se registró dos veces.');
+        redirigir($volver, 'error', 'Este formulario ya se envió; la devolución no se registró dos veces.');
     }
 
     if (\App\Inventario::registrarDevolucion($id, $items, $fecha, (string) ($_POST['nota'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {
         $debe = array_sum(array_column(\App\Inventario::cambiosPendientes($id), 'pendiente'));
-        redirigir('/admin/ventas/detalle?id=' . $id, 'exito', 'Devolución registrada: las piezas regresaron al inventario.'
+        redirigir($volver, 'exito', 'Devolución registrada (sólo notificación: el inventario no cambia).'
             . ($debe > 0 ? " Quedan $debe pieza(s) de cambio por entregar al cliente." : ''));
     }
     $errores = \App\Inventario::getErrores();
@@ -46,16 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 $devolvibles = \App\Inventario::devolvibles($id);
 $detalles    = \App\Ventas::detalles($id);
 
-$vistos = [];
 template('header', ['titulo' => 'Devolución · ' . $venta->folio, 'subtitulo' => 'Devoluciones y cambios', 'rutaActiva' => '/admin/ventas']);
 ?>
 
 <section class="tarjeta">
     <p class="nota nota--advertencia mb-lg" role="status">
         <span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
-        <span>Las piezas devueltas <strong>suman al inventario</strong> al registrar la devolución. Si alguna debe cambiarse, queda anotada
-            como «se deben» en la venta y se descuenta del inventario cuando marques que el cambio ya se entregó.
-            Si devuelves piezas que aún no se habían entregado, dejan de estar pendientes de entrega; el resto se sigue entregando.</span>
+        <span>La devolución <strong>no mueve el inventario</strong>: sólo queda anotada en la venta (ajusta el pendiente
+            de entrega y deja constancia de lo que se le debe al cliente). Si el producto faltó en la entrega, repórtalo
+            desde el <a href="/admin/entregas-seguimiento/venta?id=<?= $id ?>">seguimiento de la venta</a> con el motivo
+            «Producto faltante»: ese sí corrige inventario y factura.</span>
     </p>
     <?php if ($errores) : ?>
         <div class="nota nota--error mb-lg" role="alert">
@@ -64,51 +75,16 @@ template('header', ['titulo' => 'Devolución · ' . $venta->folio, 'subtitulo' =
         </div>
     <?php endif; ?>
 
-    <form class="formulario" action="/admin/ventas/devolucion" method="post" novalidate>
-        <input type="hidden" name="id" value="<?= $id ?>">
-        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <thead><tr>
-                    <th scope="col">Producto</th>
-                    <th scope="col" class="tabla--numerica">Vendido</th>
-                    <th scope="col" class="tabla--numerica">Ya devuelto</th>
-                    <th scope="col" class="tabla--numerica">Cantidad devuelta</th>
-                    <th scope="col" class="tabla--numerica">De esas, requieren cambio</th>
-                </tr></thead>
-                <tbody>
-                    <?php foreach ($detalles as $d) :
-                        $pid = (int) $d['producto_id'];
-                        if (isset($vistos[$pid])) { continue; }
-                        $vistos[$pid] = true;
-                        $inf = $devolvibles[$pid] ?? ['vendido' => 0, 'devuelto' => 0, 'disponible' => 0]; ?>
-                        <tr>
-                            <td><strong><?= escaparValores($d['producto_nombre']) ?></strong></td>
-                            <td class="tabla--numerica cifra"><?= $inf['vendido'] ?></td>
-                            <td class="tabla--numerica cifra"><?= $inf['devuelto'] ?></td>
-                            <td><input class="control" type="number" min="0" max="<?= $inf['disponible'] ?>" step="1" value="0"
-                                       name="cantidad[<?= $pid ?>]" <?= $inf['disponible'] === 0 ? 'disabled' : '' ?>
-                                       aria-label="Piezas devueltas de <?= escaparValores($d['producto_nombre']) ?>"></td>
-                            <td><input class="control" type="number" min="0" max="<?= $inf['disponible'] ?>" step="1" value="0"
-                                       name="cambio[<?= $pid ?>]" <?= $inf['disponible'] === 0 ? 'disabled' : '' ?>
-                                       aria-label="Piezas que requieren cambio de <?= escaparValores($d['producto_nombre']) ?>"></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <div class="formulario__rejilla mt-lg">
-            <div class="campo"><label class="campo__etiqueta" for="fecha">Fecha del registro</label>
-                <input class="control" type="date" id="fecha" name="fecha" max="<?= $hoy ?>" value="<?= escaparValores($fecha) ?>" required></div>
-            <div class="campo"><label class="campo__etiqueta" for="nota">Nota (opcional)</label>
-                <input class="control" type="text" id="nota" name="nota" maxlength="200" value="<?= escaparValores((string) ($_POST['nota'] ?? '')) ?>"></div>
-        </div>
-        <p class="campo__ayuda">Registra: <?= escaparValores($_SESSION['nombre'] ?? 'tu usuario') ?> · venta <?= escaparValores($venta->folio) ?><?= $venta->cotizacion_id ? ' (vino de una cotización)' : '' ?>.</p>
-        <div class="formulario__acciones">
-            <a class="btn btn--secundario" href="/admin/ventas/detalle?id=<?= $id ?>">Cancelar</a>
-            <button class="btn btn--primario" type="submit" data-un-envio>Registrar devolución</button>
-        </div>
-    </form>
+    <?php template('formDevolucionVenta', [
+        'ventaId'     => $id,
+        'devolvibles' => $devolvibles,
+        'detalles'    => $detalles,
+        'token'       => tokenFormulario(),
+        'volver'      => $alSeguimiento ? 'seguimiento' : '',
+        'fecha'       => $fecha,
+        'conAcciones' => true,
+        'hrefCancelar' => $volver,
+    ]); ?>
 </section>
 
 <script>

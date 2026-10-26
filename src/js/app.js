@@ -282,6 +282,19 @@ function inicializarAplicacion() {
   // 9. Campos de contraseña con botón para mostrar lo que se escribió.
   prepararBotonesVerContrasena();
 
+  // 10. Selectores largos (p. ej. el cliente del cotizador) como búsqueda por texto.
+  prepararSelectoresBusqueda();
+
+  // 11. Modales del hub de Operación Comercial (entrega, incidencia, devolución).
+  prepararOperacionComercial();
+
+  // 12. «Pagado a → Proveedor» del gasto: RFC del elegido, alta rápida que
+  //     vuelve con el formulario precargado (va después del buscador de arriba).
+  prepararGastoProveedor();
+
+  // 13. Subida de facturas y comprobantes desde la ventana modal.
+  prepararArchivosModal();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

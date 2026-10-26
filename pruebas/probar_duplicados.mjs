@@ -22,8 +22,8 @@
  */
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync, mkdtempSync, rmSync, unlinkSync, readdirSync, existsSync } from 'node:fs';
+import { tmpdir, homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -200,7 +200,13 @@ try {
 
   await login(pagina);
 
-  await subir(pagina, '/home/edgar/Descargas/gastos/factura_prueba.pdf');
+  // El PDF se localiza en la carpeta de descargas buscando por folio: en el
+  // código no se escribe la ruta con el RFC del proveedor (dato de terceros).
+  const dirDescargas = join(homedir(), 'Descargas', 'gastos');
+  const pdfDuplicado = existsSync(dirDescargas)
+    ? readdirSync(dirDescargas).find((nombre) => nombre.endsWith('.pdf') && nombre.includes('21324'))
+    : undefined;
+  await subir(pagina, join(dirDescargas, pdfDuplicado ?? 'no-existe.pdf'));
   await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 20000 });
 
   const titulo = (await pagina.locator('#modal-titulo').textContent()).trim();

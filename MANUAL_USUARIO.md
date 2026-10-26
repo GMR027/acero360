@@ -7,7 +7,7 @@
 1. Empezar
 2. Clientes y productos
 3. Cotizaciones
-4. Ventas y entregas
+4. Operación Comercial
 5. Inventario
 6. Compras y proveedores
 7. Anotar un gasto y subir su factura
@@ -41,14 +41,17 @@ Acero 360 sirve para cotizar, vender, entregar, llevar tus gastos y saber más o
 
 ### El panel
 
-1. Arriba están los indicadores del periodo: ventas, cotizaciones, por cobrar, por facturar, entregas, devoluciones, gastos y avisos; cada tarjeta abre los registros que la forman.
-2. Debajo, «Productos más vendidos» trae los 4 que más vendiste en el mes, con su código, su foto y el importe de venta; «Productos con existencias bajas» avisa cuáles están agotados, con existencia negativa o por debajo de su mínimo (los más urgentes primero). El número de la existencia sale en rojo cuando ya no queda nada y en naranja cuando quedan pocas.
-3. Cada tarjeta de producto abre su ficha, y las de existencias te llevan al inventario con el producto listo para ajustarlo.
+1. Arriba están «Ventas por negocio»: cada tarjeta trae las ventas que se hicieron en el periodo, con su IVA y con cuántas ventas, y «Ver ventas» abre ese listado.
+2. Debajo va «Impuestos», con el preliminar del periodo y los impuestos por pagar en la misma tarjeta; «Ver preliminar» abre el desglose mes por mes.
+3. «Pendientes de atender» junta las cuatro listas del día: ventas por cobrar o por facturar (con el nombre o alias del cliente y el importe con IVA), gastos por pagar (con su nombre y su importe con IVA), ventas por entregar (con su botón de «Seguimiento») y incidencias de logística o entrega (con su botón de «Atender»).
+4. «Productos más vendidos» trae los 4 que más vendiste en el mes, con su código, su foto y el importe de venta; «Productos con existencias bajas» avisa cuáles están agotados, con existencia negativa o por debajo de su mínimo (los más urgentes primero). El número de la existencia sale en rojo cuando ya no queda nada y en naranja cuando quedan pocas.
+5. «Últimos documentos» lista las últimas 5 cotizaciones y las últimas 5 ventas, cada una con su botón de PDF; y al final «Indicadores del periodo» resume ventas, cotizaciones, cobros, facturación, entregas, devoluciones, gastos y avisos, cada uno abriendo los registros que lo forman.
+6. Cada tarjeta de producto abre su ficha, y las de existencias te llevan al inventario con el producto listo para ajustarlo.
 
 ### Moverte por el menú
 
 1. «Nueva cotización», «Histórico», «Clientes» y «Productos» son lo de todos los días.
-2. Debajo de la línea están Ventas, Pantalla de entrega, Contabilidad, Impuestos, Inventario y Compras y proveedores (un solo apartado).
+2. Debajo de la línea están Operación Comercial, Contabilidad, Impuestos, Inventario y Compras y proveedores (un solo apartado). Operación Comercial reúne en un solo lugar la preparación de pedidos, el seguimiento de entregas y las ventas (pestañas arriba).
 
 ### Burbujas de ayuda
 
@@ -100,47 +103,36 @@ Una cotización es el precio que le das a un cliente antes de que compre.
 
 ---
 
-## 4. Ventas y entregas
+## 4. Operación Comercial
 
-Las ventas vienen de una cotización vendida, o las anotas directamente si el cliente compró sin cotización.
+Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene cuatro pestañas —Preparación de pedidos, Entregas por cliente, Seguimiento de entregas y Ventas— y cada venta tiene su propia hoja de seguimiento.
 
 ### Anotar una venta directa
 
-1. Ventas → «Nueva venta». Elige negocio, cliente, fecha y los productos.
+1. Operación Comercial → pestaña «Ventas» → «Nueva venta». Elige negocio, cliente, fecha y los productos (el cliente se busca escribiendo: nombre, empresa, alias o RFC).
 2. Al guardar se descuenta el inventario y nace el ingreso en Contabilidad.
 
 ### Ver lo que hay que entregar
 
-1. Pantalla de entrega → marca los pedidos que quieras (o «seleccionar todas») y pulsa «Mostrar en pantalla».
+1. Pestaña «Preparación de pedidos» → marca los pedidos que quieras (o «seleccionar todas») y pulsa «Mostrar en pantalla».
 2. Verás juntos los productos agrupados (por ejemplo 5 + 2 = 7 piezas del mismo producto) y los pedidos por cliente. No hay fases que controlar: es solo para ver y alistar.
 3. Si quieres volver a abrir esa selección, «Guardar esta vista»; aparece en «Vistas guardadas».
 
 ### Registrar una entrega
 
-1. En la lista de pedidos pulsa «Registrar entrega», escribe cuántas piezas entregaste (puede ser parcial) y confirma.
-2. Si el cliente devuelve algo, la venta se cierra como devuelta pero el ingreso se conserva.
+1. Desde la hoja de seguimiento de la venta pulsa «Registrar entrega» (se abre en ventana modal): escribe cuántas piezas entregaste, puede ser parcial, y confirma. Lo que quede en cero sigue pendiente.
+2. Si quieres dejar constancia, adjunta una o varias FOTOS DEL ACTA (JPG, PNG o WebP, hasta 6 MB cada una y un máximo de 8): se guardan con la entrega y se ven en la hoja de seguimiento, en la sección «Fotos de la entrega», donde se abren a tamaño completo.
 
-### Dar seguimiento a una entrega
+### Seguir una venta (incidencias y devoluciones)
 
-1. Menú «Seguimiento de entregas» (también como pestaña dentro de la pantalla de entrega): lista cada venta con su estado general —*Pendiente de entregar*, *Entregado*, *Entregado con incidencias pendientes* o *Entregado · incidencias resueltas*— con filtros por estado, texto y negocio.
-2. Al abrir una venta ves: la fecha de entrega y sus observaciones (se guardan ahí mismo, con «Guardar seguimiento»), los productos **vendidos vs. entregados vs. afectados por incidencias**, sus incidencias, las devoluciones y cambios, la facturación y el historial completo de todo lo que pasó (entregas, devoluciones, cambios y correcciones de factura).
-
-### Registrar una incidencia de entrega
-
-1. En el seguimiento de la venta, «Registrar incidencia». Elige el motivo: **producto faltante, producto dañado o defectuoso, producto incompleto, cambio o sustitución o devolución**, y escribe cuántas piezas de cada producto afecta.
-2. Al guardar, esas piezas **regresan al inventario** y dejan de estar pendientes de entrega si nunca se entregaron: la venta no cambia de importe ni se toca su factura todavía.
-3. Si el cliente debe recibir un reemplazo, márcalo como «requiere cambio» (en «Cambio o sustitución» se marca solo): queda como cambio pendiente y se descuenta del inventario cuando lo entregues con «Marcar cambio entregado» en el detalle de la venta.
-
-### Corregir la factura de la entrega
-
-1. Al registrar la incidencia, marca «hay que cancelar la factura y subir la correcta» (solo aparece si la venta ya está facturada).
-2. Al resolver la incidencia, adjunta la factura correcta en **PDF y XML**: los documentos anteriores quedan dados de baja y el ingreso en Contabilidad toma folio, UUID, fecha, subtotal, IVA y total del XML nuevo (si el periodo contable está cerrado, te lo avisa).
-3. Los cobros ya registrados no cambian: si quedaron por encima del nuevo total, la pantalla te avisa con enlace a los cobros de la venta para que los ajustes.
+1. En el detalle de la venta, «Operación de esta venta» abre su hoja: estado, productos vendido vs. entregado, incidencias, facturación, devoluciones e historial — todo en un lugar.
+2. «Producto faltante» o «incompleto» (p. ej. se vendieron 10 y se entregaron 8): las piezas que faltan REGRESAN AL INVENTARIO y, si ya hay factura, hay que cancelarla y subir la correcta sólo por lo entregado.
+3. «Producto dañado», «cambio» o «devolución»: sólo quedan notificados, NO mueven el inventario; el sistema lleva la cuenta de lo que se le debe al cliente y lo marca como entregado cuando lo entregues.
+4. Si hay que corregir la factura, se hace desde la misma incidencia: se dan de baja los documentos actuales y los nuevos traen folio, UUID, fecha y montos a contabilidad (si el cobrado quedó de más, se avisa).
 
 > **Consejos**
 > - Se puede vender aunque el inventario esté en cero: queda en negativo y se corrige al recibir mercancía.
-> - Mientras haya una incidencia abierta, la venta aparece como *Entregado con incidencias pendientes* y sale un aviso en el Centro de seguimiento; al resolverla o cancelarla el estado se actualiza solo.
-> - La fecha de entrega y las observaciones no son fiscales: sirven para acordar y recordar qué se prometió al cliente.
+> - La factura manda en contabilidad: si la venta y la factura quedaron con importes distintos, la hoja de seguimiento y el listado de ingresos lo marcan.
 
 ---
 
@@ -176,6 +168,7 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 2. No se repiten nombre ni código dentro del mismo proveedor. No se borran: «Desactivar» deja de ofrecerlos en compras nuevas y se conservan en el historial (puedes reactivarlos).
 3. Opcional: en la ficha del producto, «Relacionar» con tus productos propios, para saber qué semiterminado de qué proveedor se usa en cada uno (también se ve desde la edición del producto propio). Son cosas distintas: cada uno conserva su código y costo.
 4. Cambiar el costo del catálogo no altera compras anteriores y queda en la bitácora.
+5. Se puede llenar desde una factura: en «Compras inteligentes» (y en el formulario de gasto), la lista «Conceptos sin producto equivalente» trae el botón «Agregar al proveedor» y da de alta el renglón ahí mismo con el precio del documento.
 
 ### Comprar producto semiterminado para vender
 
@@ -239,18 +232,31 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 2. ¿En qué fue? · ¿A quién le pagaste? · ¿Cuándo fue? · ¿Cuánto pagaste en total (con IVA incluido)? · ¿Ya lo pagaste? · ¿Te dieron factura?
 3. La plataforma separa sola el subtotal y el IVA. Si no tiene IVA, elige «No tiene IVA».
 
+### ¿A quién le pagaste? (proveedores)
+
+1. En «Pagado a» elige «Proveedor» y escribe en el campo de búsqueda: filtra tu directorio por nombre o por RFC y muestra los dos datos en la lista. Al elegirlo, el campo queda con el nombre y el RFC del proveedor y el gasto queda ligado a esa ficha.
+2. Si lo que escribes no corresponde a ningún proveedor, aparece el botón «¿No existe…? Regístralo». Te lleva al alta con ese nombre y con el RFC de la factura precargados y, al guardarlo, vuelves al gasto con todo lo que ya habías capturado y el proveedor nuevo ya elegido (los archivos adjuntos sí hay que volver a subirlos: el navegador no los conserva).
+3. Si eliges «Estación de servicio» u «Otro», escribes a mano a quién pagaste; esos gastos no quedan ligados a una ficha del directorio.
+
+### Conceptos sin producto equivalente
+
+1. Si la factura la leíste con «Registro compra inteligente», arriba del formulario aparece la lista de renglones que NO coinciden con tu catálogo. Nada se ha guardado todavía.
+2. Cuando el que emitió la factura ya es tu proveedor, cada renglón trae el botón «Agregar al proveedor»: da de alta ese producto en EL CATÁLOGO DE ESE PROVEEDOR con el nombre, el código (SKU) y el precio de la factura, sin salir de la pantalla (no se pierde lo que ya capturaste).
+3. La próxima vez que leas una factura de esa misma persona, esos renglones ya se reconocen solos y dejan de aparecer en la lista. Si ya existía, el botón lo dice y no lo duplica.
+4. El otro botón, «Buscar en el catálogo», sigue ahí para ligar el renglón a un producto propio si también lo vendes.
+
 ### Subir la factura
 
-1. En el mismo formulario, «Factura o comprobante»: elige uno o varios archivos (PDF, XML, JPG, PNG o WebP). Se detecta solo qué es cada uno.
+1. Pulsa «Archivo de la factura o comprobante», de la misma sección: se abre una ventana —igual que en «Registro Venta Inteligente»— donde eliges uno o varios archivos (PDF, XML, JPG, PNG o WebP). Se detecta solo qué es cada uno.
 2. También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes».
 3. Si subes el XML de la factura, se leen sus datos (folio fiscal, importes) y avisa si algo no cuadra.
 
-### Uso del CFDI y método de pago
+### Los cuatro datos del CFDI
 
-1. Cuando el gasto es «Con factura», aparecen dos campos más: «Uso del CFDI» (para qué se usó: adquisición de mercancías, gastos en general, mobiliario…) y «Método de pago del CFDI».
+1. Cuando el gasto es «Con factura», aparecen cuatro campos: «Uso del CFDI» (para qué se usó: adquisición de mercancías, gastos en general, mobiliario…), «Método de pago del CFDI», «Forma de pago del CFDI» (efectivo, transferencia, tarjeta…) y «Tipo de comprobante (CFDI)» (una factura normal es «Ingreso»).
 2. El método de pago tiene tres opciones: «PPD · Pago en parcialidades», «PUE · Pago en una sola exhibición» y «Por definir (aún no se decide)», que es la que queda si todavía no sabes cómo se pagará.
-3. Si el gasto es «Sin factura», esos campos no se guardan: no hay comprobante del que hablar.
-4. Si subes el XML, el uso del CFDI y el método de pago se llenan solos con los que trae la factura.
+3. Si el gasto es «Sin factura», esos cuatro campos no se guardan: no hay comprobante del que hablar.
+4. Los cuatro se autocompletan con los que trae la factura —sube el XML en el mismo formulario o usa «Registro compra inteligente»— y se pueden corregir a mano. Si el documento no trae alguno, queda vacío para que lo captures.
 
 ### Más detalles
 
@@ -289,9 +295,14 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 1. En esa misma sección, «¿Ya se facturó?» → elige el estado: Pendiente de facturar, Facturada o No facturada.
 2. Si hay factura, despliega «Folio, UUID y fecha (opcional)» y escribe el folio y el UUID (o súbelos: el XML los llena solos).
 
+### Revisar y facturar
+
+1. El botón «Revisar y facturar» abre la revisión previa con los datos fiscales del receptor y con método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente» (subiste la factura que emitiste), esos cuatro campos vienen precargados con los que trae el CFDI; revísalos antes de continuar.
+2. La validación previa te avisa qué falta y qué no cuadra; no se factura hasta que no quede ningún error obligatorio.
+
 ### Subir la factura de la venta
 
-1. En «Subir factura (PDF y/o XML)», de la misma sección: elige el PDF y el XML juntos y pulsa «Guardar facturación».
+1. Pulsa «Subir factura (PDF y/o XML)», de la misma sección: se abre una ventana —igual que en «Registro Venta Inteligente»— donde eliges el PDF y el XML juntos; después pulsa «Guardar facturación».
 2. Los archivos quedan listados en «Facturas y comprobantes», con su validación documental; ahí también se descargan o se dan de baja.
 
 ### Pendientes de facturar
@@ -355,14 +366,6 @@ Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT 
 ### Para tu contador
 
 - «¿Cómo se calcula?» muestra paso a paso la cuenta, con el IVA real de cada CFDI, y «Comparar con lo que declaró mi contador» te deja anotar lo declarado.
-
-### El preliminar básico (simulador con tus facturas)
-
-1. Impuestos → pestaña «Preliminar básico»: cuánto serían tus impuestos del año usando sólo las facturas registradas (ventas facturadas y gastos con comprobante fiscal). Es el cálculo del documento Fiscal 2026, sin motor ni catálogos.
-2. Cada mes: IVA real facturado − IVA real acreditable, y un ISR plano del 32 % sobre la utilidad del mes (puede salir a tu favor). El año suma los 12 meses tal cual.
-3. A diferencia de «Impuestos», aquí no importa si te pagaron o no: cada factura cuenta en el mes de su fecha de facturación. Con IVA 0 entra con IVA 0; con 8 %, con su 8 % real.
-4. Abajo del mes elegido ves quiénes generaron las cifras: tus clientes facturados y tus proveedores/compras con comprobante, cada uno con sus montos con y sin IVA.
-5. «Exportar PDF» (arriba a la derecha) baja el reporte: tabla fiscal del año + los dos listados del mes.
 
 > **Consejos**
 > - Es una estimación: no sustituye la declaración. Compárala siempre con tu contador.

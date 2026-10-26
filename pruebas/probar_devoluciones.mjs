@@ -54,7 +54,7 @@ try {
   console.log('Formulario');
   await pagina.goto(`${BASE}/admin/ventas/devolucion?id=${venta}`);
   verifica('no pide motivo obligatorio', (await pagina.locator('#motivo').count()) === 0 && (await pagina.locator('#nota[required]').count()) === 0);
-  verifica('pide fecha, cantidad devuelta y cantidad a cambiar', (await pagina.locator('#fecha').count()) === 1
+  verifica('pide fecha, cantidad devuelta y cantidad a cambiar', (await pagina.locator('input[name="fecha"]').count()) === 1
     && (await pagina.locator('input[name="cantidad[37]"]').count()) === 1 && (await pagina.locator('input[name="cambio[37]"]').count()) === 1);
 
   console.log('Doble clic = una sola devolución');
@@ -62,15 +62,15 @@ try {
   await pagina.fill('input[name="cambio[37]"]', '2');
   await Promise.all([pagina.waitForURL('**/admin/ventas/detalle?id=*'), pagina.dblclick('button[data-un-envio]')]);
   verifica('queda un solo registro', sql(`SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id=${venta}`) === '1');
-  verifica('las 2 piezas suman al inventario', stock() === s0 + 2, `${s0} → ${stock()}`);
+  verifica('la devolución NO mueve el inventario (sólo notificación)', stock() === s0, `${s0} → ${stock()}`);
   verifica('se guardó con usuario y sin motivo', sql(`SELECT CONCAT(usuario_id,'|',IFNULL(nota,'NULL')) FROM venta_devoluciones WHERE venta_id=${venta}`) === `${usuario}|NULL`);
 
   console.log('Reenvío del mismo formulario (recarga)');
   const r = await postCsrf(pagina, `${BASE}/admin/ventas/devolucion`, { form: { id: venta, 'cantidad[37]': '2', 'cambio[37]': '2', fecha: new Date().toISOString().slice(0, 10), token: 'viejo' }, maxRedirects: 0 });
-  verifica('un token ya usado o inventado no registra nada', sql(`SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id=${venta}`) === '1' && stock() === s0 + 2);
+  verifica('un token ya usado o inventado no registra nada', sql(`SELECT COUNT(*) FROM venta_devoluciones WHERE venta_id=${venta}`) === '1' && stock() === s0);
 
-  console.log('La venta muestra lo que se debe');
-  await pagina.goto(`${BASE}/admin/ventas/detalle?id=${venta}`);
+  console.log('El hub de Operación Comercial muestra lo que se debe');
+  await pagina.goto(`${BASE}/admin/entregas-seguimiento/venta?id=${venta}`);
   const texto = await pagina.locator('#cambios').innerText();
   verifica('apartado «Se le deben al cliente: 2 ×»', /Se le deben al cliente/i.test(texto) && /2 ×/.test(texto), texto.slice(0, 120));
 
@@ -79,14 +79,14 @@ try {
   await pagina.waitForSelector('.campana-aviso');
   verifica('aviso «Cambio por entregar»', (await pagina.locator('.campana-aviso', { hasText: 'Cambio por entregar' }).count()) >= 1);
 
-  console.log('Entrega del cambio (parcial y total)');
-  await pagina.goto(`${BASE}/admin/ventas/detalle?id=${venta}`);
+  console.log('Entrega del cambio (parcial y total) — desde el hub, sin mover inventario');
+  await pagina.goto(`${BASE}/admin/entregas-seguimiento/venta?id=${venta}`);
   await pagina.fill('input[name="cantidad"]', '1');
-  await Promise.all([pagina.waitForURL('**/admin/ventas/detalle?id=*'), pagina.click('button:has-text("Marcar cambio entregado")')]);
-  verifica('entrega parcial descuenta 1', stock() === s0 + 1, String(stock()));
+  await Promise.all([pagina.waitForURL('**/admin/entregas-seguimiento/venta?id=*'), pagina.click('button:has-text("Marcar cambio entregado")')]);
+  verifica('entrega parcial NO descuenta inventario', stock() === s0, String(stock()));
   verifica('sigue debiendo 1', /Se le deben al cliente:\s*1 ×/.test(await pagina.locator('#cambios').innerText()));
-  await Promise.all([pagina.waitForURL('**/admin/ventas/detalle?id=*'), pagina.click('button:has-text("Marcar cambio entregado")')]);
-  verifica('entrega total: stock vuelve a lo vendido', stock() === s0, String(stock()));
+  await Promise.all([pagina.waitForURL('**/admin/entregas-seguimiento/venta?id=*'), pagina.click('button:has-text("Marcar cambio entregado")')]);
+  verifica('entrega total: inventario intacto (sólo notificación)', stock() === s0, String(stock()));
   verifica('ya no se debe nada', (await pagina.locator('#cambios').innerText()).includes('Se le deben al cliente') === false);
   verifica('quedó el historial', (await pagina.locator('#cambios tbody tr').count()) === 1);
 

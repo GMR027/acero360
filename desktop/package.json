@@ -5,8 +5,8 @@
   "description": "Aplicación de escritorio de Acero 360: ventana segura hacia la plataforma web (los datos viven en el servidor).",
   "main": "src/main.js",
   "author": {
-    "name": "Usuario Demo",
-    "email": "admin@ejemplo.com"
+    "name": "Edgar Guzman",
+    "email": "e.gm27@outlook.com"
   },
   "homepage": "https://cotizaciones.iguzman.com.mx",
   "license": "UNLICENSED",
@@ -48,7 +48,7 @@
       "icon": "build/icons",
       "synopsis": "Acero 360: cotizaciones, ventas, inventario y contabilidad",
       "description": "Ventana de escritorio para la plataforma Acero 360. Se conecta por HTTPS al servidor: no guarda una base de datos propia.",
-      "maintainer": "Usuario Demo <admin@ejemplo.com>",
+      "maintainer": "Edgar Guzman <e.gm27@outlook.com>",
       "executableName": "cotizaciones-escritorio",
       "desktop": {
         "entry": {

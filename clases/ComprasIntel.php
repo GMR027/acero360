@@ -113,7 +113,8 @@ class ComprasIntel
 
         // Búsqueda directa por RFC (el requisito): si el motor no lo emparejó por nombre, lo intentamos aquí.
         $proveedorFila = null;
-        if (!empty($coincidencias['proveedor']['id'])) {
+        $motorLoEncontro = !empty($coincidencias['proveedor']['id']);
+        if ($motorLoEncontro) {
             $proveedorFila = Proveedores::buscarID((int) $coincidencias['proveedor']['id']);
         }
         if ($proveedorFila === null && $d['emisor_rfc'] !== '') {
@@ -123,6 +124,13 @@ class ComprasIntel
                     'id' => (int) $proveedorFila->id, 'nombre' => $proveedorFila->nombre, 'criterio' => 'RFC ' . $d['emisor_rfc'],
                 ];
             }
+        }
+
+        /* El motor cotejó sin conocer al proveedor (no lo emparejó): con el que
+         * acabamos de resolver por RFC se repite la 2ª pasada contra su catálogo,
+         * para que los conceptos que ya existan ahí salgan de «sin equivalente». */
+        if (!$motorLoEncontro && $proveedorFila !== null && (int) $proveedorFila->activo === 1) {
+            CoincidenciasFactura::cotejarCatalogoDeProveedor($coincidencias, (int) $proveedorFila->id);
         }
 
         // ¿La factura ya está en alguna operación (UUID, mismo archivo u otro criterio)?
@@ -333,7 +341,7 @@ class ComprasIntel
         if ($conCatalogo > 0) {
             return [
                 'clave' => 'material', 'etiqueta' => 'Posible compra de materiales o mercancía', 'confianza' => 'alta',
-                'motivo' => $conCatalogo . ' de los conceptos coinciden con productos de tu catálogo.',
+                'motivo' => $conCatalogo . ' de los conceptos coinciden con productos de tu catálogo o con los que ya diste de alta a este proveedor.',
                 'categoria' => $categoria,
             ];
         }

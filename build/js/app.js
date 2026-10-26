@@ -282,6 +282,19 @@ function inicializarAplicacion() {
   // 9. Campos de contraseña con botón para mostrar lo que se escribió.
   prepararBotonesVerContrasena();
 
+  // 10. Selectores largos (p. ej. el cliente del cotizador) como búsqueda por texto.
+  prepararSelectoresBusqueda();
+
+  // 11. Modales del hub de Operación Comercial (entrega, incidencia, devolución).
+  prepararOperacionComercial();
+
+  // 12. «Pagado a → Proveedor» del gasto: RFC del elegido, alta rápida que
+  //     vuelve con el formulario precargado (va después del buscador de arriba).
+  prepararGastoProveedor();
+
+  // 13. Subida de facturas y comprobantes desde la ventana modal.
+  prepararArchivosModal();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element
@@ -450,6 +463,106 @@ function prepararAlertasDelServidor() {
     window.setTimeout(function () {
       retirarAlerta(alerta);
     }, DURACION_ALERTA);
+  });
+}
+
+/**
+ * modulos/archivosModal.js
+ * ---------------------------------------------------------------------------
+ * Subida de archivos desde la ventana modal (el mismo `modal__panel` que abre
+ * «Registro Venta Inteligente»).
+ *
+ * Cada botón [data-archivo-modal="id-del-input"] abre el diálogo con el bloque
+ * <div class="campo"> REAL: se mueve al modal y, al cerrar, vuelve a su hueco,
+ * de modo que los archivos elegidos siguen viajando con el formulario. Para eso
+ * el <input type="file"> trae el atributo form="…", indispensable porque el
+ * diálogo vive fuera del <form>.
+ *
+ * Sin JavaScript el botón permanece oculto y el campo queda en línea, como
+ * siempre: el módulo sólo lo sustituye cuando hay modal disponible.
+ *
+ * Reglas del proyecto: createElement en lugar de innerHTML, sin alert, ni
+ * confirm, ni prompt.
+ */
+
+/**
+ * Resume junto al botón los archivos elegidos («2 archivos elegidos: …»).
+ *
+ * @param {HTMLInputElement} campo
+ * @param {HTMLElement|null} resumen  Nodo [data-archivo-resumen] del botón.
+ */
+function resumirArchivos(campo, resumen) {
+  if (!resumen) {
+    return;
+  }
+
+  const nombres = campo.files
+    ? Array.prototype.map.call(campo.files, function (archivo) { return archivo.name; })
+    : [];
+
+  if (!nombres.length) {
+    resumen.textContent = '';
+    resumen.hidden = true;
+    return;
+  }
+
+  resumen.textContent = nombres.length === 1
+    ? '1 archivo elegido: ' + nombres[0]
+    : nombres.length + ' archivos elegidos: ' + nombres.join(' · ');
+  resumen.hidden = false;
+}
+
+/** Prepara todos los botones [data-archivo-modal] de la página. */
+function prepararArchivosModal() {
+  document.querySelectorAll('[data-archivo-modal]').forEach(function (boton) {
+    const campo = document.getElementById(boton.getAttribute('data-archivo-modal'));
+    if (!campo) {
+      return;
+    }
+
+    const bloque = campo.closest('.campo') || campo.parentNode;
+    const hueco = { padre: bloque.parentNode, siguiente: bloque.nextSibling };
+    const contenedor = boton.parentNode;
+    const resumen = contenedor ? contenedor.querySelector('[data-archivo-resumen]') : null;
+    const etiqueta = bloque.querySelector('.campo__etiqueta');
+
+    campo.addEventListener('change', function () {
+      resumirArchivos(campo, resumen);
+    });
+
+    // Con JavaScript el botón sustituye al campo en línea (sin él no se llega aquí).
+    bloque.hidden = true;
+    boton.hidden = false;
+
+    boton.addEventListener('click', function (evento) {
+      evento.preventDefault();
+
+      if (typeof abrirModal !== 'function') {
+        // Sin ventana modal disponible se vuelve al campo de la página.
+        bloque.hidden = false;
+        boton.hidden = true;
+        return;
+      }
+
+      bloque.hidden = false;
+      abrirModal({
+        sobreTitulo: boton.getAttribute('data-archivo-sobre') || '',
+        titulo: boton.getAttribute('data-archivo-titulo')
+          || (etiqueta ? etiqueta.textContent.trim() : 'Subir archivos'),
+        cuerpo: bloque,
+        textoConfirmar: 'Listo',
+        alConfirmar: function () {
+          // Los archivos ya quedaron en el campo: el diálogo sólo se cierra.
+        },
+        alCerrar: function () {
+          // El bloque vuelve a su hueco ANTES de que el modal vacíe su cuerpo.
+          hueco.padre.insertBefore(bloque, hueco.siguiente);
+          bloque.hidden = true;
+          boton.hidden = false;
+          resumirArchivos(campo, resumen);
+        },
+      });
+    });
   });
 }
 
@@ -2000,6 +2113,349 @@ function prepararCargaImagen(input, contenedor) {
 }
 
 /**
+ * modulos/gastoProveedor.js
+ * ---------------------------------------------------------------------------
+ * «Pagado a → Proveedor» del formulario de gasto
+ * (/admin/contabilidad/gastos/crear).
+ *
+ * Tres responsabilidades:
+ *
+ *  1. Muestra debajo del selector el RFC del proveedor elegido.
+ *  2. Ofrece el botón «¿No existe…? Regístralo» cuando lo escrito no coincide
+ *     con ningún proveedor del directorio —o cuando todavía no hay ninguno—.
+ *  3. Guarda lo capturado en el gasto (sessionStorage), abre
+ *     /admin/proveedores/crear y, al volver, restaura el formulario para que el
+ *     registro del gasto continúe donde quedó, con el proveedor nuevo ya
+ *     elegido por el servidor.
+ *
+ * El borrador vive sólo en esta pestaña, caduca a los 30 minutos y se borra
+ * apenas se restaura o se envía el gasto.
+ *
+ * Reglas del proyecto: createElement en lugar de innerHTML, ni alert, ni
+ * confirm, ni prompt.
+ */
+
+/** Llave del borrador de gasto en sessionStorage. */
+const LLAVE_BORRADOR_GASTO = 'acero360.gasto.borrador';
+
+/** Vigencia del borrador: nadie vuelve a un formulario olvidado horas después. */
+const BORRADOR_GASTO_VIGENCIA = 30 * 60 * 1000;
+
+/**
+ * URL de esta página sin los parámetros que agrega el regreso del alta de
+ * proveedor: así el borrador se compara contra la misma dirección de origen.
+ */
+function urlBaseGasto() {
+  const parametros = new URLSearchParams(window.location.search);
+  parametros.delete('proveedor');
+  parametros.delete('proveedor_nuevo');
+  const consulta = parametros.toString();
+  return window.location.pathname + (consulta ? '?' + consulta : '');
+}
+
+/** Lee el borrador si sigue vigente y corresponde a esta misma página. */
+function leerBorradorGasto() {
+  let borrador = null;
+
+  try {
+    const crudo = window.sessionStorage.getItem(LLAVE_BORRADOR_GASTO);
+    borrador = crudo ? JSON.parse(crudo) : null;
+  } catch (error) {
+    borrador = null;
+  }
+
+  if (!borrador || typeof borrador !== 'object') {
+    return null;
+  }
+
+  const caducado = !borrador.ts || Date.now() - borrador.ts > BORRADOR_GASTO_VIGENCIA;
+  if (caducado || borrador.url !== urlBaseGasto()) {
+    window.sessionStorage.removeItem(LLAVE_BORRADOR_GASTO);
+    return null;
+  }
+
+  return borrador;
+}
+
+/** Descarta el borrador guardado. */
+function borrarBorradorGasto() {
+  try {
+    window.sessionStorage.removeItem(LLAVE_BORRADOR_GASTO);
+  } catch (error) {
+    /* Sin sessionStorage no hay borrador que borrar. */
+  }
+}
+
+/**
+ * Guarda lo capturado en el formulario del gasto antes de salir a registrar el
+ * proveedor. Los archivos no se guardan (el navegador no lo permite): se avisa
+ * al volver.
+ *
+ * @param {HTMLFormElement} formulario
+ * @param {string}          texto  Lo escrito en el buscador de proveedores.
+ * @returns {boolean} false si sessionStorage no está disponible.
+ */
+function guardarBorradorGasto(formulario, texto) {
+  const campos = {};
+  let conArchivo = false;
+
+  Array.prototype.forEach.call(formulario.elements, function (campo) {
+    if (!campo.name || campo.disabled) {
+      return;
+    }
+
+    const tipo = (campo.type || '').toLowerCase();
+
+    if (tipo === 'file') {
+      conArchivo = conArchivo || campo.files.length > 0;
+      return;
+    }
+    if (tipo === 'submit' || tipo === 'button' || tipo === 'reset') {
+      return;
+    }
+    // La llave anti-falsificación es de un solo uso: la pinta el servidor al volver.
+    if (campo.name === 'token') {
+      return;
+    }
+    if (tipo === 'checkbox' || tipo === 'radio') {
+      if (campo.checked) {
+        campos[campo.name] = campo.value;
+      }
+      return;
+    }
+
+    campos[campo.name] = campo.value;
+  });
+
+  try {
+    window.sessionStorage.setItem(LLAVE_BORRADOR_GASTO, JSON.stringify({
+      url: urlBaseGasto(),
+      campos: campos,
+      texto: texto,
+      conArchivo: conArchivo,
+      ts: Date.now(),
+    }));
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Devuelve al formulario lo capturado antes de salir. Los campos vacíos se
+ * omiten (no pisan lo que el servidor ya precargó) y `proveedor_id` lo pone el
+ * servidor con el proveedor recién creado.
+ *
+ * @param {HTMLFormElement} formulario
+ * @param {object}          borrador
+ */
+function restaurarBorradorGasto(formulario, borrador) {
+  const campos = borrador.campos || {};
+  const sinRestaurar = ['token', 'archivo', 'proveedor_id'];
+
+  Object.keys(campos).forEach(function (nombre) {
+    if (sinRestaurar.indexOf(nombre) !== -1) {
+      return;
+    }
+
+    const campo = formulario.elements[nombre];
+    const valor = campos[nombre];
+
+    if (!campo || valor === '' || valor === null || valor === undefined) {
+      return;
+    }
+
+    const tipo = (campo.type || '').toLowerCase();
+
+    if (tipo === 'checkbox' || tipo === 'radio') {
+      const marcado = campo.value === String(valor);
+      if (campo.checked !== marcado) {
+        campo.checked = marcado;
+        campo.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+
+    if (campo.value === String(valor)) {
+      return;
+    }
+
+    campo.value = valor;
+    // Los dos eventos: hay módulos que reaccionan al cambio y otros a la escritura.
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+    campo.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+/** Aviso de que los archivos elegidos no se pudieron conservar. */
+function avisarArchivosNoRestaurados(formulario) {
+  const campoArchivo = formulario.querySelector('input[type="file"]');
+  const contenedor = campoArchivo ? campoArchivo.closest('.campo') : null;
+
+  if (!contenedor || contenedor.querySelector('[data-archivo-restaurado]')) {
+    return;
+  }
+
+  const aviso = document.createElement('p');
+  aviso.className = 'campo__ayuda';
+  aviso.setAttribute('data-archivo-restaurado', '');
+  aviso.textContent = 'Vuelve a adjuntar los archivos del gasto: el navegador no conserva los archivos elegidos.';
+  contenedor.appendChild(aviso);
+}
+
+/**
+ * Prepara el campo «Proveedor» del formulario de gasto.
+ * Se llama desde inicializarAplicacion() (src/js/app.js), DESPUÉS de
+ * prepararSelectoresBusqueda(), porque aquí se apoya en el combobox ya construido.
+ */
+function prepararGastoProveedor() {
+  const tipoBen = document.querySelector('[data-beneficiario-tipo]');
+  const bloque = document.querySelector('[data-ben-proveedor]');
+  const select = document.getElementById('proveedor_id');
+
+  // Otros formularios comparten el id `proveedor_id`: aquí sólo interesa el gasto.
+  if (!tipoBen || !bloque || !select) {
+    return;
+  }
+
+  const formulario = select.closest('form');
+  if (!formulario) {
+    return;
+  }
+
+  const boton = document.querySelector('[data-registrar-proveedor]');
+  const rfcCaja = document.querySelector('[data-proveedor-rfc]');
+  const entrada = document.getElementById(select.id + '-busqueda');
+  /* No basta con `data-buscador-listo`: selectorBusqueda.js lo marca antes de
+   * rendirse, así que con el directorio vacío no se construye el combobox y el
+   * indicador sigue en «1». La señal fiable es que el campo exista. */
+  const hayCombobox = entrada !== null;
+
+  /** Último texto escrito y número de coincidencias (lo dicta selectorBusqueda.js). */
+  const estado = { texto: '', total: null };
+
+  const pintarRfc = function () {
+    if (!rfcCaja) {
+      return;
+    }
+    const opcion = select.options[select.selectedIndex];
+    const rfc = opcion ? (opcion.getAttribute('data-rfc') || '').trim() : '';
+    rfcCaja.textContent = rfc !== '' ? 'RFC del proveedor: ' + rfc : '';
+    rfcCaja.hidden = rfc === '';
+  };
+
+  const textoBoton = function () {
+    const texto = (estado.texto || '').trim();
+    return texto !== ''
+      ? '¿No existe «' + texto + '»? Regístralo'
+      : 'Este proveedor no está en tu directorio: regístralo';
+  };
+
+  const sincronizarBoton = function () {
+    if (!boton) {
+      return;
+    }
+
+    let sinCoincidencias;
+    if (hayCombobox) {
+      // Con buscador sólo se ofrece la alta cuando lo escrito no casa con nada
+      // y, por eso, todavía no hay ningún proveedor elegido.
+      sinCoincidencias = estado.total === 0
+        && (estado.texto || '').trim() !== ''
+        && select.value === '';
+    } else {
+      // Sin buscador (directorio vacío): se ofrece la alta mientras no haya nada elegido.
+      sinCoincidencias = select.value === '';
+    }
+
+    const mostrar = !bloque.hidden && sinCoincidencias;
+    if (mostrar) {
+      boton.textContent = textoBoton();
+    }
+    boton.hidden = !mostrar;
+  };
+
+  document.addEventListener('buscador:resultado', function (evento) {
+    if (evento.target !== entrada && evento.target !== select) {
+      return;
+    }
+    estado.texto = (evento.detail && evento.detail.texto) || '';
+    estado.total = evento.detail ? evento.detail.total : null;
+    sincronizarBoton();
+  });
+
+  select.addEventListener('change', function () {
+    // Al elegir una ficha ya no hay nada que registrar.
+    if (select.value !== '') {
+      estado.texto = '';
+      estado.total = null;
+    }
+    pintarRfc();
+    sincronizarBoton();
+  });
+
+  tipoBen.addEventListener('change', function () {
+    /* Al salir de «Proveedor» el texto escrito deja de significar nada: se
+     * borra (el buscador impediría el envío si se quedara con algo sin elegir)
+     * y se olvida la última búsqueda. */
+    if (tipoBen.value !== 'proveedor') {
+      if (entrada) {
+        entrada.value = '';
+      }
+      estado.texto = '';
+      estado.total = null;
+    }
+    sincronizarBoton();
+  });
+
+  if (boton) {
+    boton.addEventListener('click', function () {
+      // estado.texto sobrevive al desenfoque del campo: es lo que se escribió.
+      const texto = (estado.texto || (entrada ? entrada.value : '')).trim();
+
+      guardarBorradorGasto(formulario, texto);
+
+      const destino = new URL('/admin/proveedores/crear', window.location.origin);
+      destino.searchParams.set('regresar', urlBaseGasto());
+      if (texto !== '') {
+        destino.searchParams.set('nombre', texto);
+      }
+
+      // El RFC emisor del CFDI (si el gasto lo trae) es el RFC fiscal del proveedor.
+      const rfcEmisor = formulario.elements['rfc_emisor'];
+      const rfc = rfcEmisor ? String(rfcEmisor.value || '').trim() : '';
+      if (rfc !== '') {
+        destino.searchParams.set('rfc', rfc);
+      }
+
+      window.location.assign(destino.pathname + destino.search);
+    });
+  }
+
+  // Regreso del alta: se repone lo que se venía capturando.
+  const borrador = leerBorradorGasto();
+  if (borrador) {
+    restaurarBorradorGasto(formulario, borrador);
+    if (borrador.conArchivo) {
+      avisarArchivosNoRestaurados(formulario);
+    }
+    borrarBorradorGasto();
+  }
+
+  pintarRfc();
+  sincronizarBoton();
+
+  /* Al enviar el gasto ya no hace falta el borrador. Va en `document` y después
+   * del manejador de app.js, que es el que decide si el envío se llega a hacer. */
+  document.addEventListener('submit', function (evento) {
+    if (evento.target !== formulario || evento.defaultPrevented) {
+      return;
+    }
+    borrarBorradorGasto();
+  });
+}
+
+/**
  * modulos/gastosMasivos.js — selección múltiple de gastos para eliminarlos.
  *
  * En la lista de gastos, las casillas de la primera columna marcan los
@@ -2726,6 +3182,121 @@ function buscarEnCatalogo(descripcion) {
   crearAlerta('info', 'Buscador lleno con la descripción del documento: elige el producto que corresponda.');
 }
 
+/**
+ * Da de alta un concepto sin equivalente en el catálogo del proveedor emisor.
+ *
+ * NO recarga la pantalla: aquí se está capturando un gasto y un refresco
+ * perdería todo lo que ya se escribió. El servidor contesta JSON y, en la misma
+ * celda, el botón se sustituye por el resultado.
+ *
+ * @param {HTMLElement} boton [data-agregar-proveedor] de la fila
+ */
+function agregarAlProveedor(boton) {
+  const meta = document.querySelector('meta[name="csrf"]');
+  const datos = new FormData();
+  datos.append('proveedor_id', boton.getAttribute('data-proveedor-id') || '');
+  datos.append('descripcion', boton.getAttribute('data-descripcion') || '');
+  datos.append('sku', boton.getAttribute('data-sku') || '');
+  datos.append('nota', boton.getAttribute('data-nota') || '');
+  datos.append('costo', boton.getAttribute('data-costo') || '0');
+
+  boton.disabled = true;
+  quitarErrorConcepto(boton);
+
+  fetch('/admin/compras/catalogo/agregar', {
+    method: 'POST',
+    body: datos,
+    credentials: 'same-origin',
+    headers: { 'X-CSRF-Token': meta ? meta.content : '' },
+  })
+    .then(function (respuesta) {
+      return respuesta
+        .json()
+        .catch(function () {
+          return { ok: false, error: 'El servidor no respondió como se esperaba (' + respuesta.status + ').' };
+        })
+        .then(function (cuerpo) {
+          if (!respuesta.ok || !cuerpo.ok) {
+            throw new Error(cuerpo.error || 'No fue posible agregar el concepto.');
+          }
+          return cuerpo;
+        });
+    })
+    .then(function (cuerpo) {
+      marcarAgregado(boton, cuerpo);
+    })
+    .catch(function (error) {
+      boton.disabled = false;
+      avisarErrorConcepto(boton, error.message || 'No fue posible agregar el concepto.');
+    });
+}
+
+/**
+ * Sustituye el botón por el resultado: alta hecha, o aviso de que ya existía.
+ *
+ * @param {HTMLElement} boton
+ * @param {object}      cuerpo {estado, nombre, proveedor, ruta_listado, activo}
+ */
+function marcarAgregado(boton, cuerpo) {
+  const celda = boton.closest('[data-acciones-concepto]');
+  if (!celda) {
+    return;
+  }
+
+  const inexistente = cuerpo.estado === 'existente' && Number(cuerpo.activo) !== 1;
+  const etiqueta = cuerpo.estado === 'creado'
+    ? 'Agregado al catálogo de ' + cuerpo.proveedor
+    : (inexistente
+      ? 'Ya estaba en el catálogo de ' + cuerpo.proveedor + ' (inactivo)'
+      : 'Ya estaba en el catálogo de ' + cuerpo.proveedor);
+
+  const insignia = document.createElement('span');
+  insignia.className = 'badge ' + (cuerpo.estado === 'creado' ? 'badge--aprobado' : 'badge--neutro');
+  insignia.textContent = etiqueta;
+
+  const enlace = document.createElement('a');
+  enlace.className = 'texto-xs';
+  enlace.href = cuerpo.ruta_listado;
+  enlace.textContent = 'Ver catálogo';
+
+  boton.remove();
+  celda.appendChild(insignia);
+  celda.appendChild(enlace);
+  crearAlerta(
+    cuerpo.estado === 'creado' ? 'exito' : 'info',
+    cuerpo.estado === 'creado'
+      ? '«' + cuerpo.nombre + '» quedó en el catálogo de ' + cuerpo.proveedor + ': la próxima factura suya ya lo reconoce.'
+      : '«' + cuerpo.nombre + '» ya estaba en el catálogo de ' + cuerpo.proveedor + '.',
+    'Catálogo del proveedor'
+  );
+}
+
+/** Muestra el error del servidor bajo las acciones de la fila (una sola vez). */
+function avisarErrorConcepto(boton, mensaje) {
+  const celda = boton.closest('[data-acciones-concepto]');
+  if (!celda) {
+    return;
+  }
+  quitarErrorConcepto(boton);
+
+  const nodo = document.createElement('span');
+  nodo.className = 'campo__error';
+  nodo.setAttribute('data-error-concepto', '');
+  nodo.textContent = mensaje;
+  celda.appendChild(nodo);
+}
+
+/** Quita el mensaje de error previo de esa misma fila. */
+function quitarErrorConcepto(boton) {
+  const celda = boton.closest('[data-acciones-concepto]');
+  if (!celda) {
+    return;
+  }
+  celda.querySelectorAll('[data-error-concepto]').forEach(function (nodo) {
+    nodo.remove();
+  });
+}
+
 /** Abre el diálogo de carga desde cualquiera de los botones [data-inteligente]. */
 document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('click', function (evento) {
@@ -2744,6 +3315,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (buscador) {
       evento.preventDefault();
       buscarEnCatalogo(buscador.getAttribute('data-cargar-busqueda') || '');
+      return;
+    }
+
+    const proveedor = evento.target.closest('[data-agregar-proveedor]');
+    if (proveedor) {
+      evento.preventDefault();
+      agregarAlProveedor(proveedor);
     }
   });
 
@@ -2956,8 +3534,9 @@ function abrirModal(opciones) {
   modal.hidden = false;
   document.body.style.overflow = 'hidden';
 
-  // Coloca el foco en el primer control interactivo del diálogo.
-  const primerControl = modal.querySelector('button, [href], input, select, textarea');
+  // Coloca el foco en el primer control interactivo del diálogo (los inputs
+  // ocultos no reciben foco: se ignoran para que el foco no quede perdido).
+  const primerControl = modal.querySelector('button, [href], input:not([type="hidden"]), select, textarea');
   if (primerControl) {
     primerControl.focus();
   }
@@ -3191,6 +3770,128 @@ function manejarInteraccionModal(evento) {
     }
     cerrarModal();
   }
+}
+
+/**
+ * modulos/operacionComercial.js
+ * ---------------------------------------------------------------------------
+ * Ventanas modales del hub «Operación Comercial» (seguimiento de UNA venta).
+ *
+ * Cada enlace [data-modal-form] abre en el modal de la aplicación el
+ * <template id="…"> que guarda el formulario REAL (mismo action, campos y
+ * token que la página suelta) y lo envía desde el pie del diálogo. Sin JavaScript
+ * el enlace sigue siendo un enlace: navega a la página suelta, que existe como
+ * respaldo y para accesibilidad.
+ *
+ * También liga el comportamiento de la incidencia de entrega (marcar «requiere
+ * cambio» al elegir cambio/sustitución y forzar la corrección de factura en
+ * faltante/incompleto), tanto en la página suelta como en el clon del modal.
+ *
+ * Reglas del proyecto: createElement/nodos del DOM, sin innerHTML, ni alert,
+ * ni confirm, ni prompt.
+ */
+
+/**
+ * Abre el modal con el formulario del <template> indicado y, al confirmar,
+ * envía el formulario real que quedó dentro del diálogo.
+ *
+ * @param {HTMLElement} enlace <a data-modal-form="id-del-template">
+ */
+function abrirModalFormulario(enlace) {
+  if (typeof abrirModal !== 'function') {
+    return; // sin modal disponible: se navega a la página suelta (href normal)
+  }
+
+  const plantilla = document.getElementById(enlace.getAttribute('data-modal-form'));
+  if (!plantilla || !plantilla.content) {
+    return;
+  }
+
+  abrirModal({
+    sobreTitulo: enlace.getAttribute('data-modal-sobre-titulo') || '',
+    titulo: enlace.getAttribute('data-modal-titulo') || 'Registrar',
+    cuerpo: plantilla.content.cloneNode(true),
+    textoConfirmar: enlace.getAttribute('data-modal-confirmar') || 'Guardar',
+    alConfirmar: function () {
+      const formulario = document.querySelector('#modal-cuerpo form');
+      if (formulario) {
+        formulario.submit(); // envío nativo: el servidor vuelve a validar todo
+      }
+    },
+  });
+
+  // El clon ya vive en el modal: se le liga su comportamiento (incidencias).
+  const formulario = document.querySelector('#modal-cuerpo form[data-incidencia]');
+  if (formulario) {
+    ligarIncidencia(formulario);
+  }
+}
+
+/**
+ * Liga el motivo de una incidencia a un formulario concreto (página suelta o
+ * formulario clonado dentro del modal):
+ *   · «Cambio o sustitución» marca como «requiere cambio» los productos con piezas;
+ *   · «Producto faltante» / «Producto incompleto» fuerzan la casilla de corregir
+ *     factura (cuando la venta está facturada el servidor también lo fuerza);
+ *   · al salir de esos motivos, la casilla automática se desmarca (una marcada
+ *     a mano se conserva).
+ *
+ * @param {HTMLFormElement} formulario
+ */
+function ligarIncidencia(formulario) {
+  const motivo = formulario.querySelector('select[name="motivo"]');
+  if (!motivo || motivo.getAttribute('data-ligado') === '1') {
+    return;
+  }
+  motivo.setAttribute('data-ligado', '1');
+
+  const correccion = (formulario.getAttribute('data-forzar-factura') || '')
+    .split(',')
+    .filter(Boolean);
+  const factura = formulario.querySelector('input[name="factura_requerida"]');
+
+  motivo.addEventListener('change', function () {
+    // Marca/desmarca «requiere cambio» según el motivo (comportamiento histórico).
+    const esCambio = motivo.value === 'cambio_sustitucion';
+    formulario.querySelectorAll('input[type="checkbox"][name^="cambio["]').forEach(function (casilla) {
+      const fila = casilla.closest('tr');
+      const cantidad = fila ? fila.querySelector('input[type="number"]') : null;
+      if (esCambio && cantidad && Number(cantidad.value) > 0) {
+        casilla.checked = true;
+      } else if (!esCambio) {
+        casilla.checked = false;
+      }
+    });
+
+    // Corrección de factura: obligatoria en faltante/incompleto, opcional en el resto.
+    if (!factura) {
+      return;
+    }
+    if (correccion.indexOf(motivo.value) !== -1) {
+      factura.checked = true;
+      factura.setAttribute('data-automatico', '1');
+    } else if (factura.getAttribute('data-automatico') === '1') {
+      factura.checked = false;
+      factura.removeAttribute('data-automatico');
+    }
+  });
+}
+
+/** Prepara todos los botones/modal de la página (se llama desde inicializarAplicacion). */
+function prepararOperacionComercial() {
+  document.querySelectorAll('a[data-modal-form]').forEach(function (enlace) {
+    enlace.addEventListener('click', function (evento) {
+      const plantilla = document.getElementById(enlace.getAttribute('data-modal-form'));
+      // Con modal disponible se abre el diálogo; sin él se navega como siempre.
+      if (plantilla && typeof abrirModal === 'function') {
+        evento.preventDefault();
+        abrirModalFormulario(enlace);
+      }
+    });
+  });
+
+  // La página suelta de incidencias (sin modal) comparte el mismo comportamiento.
+  document.querySelectorAll('form[data-incidencia]').forEach(ligarIncidencia);
 }
 
 /**
@@ -3540,6 +4241,399 @@ function iniciarOrdenCompra() {
 }
 
 document.addEventListener('DOMContentLoaded', iniciarOrdenCompra);
+
+/**
+ * modulos/selectorBusqueda.js
+ * ---------------------------------------------------------------------------
+ * Convierte un <select data-buscador> en un campo de búsqueda por texto con
+ * lista desplegable filtrada (combobox), pensado para listas largas como la
+ * de clientes del cotizador.
+ *
+ * Cómo funciona:
+ *  - El <select> permanece en el DOM (oculto) como fuente de la verdad: el
+ *    formulario sigue enviando su name, el servidor valida igual y los demás
+ *    módulos no cambian (cotizador.js escucha el 'change' del cliente).
+ *  - Al elegir una opción se escribe su valor en el <select> y se dispara
+ *    'change', de modo que el descuento y los precios del cliente se
+ *    actualizan como siempre.
+ *  - Sin JavaScript el <select> se muestra y funciona como siempre: la mejora
+ *    sólo se construye cuando hay JS.
+ *
+ * Reglas del proyecto: createElement en lugar de innerHTML, ni alert, ni
+ * confirm, ni prompt.
+ */
+
+/** Máximo de opciones pintadas en la lista desplegable (afina con el teclado). */
+const BUSCADOR_LIMITE_OPCIONES = 60;
+
+/** Pinta en el input el texto de la opción elegida (o nada si no hay). */
+function sincronizarEntradaBusqueda(select, entrada) {
+  const opcion = select.options[select.selectedIndex];
+  const texto = opcion && opcion.value !== '' ? opcion.text : '';
+  entrada.value = texto;
+}
+
+/** Quita acentos y minúsculas para que «Jose» encuentre a «José». */
+function normalizarBusqueda(texto) {
+  return (texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Lee las opciones reales del <select> junto a su texto de búsqueda. */
+function leerOpcionesBusqueda(select) {
+  const opciones = [];
+
+  Array.prototype.forEach.call(select.options, function (opcion) {
+    if (opcion.value === '') {
+      return; // el marcador «Selecciona…» no se busca
+    }
+
+    const rfc = opcion.getAttribute('data-rfc') || '';
+    const alias = opcion.getAttribute('data-alias') || '';
+
+    opciones.push({
+      valor: opcion.value,
+      texto: opcion.text,
+      rfc: rfc,
+      buscar: normalizarBusqueda(opcion.text + ' ' + alias + ' ' + rfc),
+    });
+  });
+
+  return opciones;
+}
+
+/** Muestra el error de «escribió pero no eligió» bajo el campo, con el foco. */
+function marcarErrorBusqueda(entrada, mensaje) {
+  const campo = entrada.closest('.campo');
+  if (!campo) {
+    return;
+  }
+
+  campo.classList.add('campo--con-error');
+
+  const previo = campo.querySelector('.campo__error');
+  if (previo && previo.parentNode) {
+    previo.parentNode.removeChild(previo);
+  }
+
+  const error = document.createElement('p');
+  error.className = 'campo__error';
+  error.textContent = mensaje;
+  campo.appendChild(error);
+
+  entrada.focus();
+}
+
+/**
+ * Construye el buscador de un <select> concreto.
+ *
+ * @param {HTMLSelectElement} select
+ */
+function crearSelectorBusqueda(select) {
+  if (select.getAttribute('data-buscador-listo') === '1') {
+    return; // idempotente: no se construye dos veces el mismo combobox
+  }
+  select.setAttribute('data-buscador-listo', '1');
+
+  const opciones = leerOpcionesBusqueda(select);
+  if (opciones.length === 0) {
+    return; // sin opciones no hay nada que buscar
+  }
+
+  /* De qué se busca («cliente», «proveedor»…): lo dicen los avisos, para que
+   * el mensaje no le hable a un cotizador cuando se busca un proveedor. */
+  const entidad = select.getAttribute('data-buscador-entidad') || 'cliente';
+
+  const base = select.id || 'selector';
+  const idEntrada = base + '-busqueda';
+  const idLista = base + '-lista';
+
+  /* Envoltorio que da posición a la lista desplegable. */
+  const envoltorio = document.createElement('div');
+  envoltorio.className = 'selector-busqueda';
+
+  const entrada = document.createElement('input');
+  entrada.type = 'search';
+  entrada.className = 'control';
+  entrada.id = idEntrada;
+  entrada.autocomplete = 'off';
+  entrada.spellcheck = false;
+  entrada.placeholder =
+    select.getAttribute('data-buscador-placeholder') || 'Escribe para buscar…';
+  entrada.setAttribute('role', 'combobox');
+  entrada.setAttribute('aria-autocomplete', 'list');
+  entrada.setAttribute('aria-expanded', 'false');
+  entrada.setAttribute('aria-controls', idLista);
+  if (select.required) {
+    entrada.required = true;
+  }
+
+  const lista = document.createElement('ul');
+  lista.className = 'selector-busqueda__lista';
+  lista.id = idLista;
+  lista.setAttribute('role', 'listbox');
+  lista.setAttribute('aria-label', 'Opciones');
+  lista.hidden = true;
+
+  envoltorio.appendChild(entrada);
+  envoltorio.appendChild(lista);
+
+  /* El buscador va ANTES del <select> (que se oculta pero se queda): el orden
+   * del DOM importa para la validación, que así señala primero el campo que la
+   * persona ve y puede corregir. */
+  select.parentNode.insertBefore(envoltorio, select);
+  select.hidden = true;
+
+  /* La etiqueta apunta al control visible (sin JS vuelve a apuntar al select,
+   * que es el que se ve en ese caso). */
+  const etiqueta = document.querySelector('label[for="' + select.id + '"]');
+  if (etiqueta) {
+    etiqueta.setAttribute('for', idEntrada);
+  }
+
+  sincronizarEntradaBusqueda(select, entrada);
+
+  /** Índice de la opción resaltada con el teclado (-1 = ninguna). */
+  let activa = -1;
+
+  /** Opciones que se pintaron en la lista en la última filtración. */
+  let visibles = [];
+
+  /** Elige una opción: escribe el <select> y avisa del cambio. */
+  const elegir = function (opcion) {
+    select.value = opcion.valor;
+    sincronizarEntradaBusqueda(select, entrada);
+    cerrarLista();
+    // Se retira el aviso de «texto sin coincidencia» si lo había: ya hay ficha.
+    const campo = entrada.closest('.campo');
+    if (campo) {
+      campo.classList.remove('campo--con-error');
+      const error = campo.querySelector('.campo__error');
+      if (error && error.parentNode) {
+        error.parentNode.removeChild(error);
+      }
+    }
+    // El 'change' es el que ya escuchan los demás módulos (cotizador: descuento
+    // y precios del cliente).
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
+  const cerrarLista = function () {
+    lista.hidden = true;
+    entrada.setAttribute('aria-expanded', 'false');
+    entrada.removeAttribute('aria-activedescendant');
+    activa = -1;
+  };
+
+  /** Pinta la lista con las opciones que coinciden con el texto del input. */
+  const pintarLista = function () {
+    const termino = normalizarBusqueda(entrada.value);
+
+    while (lista.firstChild) {
+      lista.removeChild(lista.firstChild);
+    }
+
+    visibles = opciones.filter(function (opcion) {
+      return termino === '' || opcion.buscar.indexOf(termino) !== -1;
+    });
+
+    const pintadas = Math.min(visibles.length, BUSCADOR_LIMITE_OPCIONES);
+
+    for (let i = 0; i < pintadas; i += 1) {
+      const opcion = visibles[i];
+      const elegida = select.value === opcion.valor;
+
+      const item = document.createElement('li');
+      item.className = 'selector-busqueda__opcion' + (elegida ? ' selector-busqueda__opcion--elegida' : '');
+      item.id = idLista + '-opcion-' + i;
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected', elegida ? 'true' : 'false');
+
+      const principal = document.createElement('span');
+      principal.className = 'selector-busqueda__nombre';
+      principal.textContent = opcion.texto;
+      item.appendChild(principal);
+
+      if (opcion.rfc !== '') {
+        const rfc = document.createElement('span');
+        rfc.className = 'selector-busqueda__rfc';
+        rfc.textContent = opcion.rfc;
+        item.appendChild(rfc);
+      }
+
+      item.addEventListener('pointerdown', function (evento) {
+        // Sin esto el foco salta del input a la lista y se cerraría antes de
+        // poder elegir: el clic se resuelve aquí, con el foco en su sitio.
+        evento.preventDefault();
+        elegir(opcion);
+      });
+
+      lista.appendChild(item);
+    }
+
+    if (pintadas === 0) {
+      const vacia = document.createElement('li');
+      vacia.className = 'selector-busqueda__opcion selector-busqueda__opcion--vacia';
+      vacia.setAttribute('role', 'option');
+      vacia.setAttribute('aria-disabled', 'true');
+      vacia.textContent = 'Sin coincidencias' + (entrada.value.trim() !== '' ? ' para «' + entrada.value.trim() + '»' : '');
+      lista.appendChild(vacia);
+    } else if (visibles.length > pintadas) {
+      const resto = document.createElement('li');
+      resto.className = 'selector-busqueda__pie';
+      resto.textContent = (visibles.length - pintadas) + ' más: sigue escribiendo para afinar';
+      lista.appendChild(resto);
+    }
+
+    const conteo = document.createElement('li');
+    conteo.className = 'selector-busqueda__pie';
+    conteo.textContent = pintadas + ' de ' + opciones.length + ' opciones';
+    lista.appendChild(conteo);
+
+    activa = -1;
+
+    /* Aviso para otros módulos (gastoProveedor.js): cuántas opciones coinciden
+     * con lo escrito y qué se escribió, para que puedan ofrecer el alta de una
+     * ficha que todavía no existe en el directorio. */
+    entrada.dispatchEvent(new CustomEvent('buscador:resultado', {
+      bubbles: true,
+      detail: { total: visibles.length, texto: entrada.value },
+    }));
+  };
+
+  const abrirLista = function () {
+    pintarLista();
+    lista.hidden = false;
+    entrada.setAttribute('aria-expanded', 'true');
+  };
+
+  /** Marca la opción activa del teclado (y la deja a la vista). */
+  const resaltar = function (indice) {
+    const items = lista.querySelectorAll('.selector-busqueda__opcion:not(.selector-busqueda__opcion--vacia)');
+    if (items.length === 0) {
+      return;
+    }
+
+    // La resaltada es sólo visual: lo elegido lo marca aria-selected y lo
+    // activo por teclado, aria-activedescendant.
+    items.forEach(function (item) {
+      item.classList.remove('selector-busqueda__opcion--activa');
+    });
+
+    activa = (indice + items.length) % items.length;
+    const item = items[activa];
+    if (item) {
+      item.classList.add('selector-busqueda__opcion--activa');
+      entrada.setAttribute('aria-activedescendant', item.id);
+      item.scrollIntoView({ block: 'nearest' });
+    }
+  };
+
+  entrada.addEventListener('focus', abrirLista);
+  entrada.addEventListener('click', abrirLista);
+
+  entrada.addEventListener('input', function () {
+    // Si lo escrito deja de ser la etiqueta de la ficha elegida, la elección
+    // queda en suspenso: el <select> vuelve a vacío (y se avisa con 'change')
+    // hasta que se elige otra opción de la lista.
+    if (select.value !== '') {
+      const opcion = select.options[select.selectedIndex];
+      if (normalizarBusqueda(entrada.value) !== normalizarBusqueda(opcion ? opcion.text : '')) {
+        select.value = '';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    abrirLista();
+  });
+
+  entrada.addEventListener('keydown', function (evento) {
+    if (evento.key === 'ArrowDown') {
+      evento.preventDefault();
+      if (lista.hidden) {
+        abrirLista();
+      }
+      resaltar(activa + 1);
+      return;
+    }
+
+    if (evento.key === 'ArrowUp') {
+      evento.preventDefault();
+      if (lista.hidden) {
+        abrirLista();
+      }
+      resaltar(activa - 1);
+      return;
+    }
+
+    if (evento.key === 'Enter') {
+      // Con la lista abierta, Intro elige la opción resaltada (o la primera
+      // coincidencia si no se movió con el teclado); sin coincidencias, avisa
+      // en el momento que ese texto no corresponde a ninguna ficha; cerrada,
+      // Intro hace lo de siempre (enviar el formulario).
+      if (!lista.hidden) {
+        evento.preventDefault();
+        const items = lista.querySelectorAll('.selector-busqueda__opcion:not(.selector-busqueda__opcion--vacia)');
+        if (items.length > 0) {
+          const indice = activa >= 0 && activa < items.length ? activa : 0;
+          elegir(visibles[indice]);
+        } else {
+          marcarErrorBusqueda(
+            entrada,
+            'Ninguna ficha coincide con «' + entrada.value.trim() + '»: corrige el texto o elige un ' + entidad + ' de la lista.'
+          );
+        }
+      }
+      return;
+    }
+
+    if (evento.key === 'Escape' && !lista.hidden) {
+      evento.preventDefault();
+      cerrarLista();
+    }
+  });
+
+  entrada.addEventListener('blur', function () {
+    // Al salir del campo se cierra la lista y el texto vuelve a reflejar lo
+    // elegido de verdad en el <select> (nada si no hay elección).
+    cerrarLista();
+    sincronizarEntradaBusqueda(select, entrada);
+  });
+
+  /* Envío con texto suelto: si la persona escribió algo que no corresponde a
+   * una ficha elegida, se le avisa aquí (con foco incluido) y no se envía.
+   * Corre ANTES de la validación general de app.js y por eso detiene también
+   * su paso; si el input está vacío, esa validación señala el campo igual. */
+  const formulario = select.closest('form');
+  if (formulario) {
+    formulario.addEventListener('submit', function (evento) {
+      if (evento.defaultPrevented) {
+        return;
+      }
+      if (select.value !== '' || entrada.value.trim() === '') {
+        return;
+      }
+
+      evento.preventDefault();
+      evento.stopPropagation();
+      marcarErrorBusqueda(
+        entrada,
+        'Elige un ' + entidad + ' de la lista: lo que escribiste no coincide con ninguna ficha.'
+      );
+    });
+  }
+}
+
+/**
+ * Prepara todos los <select data-buscador> de la página.
+ * Se llama desde inicializarAplicacion() (src/js/app.js).
+ */
+function prepararSelectoresBusqueda() {
+  document.querySelectorAll('select[data-buscador]').forEach(crearSelectorBusqueda);
+}
 
 /**
  * tablasResponsivas.js — etiqueta cada celda con el encabezado de su columna.
