@@ -43,7 +43,7 @@ class Almacenamiento
     private const MAX_ARCHIVOS = 200000;
 
     /** Segundos que se le dan a un respaldo/restauración manual antes de abortar. */
-    private const TIEMPO_MAXIMO = 300;
+    private const TIEMPO_MAXIMO = 600;
 
     /** Claves de configuración que usa la pestaña. */
     public const CFG_AUTOMATICO = 'respaldo_automatico';
@@ -174,6 +174,28 @@ class Almacenamiento
         return $total > 0 ? (int) round($parte * 100 / $total) : 0;
     }
 
+    /** Tamaño máximo que PHP acepta en una subida (el menor entre upload_max_filesize y post_max_size). */
+    public static function limiteSubida(): int
+    {
+        $valores = [];
+        foreach (['upload_max_filesize', 'post_max_size'] as $clave) {
+            $texto = strtolower(trim((string) ini_get($clave)));
+            if ($texto === '') {
+                continue;
+            }
+            $unidad = substr($texto, -1);
+            $numero = (float) $texto;
+            $valores[] = (int) ($numero * match ($unidad) {
+                'g' => 1073741824,
+                'm' => 1048576,
+                'k' => 1024,
+                default => 1,
+            });
+        }
+
+        return $valores ? min($valores) : 67108864;
+    }
+
     private static function relativa(string $ruta): string
     {
         $absoluta = realpath($ruta) ?: $ruta;
@@ -244,7 +266,7 @@ class Almacenamiento
     /**
      * Copias existentes, de la más reciente a la más antigua.
      *
-     * @return array<int, array{carpeta: string, sello: string, fecha: ?string, bytes: int,
+     * @return array<int, array{carpeta: string, sello: string, fecha: ?string, origen: string, bytes: int,
      *                          base: string, tablas: string, migraciones: string, incompleta: bool}>
      */
     public static function listar(): array
@@ -264,7 +286,7 @@ class Almacenamiento
                 continue;
             }
 
-            $manifiesto = ['Fecha' => null, 'Base' => '', 'Tablas' => '', 'Migraciones' => ''];
+            $manifiesto = ['Fecha' => null, 'Origen' => '', 'Base' => '', 'Tablas' => '', 'Migraciones' => ''];
             if (is_readable("$ruta/MANIFIESTO.txt")) {
                 foreach (file("$ruta/MANIFIESTO.txt", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $linea) {
                     $partes = explode(':', $linea, 2);
@@ -281,6 +303,7 @@ class Almacenamiento
                 'carpeta' => $ruta,
                 'sello' => $nombre,
                 'fecha' => $manifiesto['Fecha'] !== null && ($t = strtotime($manifiesto['Fecha'])) ? date('d/m/Y H:i', $t) : null,
+                'origen' => (string) $manifiesto['Origen'],
                 'bytes' => self::pesoDir($ruta),
                 'base' => (string) $manifiesto['Base'],
                 'tablas' => (string) $manifiesto['Tablas'],
@@ -378,7 +401,7 @@ class Almacenamiento
             $base = 'cotizaciones_restaurada_' . date('Ymd') . '_' . (++$sufijo);
         }
 
-        $archivos = self::RAIZ . '/storage/restauracion-' . $sello . '-' . time();
+        $archivos = self::carpetaRespaldos() . '/restauraciones/' . $sello . '-' . date('Ymd-His');
         [$codigo, $salida] = self::ejecutar(['bash', $script, $origen, $base, $archivos], getenv());
 
         if ($codigo !== 0) {
@@ -390,6 +413,225 @@ class Almacenamiento
             'mensaje' => "Restaurada en la base «{$base}». Los archivos quedaron en " . self::relativa($archivos)
                 . '. Nada de lo que estabas usando se tocó: revisa la copia y, si quieres usarla, aplica la aplicación a esa base y copia los archivos a su lugar.',
         ];
+    }
+
+    /** Ruta de una copia existente y verificable, o null si el sello no es válido o no está. */
+    public static function rutaCopia(string $sello): ?string
+    {
+        if (!preg_match('/^\d{8}-\d{6}$/', $sello)) {
+            return null;
+        }
+        $ruta = self::carpetaRespaldos() . '/' . $sello;
+
+        return is_dir($ruta) && is_file("$ruta/SHA256SUMS") ? $ruta : null;
+    }
+
+    /**
+     * Importa una copia EXTERNA (un .tar.gz subido desde el navegador) al almacén del clúster.
+     *
+     * Acepta el paquete tal como lo genera «Descargar» en esta pestaña (con la carpeta
+     * AAAAMMDD-HHMMSS dentro) o el contenido del respaldo en la raíz del tar. Nada se
+     * restaura aquí: se verifica, se guarda junto a las demás copias y desde la lista se
+     * restaura igual que una copia hecha en el clúster.
+     *
+     * Seguridad: rechaza rutas absolutas, «..», enlaces y dispositivos; exige
+     * base.sql.gz, archivos.tar.gz y SHA256SUMS, y comprueba las huellas antes de guardar.
+     *
+     * @param array{name?: string, tmp_name?: string, error?: int, size?: int} $archivo Fila de $_FILES.
+     * @return array{ok: bool, sello: ?string, mensaje: string}
+     */
+    public static function importarExterno(array $archivo): array
+    {
+        $fallo = static fn (string $mensaje): array => ['ok' => false, 'sello' => null, 'mensaje' => $mensaje];
+
+        $error = (int) ($archivo['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            return $fallo('Selecciona el archivo .tar.gz de la copia que quieres importar.');
+        }
+        if ($error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE) {
+            return $fallo('El archivo supera el límite de subida del servidor (' . self::formatearBytes(self::limiteSubida()) . ').');
+        }
+        if ($error !== UPLOAD_ERR_OK) {
+            return $fallo('La subida no se completó (código ' . $error . '). Inténtalo de nuevo.');
+        }
+
+        $temporal = (string) ($archivo['tmp_name'] ?? '');
+        $nombre = (string) ($archivo['name'] ?? 'copia.tar.gz');
+        if (!is_uploaded_file($temporal)) {
+            return $fallo('El archivo no llegó al servidor.');
+        }
+        if (!preg_match('/\.(tar\.gz|tgz)$/i', $nombre)) {
+            return $fallo('La copia debe ser un archivo .tar.gz (el que genera el botón «Descargar»).');
+        }
+
+        return self::importarPaquete($temporal);
+    }
+
+    /**
+     * Instala un paquete .tar.gz ya recibido (subida HTTP o archivo local de una prueba).
+     * Es la parte segura de importarExterno, sin depender de $_FILES.
+     *
+     * @return array{ok: bool, sello: ?string, mensaje: string}
+     */
+    public static function importarPaquete(string $temporal): array
+    {
+        $fallo = static fn (string $mensaje): array => ['ok' => false, 'sello' => null, 'mensaje' => $mensaje];
+
+        if (!is_file($temporal) || (int) @filesize($temporal) === 0) {
+            return $fallo('El archivo de la copia está vacío o no existe.');
+        }
+        if (self::faltantes()) {
+            return $fallo('Faltan herramientas en el servidor: ' . implode(', ', self::faltantes()) . '.');
+        }
+
+        $entrada = fopen($temporal, 'rb');
+        $firma = $entrada ? (string) fread($entrada, 2) : '';
+        if ($entrada) {
+            fclose($entrada);
+        }
+        if ($firma !== "\x1f\x8b") {
+            return $fallo('El archivo no es un .tar.gz válido.');
+        }
+
+        $trabajo = self::RAIZ . '/storage/importacion-' . bin2hex(random_bytes(6));
+        if (!@mkdir($trabajo, 0700, true)) {
+            return $fallo('No se pudo preparar un espacio temporal para la copia.');
+        }
+        $limpiar = static fn () => self::borrarArbol($trabajo);
+
+        $paquete = $trabajo . '/paquete.tar.gz';
+        if (!@copy($temporal, $paquete)) {
+            $limpiar();
+            return $fallo('No se pudo guardar el archivo recibido.');
+        }
+
+        // 1) Listar sin extraer: nombres y tipo de cada entrada.
+        $tar = self::rutaBinario('tar') ?? 'tar';
+        [$codigo, $listado] = self::ejecutar([$tar, '-tzf', $paquete], getenv());
+        if ($codigo !== 0) {
+            $limpiar();
+            return $fallo('El archivo no es un tar.gz válido o está dañado.');
+        }
+        $nombres = array_values(array_filter(array_map('trim', explode("\n", $listado)), static fn (string $n): bool => $n !== ''));
+        [, $detalle] = self::ejecutar([$tar, '-tvzf', $paquete], getenv());
+        $tipos = array_values(array_filter(array_map('trim', explode("\n", $detalle)), static fn (string $l): bool => $l !== ''));
+        if (!$nombres || count($nombres) !== count($tipos)) {
+            $limpiar();
+            return $fallo('El archivo no tiene el formato de una copia de seguridad.');
+        }
+        foreach ($nombres as $indice => $entrada) {
+            if ($entrada === '' || $entrada[0] === '/' || preg_match('#(^|/)\.\.(/|$)#', $entrada)) {
+                $limpiar();
+                return $fallo('La copia contiene rutas no permitidas; se rechazó sin extraer nada.');
+            }
+            $tipo = $tipos[$indice][0] ?? '';
+            if ($tipo !== '-' && $tipo !== 'd') {
+                $limpiar();
+                return $fallo('La copia contiene enlaces o dispositivos; por seguridad no se importa.');
+            }
+        }
+
+        // 2) Extraer en un directorio aislado y localizar la carpeta del respaldo.
+        $extraido = $trabajo . '/extraido';
+        if (!@mkdir($extraido, 0700, true)) {
+            $limpiar();
+            return $fallo('No se pudo preparar la extracción de la copia.');
+        }
+        [$codigo] = self::ejecutar([$tar, '-xzf', $paquete, '-C', $extraido, '--no-same-owner', '--no-same-permissions'], getenv());
+        if ($codigo !== 0) {
+            $limpiar();
+            return $fallo('No se pudo extraer la copia; puede estar dañada.');
+        }
+
+        $raiz = $extraido;
+        $primeros = array_values(array_unique(array_map(static fn (string $n): string => explode('/', ltrim($n, './'))[0], $nombres)));
+        if (count($primeros) === 1) {
+            $candidato = $extraido . '/' . $primeros[0];
+            if (is_dir($candidato) && is_file("$candidato/base.sql.gz")) {
+                $raiz = $candidato;
+            }
+        }
+        if (!is_file("$raiz/base.sql.gz") || !is_file("$raiz/archivos.tar.gz") || !is_file("$raiz/SHA256SUMS")) {
+            $limpiar();
+            return $fallo('La copia no trae base.sql.gz, archivos.tar.gz y SHA256SUMS: no es una copia de esta plataforma.');
+        }
+
+        // 3) Verificar las huellas ANTES de guardarla: si no cuadran, no entra al almacén.
+        $sha = self::rutaBinario('sha256sum') ?? 'sha256sum';
+        [$codigo] = self::ejecutar(['bash', '-c', 'cd ' . escapeshellarg($raiz) . ' && ' . escapeshellarg($sha) . ' -c SHA256SUMS'], getenv());
+        if ($codigo !== 0) {
+            $limpiar();
+            return $fallo('La copia está dañada o fue alterada: las huellas SHA-256 no coinciden. No se guardó nada.');
+        }
+
+        // 4) Sello: el nombre de la carpeta o, si viene suelta, la fecha del manifiesto.
+        $sello = basename($raiz);
+        $momento = null;
+        if (!preg_match('/^\d{8}-\d{6}$/', $sello)) {
+            if (is_readable("$raiz/MANIFIESTO.txt")) {
+                foreach (file("$raiz/MANIFIESTO.txt", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $linea) {
+                    if (stripos($linea, 'Fecha:') === 0) {
+                        $momento = strtotime(trim(substr($linea, 6))) ?: null;
+                        break;
+                    }
+                }
+            }
+            $momento = $momento ?: time();
+            $sello = date('Ymd-His', $momento);
+        }
+        $destino = self::carpetaRespaldos() . '/' . $sello;
+        if ($momento !== null || is_dir($destino)) {
+            $momento = $momento ?: (strtotime(preg_replace('/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/', '$1-$2-$3 $4:$5:$6', $sello)) ?: time());
+            $intentos = 0;
+            while (is_dir($destino) && $intentos < 120) {
+                $momento++;
+                $sello = date('Ymd-His', $momento);
+                $destino = self::carpetaRespaldos() . '/' . $sello;
+                $intentos++;
+            }
+        }
+        if (is_dir($destino)) {
+            $limpiar();
+            return $fallo('Ya existe una copia con el sello ' . $sello . '. Renómbrala o bórrala antes de importar.');
+        }
+
+        if (!is_dir(self::carpetaRespaldos()) && !@mkdir(self::carpetaRespaldos(), 0700, true)) {
+            $limpiar();
+            return $fallo('No se pudo crear la carpeta de respaldos del clúster.');
+        }
+        [$codigo] = self::ejecutar(['cp', '-a', '--', $raiz, $destino], getenv());
+        if ($codigo !== 0 || !is_file("$destino/base.sql.gz")) {
+            self::borrarArbol($destino);
+            $limpiar();
+            return $fallo('No se pudo guardar la copia en el almacén del clúster.');
+        }
+        @chmod($destino, 0700);
+        foreach (glob($destino . '/*') ?: [] as $ruta) {
+            @chmod($ruta, is_dir($ruta) ? 0700 : 0600);
+        }
+        $limpiar();
+
+        return [
+            'ok' => true, 'sello' => $sello,
+            'mensaje' => 'Copia externa verificada y guardada en el clúster como ' . $sello
+                . ' (' . self::formatearBytes(self::pesoDir($destino)) . '). Ya puedes restaurarla en una base nueva desde la lista.',
+        ];
+    }
+
+    /** Borra un árbol de archivos sin seguir enlaces simbólicos. */
+    private static function borrarArbol(string $ruta): void
+    {
+        if (!is_dir($ruta) || is_link($ruta)) {
+            @unlink($ruta);
+            return;
+        }
+        foreach (scandir($ruta) ?: [] as $nombre) {
+            if ($nombre === '.' || $nombre === '..') {
+                continue;
+            }
+            self::borrarArbol($ruta . '/' . $nombre);
+        }
+        @rmdir($ruta);
     }
 
     /** ¿Existe ya esa base de datos? */
@@ -449,6 +691,30 @@ class Almacenamiento
         $ultimo = trim((string) Configuracion::obtener(self::CFG_ULTIMO, ''));
         if ($ultimo !== '' && substr($ultimo, 0, 10) === date('Y-m-d')) {
             return null;   // ya se respaldó hoy: una copia por día, ni más
+        }
+        // El CronJob del clúster no escribe en `configuracion`: si ya hay una copia
+        // hecha por él hoy, se anota y no se duplica (un respaldo diario, no dos).
+        $carpeta = self::carpetaRespaldos();
+        $hoy = date('Ymd');
+        if (is_dir($carpeta)) {
+            foreach (scandir($carpeta) ?: [] as $nombre) {
+                if ($nombre === '.' || $nombre === '..' || strncmp($nombre, $hoy . '-', 9) !== 0 || !is_dir($carpeta . '/' . $nombre)) {
+                    continue;
+                }
+                $origen = '';
+                if (is_readable($carpeta . '/' . $nombre . '/MANIFIESTO.txt')) {
+                    foreach (file($carpeta . '/' . $nombre . '/MANIFIESTO.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $linea) {
+                        if (stripos($linea, 'Origen:') === 0) {
+                            $origen = strtolower(trim(substr($linea, 7)));
+                            break;
+                        }
+                    }
+                }
+                if ($origen === 'cron') {
+                    self::guardarUltimo('ok', $carpeta . '/' . $nombre);
+                    return null;
+                }
+            }
         }
 
         $resultado = self::crear();

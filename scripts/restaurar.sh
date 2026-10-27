@@ -23,26 +23,43 @@ while IFS= read -r linea; do [[ -n "$linea" ]] && export "$linea"; done <<< "$PR
 RESPALDO="$1"; BASE="$2"
 ARCHIVOS="${3:-$PWD/restauracion-$(date +%Y%m%d-%H%M%S)}"
 DB_HOST="${DB_HOST:-localhost}"; DB_USER="${DB_USER:-root}"
-export MYSQL_PWD="${DB_PASSWORD:-}"
+# Restaurar crea una base NUEVA: el usuario de la app no tiene permiso global para
+# CREATE DATABASE. Si el despliegue entrega MYSQL_ROOT_PASSWORD (lo hace el clúster),
+# se usa root sólo para esta operación; si no, se respeta DB_USER (desarrollo local).
+if [[ -n "${MYSQL_ROOT_PASSWORD:-}" ]]; then
+    DB_USER="root"
+    export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"
+else
+    export MYSQL_PWD="${DB_PASSWORD:-}"
+fi
 
 [[ -f "$RESPALDO/SHA256SUMS" ]] || { echo "No hay SHA256SUMS en $RESPALDO: no es un respaldo válido." >&2; exit 1; }
 echo "==> Verificando integridad del respaldo"
 ( cd "$RESPALDO" && sha256sum -c SHA256SUMS ) || { echo "La copia está dañada o fue alterada. No se restauró nada." >&2; exit 1; }
 
-EXISTENTES="$(mysql -h "$DB_HOST" -u "$DB_USER" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$BASE'")"
+# Cliente MariaDB (contenedor) y MySQL 8 usan opciones de TLS distintas. La
+# conexión va por la red interna; se desactiva TLS por el certificado autofirmado.
+SSL=()
+if mysql --help 2>/dev/null | grep -q -- '--ssl-mode'; then
+    SSL=(--ssl-mode=DISABLED)
+else
+    SSL=(--ssl=0)
+fi
+
+EXISTENTES="$(mysql -h "$DB_HOST" -u "$DB_USER" "${SSL[@]}" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$BASE'")"
 if [[ "$EXISTENTES" != "0" ]]; then
     echo "La base '$BASE' ya tiene $EXISTENTES tablas: no se pisa. Usa una base nueva o vacíala a propósito." >&2
     exit 1
 fi
 
 echo "==> Restaurando la base en '$BASE'"
-mysql -h "$DB_HOST" -u "$DB_USER" -e "CREATE DATABASE IF NOT EXISTS \`$BASE\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-gunzip -c "$RESPALDO/base.sql.gz" | mysql -h "$DB_HOST" -u "$DB_USER" "$BASE"
+mysql -h "$DB_HOST" -u "$DB_USER" "${SSL[@]}" -e "CREATE DATABASE IF NOT EXISTS \`$BASE\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+gunzip -c "$RESPALDO/base.sql.gz" | mysql -h "$DB_HOST" -u "$DB_USER" "${SSL[@]}" "$BASE"
 
 echo "==> Extrayendo archivos en $ARCHIVOS"
 mkdir -p "$ARCHIVOS"
 tar -C "$ARCHIVOS" -xzf "$RESPALDO/archivos.tar.gz"
 
-TABLAS="$(mysql -h "$DB_HOST" -u "$DB_USER" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$BASE'")"
+TABLAS="$(mysql -h "$DB_HOST" -u "$DB_USER" "${SSL[@]}" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$BASE'")"
 echo "==> Listo: $TABLAS tablas restauradas en '$BASE'; archivos en $ARCHIVOS"
 echo "    Revisa los datos y, si todo es correcto, apunta la aplicación a esa base y copia los archivos a su lugar."

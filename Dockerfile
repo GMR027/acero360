@@ -35,9 +35,16 @@ FROM php:8.3-apache
 #   gd     → Intervention Image (recorte cuadrado de fotos de productos)
 #   zip    → dompdf genera PDFs comprimidos
 #   exif   → lectura de metadatos de imágenes subidas
-# Herramientas del sistema para la lectura de facturas: poppler-utils (pdftotext/pdftoppm) y tesseract-ocr (OCR).
+# Herramientas del sistema:
+#   default-mysql-client → mysqldump y mysql: los respaldos se hacen DENTRO del clúster.
+#   gzip/tar/sha256sum   → empaquetado y verificación de cada copia (vienen en la base, se declaran por claridad).
+#   poppler-utils        → pdftotext/pdftoppm para leer facturas.
+#   tesseract-ocr        → OCR de comprobantes escaneados.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
+      default-mysql-client \
+      gzip \
+      tar \
       libpng-dev \
       libjpeg62-turbo-dev \
       libfreetype6-dev \
@@ -56,10 +63,11 @@ RUN a2enmod rewrite headers
 # Zona horaria y límites razonables para subida de fotos y generación de PDFs.
 RUN { \
       echo 'date.timezone = America/Mexico_City'; \
-      echo 'upload_max_filesize = 20M'; \
-      echo 'post_max_size = 25M'; \
+      echo 'upload_max_filesize = 512M'; \
+      echo 'post_max_size = 512M'; \
       echo 'memory_limit = 256M'; \
-      echo 'max_execution_time = 120'; \
+      echo 'max_execution_time = 600'; \
+      echo 'max_input_time = 600'; \
     } > /usr/local/etc/php/conf.d/cotizaciones.ini
 
 WORKDIR /var/www/html

@@ -38,6 +38,8 @@ persistence:
     size: 1Gi            # public/uploads (planos, firmas, sellos y miniaturas de herramientas)
   documentos:
     size: 5Gi            # storage/documentos (comprobantes fiscales: PDF, imágenes y XML)
+  archivo:
+    size: 2Gi            # storage/archivo (herramienta Archivo: ofimática, PDF, planos…)
 
 resources:
   app:
@@ -58,7 +60,9 @@ resources:
 ingress:
   className: public
   clusterIssuer: letsencrypt-prod
-  proxyBodySize: 20m
+  proxyBodySize: 512m
+  # Respaldo/restauración y descargas pueden tardar más que el minuto por defecto de nginx.
+  proxyTimeout: "600"
 
 # Tareas programadas (plantillas desactivadas por defecto; ver templates/app/cronjobs.yaml)
 fotoInventario:
@@ -66,7 +70,6 @@ fotoInventario:
   schedule: "10 0 1 * *"     # día 1 de cada mes, 00:10: fotografía del inventario del mes anterior
 
 respaldo:
-  enabled: false
-  schedule: "30 2 * * *"     # diario 02:30
-  retener: 14                # copias a conservar
-  size: 2Gi
+  enabled: true
+  schedule: "30 2 * * *"     # diario 02:30 (hora del servidor/clúster)
+  size: 3Gi                  # volumen persistente para las copias

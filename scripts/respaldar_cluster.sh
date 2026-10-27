@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # ===========================================================================
-# respaldar_cluster.sh — respaldo de la PRODUCCIÓN (clúster) desde un equipo con acceso a kubectl.
+# respaldar_cluster.sh — COPIA EXTERNA de la producción (clúster) desde un equipo con kubectl.
+#
+# Desde la ronda de respaldos en clúster, el respaldo diario y las restauraciones
+# viven en el PVC cotizaciones-respaldos y se manejan desde Ajustes → Almacenamiento.
+# Este script sigue sirviendo para arrastrar una copia FUERA del clúster (disco
+# externo/otro equipo) sin entrar al panel.
 #
 # Uso:   scripts/respaldar_cluster.sh [carpeta_destino]       (por defecto ~/Documentos/respaldos-cotizaciones)
 # Variables: NAMESPACE (cotizaciones) · RETENER (copias a conservar, 14)
 #
 # Genera <destino>/AAAAMMDD-HHMMSS/{base.sql.gz, archivos.tar.gz, SHA256SUMS, MANIFIESTO.txt} con el MISMO formato que
-# scripts/respaldar.sh, así que scripts/restaurar.sh lo restaura igual. Incluye la base, las fotos/logotipos y los
-# DOCUMENTOS FISCALES (storage/documentos). Solo lee: no modifica nada en el clúster.
+# scripts/respaldar.sh, así que scripts/restaurar.sh lo restaura igual. Incluye la base, las fotos/logotipos, las subidas
+# de las herramientas, los DOCUMENTOS FISCALES y el Archivo compartido. Solo lee: no modifica nada en el clúster.
 # Cron sugerido (diario 02:30):  30 2 * * *  /ruta/scripts/respaldar_cluster.sh >> ~/Documentos/respaldos-cotizaciones/respaldo.log 2>&1
 # ===========================================================================
 set -euo pipefail
@@ -28,7 +33,7 @@ gzip -t "$CARPETA/base.sql.gz"
 # Los paquetes .deb (storage/documentos/escritorio) se excluyen: se regeneran y su SHA-256 queda en la base.
 # La transmisión se verifica y se reintenta (kubectl exec puede cortar flujos largos).
 for intento in 1 2 3; do
-    kubectl exec -n "$NAMESPACE" deploy/cotizaciones -c cotizaciones -- sh -c 'cd /var/www/html && tar czf - --exclude=storage/documentos/escritorio public/image storage/documentos 2>/dev/null' > "$CARPETA/archivos.tar.gz" || true
+    kubectl exec -n "$NAMESPACE" deploy/cotizaciones -c cotizaciones -- sh -c 'cd /var/www/html && tar czf - --exclude=storage/documentos/escritorio public/image public/uploads storage/documentos storage/archivo 2>/dev/null' > "$CARPETA/archivos.tar.gz" || true
     gzip -t "$CARPETA/archivos.tar.gz" 2>/dev/null && break
     echo "Archivos: transmisión incompleta (intento $intento/3)" >&2
     [[ $intento -lt 3 ]] || { echo "No se pudo respaldar archivos" >&2; exit 1; }

@@ -25,6 +25,21 @@ spec:
         app: cotizaciones
     spec:
       initContainers:
+        - name: preparar-respaldos
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # El PVC nace de root; Apache/PHP escribe como www-data (33).
+          command:
+            - sh
+            - -c
+            - |
+              chown www-data:www-data /respaldos /archivo 2>/dev/null || true
+              chmod 0770 /respaldos /archivo
+          volumeMounts:
+            - name: respaldos
+              mountPath: /respaldos
+            - name: archivo
+              mountPath: /archivo
         - name: precargar-imagenes
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -83,6 +98,13 @@ spec:
                 secretKeyRef:
                   name: cotizaciones
                   key: DB_PASSWORD
+            # Sólo lo usa scripts/restaurar.sh para crear la base nueva de una
+            # restauración (el usuario de la app no puede CREATE DATABASE).
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: MYSQL_ROOT_PASSWORD
             - name: REGISTRO_ABIERTO
               value: {{ .Values.app.registroAbierto | quote }}
           ports:
@@ -107,6 +129,10 @@ spec:
               mountPath: /var/www/html/public/uploads
             - name: documentos
               mountPath: /var/www/html/storage/documentos
+            - name: respaldos
+              mountPath: /var/www/html/respaldos
+            - name: archivo
+              mountPath: /var/www/html/storage/archivo
       volumes:
         - name: images
           persistentVolumeClaim:
@@ -117,3 +143,9 @@ spec:
         - name: documentos
           persistentVolumeClaim:
             claimName: cotizaciones-documentos
+        - name: respaldos
+          persistentVolumeClaim:
+            claimName: cotizaciones-respaldos
+        - name: archivo
+          persistentVolumeClaim:
+            claimName: cotizaciones-archivo

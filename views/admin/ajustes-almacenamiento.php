@@ -3,9 +3,12 @@
  * views/admin/ajustes-almacenamiento.php — Almacenamiento: espacio ocupado y copias de seguridad.
  *
  * La medición es en vivo (base de datos + carpetas de archivos). Los respaldos reutilizan
- * scripts/respaldar.sh y scripts/restaurar.sh, que ya valida pruebas/probar_respaldo.sh.
- * Restaurar nunca toca lo que estás usando: importa en una base nueva y extrae los archivos
- * a una carpeta aparte, para que revises y decidas.
+ * scripts/respaldar.sh y scripts/restaurar.sh, que ya valida pruebas/probar_respaldo.sh y que
+ * viajan dentro de la imagen: el respaldo y la restauración se ejecutan en el clúster, sobre
+ * el volumen persistente «respaldos». Cada copia se puede descargar como un .tar.gz y una
+ * copia externa se puede volver a subir para restaurarla en una base nueva. Restaurar nunca
+ * toca lo que estás usando: importa en una base nueva y extrae los archivos a una carpeta
+ * aparte, para que revises y decidas.
  */
 
 soloAdmin();
@@ -30,6 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $r = \App\Almacenamiento::restaurar((string) ($_POST['sello'] ?? ''));
         \App\Auditoria::registrar('respaldo', null, 'restaurar', $usuarioId, $r['ok'] ? null : $r['mensaje'], [
             'sello' => (string) ($_POST['sello'] ?? ''), 'base' => $r['base'] ?? '', 'carpeta' => $r['carpeta'] ?? '',
+        ]);
+        redirigir($destino, $r['ok'] ? 'exito' : 'error', $r['mensaje']);
+    }
+
+    if ($accion === 'subir') {
+        $r = \App\Almacenamiento::importarExterno($_FILES['archivo'] ?? []);
+        \App\Auditoria::registrar('respaldo', null, 'importar', $usuarioId, $r['ok'] ? null : $r['mensaje'], [
+            'archivo' => (string) ($_FILES['archivo']['name'] ?? ''), 'sello' => $r['sello'] ?? '',
         ]);
         redirigir($destino, $r['ok'] ? 'exito' : 'error', $r['mensaje']);
     }
@@ -90,7 +101,8 @@ template('tabsAjustes', ['tab' => 'almacenamiento']);
     <p class="nota nota--error mb-md" role="alert">
         <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
         <span>Esta máquina no tiene las herramientas para respaldar: falta <strong><?= escaparValores(implode(', ', $faltan)) ?></strong>.
-        Instala el cliente de MySQL y las utilidades de compresión, o pídeselo a quien administra el servidor.</span>
+        La imagen de producción ya incluye el cliente de MySQL y las utilidades de compresión; si aparece este aviso,
+        el contenedor se construyó con una imagen anterior o se está ejecutando fuera del clúster.</span>
     </p>
 <?php endif; ?>
 
@@ -156,7 +168,7 @@ template('tabsAjustes', ['tab' => 'almacenamiento']);
         <label class="interruptor mb-md" for="automatico">
             <span>
                 <strong>Hacer el respaldo solo, cada día</strong><br>
-                <span class="texto-xs texto-secundario">Se ejecuta la primera vez que alguien abra la plataforma después de la hora elegida. Si ese día nadie entra, no se hace: para que ocurra aunque nadie entre, copia la línea de cron de abajo.</span>
+                <span class="texto-xs texto-secundario">Se ejecuta la primera vez que alguien abra la plataforma después de la hora elegida. Si ese día nadie entra, no se hace: en el clúster el CronJob diario lo garantiza sin depender de nadie. Si ya existe una copia de hoy (por ejemplo, la del CronJob), no se repite.</span>
             </span>
             <input type="checkbox" id="automatico" name="automatico" value="1" <?= \App\Almacenamiento::automatico() ? 'checked' : '' ?>>
             <span class="interruptor__pista" aria-hidden="true"></span>
@@ -166,12 +178,12 @@ template('tabsAjustes', ['tab' => 'almacenamiento']);
             <div class="campo">
                 <label class="campo__etiqueta" for="hora">Hora del respaldo</label>
                 <input class="control" type="time" id="hora" name="hora" value="<?= escaparValores(\App\Almacenamiento::hora()) ?>">
-                <span class="campo__ayuda">Por defecto a las 23:00.</span>
+                <span class="campo__ayuda">Respaldo de la app. El CronJob del clúster corre a las 02:30 (se cambia en el chart).</span>
             </div>
             <div class="campo">
                 <label class="campo__etiqueta" for="retener">Copias que se conservan</label>
                 <input class="control" type="number" id="retener" name="retener" min="1" max="365" step="1" value="<?= \App\Almacenamiento::retener() ?>">
-                <span class="campo__ayuda">Las más antiguas se borran solas al respaldar.</span>
+                <span class="campo__ayuda">Las más antiguas se borran solas al respaldar (también las del CronJob del clúster).</span>
             </div>
             <div class="campo">
                 <label class="campo__etiqueta" for="carpeta">Carpeta de respaldos (opcional)</label>
@@ -186,14 +198,28 @@ template('tabsAjustes', ['tab' => 'almacenamiento']);
     </form>
 
     <dl class="cotizador-detalle__cliente mt-md">
-        <div><dt>Último respaldo</dt><dd><?= $ultimoFecha ? escaparValores($ultimoFecha) . ' · ' . ($ultimoEstado === 'ok' ? '<span class="badge badge--aprobado">Correcto</span>' : '<span class="badge badge--error">Falló</span>') . ' · ' . escaparValores($ultimoCarpeta) : 'Todavía no se ha hecho ninguno.' ?></dd></div>
-        <div><dt>Carpetas guardadas</dt><dd><?= escaparValores(implode(', ', ['base de datos', 'public/image', 'storage/documentos'])) ?></dd></div>
+        <?php
+        // El CronJob del clúster no escribe `respaldo_ultimo`: si la copia más reciente
+        // del listado es posterior al registro (o no hay registro), se muestra esa.
+        $copiaReciente = $resumen['ultimo'] ?? null;
+        if ($copiaReciente !== null && ($ultimoFecha === null || strcmp($copiaReciente['sello'], (string) $ultimoCarpeta) > 0)) {
+            $fechaMostrada   = $copiaReciente['fecha'];
+            $estadoMostrado  = 'ok';
+            $carpetaMostrada = $copiaReciente['sello'];
+        } else {
+            $fechaMostrada   = $ultimoFecha;
+            $estadoMostrado  = $ultimoEstado;
+            $carpetaMostrada = $ultimoCarpeta;
+        }
+        ?>
+        <div><dt>Último respaldo</dt><dd><?= $fechaMostrada ? escaparValores($fechaMostrada) . ' · ' . ($estadoMostrado === 'ok' ? '<span class="badge badge--aprobado">Correcto</span>' : '<span class="badge badge--error">Falló</span>') . ' · ' . escaparValores($carpetaMostrada) : 'Todavía no se ha hecho ninguno.' ?></dd></div>
+        <div><dt>Carpetas guardadas</dt><dd><?= escaparValores(implode(', ', ['base de datos', 'public/image', 'public/uploads', 'storage/documentos', 'storage/archivo'])) ?></dd></div>
     </dl>
 
     <?php if (!$faltan) : ?>
         <details class="mt-md">
-            <summary class="btn btn--texto btn--sm">Garantizar el respaldo aunque nadie entre (cron)</summary>
-            <p class="campo__ayuda mt-sm">Esta línea hace el respaldo todos los días a la hora elegida sin depender de que alguien abra la plataforma. Pégala en el <code>crontab</code> del servidor (<code>crontab -e</code>):</p>
+            <summary class="btn btn--texto btn--sm">Garantizar el respaldo aunque nadie entre (cron del servidor o CronJob del clúster)</summary>
+            <p class="campo__ayuda mt-sm">En el clúster el respaldo ya lo hace el CronJob <code>cotizaciones-respaldo</code> y las copias quedan en el volumen <code>cotizaciones-respaldos</code>. En una instalación sin Kubernetes, esta línea hace el respaldo todos los días a la hora elegida; pégala en el <code>crontab</code> del servidor (<code>crontab -e</code>):</p>
             <pre style="overflow:auto;background:var(--color-fondo);border:1px solid var(--color-borde);border-radius:.5rem;padding:.75rem;font-size:.8125rem"><?= escaparValores(\App\Almacenamiento::lineaCron()) ?></pre>
         </details>
     <?php endif; ?>
@@ -224,21 +250,26 @@ template('tabsAjustes', ['tab' => 'almacenamiento']);
                         <tr>
                             <td>
                                 <strong><?= escaparValores($copia['sello']) ?></strong>
-                                <span class="texto-xs texto-secundario"><br><?= $copia['fecha'] ? 'Hecha el ' . escaparValores($copia['fecha']) : 'Sin fecha en el manifiesto' ?><?= $copia['tablas'] !== '' ? ' · ' . (int) $copia['tablas'] . ' tablas' : '' ?></span>
+                                <span class="texto-xs texto-secundario"><br><?= $copia['fecha'] ? 'Hecha el ' . escaparValores($copia['fecha']) : 'Sin fecha en el manifiesto' ?><?= $copia['tablas'] !== '' ? ' · ' . (int) $copia['tablas'] . ' tablas' : '' ?><?= ($copia['origen'] ?? '') === 'cron' ? ' · CronJob del clúster' : '' ?></span>
                             </td>
                             <td class="tabla--numerica cifra"><?= $peso($copia['bytes']) ?></td>
                             <td><?= $copia['incompleta'] ? '<span class="badge badge--error">Incompleta</span>' : '<span class="badge badge--aprobado">Verificable</span>' ?></td>
                             <td>
-                                <form action="/admin/ajustes/almacenamiento" method="post" style="display:flex;gap:.5rem;flex-wrap:wrap"
-                                      data-confirmacion-sobre="Copia <?= escaparValores($copia['sello']) ?>"
-                                      data-confirmacion="¿Restaurar esta copia?"
-                                      data-confirmacion-mensaje="Se importará en una base NUEVA (<?= escaparValores('cotizaciones_restaurada_' . date('Ymd')) ?>) y los archivos se extraerán a una carpeta aparte. Lo que estás usando ahora no se toca ni se pisa."
-                                      data-confirmacion-boton="Sí, restaurar">
-                                    <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
-                                    <input type="hidden" name="accion" value="restaurar">
-                                    <input type="hidden" name="sello" value="<?= escaparValores($copia['sello']) ?>">
-                                    <button class="btn btn--secundario btn--sm" type="submit" <?= $copia['incompleta'] || $faltan ? 'disabled' : '' ?>>Restaurar en base nueva</button>
-                                </form>
+                                <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+                                    <a class="btn btn--secundario btn--sm" href="/admin/ajustes/almacenamiento/descargar?sello=<?= rawurlencode($copia['sello']) ?>">
+                                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">download</span><span>Descargar</span>
+                                    </a>
+                                    <form action="/admin/ajustes/almacenamiento" method="post" style="display:flex;gap:.5rem;flex-wrap:wrap"
+                                          data-confirmacion-sobre="Copia <?= escaparValores($copia['sello']) ?>"
+                                          data-confirmacion="¿Restaurar esta copia?"
+                                          data-confirmacion-mensaje="Se importará en una base NUEVA (<?= escaparValores('cotizaciones_restaurada_' . date('Ymd')) ?>) y los archivos se extraerán a una carpeta aparte. Lo que estás usando ahora no se toca ni se pisa."
+                                          data-confirmacion-boton="Sí, restaurar">
+                                        <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
+                                        <input type="hidden" name="accion" value="restaurar">
+                                        <input type="hidden" name="sello" value="<?= escaparValores($copia['sello']) ?>">
+                                        <button class="btn btn--sm" type="submit" <?= $copia['incompleta'] || $faltan ? 'disabled' : '' ?>>Restaurar en base nueva</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -257,6 +288,33 @@ template('tabsAjustes', ['tab' => 'almacenamiento']);
     </form>
 </section>
 
-<p class="campo__ayuda mb-lg">Cada copia se comprueba con sus huellas SHA-256 antes de restaurarla. Guarda también una copia fuera de esta computadora (disco externo o nube): si el equipo se daña, aquí no queda nada.</p>
+<section class="tarjeta mb-lg" aria-labelledby="titulo-externo">
+    <div class="ajustes-cabecera">
+        <span class="ajustes-cabecera__icono"><span class="material-symbols-outlined" aria-hidden="true">upload_file</span></span>
+        <div>
+            <h2 class="titulo-5" id="titulo-externo">Traer una copia externa</h2>
+            <p class="texto-xs texto-secundario">Sube un respaldo descargado antes (o guardado en otro equipo) y quedará en el clúster como una copia más, lista para restaurar.</p>
+        </div>
+    </div>
+
+    <form action="/admin/ajustes/almacenamiento" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
+        <input type="hidden" name="accion" value="subir">
+
+        <div class="campo">
+            <label class="campo__etiqueta" for="archivo">Archivo de la copia (.tar.gz)</label>
+            <input class="control" type="file" id="archivo" name="archivo" accept=".tar.gz,.tgz,application/gzip,application/x-gzip" <?= $faltan ? 'disabled' : '' ?> required>
+            <span class="campo__ayuda">Tamaño máximo: <?= escaparValores($peso(\App\Almacenamiento::limiteSubida())) ?>. Se verifican las huellas SHA-256 antes de guardarla; si no coinciden, no entra al clúster. Después, restáurala desde la lista de arriba.</span>
+        </div>
+
+        <div class="formulario__acciones">
+            <button class="btn btn--secundario" type="submit" <?= $faltan ? 'disabled' : '' ?>>
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">upload</span><span>Subir copia externa</span>
+            </button>
+        </div>
+    </form>
+</section>
+
+<p class="campo__ayuda mb-lg">Las copias viven en el volumen persistente del clúster y sobreviven a reinicios y despliegues. Descarga una de vez en cuando a un disco externo o a la nube: si se pierde el volumen, el clúster no es un respaldo de sí mismo. Para volver a esta instalación, sube esa copia externa y restáurala aquí mismo.</p>
 
 <?php template('footer'); ?>

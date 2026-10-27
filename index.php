@@ -292,6 +292,8 @@ $router->post('/admin/ajustes/papelera', 'views/admin/ajustes-papelera.php', 'so
 // Almacenamiento: espacio ocupado y copias de seguridad (respaldo automático diario y restauración).
 $router->get('/admin/ajustes/almacenamiento',  'views/admin/ajustes-almacenamiento.php', 'soloAdmin');
 $router->post('/admin/ajustes/almacenamiento', 'views/admin/ajustes-almacenamiento.php', 'soloAdmin');
+// Descarga una copia completa (.tar.gz) para guardarla fuera del clúster.
+$router->get('/admin/ajustes/almacenamiento/descargar', 'views/admin/almacenamiento-descargar.php', 'soloAdmin');
 $router->get('/admin/estadisticas',          'views/admin/estadisticas/index.php',    'soloAdmin');
 $router->get('/admin/estadisticas/exportar', 'views/admin/estadisticas/exportar.php', 'soloAdmin');
 

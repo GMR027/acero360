@@ -187,7 +187,53 @@ npm run build && ./deploy.sh
 Los mensajes de error se derivan de esas constantes, no hay que tocarlos.
 Si se supera el tope de la app pero no el de PHP/ingress aparece un **413**:
 entonces hay que subir `upload_max_filesize`/`post_max_size` en el `Dockerfile`
-y `ingress.proxyBodySize` en `helm/cotizaciones/values.yaml` (hoy 20M / 25M / 20m).
+y `ingress.proxyBodySize` en `helm/cotizaciones/values.yaml` (hoy 512M / 512M / 512m;
+el valor alto es para poder subir un respaldo externo completo desde Ajustes → Almacenamiento).
+
+---
+
+## 8.1 Respaldos: se hacen y se restauran en el clúster
+
+La app corre con el cliente de MySQL (`default-mysql-client`) y los scripts
+`scripts/respaldar.sh` / `scripts/restaurar.sh` dentro de la imagen. El respaldo
+**no depende de un equipo con `kubectl`**.
+
+| Pieza | Dónde |
+|---|---|
+| Copias en el clúster | PVC `cotizaciones-respaldos`, montado en `/var/www/html/respaldos` |
+| Respaldo diario | CronJob `cotizaciones-respaldo` (02:30; base + todas las carpetas persistentes) |
+| Manual | Ajustes → Almacenamiento → «Hacer un respaldo ahora» |
+| Descargar una copia | Botón «Descargar» → un único `.tar.gz` (base + archivos + huellas) |
+| Restaurar una copia del clúster | Botón «Restaurar en base nueva» |
+| Restaurar una copia externa | «Subir copia externa» y, después, «Restaurar en base nueva» |
+
+La copia incluye `public/image`, `public/uploads`, `storage/documentos` y
+`storage/archivo`. Este último ya tiene su propio PVC (`cotizaciones-archivo`):
+antes vivía sólo en la capa del contenedor y se perdía al reiniciar.
+
+> **Antes del primer despliegue con esta versión:** si el pod actual tiene
+> archivos en `/var/www/html/storage/archivo`, cópialos fuera (por ejemplo con
+> `kubectl cp`) antes de actualizar. Al montar el PVC nuevo, esa carpeta empieza
+> vacía y los archivos que sólo estaban en el contenedor no se migran solos.
+
+Restaurar **nunca** pisa la base viva: crea `cotizaciones_restaurada_AAAAMMDD`,
+extrae los archivos en `respaldos/restauraciones/…` y verifica las huellas
+SHA-256 antes de importar. La copia descargada se puede guardar en un disco
+externo o en la nube y volver a subir a esta o a otra instalación.
+
+Para crear esa base nueva, el pod de la app recibe `MYSQL_ROOT_PASSWORD` del
+Secret `cotizaciones`; **sólo `scripts/restaurar.sh` lo usa**. El respaldo y la
+consulta normal siguen con el usuario de la app. La conexión al MySQL interno
+desactiva TLS porque el servidor usa un certificado autofirmado.
+
+```bash
+# Ver el estado del respaldo diario y las copias en el volumen
+kubectl get cronjob,job -n cotizaciones | grep respaldo
+kubectl exec deploy/cotizaciones -n cotizaciones -- ls -lh /var/www/html/respaldos
+```
+
+> El PVC es `ReadWriteOnce`: el CronJob y la app deben correr en el mismo nodo
+> (MicroK8s de un nodo). No escales la app a varios nodos con este esquema.
 
 ---
 
@@ -198,7 +244,7 @@ y `ingress.proxyBodySize` en `helm/cotizaciones/values.yaml` (hoy 20M / 25M / 20
 | `deploy.sh` dice `Falta 'helm' en el PATH` | Herramienta no instalada | `sudo snap install helm --classic` |
 | `No hay credencial de Docker Hub` | Sesión caducada | `docker login` |
 | Desplegué pero no se ve el cambio de CSS/JS | La imagen **copia** `build/`; no se compiló | Ya lo hace el script; a mano: `npm run build` |
-| Error **413** al subir un archivo | El ingress deja pasar menos que la app | `values.yaml → ingress.proxyBodySize` (20m) |
+| Error **413** al subir un archivo | El ingress deja pasar menos que la app | `values.yaml → ingress.proxyBodySize` (512m) |
 | «La imagen no puede pesar más de N MB» con PHP en 20M | El tope lo pone la aplicación | Sección 8 |
 | La app arranca pero dice que falta una columna | Hubo un cambio de esquema sin migrar | Sección 5 (a mano, con permiso) |
 | `helm upgrade` falla por valores | Falta `values.local.yaml` | Crearlo con las contraseñas reales |

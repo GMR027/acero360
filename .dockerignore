@@ -26,6 +26,13 @@ scripts/*
 !scripts/migrar.php
 !scripts/foto_inventario.php
 !scripts/publicar_escritorio.php
+# Respaldos: los scripts viajan dentro de la imagen porque el respaldo y la
+# restauración se ejecutan en el clúster (manual y desde el CronJob).
+!scripts/respaldar.sh
+!scripts/restaurar.sh
+
+# Copias locales: nunca dentro de la imagen
+respaldos/
 
 # Dump de datos: se importa vía ConfigMap, no desde la imagen
 mysql/dump-inicial.sql

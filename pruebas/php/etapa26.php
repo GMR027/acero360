@@ -152,6 +152,12 @@ if ($faltan) {
     $prueba('  y queda registrado como último', A::ultimo()[1] === 'ok');
     $prueba('  y el mensaje aclara que fue el automático', $r !== null && str_contains($r['mensaje'], 'automático'));
     $prueba('ya respaldado hoy no repite', A::respaldoDelDia() === null);
+    putenv('RESPALDO_ORIGEN=cron');
+    usleep(1100000);
+    A::crear();
+    putenv('RESPALDO_ORIGEN');
+    Configuracion::guardar(A::CFG_ULTIMO, '');
+    $prueba('no duplica el respaldo diario que ya hizo el CronJob', A::respaldoDelDia() === null);
     Configuracion::guardar(A::CFG_HORA, '23:00');
 
     echo "Restaurar\n";
