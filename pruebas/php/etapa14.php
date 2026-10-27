@@ -50,7 +50,7 @@ $prueba('«con factura» se guarda en 1, por validar', Gastos::crear($base + ['b
     && ($f = Gastos::buscarID(Gastos::$ultimoId)) && (int) $f['comprobante_fiscal'] === 1 && $f['revision_fiscal'] === 'por_validar');
 $idFactura = Gastos::$ultimoId;
 
-echo "Adjunto ≠ CFDI validado\n";
+echo "Adjunto: PDF o foto ≠ CFDI; XML del SAT sí\n";
 $st = Gastos::estadoFactura($f);
 $prueba('con factura y sin archivos → falta adjuntarla', $st['clave'] === 'factura_pendiente', $st['etiqueta']);
 
@@ -67,8 +67,8 @@ $rutaXml = sys_get_temp_dir() . '/e13.xml';
 file_put_contents($rutaXml, $xml);
 $ok = Archivos::subir('gasto', $idFactura, ['name' => 'f.xml', 'tmp_name' => $rutaXml, 'size' => filesize($rutaXml), 'error' => 0], 'auto', $usuario, null, '', false);
 $st = Gastos::estadoFactura(Gastos::buscarID($idFactura));
-$prueba('XML con UUID → CFDI leído (sin verificar SAT)', $ok && $st['clave'] === 'cfdi_leido', $st['clave'] . ' ' . implode('|', Archivos::getErrores()));
-$prueba('  y aun así sigue «por validar» (no deducible por sí solo)', Gastos::buscarID($idFactura)['revision_fiscal'] === 'por_validar');
+$prueba('XML con UUID → queda «validado» y CFDI leído', $ok && $st['clave'] === 'cfdi_leido'
+    && Gastos::buscarID($idFactura)['revision_fiscal'] === 'validado', $st['clave'] . ' ' . implode('|', Archivos::getErrores()));
 
 $sin = Gastos::buscarID($db->query("SELECT id FROM gastos WHERE comprobante_fiscal = 0 LIMIT 1")->fetch_row()[0]);
 $prueba('sin factura → estado «Sin factura»', Gastos::estadoFactura($sin)['clave'] === 'sin_factura');

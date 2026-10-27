@@ -1,0 +1,112 @@
+/* ==========================================================================
+   _documentos.scss — Vista previa de facturas y comprobantes en el modal.
+   El panel se ensancha solo cuando se abre un documento. El PDF se incrusta
+   con el visor del navegador; el XML y las imágenes se muestran dentro del
+   cuerpo desplazable del modal.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* Panel ancho para vistas previas (el modal normal mide 680px). */
+.modal--amplio .modal__panel {
+  max-width: 61rem;
+}
+
+.documento-preview {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-md;
+  min-width: 0;
+
+  &__marco {
+    display: block;
+    width: 100%;
+    height: min(70vh, 46rem);
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+  }
+
+  &__imagen {
+    display: block;
+    max-width: 100%;
+    max-height: 70vh;
+    margin: 0 auto;
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+  }
+
+  &__subtitulo {
+    margin-top: $espacio-sm;
+    margin-bottom: $espacio-sm;
+    font-family: $fuente-titulos;
+    font-size: $fuente-base;
+    font-weight: 600;
+    color: $color-texto;
+  }
+
+  &__datos {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, max-content) 1fr;
+    gap: $espacio-xs $espacio-md;
+    margin: 0;
+
+    dt {
+      font-size: $fuente-sm;
+      color: $color-texto-secundario;
+    }
+
+    dd {
+      margin: 0;
+      font-size: $fuente-sm;
+      color: $color-texto;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__conceptos {
+    margin-top: $espacio-xs;
+  }
+
+  &__crudo {
+    margin-top: $espacio-sm;
+
+    summary {
+      display: inline-block;
+      cursor: pointer;
+    }
+  }
+
+  &__xml {
+    max-height: 22rem;
+    margin-top: $espacio-sm;
+    padding: $espacio-md;
+    overflow: auto;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+    font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+    font-size: $fuente-xs;
+    line-height: 1.5;
+    color: $color-texto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* En móvil el visor ocupa el alto disponible de la hoja inferior. */
+  @include hasta-movil {
+    &__marco {
+      height: 60vh;
+    }
+
+    &__datos {
+      grid-template-columns: 1fr;
+      gap: 0;
+
+      dt {
+        margin-top: $espacio-sm;
+      }
+    }
+  }
+}

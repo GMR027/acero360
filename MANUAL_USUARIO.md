@@ -195,7 +195,7 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 
 1. En el detalle de la compra, «Factura y comprobantes» → adjunta el XML del CFDI, el PDF o una foto. La compra se envía a Contabilidad una sola vez como un gasto; si la factura llega después, se asocia al mismo gasto.
 2. Solo un XML con estructura de CFDI y timbre la deja «Con CFDI». Un PDF o una foto no cuentan como CFDI. Si no hubo factura, marca «Sin factura».
-3. Adjuntar un documento no vuelve deducible la compra: queda «por validar» para tu contador. El mismo UUID no se puede usar en dos compras.
+3. Adjuntar el XML del CFDI (descargado del SAT) deja la revisión fiscal en «validado»: el comprobante es auténtico. Un PDF o una foto no cuentan como CFDI y la dejan «por validar» para tu contador. El mismo UUID no se puede usar en dos compras.
 
 ### Pagos al proveedor
 
@@ -205,7 +205,7 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 ### Ver pendientes y reportes
 
 1. «Resumen» muestra lo que falta recibir, las piezas por terminar, las facturas pendientes y lo que debes. «Compras y pedidos» filtra por proveedor, fechas, categoría, tipo, recepción, factura y pago.
-2. El expediente de cada proveedor (pestaña «Proveedores» → su nombre) reúne sus compras, recepciones, facturas, pagos y saldos.
+2. El expediente de cada proveedor (pestaña «Proveedores» → su nombre) reúne sus compras, recepciones, facturas, pagos y saldos. Los indicadores de arriba suman las compras nuevas, las entregas anteriores y los gastos ligados al proveedor; un gasto que ya pertenece a una compra no se cuenta dos veces.
 
 ### Corregir
 
@@ -213,7 +213,7 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 
 ### Historial anterior
 
-- Las «entregas anteriores» con foto que se registraban antes solo se muestran, como historial, en el expediente del proveedor que las tenga. Las compras nuevas se hacen con «Nueva compra».
+- Las «entregas anteriores» con foto que se registraban antes se muestran, como historial, en el expediente del proveedor que las tenga. También suman en «Comprado», «Pagado» y «Saldo pendiente», pero no en «Facturado» porque no tienen factura. Las compras nuevas se hacen con «Nueva compra».
 
 > **Consejos**
 > - El costo de cada compra queda guardado tal como se compró: si cambia el costo actual de un producto, las compras anteriores no se alteran.
@@ -248,7 +248,7 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 ### Subir la factura
 
 1. Pulsa «Archivo de la factura o comprobante», de la misma sección: se abre una ventana —igual que en «Registro Venta Inteligente»— donde eliges uno o varios archivos (PDF, XML, JPG, PNG o WebP). Se detecta solo qué es cada uno.
-2. También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes».
+2. También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes». Cada archivo tiene «Ver»: el PDF se abre en una ventana, el XML muestra sus datos (folio, UUID, emisor, total y conceptos) y desde ahí también se descarga.
 3. Si subes el XML de la factura, se leen sus datos (folio fiscal, importes) y avisa si algo no cuadra.
 
 ### Los cuatro datos del CFDI
@@ -265,6 +265,13 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 ### Pagarlo después
 
 - Si lo dejaste como «lo debo todavía», ábrelo cuando lo pagues y cámbialo a pagado con su fecha.
+
+### Eliminar un gasto (captura equivocada)
+
+- En el detalle del gasto, «Eliminar gasto» pide un motivo. El gasto **se borra junto con sus documentos** y deja de sumar en contabilidad, en el cierre del mes y en la estimación fiscal.
+- La copia queda **90 días en Ajustes → Papelera** por si necesitas restaurarla; después se borra definitivamente. Los archivos adjuntos no se restauran.
+- También puedes borrar varios desde la lista marcándolos y usando «Eliminar seleccionados».
+- En el filtro «Cancelados» sólo aparecen registros antiguos que quedaron marcados antes de este cambio; también se pueden eliminar desde la lista.
 
 ### Que la plataforma lea la factura
 
@@ -303,7 +310,7 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 ### Subir la factura de la venta
 
 1. Pulsa «Subir factura (PDF y/o XML)», de la misma sección: se abre una ventana —igual que en «Registro Venta Inteligente»— donde eliges el PDF y el XML juntos; después pulsa «Guardar facturación».
-2. Los archivos quedan listados en «Facturas y comprobantes», con su validación documental; ahí también se descargan o se dan de baja.
+2. Los archivos quedan listados en «Facturas y comprobantes», con su validación documental; ahí también se ven (el PDF en el visor y el XML con sus datos), se descargan o se dan de baja.
 
 ### Pendientes de facturar
 

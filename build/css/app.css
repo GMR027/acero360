@@ -1278,6 +1278,31 @@ body {
   box-shadow: 0 0 0 2px var(--color-foco);
 }
 .campo {
+  /* Campo obligatorio que todavía está vacío (desde que se abre el formulario). */
+}
+.campo--pendiente .control,
+.campo--pendiente .selector-busqueda > .control {
+  border-color: var(--color-error);
+}
+.campo--pendiente .control:focus,
+.campo--pendiente .selector-busqueda > .control:focus {
+  outline-color: var(--color-error);
+  box-shadow: 0 0 0 2px var(--color-foco);
+}
+.campo {
+  /* Campo recomendado (no obligatorio) que todavía está vacío. Mismo rojo, punteado. */
+}
+.campo--sugerido .control,
+.campo--sugerido .selector-busqueda > .control {
+  border-color: var(--color-error);
+  border-style: dashed;
+}
+.campo--sugerido .control:focus,
+.campo--sugerido .selector-busqueda > .control:focus {
+  outline-color: var(--color-error);
+  box-shadow: 0 0 0 2px var(--color-foco);
+}
+.campo {
   /* Campo que se muestra sólo bajo cierta condición (p. ej. "Otro" en la
      ubicación de una venta). La clase manda sobre el display:flex propio. */
 }
@@ -2945,6 +2970,104 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
     padding: 1rem;
   }
 }
+/* ==========================================================================
+   _documentos.scss — Vista previa de facturas y comprobantes en el modal.
+   El panel se ensancha solo cuando se abre un documento. El PDF se incrusta
+   con el visor del navegador; el XML y las imágenes se muestran dentro del
+   cuerpo desplazable del modal.
+   ========================================================================== */
+/* Panel ancho para vistas previas (el modal normal mide 680px). */
+.modal--amplio .modal__panel {
+  max-width: 61rem;
+}
+
+.documento-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.documento-preview__marco {
+  display: block;
+  width: 100%;
+  height: min(70vh, 46rem);
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+}
+.documento-preview__imagen {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+}
+.documento-preview__subtitulo {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-texto);
+}
+.documento-preview__datos {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, max-content) 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+.documento-preview__datos dt {
+  font-size: 0.875rem;
+  color: var(--color-texto-secundario);
+}
+.documento-preview__datos dd {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-texto);
+  overflow-wrap: anywhere;
+}
+.documento-preview__conceptos {
+  margin-top: 0.25rem;
+}
+.documento-preview__crudo {
+  margin-top: 0.5rem;
+}
+.documento-preview__crudo summary {
+  display: inline-block;
+  cursor: pointer;
+}
+.documento-preview__xml {
+  max-height: 22rem;
+  margin-top: 0.5rem;
+  padding: 1rem;
+  overflow: auto;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-texto);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.documento-preview {
+  /* En móvil el visor ocupa el alto disponible de la hoja inferior. */
+}
+@media (max-width: 767px) {
+  .documento-preview__marco {
+    height: 60vh;
+  }
+  .documento-preview__datos {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .documento-preview__datos dt {
+    margin-top: 0.5rem;
+  }
+}
+
 /* ==========================================================================
    _paginacion.scss — Control de páginas de los listados.
    ========================================================================== */

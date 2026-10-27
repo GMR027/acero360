@@ -1250,7 +1250,11 @@ class Contabilidad
     public static function aniosConMovimientos(): array
     {
         $anios = [(int) date('Y')];
-        foreach (self::$db->query('SELECT DISTINCT YEAR(fecha) FROM ingresos UNION SELECT DISTINCT YEAR(fecha) FROM gastos')->fetch_all() as $f) {
+        foreach (self::$db->query(
+            "SELECT DISTINCT YEAR(fecha) FROM ingresos WHERE estado = 'vigente'
+             UNION
+             SELECT DISTINCT YEAR(fecha) FROM gastos WHERE estado = 'vigente'"
+        )->fetch_all() as $f) {
             $anios[] = (int) $f[0];
         }
         $anios = array_values(array_unique($anios));

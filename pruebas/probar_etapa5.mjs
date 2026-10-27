@@ -35,7 +35,7 @@ const carpetaDocs = join(RAIZ, 'storage', 'documentos');
 const docsPrevios = existsSync(carpetaDocs) ? readdirSync(carpetaDocs).length : 0;
 
 function limpiar() {
-  for (const t of ['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones', 'documentos', 'cobros', 'gasto_reparto', 'gastos', 'ingresos', 'periodos_contables', 'entregas', 'preparaciones']) { sql(`DELETE FROM ${t}`); }
+  for (const t of ['periodos_historial', 'calculos_fiscales', 'declaraciones', 'ajustes_fiscales', 'retenciones', 'documentos', 'cobros', 'gasto_reparto', 'gastos', 'ingresos', 'periodos_contables', 'entregas', 'preparaciones', 'papelera']) { sql(`DELETE FROM ${t}`); }
   sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL');
   sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }
@@ -175,7 +175,26 @@ try {
 
   console.log('Gasto compartido');
   await pagina.goto(BASE + '/admin/contabilidad/gastos/crear');
-  await pagina.selectOption('#beneficiario_tipo', 'otro'); await pagina.fill('#beneficiario', 'Agustín Olvera');
+  verifica('marca desde que se abre los obligatorios vacíos',
+    (await pagina.locator('.campo--pendiente').count()) >= 4,
+    String(await pagina.locator('.campo--pendiente').count()));
+  verifica('marca la categoría como recomendada (borde punteado)',
+    (await pagina.locator('.campo--sugerido').count()) >= 1,
+    String(await pagina.locator('.campo--sugerido').count()));
+  await pagina.click('button:has-text("Guardar gasto")');
+  await pagina.waitForSelector('.campo--con-error', { timeout: 5000 });
+  verifica('al guardar vacío, cada campo muestra su mensaje',
+    (await pagina.locator('.campo__error').count()) >= 4,
+    String(await pagina.locator('.campo__error').count()));
+  await pagina.fill('#concepto', 'Renta de bodega');
+  verifica('al llenar un campo desaparece su borde de pendiente',
+    await pagina.locator('#concepto').evaluate((el) => !el.closest('.campo').classList.contains('campo--pendiente')));
+  await pagina.selectOption('#beneficiario_tipo', 'otro');
+  verifica('«Pagado a = Otro» marca la descripción',
+    await pagina.locator('#beneficiario').evaluate((el) => el.closest('.campo').classList.contains('campo--pendiente')));
+  verifica('y no marca el proveedor del directorio',
+    await pagina.locator('#proveedor_id').evaluate((el) => !el.closest('.campo').classList.contains('campo--pendiente')));
+  await pagina.fill('#beneficiario', 'Agustín Olvera');
   await pagina.fill('#concepto', 'Renta de bodega');
   await pagina.fill('#total', '1160');
   await pagina.selectOption('#comprobante_fiscal', '0');
@@ -233,6 +252,20 @@ try {
     const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     verifica(ruta.split('?')[0] + ' @390px sin desborde', !desborde);
   }
+  console.log('Eliminar un gasto equivocado');
+  await pagina.setViewportSize({ width: 1440, height: 900 });
+  await pagina.goto(`${BASE}/admin/contabilidad/gastos/detalle?id=${gastoId}`);
+  await pagina.fill('#motivo', 'Captura equivocada de prueba');
+  await pagina.click('button:has-text("Eliminar gasto")');
+  await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 5000 });
+  await Promise.all([
+    pagina.waitForURL(/\/admin\/contabilidad\/gastos(\?|$)/, { timeout: 15000 }),
+    pagina.click('[data-confirmar-modal]'),
+  ]);
+  verifica('«Eliminar gasto» lo borra y vuelve a la lista', sql(`SELECT COUNT(*) FROM gastos WHERE id=${gastoId}`) === '0');
+  verifica('la captura eliminada queda 90 días en la Papelera',
+    sql(`SELECT COUNT(*) FROM papelera WHERE tipo='gasto' AND referencia_id=${gastoId}`) === '1');
+
   verifica('sin errores de consola', errores.length === 0, errores.join(' | '));
 } finally {
   await navegador.close();

@@ -33,8 +33,14 @@ if (($_POST['accion'] ?? '') === 'metodo_cfdi') {
     redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible guardar el método de pago del CFDI.');
 }
 
+// Un gasto capturado por error se elimina junto con sus documentos (queda 90
+// días en la Papelera). Ya no hay detalle al que volver: se regresa a la lista,
+// salvo que la acción venga del Centro de seguimiento.
 if (\App\Gastos::cancelar($id, (string) ($_POST['motivo'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {
-    redirigir($destino, 'exito', 'Gasto cancelado. Queda en el historial con su motivo.');
+    $destinoEliminado = $destino === '/admin/contabilidad/gastos/detalle?id=' . $id
+        ? '/admin/contabilidad/gastos'
+        : $destino;
+    redirigir($destinoEliminado, 'exito', 'Gasto eliminado junto con sus documentos. Queda 90 días en la Papelera.');
 }
 
-redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible cancelar el gasto.');
+redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible eliminar el gasto.');

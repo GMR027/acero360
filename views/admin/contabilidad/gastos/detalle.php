@@ -90,13 +90,13 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
             <a class="btn btn--secundario" href="/admin/contabilidad/gastos/editar?id=<?= $id ?>">Editar</a>
             <form action="/admin/contabilidad/gastos/accion" method="post" data-validar
                   data-confirmacion-sobre="Gasto"
-                  data-confirmacion="¿Cancelar este gasto?"
-                  data-confirmacion-mensaje="El gasto no se borra: queda como cancelado, con tu motivo, y deja de sumar en los reportes."
-                  data-confirmacion-boton="Sí, cancelar">
+                  data-confirmacion="¿Eliminar este gasto?"
+                  data-confirmacion-mensaje="El gasto se borrará junto con sus documentos. Queda 90 días en la Papelera por si necesitas restaurarlo."
+                  data-confirmacion-boton="Sí, eliminar">
                 <input type="hidden" name="id" value="<?= $id ?>">
-                <label class="solo-lectores" for="motivo">Motivo de la cancelación</label>
-                <input class="control control--compacto" type="text" id="motivo" name="motivo" placeholder="Motivo de la cancelación" maxlength="200" required minlength="5">
-                <button class="btn btn--peligro" type="submit">Cancelar gasto</button>
+                <label class="solo-lectores" for="motivo">Motivo de la eliminación</label>
+                <input class="control control--compacto" type="text" id="motivo" name="motivo" placeholder="Motivo de la eliminación" maxlength="200" required minlength="5">
+                <button class="btn btn--peligro" type="submit">Eliminar gasto</button>
             </form>
         </div>
     <?php endif; ?>

@@ -10,7 +10,8 @@ namespace App;
  *     veces, o adjuntar la factura después, reutiliza ese mismo gasto.
  *   • Los comprobantes se adjuntan al gasto con Archivos (mismo almacén y mismas validaciones documentales).
  *     El UUID de un CFDI no puede estar en dos operaciones.
- *   • Adjuntar un documento NO vuelve deducible el gasto: revision_fiscal queda «por validar». Un PDF o una
+ *   • Adjuntar un documento NO vuelve deducible el gasto por sí solo: un PDF o una foto lo dejan «por validar».
+ *     Un XML con estructura de CFDI y timbre viene del SAT, así que sí lo marca «validado». Un PDF o una
  *     foto no se toma por CFDI: la compra pasa a «con CFDI» solo con un XML con estructura de CFDI y timbre.
  *   • El IVA no se calcula: si la compra no lo trae, el gasto queda con IVA 0 y una nota para el contador.
  */
@@ -134,7 +135,8 @@ class CompraContable
                 'iva_tasa' => (string) $tasa,
                 'estado_pago' => 'pendiente',
                 'comprobante_fiscal' => $orden['estado_cfdi'] === 'con_cfdi' ? '1' : '0',
-                'revision_fiscal' => 'por_validar',
+                // Con CFDI (XML del SAT) el comprobante ya es auténtico; sin él, lo revisa el contador.
+                'revision_fiscal' => $orden['estado_cfdi'] === 'con_cfdi' ? 'validado' : 'por_validar',
                 'observaciones' => $notas,
             ];
             if (!Gastos::crear($datos, $usuarioId, true)) {

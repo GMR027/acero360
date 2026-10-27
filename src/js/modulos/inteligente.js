@@ -136,13 +136,30 @@ function enviarInteligente(destino, token) {
  * @param {string} ruta          formulario al que se iría si la persona continúa
  * @param {string} origen        contexto del diálogo, p. ej. «Registro compra inteligente»
  */
-function avisarDuplicado(coincidencias, ruta, origen) {
+/**
+ * Avisa de un documento que ya tiene registro.
+ *
+ * @param {Array}   coincidencias
+ * @param {string}  ruta    formulario al que se vuelve con «Registrar de todos modos»
+ * @param {string}  origen
+ * @param {boolean} fuerte  true = mismo folio fiscal: no se ofrece «registrar de todos modos»
+ */
+function avisarDuplicado(coincidencias, ruta, origen, fuerte) {
+  // Mismo folio fiscal (o folio de factura) = el mismo documento: no hay forma
+  // legítima de «registrarlo de todos modos». El aviso sólo ofrece abrirlo.
+  const porUuid = Array.isArray(coincidencias) && coincidencias.some(function (c) {
+    return /\(UUID\)/i.test(String(c.criterio || ''));
+  });
+  fuerte = fuerte || porUuid;
+
   const cuerpo = document.createDocumentFragment();
 
   cuerpo.appendChild(nodoInteligente(
     'p',
     'nota nota--advertencia mb-md',
-    'Este documento ya tiene un registro con la misma información. Mira el que existe antes de guardar otro: si es el mismo, ábrelo y no lo dupliques.'
+    fuerte
+      ? 'Este pago ya está registrado con el mismo folio fiscal (UUID). Un mismo CFDI no se contabiliza dos veces. Si es otra compra del mismo proveedor o del mismo servicio, el folio fiscal es distinto y no aparecerá este aviso.'
+      : 'Este documento ya tiene un registro con la misma información. Mira el que existe antes de guardar otro: si es el mismo, ábrelo y no lo dupliques.'
   ));
 
   const lista = document.createElement('ul');
@@ -186,6 +203,18 @@ function avisarDuplicado(coincidencias, ruta, origen) {
     });
     acciones.push(boton);
   });
+
+  if (fuerte) {
+    abrirModal({
+      sobreTitulo: origen,
+      titulo: 'Ese pago ya está registrado',
+      cuerpo: cuerpo,
+      acciones: acciones,
+      textoConfirmar: 'Entendido',
+      alConfirmar: function () { /* sólo cierra: aquí no se registra nada */ },
+    });
+    return;
+  }
 
   abrirModal({
     sobreTitulo: origen,
@@ -419,7 +448,8 @@ document.addEventListener('DOMContentLoaded', function () {
         avisarDuplicado(
           coincidencias,
           coincidenciasNodo.getAttribute('data-ruta') || '',
-          coincidenciasNodo.getAttribute('data-origen') || 'Registro inteligente'
+          coincidenciasNodo.getAttribute('data-origen') || 'Registro inteligente',
+          coincidenciasNodo.getAttribute('data-duplicado-fuerte') === '1'
         );
       }
     } catch (error) {

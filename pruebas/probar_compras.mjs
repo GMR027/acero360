@@ -217,8 +217,8 @@ try {
   await Promise.all([pagina.waitForLoadState(), pagina.click('form[action="/admin/compras/comprobante"] button:has-text("Subir archivos")')]);
   verifica('el XML con timbre la deja «Con CFDI»', sql(`SELECT estado_cfdi FROM ordenes_compra WHERE id=${idPintura}`) === 'con_cfdi');
   verifica('sin duplicar el gasto', sql('SELECT COUNT(*) FROM gastos') === String(Number(gastosAntes) + 1));
-  verifica('la revisión fiscal sigue «por validar» (no se asume deducible)',
-    sql(`SELECT g.revision_fiscal FROM gastos g JOIN ordenes_compra o ON o.gasto_id=g.id WHERE o.id=${idPintura}`) === 'por_validar');
+  verifica('la revisión fiscal pasa a «validado» (XML del SAT)',
+    sql(`SELECT g.revision_fiscal FROM gastos g JOIN ordenes_compra o ON o.gasto_id=g.id WHERE o.id=${idPintura}`) === 'validado');
 
   await pagina.goto(BASE + '/admin/compras/detalle?id=' + idVarilla);
   await pagina.setInputFiles('#comp-archivo', [{ name: 'otra.xml', mimeType: 'text/xml', buffer: cfdi(uuid, '300.00') }]);

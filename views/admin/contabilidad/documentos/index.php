@@ -48,6 +48,12 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/documentos', 'peri
                             <td><?= escaparValores(\App\ArchivoMensual::carpeta($tipoOp, $d)) ?></td>
                             <td><span class="badge <?= $val['clase'] ?>"><?= escaparValores($val['etiqueta']) ?></span></td>
                             <td class="tabla--numerica">
+                                <?php if ($vistaDocumento = \App\Archivos::tipoVista($d)) : ?>
+                                    <button type="button" class="btn btn--secundario btn--sm"
+                                            data-ver-documento="<?= (int) $d['id'] ?>"
+                                            data-documento-tipo="<?= escaparValores($vistaDocumento) ?>"
+                                            data-documento-nombre="<?= escaparValores($d['nombre_original']) ?>">Ver</button>
+                                <?php endif; ?>
                                 <a class="btn btn--secundario btn--sm" href="/admin/contabilidad/documentos/descargar?id=<?= (int) $d['id'] ?>">Descargar</a>
                                 <a class="btn btn--texto btn--sm" href="/admin/contabilidad/<?= $tipoOp === 'ventas' ? 'ingresos' : 'gastos' ?>/detalle?id=<?= (int) $d['entidad_id'] ?>">Abrir operación</a>
                             </td>

@@ -51,6 +51,33 @@
     }
   }
 
+  /* Campo obligatorio que todavía está vacío (desde que se abre el formulario). */
+  &--pendiente {
+    .control,
+    .selector-busqueda > .control {
+      border-color: $color-error;
+
+      &:focus {
+        outline-color: $color-error;
+        box-shadow: 0 0 0 2px $color-foco;
+      }
+    }
+  }
+
+  /* Campo recomendado (no obligatorio) que todavía está vacío. Mismo rojo, punteado. */
+  &--sugerido {
+    .control,
+    .selector-busqueda > .control {
+      border-color: $color-error;
+      border-style: dashed;
+
+      &:focus {
+        outline-color: $color-error;
+        box-shadow: 0 0 0 2px $color-foco;
+      }
+    }
+  }
+
   /* Campo que se muestra sólo bajo cierta condición (p. ej. "Otro" en la
      ubicación de una venta). La clase manda sobre el display:flex propio. */
   &--oculto {

@@ -67,7 +67,9 @@ function mostrarErrorCampo(control, mensaje) {
  */
 function mensajeDeError(control) {
   const valor = (control.value || '').trim();
-  const obligatorio = control.hasAttribute('required');
+  const obligatorio = typeof campoObligatorioAhora === 'function'
+    ? campoObligatorioAhora(control)
+    : control.hasAttribute('required');
 
   if (obligatorio && valor === '') {
     const etiqueta = control.closest('.campo')

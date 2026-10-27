@@ -49,6 +49,7 @@ function obtenerNodoModal() {
  * @param {Function} [opciones.alConfirmar] Se invoca al pulsar la acción principal.
  * @param {string}   [opciones.textoConfirmar] Texto del botón principal.
  * @param {boolean}  [opciones.confirmacion] Estilo de diálogo de confirmación.
+ * @param {boolean}  [opciones.amplio]        Panel más ancho (vistas previas).
  * @param {Function} [opciones.alCerrar] Se invoca UNA vez al cerrar, sea como sea
  *                                       (confirmar, cancelar, Escape o clic fuera).
  */
@@ -63,6 +64,7 @@ function abrirModal(opciones) {
   const cuerpo = opciones.cuerpo || null;
   const acciones = opciones.acciones || null;
   const confirmacion = opciones.confirmacion === true;
+  const amplio = opciones.amplio === true;
 
   // --- Cabecera -----------------------------------------------------------
   const nodoSobreTitulo = modal.querySelector('#modal-sobre-titulo');
@@ -94,7 +96,7 @@ function abrirModal(opciones) {
     const botonCancelar = document.createElement('button');
     botonCancelar.type = 'button';
     botonCancelar.className = 'btn btn--secundario';
-    botonCancelar.textContent = 'Cancelar';
+    botonCancelar.textContent = accionConfirmada ? 'Cancelar' : 'Cerrar';
     botonCancelar.setAttribute('data-cerrar-modal', '');
     nodoPie.appendChild(botonCancelar);
 
@@ -115,6 +117,7 @@ function abrirModal(opciones) {
   // --- Mostrar ------------------------------------------------------------
   elementoFocoAnterior = document.activeElement;
   modal.classList.toggle('modal--confirmacion', confirmacion);
+  modal.classList.toggle('modal--amplio', amplio);
   modal.hidden = false;
   document.body.style.overflow = 'hidden';
 

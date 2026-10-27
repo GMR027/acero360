@@ -273,6 +273,7 @@ $router->post('/admin/contabilidad/lectura/revisar',      'views/admin/contabili
 $router->get('/admin/contabilidad/documentos',              'views/admin/contabilidad/documentos/index.php',     'soloAdmin');
 $router->post('/admin/contabilidad/documentos/subir',       'views/admin/contabilidad/documentos/subir.php',     'soloAdmin');
 $router->get('/admin/contabilidad/documentos/descargar',    'views/admin/contabilidad/documentos/descargar.php', 'soloAdmin');
+$router->get('/admin/contabilidad/documentos/ver',          'views/admin/contabilidad/documentos/ver.php',       'soloAdmin');
 $router->post('/admin/contabilidad/documentos/baja',        'views/admin/contabilidad/documentos/baja.php',      'soloAdmin');
 $router->get('/admin/contabilidad/sin-facturar',            'views/admin/contabilidad/sin-facturar/index.php',   'soloAdmin');
 $router->get('/admin/contabilidad/sin-facturar/exportar',   'views/admin/contabilidad/sin-facturar/exportar.php','soloAdmin');

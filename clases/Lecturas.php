@@ -407,6 +407,12 @@ class Lecturas
         $q->bind_param($tipos, ...$vals);
         $q->execute();
         foreach ($q->get_result() as $f) {
+            // Un folio fiscal distinto es otra factura, aunque sea el mismo proveedor, el
+            // mismo importe y el mismo día: no se avisa de un duplicado que no existe.
+            $uuidFila = strtoupper(trim((string) ($f['uuid_fiscal'] ?? '')));
+            if ($uuid !== '' && $uuidFila !== '' && $uuidFila !== $uuid) {
+                continue;
+            }
             $motivos = [];
             $puntos = 0;
             if ($uuid !== '' && strtoupper((string) $f['uuid_fiscal']) === $uuid) { $motivos[] = 'mismo UUID'; $puntos += 100; }
@@ -531,7 +537,9 @@ class Lecturas
                         rfc_emisor = COALESCE(rfc_emisor, NULLIF(?, "")), rfc_receptor = COALESCE(rfc_receptor, NULLIF(?, "")),
                         forma_pago_sat = COALESCE(forma_pago_sat, NULLIF(?, "")), metodo_pago_sat = COALESCE(metodo_pago_sat, NULLIF(?, "")),
                         uso_cfdi = COALESCE(uso_cfdi, NULLIF(?, "")), tipo_cfdi = COALESCE(tipo_cfdi, NULLIF(?, "")),
-                        comprobante_fiscal = 1, lectura_id = COALESCE(lectura_id, ?) WHERE id = ?'
+                        comprobante_fiscal = 1,
+                        revision_fiscal = IF(revision_fiscal = \'no_deducible\', revision_fiscal, \'validado\'),
+                        lectura_id = COALESCE(lectura_id, ?) WHERE id = ?'
             );
             $metodo = in_array($v['metodo_pago'], ['PUE', 'PPD'], true) ? $v['metodo_pago'] : '';
             $uso    = isset(Gastos::USOS_CFDI[$v['uso_cfdi'] ?? '']) ? $v['uso_cfdi'] : '';
@@ -569,6 +577,9 @@ class Lecturas
             'total' => $v['total'], 'iva_tasa' => (string) $tasa,
             'estado_pago' => ($p['estado_pago'] ?? '') === 'pagado' ? 'pagado' : 'pendiente', 'fecha_pago' => $v['fecha'],
             'comprobante_fiscal' => 1, 'uuid_fiscal' => $v['uuid'], 'folio_comercial' => $v['folio_comercial'], 'moneda' => $v['moneda'],
+            // El CFDI con folio fiscal viene del XML del SAT: el comprobante es auténtico y no
+            // queda «por validar». Un PDF o una foto sin UUID sigue necesitando la revisión.
+            'revision_fiscal' => $v['uuid'] !== '' ? 'validado' : 'por_validar',
             'forma_pago_sat' => $v['forma_pago'], 'metodo_pago_sat' => $v['metodo_pago'], 'rfc_emisor' => $v['emisor_rfc'],
             'rfc_receptor' => $v['receptor_rfc'], 'uso_cfdi' => $v['uso_cfdi'] ?? '', 'tipo_cfdi' => $v['tipo_cfdi'] ?? '',
             'lectura_id' => (int) $lectura['id'],

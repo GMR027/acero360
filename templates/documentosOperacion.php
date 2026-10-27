@@ -39,6 +39,12 @@ $relleno    = $interna ? '' : ' style="padding:1rem"';
                             <td><span class="badge <?= $val['clase'] ?>"><?= escaparValores($val['etiqueta']) ?></span></td>
                             <td class="texto-sm"><?= date('d/m/Y H:i', strtotime($d['creado_en'])) ?><br><?= escaparValores((string) $d['subido_por_nombre']) ?></td>
                             <td class="tabla--numerica">
+                                <?php if ($vistaDocumento = \App\Archivos::tipoVista($d)) : ?>
+                                    <button type="button" class="btn btn--secundario btn--sm"
+                                            data-ver-documento="<?= (int) $d['id'] ?>"
+                                            data-documento-tipo="<?= escaparValores($vistaDocumento) ?>"
+                                            data-documento-nombre="<?= escaparValores($d['nombre_original']) ?>">Ver</button>
+                                <?php endif; ?>
                                 <a class="btn btn--secundario btn--sm" href="/admin/contabilidad/documentos/descargar?id=<?= (int) $d['id'] ?>">Descargar</a>
                                 <?php if ((int) $d['activo'] === 1 && !$bloqueado) : ?>
                                     <details class="mt-sm">

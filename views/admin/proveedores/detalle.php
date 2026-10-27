@@ -3,8 +3,9 @@
  * views/admin/proveedores/detalle.php — Ficha de un proveedor.
  *
  * Expediente del proveedor: datos de identidad y contacto, sus compras (con lo recibido, facturado, pagado y
- * pendiente), las recepciones y los pagos. Las «entregas anteriores» (registro fotográfico antiguo) solo
- * aparecen, como historial, si el proveedor las tiene.
+ * pendiente), las recepciones y los pagos. Los indicadores de importes suman las TRES fuentes donde puede
+ * vivir una compra: compras nuevas, entregas anteriores y gastos ligados al proveedor. Las «entregas
+ * anteriores» (registro fotográfico antiguo) solo aparecen, como historial, si el proveedor las tiene.
  */
 
 soloAdmin();
@@ -20,7 +21,8 @@ $totalEntradas = $proveedor->contarEntradas();
 /* --- Compras del proveedor (módulo unificado) -------------------------------------------------- */
 $idProveedor    = (int) $proveedor->id;
 $filtroCompras  = ['proveedor' => $idProveedor];
-$totCompras     = \App\OrdenesCompra::totalesFiltrados($filtroCompras);
+/* Los indicadores juntan compras nuevas, entregas anteriores y gastos del proveedor. */
+$totCompras     = \App\Proveedores::resumenFinanciero($idProveedor);
 $comprasRecientes = \App\OrdenesCompra::listar($filtroCompras, 8, 0);
 $porRecibirProv = \App\OrdenesCompra::pendientesDeRecibir($idProveedor, 8);
 $facturasPend   = \App\OrdenesCompra::listar($filtroCompras + ['cfdi' => 'pendiente_cfdi', 'activas' => true], 8, 0);
@@ -79,7 +81,7 @@ template('tabsCompras', ['tab' => 'proveedores']);
         <p class="texto-secundario">
             <span class="badge badge--info badge--sin-punto"><?= escaparValores($proveedor->tipo_proveedor) ?></span>
             <?php if ((int) $proveedor->activo !== 1) : ?><span class="badge badge--neutro badge--sin-punto">Inactivo</span><?php endif; ?>
-            &nbsp; <?= number_format($totCompras['compras']) ?> <?= $totCompras['compras'] === 1 ? 'compra' : 'compras' ?>
+            &nbsp; <?= number_format($totCompras['registros']) ?> <?= $totCompras['registros'] === 1 ? 'registro de compra' : 'registros de compra' ?>
         </p>
     </div>
 </section>
@@ -100,7 +102,7 @@ template('tabsCompras', ['tab' => 'proveedores']);
                 <div class="ficha__fila"><dt>Teléfono</dt><dd class="cifra"><?= escaparValores($proveedor->telefono ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Ubicación</dt><dd><?= escaparValores($proveedor->ubicacion ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Tipo de proveedor</dt><dd><?= escaparValores($proveedor->tipo_proveedor) ?></dd></div>
-                <div class="ficha__fila"><dt>Compras registradas</dt><dd class="cifra"><?= number_format($totCompras['compras']) ?></dd></div>
+                <div class="ficha__fila"><dt>Registros de compra</dt><dd class="cifra"><?= number_format($totCompras['registros']) ?></dd></div>
                 <div class="ficha__fila"><dt>Productos en catálogo</dt><dd class="cifra">
                     <a href="/admin/compras/catalogo?proveedor=<?= (int) $proveedor->id ?>&amp;estado=todos"><?= number_format(\App\ProductosProveedor::contar(['proveedor' => (int) $proveedor->id])) ?></a>
                     · <a href="/admin/compras/catalogo/crear?proveedor=<?= (int) $proveedor->id ?>">Agregar</a></dd></div>
@@ -129,22 +131,36 @@ template('tabsCompras', ['tab' => 'proveedores']);
     </section>
 </div>
 
-<section class="rejilla-stats mb-lg" aria-label="Importes del proveedor">
-    <article class="stat"><span class="stat__etiqueta">Comprado</span>
-        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['comprado']) ?></span><span class="stat__pie">Sin compras canceladas</span></article>
-    <article class="stat"><span class="stat__etiqueta">Facturado</span>
-        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['facturado']) ?></span>
-        <span class="stat__pie"><?= formatoMoneda($totCompras['pendiente_documentar']) ?> pendiente de documentar</span></article>
-    <article class="stat"><span class="stat__etiqueta">Pagado</span>
-        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['pagado']) ?></span><span class="stat__pie">Pagos vigentes</span></article>
-    <article class="stat"><span class="stat__etiqueta">Saldo pendiente</span>
-        <span class="stat__valor cifra"><?= formatoMoneda($totCompras['saldo']) ?></span><span class="stat__pie">Comprado menos pagado</span></article>
+<section class="mb-lg" aria-label="Importes del proveedor">
+    <div class="rejilla-stats">
+        <article class="stat"><span class="stat__etiqueta">Comprado</span>
+            <span class="stat__valor cifra"><?= formatoMoneda($totCompras['comprado']) ?></span>
+            <span class="stat__pie"><?= number_format($totCompras['compras']) ?> <?= $totCompras['compras'] === 1 ? 'compra' : 'compras' ?> ·
+                <?= number_format($totCompras['entradas']) ?> <?= $totCompras['entradas'] === 1 ? 'entrega' : 'entregas' ?> ·
+                <?= number_format($totCompras['gastos']) ?> <?= $totCompras['gastos'] === 1 ? 'gasto' : 'gastos' ?></span></article>
+        <article class="stat"><span class="stat__etiqueta">Facturado</span>
+            <span class="stat__valor cifra"><?= formatoMoneda($totCompras['facturado']) ?></span>
+            <span class="stat__pie">Con CFDI o comprobante fiscal</span></article>
+        <article class="stat"><span class="stat__etiqueta">Pagado</span>
+            <span class="stat__valor cifra"><?= formatoMoneda($totCompras['pagado']) ?></span>
+            <span class="stat__pie">Pagos vigentes y entregas pagadas</span></article>
+        <article class="stat"><span class="stat__etiqueta">Saldo pendiente</span>
+            <span class="stat__valor cifra"><?= formatoMoneda($totCompras['saldo']) ?></span>
+            <span class="stat__pie">Comprado menos pagado</span></article>
+    </div>
+    <p class="texto-xs texto-secundario mt-sm">
+        Incluye compras nuevas, entregas anteriores y gastos del proveedor. Las entregas anteriores no tienen
+        factura: cuentan en Comprado, Pagado y Saldo, pero no en Facturado.
+        <?php if ($totCompras['pendiente_documentar'] > 0) : ?>
+            Hay <?= formatoMoneda($totCompras['pendiente_documentar']) ?> pendiente de documentar.
+        <?php endif; ?>
+    </p>
 </section>
 
 <section class="tarjeta tarjeta--sin-relleno mb-lg" id="compras">
-    <h2 class="titulo-5" style="padding:1rem 1rem 0">Compras</h2>
+    <h2 class="titulo-5" style="padding:1rem 1rem 0">Compras nuevas</h2>
     <?php if (!$comprasRecientes) : ?>
-        <p class="texto-secundario" style="padding:1rem">Este proveedor aún no tiene compras. <a href="/admin/compras/crear?proveedor=<?= $idProveedor ?>">Registrar la primera</a>.</p>
+        <p class="texto-secundario" style="padding:1rem">Este proveedor aún no tiene compras nuevas. <a href="/admin/compras/crear?proveedor=<?= $idProveedor ?>">Registrar la primera</a>.</p>
     <?php else : ?>
         <div class="tabla-contenedor"><table class="tabla">
             <caption class="solo-lectores">Compras del proveedor</caption>

@@ -253,16 +253,16 @@ try {
   await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 20000 });
 
   const titulo = (await pagina.locator('#modal-titulo').textContent()).trim();
-  comprobar('se abre el diálogo de duplicados', titulo === 'Ya hay un registro con esta factura', titulo);
+  comprobar('se abre el diálogo de duplicados', titulo === 'Ese pago ya está registrado', titulo);
 
   const cuerpo = (await pagina.locator('#modal-cuerpo').textContent()).replace(/\s+/g, ' ');
-  comprobar('menciona que hay que revisarlo antes de guardar', cuerpo.includes('no lo dupliques'));
+  comprobar('explica que un CFDI no se contabiliza dos veces', cuerpo.includes('no se contabiliza dos veces'));
   comprobar('lista el gasto encontrado', cuerpo.includes(`Gasto #${gastoId}`), cuerpo.slice(0, 160));
   comprobar('muestra el folio del CFDI', cuerpo.includes('BEX 21324'));
   comprobar('explica por qué se considera duplicado', /folio fiscal \(UUID\)|folio de factura/.test(cuerpo));
 
   const pie = (await pagina.locator('#modal-pie').textContent()).replace(/\s+/g, ' ');
-  comprobar('ofrece registrar de todos modos', pie.includes('Registrar de todos modos'), pie);
+  comprobar('NO ofrece registrar de todos modos un mismo folio', !pie.includes('Registrar de todos modos'), pie);
   comprobar('trae el botón para ver el gasto', (await pagina.locator(`#modal-pie button:text("Ver el gasto ${gastoId}")`).count()) === 1);
 
   // El botón lleva al detalle del gasto que ya existía.

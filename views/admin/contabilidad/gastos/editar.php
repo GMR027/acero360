@@ -34,7 +34,7 @@ template('header', ['titulo' => 'Editar gasto', 'subtitulo' => 'Contabilidad', '
 ?>
 
 <section class="tarjeta">
-    <form class="formulario" action="/admin/contabilidad/gastos/editar?id=<?= $id ?>" method="post" novalidate>
+    <form class="formulario" action="/admin/contabilidad/gastos/editar?id=<?= $id ?>" method="post" data-validar novalidate>
         <input type="hidden" name="id" value="<?= $id ?>">
         <?php template('formularioGasto', [
             'gasto' => $gasto, 'errores' => $errores, 'proveedores' => \App\Proveedores::paraSelector(),

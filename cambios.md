@@ -1590,3 +1590,77 @@ La pestaña Ajustes → Almacenamiento avisaba «faltan mysqldump/mysql» porque
 - **`scripts/restaurar.sh`:** usa `MYSQL_ROOT_PASSWORD` cuando existe (el usuario de la app no puede `CREATE DATABASE`); el Deployment le pasa ese secreto. Sin esa variable (desarrollo) sigue usando `DB_USER`.
 - **UI:** botón «Descargar» por copia (un solo `.tar.gz` con base, archivos y huellas) y sección «Traer una copia externa» (subir `.tar.gz` → se verifica → aparece en la lista → se restaura igual que las demás). El «Último respaldo» muestra el del CronJob aunque la app no lo haya registrado.
 - **Pruebas:** nueva `pruebas/probar_importar_respaldo.php` (8/8: importación, sello repetido, paquete alterado y ruta con `..`) integrada a `pruebas/ejecutar_todo.sh`; `pruebas/probar_respaldo.sh` 16/16. Verificado además con un MySQL 8.4 real y el cliente MariaDB de la imagen: respaldo y restauración completos.
+
+---
+
+## Ronda — Gastos inteligentes: CFDI del SAT «validado» y aviso fuerte de pago duplicado (2026-10-27)
+
+Las facturas que se suben a gastos y compras inteligentes son XML descargados del portal del SAT: el comprobante ya es auténtico y no tenía sentido que quedaran «por validar» como si alguien dudara de ellas. La revisión de deducibilidad material la sigue haciendo el contador por fuera. Además, subir dos veces el mismo gasto ahora se avisa con un diálogo claro y sin la opción de «registrar de todos modos».
+
+- **`clases/Gastos.php`:**
+  - `normalizar()` marca `revision_fiscal = 'validado'` cuando el gasto trae **folio fiscal (UUID)**, venga de la lectura inteligente, del XML adjunto en el formulario o de una compra. Sin UUID (PDF, foto o captura manual) sigue en `por_validar`.
+  - `no_deducible` nunca se cambia solo: si el contador ya lo marcó así, se respeta.
+  - Nuevo `Gastos::marcarValidadoPorCfdi($gastoId)` para cuando un XML con timbre se adjunta después.
+  - El duplicado de UUID ahora dice el número del gasto que ya lo tiene (`Gastos::$duplicadoId`) y el mensaje «un pago no se registra dos veces».
+- **`clases/Archivos.php`:** al subir un XML con timbre a un gasto se llama a `marcarValidadoPorCfdi()` (un PDF o una foto no tocan la revisión).
+- **`clases/CompraContable.php`:** una compra con `estado_cfdi = 'con_cfdi'` crea su gasto ya «validado»; sin CFDI queda «por validar».
+- **`clases/Lecturas.php`:** al confirmar una lectura se guarda «validado» si trae UUID; al asociar el XML a un gasto existente también. `coincidencias()` ya no avisa de un posible duplicado cuando el UUID del registro es **distinto**: dos compras del mismo proveedor, del mismo servicio o por el mismo importe son facturas independientes.
+- **`views/admin/contabilidad/gastos/crear.php`:**
+  - La lectura inteligente precarga el gasto con revisión fiscal «validada» y la nota lo explica.
+  - Si al guardar el UUID ya está vigente en otro gasto, **no se muestra el formulario**: aparece el aviso «Este pago ya está registrado» con enlace al gasto existente, y el módulo abre el mismo mensaje en un diálogo.
+- **`src/js/modulos/inteligente.js`:** `avisarDuplicado()` distingue el duplicado por folio fiscal (UUID): título «Ese pago ya está registrado», sin botón «Registrar de todos modos»; el resto de coincidencias (misma fecha e importe, otro UUID) conserva el aviso suave. `build/js/app.js` recompilado.
+- **Textos:** manual (`includes/manual.php` → `MANUAL_USUARIO.md`) y confirmación de «Enviar a contabilidad» de la compra actualizados: XML del SAT → «validado»; PDF o foto → «por validar».
+- **Pruebas:** `etapa14` (XML adjunto deja «validado», imagen no), `etapa18` (CFDI asociado a compra), `etapa33` (lectura de gasto) y `probar_compras.mjs` (XML de compra) actualizados. `probar_duplicados.mjs` verifica el diálogo fuerte sin opción de duplicar. Corridas: `etapa5/14/18/30/33/36/37/38/41/42/44/45` TODO OK; `probar_compras` 62/62; `probar_duplicados` 22/22; `probar_etapa5` 51/51.
+- **Sin migración:** `revision_fiscal` ya existía con sus tres estados.
+
+---
+
+## Ronda — Campos pendientes con borde rojo desde que se abre el formulario (2026-10-27)
+
+En formularios largos —sobre todo el alta de gasto— no se veía qué faltaba llenar hasta intentar guardar, y el formulario de gasto ni siquiera tenía validación por campo (solo la nota general del servidor). Ahora los campos vacíos se identifican de un vistazo desde que se abre la pantalla.
+
+- **`src/js/modulos/camposPendientes.js` (nuevo):** recorre todos los formularios y marca:
+  - **obligatorios vacíos** con `.campo--pendiente` (borde rojo continuo);
+  - **recomendados vacíos** con `.campo--sugerido` (borde rojo punteado).
+  La marca desaparece al llenar el campo y se recalcula cuando otro campo cambia una condición (`input`/`change` en fase de burbuja, después de los módulos que muestran/ocultan campos). Ignora `hidden`, deshabilitados y `.campo--oculto`. Añade `aria-invalid` para no depender solo del color. En login/registro no se activa.
+- **Reglas declarativas:** `data-obligatorio-si="#beneficiario_tipo=proveedor"`, `data-recomendado-si="#comprobante_fiscal=1"` y `data-recomendado`.
+- **`templates/formularioGasto.php`:**
+  - `proveedor_id` obligatorio cuando «Pagado a» = Proveedor; `beneficiario` obligatorio cuando = Otro.
+  - `categoria_id` marcada como recomendada; `uuid_fiscal` recomendado cuando el gasto lleva factura.
+  - Leyenda (solo con JS) que explica el borde continuo y el punteado.
+- **`views/admin/contabilidad/gastos/crear.php` y `editar.php`:** el `<form>` lleva `data-validar`, así al guardar con faltantes se muestra el mensaje bajo cada campo y el foco va al primero (antes solo salía la nota superior).
+- **`src/js/modulos/validacion.js`:** `mensajeDeError()` respeta `data-obligatorio-si`, no solo `required`.
+- **`src/scss/layout/_formularios.scss`:** estilos `.campo--pendiente` y `.campo--sugerido` (rojo continuo y rojo punteado; el foco conserva el rojo).
+- **Pruebas:** `pruebas/probar_etapa5.mjs` suma 6 comprobaciones (obligatorios desde el inicio, recomendado, quitar la marca al llenar, validación al guardar vacío y condición «Otro»/Proveedor). Corrida: 57/57. `probar_ronda` 77/77; `auditar_consola` sin hallazgos nuevos (el único 404 es una imagen real ausente en proveedores/entradas).
+- **Assets recompilados:** `build/js/app.js` y `build/css/app.css`. Sin migraciones.
+
+---
+
+## Ronda — Cancelar un gasto equivocado lo elimina y deja de contar (2026-10-27)
+
+Cancelar un gasto es para corregir una captura equivocada del usuario, no para conservar el registro: ahora «Cancelar» y «Eliminar» hacen la misma operación. El gasto desaparece con sus documentos, deja de sumar en contabilidad y fiscal, y queda una copia restaurable durante 90 días en la Papelera.
+
+- **`clases/Gastos.php`:** `cancelar()` delega en `eliminar()`: exige motivo, respeta los periodos cerrados, borra las filas de `documentos` y sus archivos, desenlaza lecturas y compras, y guarda la copia en la Papelera. Se elimina el candado que impedía borrar un gasto ya cancelado.
+- **`views/admin/contabilidad/gastos/detalle.php` y `accion.php`:** el botón «Cancelar gasto» pasa a «Eliminar gasto», con confirmación y motivo de eliminación. Al terminar vuelve a la lista (o al Centro de seguimiento si se abrió desde ahí), no al detalle de un registro que ya no existe.
+- **`views/admin/contabilidad/gastos/index.php`:** el borrado masivo vuelve a aceptar cualquier gasto listado, incluidos los cancelados antiguos.
+- **Registros cancelados anteriores:** siguen fuera de contabilidad y fiscal. Se mantienen las correcciones en `CierrePeriodo` (sus XML y archivos no disparan avisos de cierre y no cuentan como movimiento del mes anterior) y en `Contabilidad::aniosConMovimientos()` (no propone años con sólo cancelaciones).
+- **Pruebas:**
+  - `pruebas/php/etapa5.php`: cancelar elimina la fila y la excluye del resumen.
+  - `pruebas/php/etapa38.php`: la cancelación borra el gasto y el cálculo fiscal vuelve a cero; se conservan los casos de años y XML de cancelados antiguos.
+  - Regresión: `etapa5`, `etapa6`, `etapa30` y `etapa42` en verde.
+- **Manual:** sección «Eliminar un gasto (captura equivocada)» en `MANUAL_USUARIO.md` y `includes/manual.php`. Sin migraciones.
+
+
+---
+
+## Vista previa de facturas y comprobantes en ventana modal (2026-10-27)
+
+Los documentos adjuntos ya no obligan a descargarlos: cada archivo de «Facturas y comprobantes» tiene «Ver» y se abre en la misma ventana modal única de la aplicación.
+
+- **`clases/Archivos.php`:** `tipoVista()` decide qué se puede previsualizar según el MIME real (PDF, XML e imágenes) y `ver()` sirve el archivo inline. El XML sale como `text/plain; charset=UTF-8` (nunca se interpreta), con `X-Frame-Options: SAMEORIGIN` y un CSP que permite incrustarlo solo en la propia app.
+- **Ruta nueva:** `GET /admin/contabilidad/documentos/ver` → `views/admin/contabilidad/documentos/ver.php` (solo administradores).
+- **`src/js/modulos/documentoPreview.js`:** botones `[data-ver-documento]` abren el modal ampliado. PDF con el visor del navegador (y enlace de respaldo para móvil); imágenes ampliadas; XML con resumen del CFDI (folio, UUID, fecha, emisor, receptor, importes, pago y conceptos) y el XML completo plegado. Incluye «Descargar» en el pie.
+- **`src/js/modulos/modal.js`:** opción `amplio` (panel de 61rem) y el botón único de un diálogo informativo dice «Cerrar» en lugar de «Cancelar».
+- **Botones «Ver»:** `templates/documentosOperacion.php` (ingresos y gastos), `views/admin/compras/detalle.php` y `views/admin/contabilidad/documentos/index.php`.
+- **Estilos:** `src/scss/layout/_documentos.scss` (visor, resumen del CFDI y XML plegado; responsive).
+- **Manual:** se explica el botón «Ver» en `MANUAL_USUARIO.md` e `includes/manual.php`. Assets recompilados. Sin migraciones.

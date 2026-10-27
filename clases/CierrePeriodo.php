@@ -106,7 +106,7 @@ class CierrePeriodo
         $cfdiIncompleto = self::cuenta(
             "SELECT COUNT(*) FROM documentos d
                LEFT JOIN ingresos i ON d.entidad = 'ingreso' AND i.id = d.entidad_id
-               LEFT JOIN gastos g ON d.entidad = 'gasto' AND g.id = d.entidad_id
+               LEFT JOIN gastos g ON d.entidad = 'gasto' AND g.id = d.entidad_id AND g.estado = 'vigente'
               WHERE d.activo = 1 AND d.tipo = 'xml' AND d.contribuyente_id = ?
                 AND ((i.id IS NOT NULL AND YEAR(i.fecha) = ? AND MONTH(i.fecha) = ?) OR (g.id IS NOT NULL AND YEAR(g.fecha) = ? AND MONTH(g.fecha) = ?))
                 AND (d.estado_validacion <> 'cfdi_con_timbre' OR JSON_LENGTH(COALESCE(JSON_EXTRACT(d.datos_cfdi, '$.alertas'), JSON_ARRAY())) > 0)",
@@ -177,7 +177,7 @@ class CierrePeriodo
         $consulta = self::$db->prepare(
             "SELECT d.* FROM documentos d
                LEFT JOIN ingresos i ON d.entidad = 'ingreso' AND i.id = d.entidad_id
-               LEFT JOIN gastos g ON d.entidad = 'gasto' AND g.id = d.entidad_id
+               LEFT JOIN gastos g ON d.entidad = 'gasto' AND g.id = d.entidad_id AND g.estado = 'vigente'
               WHERE d.activo = 1 AND d.contribuyente_id = ?
                 AND ((i.id IS NOT NULL AND YEAR(i.fecha) = ? AND MONTH(i.fecha) = ?) OR (g.id IS NOT NULL AND YEAR(g.fecha) = ? AND MONTH(g.fecha) = ?))"
         );
@@ -203,8 +203,8 @@ class CierrePeriodo
         if ($mes > 1) {
             $anteriorAbierto = !Contabilidad::periodoCerrado($contribuyente, sprintf('%04d-%02d-01', $anio, $mes - 1))
                 && self::cuenta(
-                    "SELECT (SELECT COUNT(*) FROM ingresos WHERE contribuyente_id = ? AND YEAR(fecha) = ? AND MONTH(fecha) = ?)
-                          + (SELECT COUNT(*) FROM gastos WHERE contribuyente_id = ? AND YEAR(fecha) = ? AND MONTH(fecha) = ?)",
+                    "SELECT (SELECT COUNT(*) FROM ingresos WHERE contribuyente_id = ? AND YEAR(fecha) = ? AND MONTH(fecha) = ? AND estado = 'vigente')
+                          + (SELECT COUNT(*) FROM gastos WHERE contribuyente_id = ? AND YEAR(fecha) = ? AND MONTH(fecha) = ? AND estado = 'vigente')",
                     'iiiiii', [$contribuyente, $anio, $mes - 1, $contribuyente, $anio, $mes - 1]
                 ) > 0;
             if ($anteriorAbierto) {

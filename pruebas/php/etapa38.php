@@ -33,6 +33,7 @@ use App\CompraContable;
 use App\ComplementosPago;
 use App\ComprasIntel;
 use App\Contabilidad;
+use App\CierrePeriodo;
 use App\Gastos;
 use App\Lecturas;
 use App\MotorFiscal;
@@ -427,8 +428,34 @@ $trasCancelar = MotorFiscal::calcular($contrib, 2026, 6);
 $prueba('al CANCELARLO el gasto sale del cálculo (delta vuelve a 0)', $okCancelaGasto === true
     && (int) $trasCancelar['por_mes']['deduccion'][6] - (int) $antesFiscal['por_mes']['deduccion'][6] === 0,
     implode(' · ', Gastos::getErrores()));
-$prueba('la cancelación deja el gasto «cancelado» sin borrarlo',
-    (string) $uno("SELECT estado FROM gastos WHERE id = $gastoCancelar") === 'cancelado');
+$prueba('la cancelación borra el gasto: ya no queda la fila',
+    (int) $uno("SELECT COUNT(*) FROM gastos WHERE id = $gastoCancelar") === 0);
+
+// Un año que sólo tiene gastos cancelados no debe aparecer en el selector de años.
+$db->query("INSERT INTO gastos (contribuyente_id, fecha, beneficiario, concepto, naturaleza, empresa_id, subtotal, iva_tasa, iva, total,
+        estado_pago, comprobante_fiscal, revision_fiscal, estado, usuario_id)
+    VALUES ($contrib, '2031-05-10', 'T38 Beneficiario', 'T38 año con solo cancelados', 'gasto', 2,
+        10.00, 0, 0.00, 10.00, 'pendiente', 0, 'por_validar', 'cancelado', $usuario)");
+$idAnio = (int) $db->insert_id;
+$prueba('un año con sólo gastos cancelados no aparece en el selector de años',
+    !in_array(2031, Contabilidad::aniosConMovimientos(), true));
+$db->query("UPDATE gastos SET estado = 'vigente' WHERE id = $idAnio");
+$prueba('el año sí aparece cuando el gasto está vigente',
+    in_array(2031, Contabilidad::aniosConMovimientos(), true));
+
+// Los XML de un gasto cancelado tampoco cuentan en las verificaciones del cierre.
+$db->query("INSERT INTO documentos (contribuyente_id, entidad, entidad_id, tipo, nombre_original, archivo, mime, tamano, sha256, estado_validacion, subido_por)
+    VALUES ($contrib, 'gasto', $idAnio, 'xml', 't38-cancelado.xml', 't38/no-existe.xml', 'application/xml', 10, REPEAT('a', 64), 'cfdi_sin_timbre', $usuario)");
+$idDoc = (int) $db->insert_id;
+$db->query("UPDATE gastos SET estado = 'cancelado' WHERE id = $idAnio");
+$ver2031 = array_column(CierrePeriodo::verificaciones($contrib, 2031, 5), null, 'codigo');
+$prueba('el XML de un gasto cancelado no cuenta en el cierre',
+    !isset($ver2031['cfdi_incompleto']) && !isset($ver2031['errores_conciliacion']));
+$db->query("UPDATE gastos SET estado = 'vigente' WHERE id = $idAnio");
+$ver2031 = array_column(CierrePeriodo::verificaciones($contrib, 2031, 5), null, 'codigo');
+$prueba('el XML de un gasto vigente sí se revisa en el cierre', isset($ver2031['cfdi_incompleto']));
+$db->query("DELETE FROM documentos WHERE id = $idDoc");
+$db->query("DELETE FROM gastos WHERE id = $idAnio");
 
 // Orden cancelada: no se le puede asignar contabilidad.
 $ordenCancel = $crearCompra('T38-E', $proveedor38, '2026-04-10', '900.00');

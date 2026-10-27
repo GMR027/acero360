@@ -257,8 +257,8 @@ template('tabsCompras', ['tab' => 'pedidos']);
     <h2 class="titulo-5" style="padding:1rem 1rem 0">Factura y comprobantes</h2>
     <p class="texto-sm texto-secundario" style="padding:.5rem 1rem 0">
         Estado: <span class="badge <?= $cfdi['clase'] ?>"><?= escaparValores($cfdi['etiqueta']) ?></span>
-        · Adjuntar un documento no vuelve deducible la compra: la revisión fiscal la valida tu contador.
-        Un PDF o una foto no cuenta como CFDI; solo el XML con timbre.
+        · El XML con timbre es un CFDI del SAT: la revisión fiscal queda «validado». Un PDF o una foto no
+        cuenta como CFDI y la deja «por validar» para tu contador.
     </p>
 
     <?php if (!$documentos) : ?>
@@ -279,7 +279,14 @@ template('tabsCompras', ['tab' => 'pedidos']);
                         <?php endforeach; ?></td>
                     <td><span class="badge <?= $val['clase'] ?>"><?= escaparValores($val['etiqueta']) ?></span></td>
                     <td class="texto-sm"><?= date('d/m/Y H:i', strtotime($d['creado_en'])) ?></td>
-                    <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/documentos/descargar?id=<?= (int) $d['id'] ?>">Descargar</a></td>
+                    <td class="tabla--numerica">
+                        <?php if ($vistaDocumento = \App\Archivos::tipoVista($d)) : ?>
+                            <button type="button" class="btn btn--secundario btn--sm"
+                                    data-ver-documento="<?= (int) $d['id'] ?>"
+                                    data-documento-tipo="<?= escaparValores($vistaDocumento) ?>"
+                                    data-documento-nombre="<?= escaparValores($d['nombre_original']) ?>">Ver</button>
+                        <?php endif; ?>
+                        <a class="btn btn--secundario btn--sm" href="/admin/contabilidad/documentos/descargar?id=<?= (int) $d['id'] ?>">Descargar</a></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
@@ -309,7 +316,7 @@ template('tabsCompras', ['tab' => 'pedidos']);
             <form action="/admin/compras/comprobante" method="post" data-validar
                   data-confirmacion-sobre="Compra <?= escaparValores($orden['folio']) ?>"
                   data-confirmacion="¿Enviar esta compra a contabilidad?"
-                  data-confirmacion-mensaje="Se creará UN gasto con el importe de la compra. Si ya existe uno, se reutiliza; nunca se duplica. La revisión fiscal queda «por validar»."
+                  data-confirmacion-mensaje="Se creará UN gasto con el importe de la compra. Si ya existe uno, se reutiliza; nunca se duplica. Con XML del CFDI la revisión fiscal queda «validado»; un PDF o una foto la dejan «por validar»."
                   data-confirmacion-boton="Sí, enviar">
                 <input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="accion" value="enviar">
                 <button class="btn btn--secundario" type="submit">Enviar a contabilidad (sin documento)</button>

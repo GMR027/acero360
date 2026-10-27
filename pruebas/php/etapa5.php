@@ -138,9 +138,9 @@ $prueba('subtotal de ventas 400, IVA 64', $r['ventas']['subtotal'] === 400.0 && 
 $prueba('cobrado en el periodo 248 (el otro cobro se canceló)', $r['cobrado_en_periodo'] === 248.0, (string) $r['cobrado_en_periodo']);
 $prueba('cancelar un gasto exige motivo', !Gastos::cancelar($gId, '', $usuario));
 Gastos::getErrores();
-$prueba('cancelar con motivo lo excluye del resumen', Gastos::cancelar($gId, 'Captura duplicada', $usuario)
+$prueba('cancelar con motivo lo elimina y lo excluye del resumen', Gastos::cancelar($gId, 'Captura duplicada', $usuario)
     && Contabilidad::resumenPeriodo($anio, $mes)['gastos']['total'] === 58000);
-$prueba('el gasto cancelado sigue en la base', (int) $uno("SELECT COUNT(*) FROM gastos WHERE id = $gId") === 1);
+$prueba('el gasto cancelado ya no está en la base', (int) $uno("SELECT COUNT(*) FROM gastos WHERE id = $gId") === 0);
 
 echo "Documentos: validación y seguridad\n";
 $carpeta = sys_get_temp_dir() . '/e5-' . bin2hex(random_bytes(4));

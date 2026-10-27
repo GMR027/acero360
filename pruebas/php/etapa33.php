@@ -5,7 +5,7 @@
  * Cubre: factura de gasolina (categoría y clasificación «gasto»), telefonía, servicios,
  * gasto sin XML (captura manual intacta), XML incompleto, documentos duplicados (reutiliza
  * el gasto existente y bloquea el de una compra), distinción de fechas de emisión/pago,
- * estado de pago que NO se inventa, revisión fiscal «por validar», auditoría y periodo cerrado.
+ * estado de pago que NO se inventa, revisión fiscal «validado» cuando hay CFDI, auditoría y periodo cerrado.
  *
  * Los «33» en nombres y RFC evitan chocar con las demás etapas.
  *
@@ -184,7 +184,7 @@ $g = Gastos::buscarID($gastoId);
 $prueba('NO se inventa fecha de pago (queda vacía)', $g['fecha_pago'] === null || $g['fecha_pago'] === '', (string) $g['fecha_pago']);
 $prueba('NO se marca pagado automáticamente', $g['estado_pago'] === 'pendiente', $g['estado_pago']);
 $prueba('la fecha guardada es la de EMISIÓN del CFDI', $g['fecha'] === '2026-10-18', $g['fecha']);
-$prueba('revisión fiscal queda «por validar» (el XML no lo vuelve deducible)', $g['revision_fiscal'] === 'por_validar', $g['revision_fiscal']);
+$prueba('revisión fiscal «validado» (el CFDI con folio fiscal viene del SAT)', $g['revision_fiscal'] === 'validado', $g['revision_fiscal']);
 $prueba('el gasto conserva el enlace a su lectura', (int) $g['lectura_id'] === $lecGas);
 $prueba('se audita la creación', (int) $uno("SELECT COUNT(*) FROM auditoria WHERE entidad = 'gasto' AND entidad_id = $gastoId AND accion = 'crear'") === 1);
 $prueba('la lectura de compra queda cerrada (no sigue «sin decidir»)',

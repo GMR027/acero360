@@ -25,6 +25,10 @@ $numEmpresas = max(1, count($empresas));
     </div>
 <?php endif; ?>
 
+<p class="texto-xs texto-secundario mb-md" data-leyenda-pendientes hidden>
+    Los campos con <strong>borde rojo</strong> están por llenar; los de <strong>borde punteado</strong> son recomendados.
+</p>
+
 <div class="formulario__rejilla">
     <div class="campo campo--completo"><label class="campo__etiqueta campo__etiqueta--obligatorio" data-ayuda="Describe en pocas palabras qué compraste o pagaste." for="concepto">¿En qué fue el gasto?</label>
         <input class="control" type="text" id="concepto" name="concepto" maxlength="255" required value="<?= $v('concepto') ?>"
@@ -54,6 +58,7 @@ $numEmpresas = max(1, count($empresas));
              el <select> real se mantiene en el DOM y viaja en el envío. -->
         <select class="control" id="proveedor_id" name="proveedor_id"
                 data-buscador
+                data-obligatorio-si="#beneficiario_tipo=proveedor"
                 data-buscador-entidad="proveedor"
                 data-buscador-placeholder="Escribe para buscar por nombre o RFC…">
             <option value="">— Elige un proveedor —</option>
@@ -68,6 +73,7 @@ $numEmpresas = max(1, count($empresas));
 
     <div class="campo" data-ben-texto<?= in_array($tipoBen, ['estacion', 'otro'], true) ? '' : ' hidden' ?>><label class="campo__etiqueta" for="beneficiario" data-ben-etiqueta>Descripción</label>
         <input class="control" type="text" id="beneficiario" name="beneficiario" maxlength="150" value="<?= $tipoBen === 'proveedor' ? '' : $v('beneficiario') ?>"
+               data-obligatorio-si="#beneficiario_tipo=otro"
                placeholder="Ej. Gasolinera del centro, el señor de las piedras" autocomplete="off">
         <span class="campo__ayuda" data-ben-ayuda>Escribe a quién le pagaste (por ejemplo: la ferretería de la esquina).</span></div>
 
@@ -76,6 +82,7 @@ $numEmpresas = max(1, count($empresas));
 
     <div class="campo"><label class="campo__etiqueta" data-ayuda="Elige el tipo de gasto. Si escribes «gasolina», «CFE», «Telmex»… la plataforma lo sugiere sola." for="categoria_id">¿Qué tipo de gasto fue?</label>
         <select class="control" id="categoria_id" name="categoria_id" data-sugerir-categoria
+                data-recomendado
                 data-reglas="<?= escaparValores(json_encode(
                     array_map(
                         static fn (string $nombre, string $patron): array => [$nombre, $patron],
@@ -210,7 +217,7 @@ $numEmpresas = max(1, count($empresas));
     <summary class="boton-enlace" style="cursor:pointer"><strong>Más detalles (opcional)</strong> — folio fiscal, reparto entre negocios y notas</summary>
     <div class="formulario__rejilla mt-md">
         <div class="campo"><label class="campo__etiqueta" data-ayuda="El folio único de la factura. Si subes el XML se llena solo." for="uuid_fiscal">Folio fiscal de la factura (UUID)</label>
-            <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= $v('uuid_fiscal') ?>">
+            <input class="control" type="text" id="uuid_fiscal" name="uuid_fiscal" maxlength="36" value="<?= $v('uuid_fiscal') ?>" data-recomendado-si="#comprobante_fiscal=1">
             <span class="campo__ayuda">Si subes el XML de la factura, se llena solo.</span></div>
 
         <input type="hidden" name="revision_fiscal" value="<?= $v('revision_fiscal', 'por_validar') ?>">

@@ -295,6 +295,13 @@ function inicializarAplicacion() {
   // 13. Subida de facturas y comprobantes desde la ventana modal.
   prepararArchivosModal();
 
+  // 14. Campos que todavía no tienen información: borde rojo desde que se abre
+  //     el formulario (obligatorios) o rojo punteado (recomendados).
+  inicializarCamposPendientes();
+
+  // 15. Vista previa de facturas y comprobantes (PDF, XML e imágenes) en el modal.
+  inicializarDocumentoPreview();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

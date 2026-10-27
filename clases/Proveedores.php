@@ -351,6 +351,113 @@ class Proveedores
         return $total;
     }
 
+    /**
+     * Resumen financiero completo del proveedor.
+     *
+     * Junta las TRES fuentes donde puede vivir una compra:
+     *   · ordenes_compra        (módulo nuevo de compras)
+     *   · proveedor_entradas    (entregas anteriores, con foto)
+     *   · gastos                (compras/servicios registrados desde Contabilidad)
+     *
+     * Reglas para que los números cuadren:
+     *   · Una compra cancelada no se cuenta.
+     *   · Un gasto ya ligado a una compra activa NO se suma otra vez: la compra
+     *     es la fuente de verdad de ese gasto (ordenes_compra.gasto_id).
+     *   · Las entregas anteriores no tienen dato fiscal: suman en Comprado,
+     *     Pagado y Saldo, pero nunca en Facturado.
+     *   · Todo se acumula en centavos y se convierte a pesos al final.
+     *
+     * @return array{
+     *   registros: int, compras: int, entradas: int, gastos: int,
+     *   comprado: float, facturado: float, pendiente_documentar: float,
+     *   sin_factura: float, pagado: float, saldo: float
+     * }
+     */
+    public static function resumenFinanciero(int $proveedorId): array
+    {
+        $id = max(0, $proveedorId);
+        $consulta = self::$db->prepare(
+            "SELECT
+                    COALESCE(SUM(x.comprado), 0)              AS comprado,
+                    COALESCE(SUM(x.facturado), 0)             AS facturado,
+                    COALESCE(SUM(x.pendiente_documentar), 0)  AS pendiente_documentar,
+                    COALESCE(SUM(x.sin_factura), 0)           AS sin_factura,
+                    COALESCE(SUM(x.pagado), 0)                AS pagado,
+                    COALESCE(SUM(x.es_compra), 0)             AS compras,
+                    COALESCE(SUM(x.es_entrada), 0)            AS entradas,
+                    COALESCE(SUM(x.es_gasto), 0)              AS gastos
+               FROM (
+                    SELECT
+                        ROUND((o.total_esperado + COALESCE(o.iva, 0)) * 100) AS comprado,
+                        CASE WHEN o.estado_cfdi = 'con_cfdi'
+                             THEN ROUND((o.total_esperado + COALESCE(o.iva, 0)) * 100) ELSE 0 END AS facturado,
+                        CASE WHEN o.estado_cfdi = 'pendiente_cfdi'
+                             THEN ROUND((o.total_esperado + COALESCE(o.iva, 0)) * 100) ELSE 0 END AS pendiente_documentar,
+                        CASE WHEN o.estado_cfdi = 'no_facturada'
+                             THEN ROUND((o.total_esperado + COALESCE(o.iva, 0)) * 100) ELSE 0 END AS sin_factura,
+                        ROUND((
+                            SELECT COALESCE(SUM(pc.importe), 0)
+                              FROM pagos_compra pc
+                             WHERE pc.orden_id = o.id AND pc.estado = 'vigente'
+                        ) * 100) AS pagado,
+                        1 AS es_compra, 0 AS es_entrada, 0 AS es_gasto
+                      FROM ordenes_compra o
+                     WHERE o.proveedor_id = ? AND o.estado <> 'cancelada'
+
+                    UNION ALL
+
+                    SELECT
+                        ROUND(e.monto * 100) AS comprado,
+                        0 AS facturado,
+                        0 AS pendiente_documentar,
+                        0 AS sin_factura,
+                        CASE WHEN e.pagado = 1 THEN ROUND(e.monto * 100) ELSE 0 END AS pagado,
+                        0 AS es_compra, 1 AS es_entrada, 0 AS es_gasto
+                      FROM proveedor_entradas e
+                     WHERE e.proveedor_id = ?
+
+                    UNION ALL
+
+                    SELECT
+                        ROUND(g.total * 100) AS comprado,
+                        CASE WHEN g.comprobante_fiscal = 1 THEN ROUND(g.total * 100) ELSE 0 END AS facturado,
+                        CASE WHEN g.comprobante_fiscal = 0 THEN ROUND(g.total * 100) ELSE 0 END AS pendiente_documentar,
+                        0 AS sin_factura,
+                        CASE WHEN g.estado_pago = 'pagado' THEN ROUND(g.total * 100) ELSE 0 END AS pagado,
+                        0 AS es_compra, 0 AS es_entrada, 1 AS es_gasto
+                      FROM gastos g
+                     WHERE g.proveedor_id = ? AND g.estado = 'vigente'
+                       AND NOT EXISTS (
+                            SELECT 1 FROM ordenes_compra oc
+                             WHERE oc.gasto_id = g.id AND oc.estado <> 'cancelada'
+                       )
+               ) x"
+        );
+        $consulta->bind_param('iii', $id, $id, $id);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        $comprado = (int) ($fila['comprado'] ?? 0);
+        $pagado   = (int) ($fila['pagado'] ?? 0);
+        $compras  = (int) ($fila['compras'] ?? 0);
+        $entradas = (int) ($fila['entradas'] ?? 0);
+        $gastos   = (int) ($fila['gastos'] ?? 0);
+
+        return [
+            'registros'            => $compras + $entradas + $gastos,
+            'compras'              => $compras,
+            'entradas'             => $entradas,
+            'gastos'               => $gastos,
+            'comprado'             => (float) ($comprado / 100),
+            'facturado'            => (float) ((int) ($fila['facturado'] ?? 0) / 100),
+            'pendiente_documentar' => (float) ((int) ($fila['pendiente_documentar'] ?? 0) / 100),
+            'sin_factura'          => (float) ((int) ($fila['sin_factura'] ?? 0) / 100),
+            'pagado'               => (float) ($pagado / 100),
+            'saldo'                => (float) (($comprado - $pagado) / 100),
+        ];
+    }
+
     /** Convierte un registro asociativo en una instancia de esta clase. */
     protected static function crearObjeto(array $registro): self
     {

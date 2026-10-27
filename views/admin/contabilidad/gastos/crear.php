@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null && $lectur
             'uso_cfdi'           => $usoCfdi,
             'tipo_cfdi'          => in_array($propuesta['tipo_cfdi'] ?? '', array_keys(\App\Contabilidad::TIPOS_CFDI), true) ? $propuesta['tipo_cfdi'] : '',
             'naturaleza'         => $naturaleza,
-            'revision_fiscal'    => 'por_validar',
+            'revision_fiscal'    => 'validado',
             'empresa_id'         => $propuesta['empresa'] ? (int) $propuesta['empresa']['id'] : 0,
         ]);
     }
@@ -220,6 +220,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     $errores = \App\Gastos::getErrores();
 }
 
+/* El folio fiscal ya está vigente en otro gasto: no se permite un segundo registro
+ * del mismo pago. La vista lo muestra en un aviso (y el módulo abre el diálogo) con
+ * el enlace al gasto que ya existe. */
+$duplicadoFuerte = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && \App\Gastos::$duplicadoId > 0) {
+    $filaDuplicada = \App\Gastos::buscarID(\App\Gastos::$duplicadoId);
+    if ($filaDuplicada !== null && $filaDuplicada['estado'] === 'vigente') {
+        $duplicadoFuerte = [
+            'tipo'     => 'gasto',
+            'id'       => (int) $filaDuplicada['id'],
+            'ruta'     => '/admin/contabilidad/gastos/detalle?id=' . (int) $filaDuplicada['id'],
+            'etiqueta' => 'Gasto #' . (int) $filaDuplicada['id'],
+            'folio'    => (string) ($filaDuplicada['folio_comercial'] ?? ''),
+            'fecha'    => (string) ($filaDuplicada['fecha'] ?? ''),
+            'total'    => (float) ($filaDuplicada['total'] ?? 0),
+            'detalle'  => trim((string) ($filaDuplicada['concepto'] ?? '')
+                . (!empty($filaDuplicada['beneficiario']) ? ' · ' . $filaDuplicada['beneficiario'] : '')),
+            'criterio' => 'folio fiscal (UUID)',
+        ];
+    }
+}
+
 template('header', ['titulo' => 'Nuevo gasto', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 
 /* Proveedor elegido en «Pagado a»: con él se ofrece, en la lista de «Conceptos sin
@@ -263,6 +285,26 @@ if (($gasto['beneficiario_tipo'] ?? '') === 'proveedor' && (int) ($gasto['provee
             <a class="btn btn--primario" href="/admin/contabilidad/gastos">Ver los gastos</a>
             <a class="btn btn--secundario" href="/admin/contabilidad/lectura">Subir otra factura</a>
         </div>
+    <?php elseif ($duplicadoFuerte) : ?>
+        <!-- Mismo folio fiscal (UUID): el pago ya está contabilizado. No se ofrece el
+             formulario para no registrar dos veces el mismo gasto. -->
+        <div hidden
+             data-coincidencias="<?= escaparValores(json_encode([$duplicadoFuerte], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"
+             data-ruta="/admin/contabilidad/gastos/crear"
+             data-origen="Alta de gasto"
+             data-duplicado-fuerte="1"></div>
+        <div class="nota nota--error mb-lg" role="alert">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
+            <span><strong>Este pago ya está registrado.</strong>
+                El folio fiscal (UUID) pertenece al gasto #<?= (int) $duplicadoFuerte['id'] ?>
+                (<?= escaparValores($duplicadoFuerte['fecha']) ?> ·
+                <?= escaparValores(number_format((float) $duplicadoFuerte['total'], 2)) ?>).
+                Un mismo CFDI no se contabiliza dos veces.</span>
+        </div>
+        <div class="formulario__acciones">
+            <a class="btn btn--primario" href="<?= escaparValores($duplicadoFuerte['ruta']) ?>">Ver el gasto #<?= (int) $duplicadoFuerte['id'] ?></a>
+            <a class="btn btn--secundario" href="/admin/contabilidad/gastos/crear">Registrar otro gasto</a>
+        </div>
     <?php else : ?>
     <?php if (!empty($_GET['continuar']) && $propuesta && !empty($propuesta['duplicados'])) : ?>
         <!-- La persona eligió «Registrar de todos modos»: se abre el formulario sin el aviso,
@@ -296,11 +338,11 @@ if (($gasto['beneficiario_tipo'] ?? '') === 'proveedor' && (int) ($gasto['provee
                 pago <strong><?= $gasto['estado_pago'] === 'pagado' && !empty($gasto['fecha_pago']) ? escaparValores($gasto['fecha_pago']) : 'sin registrar' ?></strong>
                 (PUE: pagado con la fecha del CFDI; PPD: queda por pagar) ·
                 estado del gasto <strong><?= ($gasto['estado_pago'] ?? 'pendiente') === 'pagado' ? 'pagado' : 'por pagar' ?></strong>
-                · revisión fiscal: <strong>por validar</strong> (tener el XML no lo vuelve deducible; lo valida tu contador).
+                · revisión fiscal: <strong>validada</strong> (el CFDI con folio fiscal viene del SAT; la deducibilidad material la revisa tu contador).
             </span>
         </div>
     <?php endif; ?>
-    <form class="formulario" id="form-gasto" action="/admin/contabilidad/gastos/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post" enctype="multipart/form-data" novalidate>
+    <form class="formulario" id="form-gasto" action="/admin/contabilidad/gastos/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post" enctype="multipart/form-data" data-validar novalidate>
         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
         <?php template('formularioGasto', [
             'gasto' => $gasto, 'errores' => $errores, 'proveedores' => \App\Proveedores::paraSelector(),

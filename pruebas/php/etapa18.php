@@ -202,7 +202,7 @@ $ok = CompraContable::adjuntarComprobante($C, $archivo('factura.xml', $cfdi($uui
 $prueba('el CFDI llega después y se asocia', $ok, $errores());
 $prueba('sigue habiendo un solo gasto', $totalGastos() === $gastos0 + 1 && $gastosDe($C) === 1);
 $prueba('la compra pasa a «con CFDI»', OrdenesCompra::buscarID($C)['estado_cfdi'] === 'con_cfdi');
-$prueba('el gasto toma el UUID pero NO se vuelve deducible', Gastos::buscarID($g1)['uuid_fiscal'] === $uuid && Gastos::buscarID($g1)['revision_fiscal'] === 'por_validar');
+$prueba('el gasto toma el UUID y queda «validado» (CFDI del SAT)', Gastos::buscarID($g1)['uuid_fiscal'] === $uuid && Gastos::buscarID($g1)['revision_fiscal'] === 'validado');
 $res = OrdenesCompra::resumen($C);
 $prueba('comprado 1460 · facturado 1460 · pendiente de documentar 0', $res['total'] == 1460.0 && $res['facturado'] == 1460.0 && $res['pendiente_documentar'] == 0.0);
 

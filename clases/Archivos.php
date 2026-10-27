@@ -305,6 +305,11 @@ class Archivos
             self::$ultimoId = $id;
             if ($entidad === 'gasto') {
                 CompraContable::sincronizarDocumentos($entidadId, $usuarioId);   // la compra ligada a este gasto refleja sus documentos
+                // El XML es un CFDI descargado del SAT: el comprobante es auténtico y el
+                // gasto deja de estar «por validar». Sin UUID (PDF o foto) no se toca.
+                if ($familia === 'xml' && $estado === 'cfdi_con_timbre') {
+                    Gastos::marcarValidadoPorCfdi($entidadId);
+                }
             }
             return true;
         } catch (\Throwable $excepcion) {
@@ -509,6 +514,72 @@ class Archivos
         header('Content-Length: ' . filesize($ruta));
         header('X-Content-Type-Options: nosniff');
         header("Content-Security-Policy: default-src 'none'; sandbox");
+        header('Cache-Control: private, no-store');
+        readfile($ruta);
+        exit;
+    }
+
+    /**
+     * Tipo de vista previa admitido para un documento, o null si solo se
+     * puede descargar. Se apoya en el MIME real detectado al subirlo.
+     *
+     * @param array<string, mixed> $doc
+     * @return 'pdf'|'xml'|'imagen'|null
+     */
+    public static function tipoVista(array $doc): ?string
+    {
+        $mime = strtolower((string) ($doc['mime'] ?? ''));
+
+        if ($mime === 'application/pdf') {
+            return 'pdf';
+        }
+        if (in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            return 'imagen';
+        }
+        if (in_array($mime, ['text/xml', 'application/xml', 'text/plain'], true)
+            && strtolower(pathinfo((string) ($doc['nombre_original'] ?? ''), PATHINFO_EXTENSION)) === 'xml') {
+            return 'xml';
+        }
+
+        return null;
+    }
+
+    /**
+     * Envía el documento para verlo dentro de la aplicación (inline).
+     * El XML nunca se interpreta: sale como texto plano para poder leerlo en
+     * la ventana modal sin ejecutar nada. Termina la petición.
+     */
+    public static function ver(int $id): void
+    {
+        $doc  = self::buscarID($id);
+        $ruta = $doc ? self::rutaAbsoluta($doc) : null;
+        $vista = $doc ? self::tipoVista($doc) : null;
+
+        if (!$doc || $ruta === null || $vista === null) {
+            \paginaNoEncontrada();
+        }
+
+        $nombre = preg_replace('/[^A-Za-z0-9._-]/', '_', (string) $doc['nombre_original']) ?: 'documento';
+        $tipo   = match ($vista) {
+            'pdf'    => 'application/pdf',
+            'imagen' => (string) $doc['mime'],
+            default  => 'text/plain; charset=UTF-8',
+        };
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: ' . $tipo);
+        header('Content-Disposition: inline; filename="' . $nombre . '"; filename*=UTF-8\'\'' . rawurlencode((string) $doc['nombre_original']));
+        header('Content-Length: ' . filesize($ruta));
+        header('X-Content-Type-Options: nosniff');
+        // Solo la propia aplicación puede incrustarlo (el resto del sitio usa DENY).
+        header('X-Frame-Options: SAMEORIGIN');
+        // El CSP global prohíbe incrustar (frame-ancestors 'none'): aquí se permite
+        // solo la propia aplicación. Al visor PDF no se le añade «sandbox».
+        header($vista === 'pdf'
+            ? "Content-Security-Policy: frame-ancestors 'self'"
+            : "Content-Security-Policy: default-src 'none'; sandbox; frame-ancestors 'self'");
         header('Cache-Control: private, no-store');
         readfile($ruta);
         exit;

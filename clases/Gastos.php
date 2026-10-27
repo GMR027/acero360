@@ -9,10 +9,18 @@ namespace App;
  *   • Un gasto se registra UNA vez. Si lo comparten los dos negocios, el
  *     reparto (gasto_reparto) solo alimenta los reportes por negocio: el total
  *     contable consolidado nunca cambia ni se duplica.
- *   • Nunca se borra: se cancela con motivo (queda en la bitácora).
+ *   • Una captura equivocada se cancela/elimina con motivo: no queda sumando ni
+ *     como historial (la copia de 90 días vive en la Papelera y el motivo en la
+ *     bitácora).
  *   • Un periodo cerrado no se modifica en silencio.
- *   • Tener un comprobante adjunto NO vuelve deducible un gasto ni acreditable
- *     su IVA: `revision_fiscal` arranca en «por_validar» y se resuelve a mano.
+ *   • Un gasto con folio fiscal (UUID) viene de un CFDI descargado del SAT: su
+ *     comprobante es auténtico, así que `revision_fiscal` arranca en «validado».
+ *     Sin UUID (PDF, foto o captura a mano) queda en «por_validar»; la
+ *     deducibilidad material la sigue revisando el contador. `no_deducible`
+ *     siempre se respeta y nunca se cambia solo.
+ *   • El mismo folio fiscal (UUID) no puede estar vigente en dos gastos. Un
+ *     proveedor puede facturar varias veces el mismo servicio: el UUID es el
+ *     único dato que identifica al documento, no el proveedor ni el importe.
  *   • El Uso del CFDI y el método de pago (PUE / PPD / por definir) son datos
  *     del comprobante: si el gasto es «sin factura» se limpian, y el centro de
  *     seguimiento vigila las facturas con pago en parcialidades o por definir.
@@ -27,6 +35,9 @@ class Gastos
     protected static $errores = [];
 
     public static int $ultimoId = 0;
+
+    /** Gasto vigente que ya tiene el UUID enviado (0 si no hubo duplicado). */
+    public static int $duplicadoId = 0;
 
     public const NATURALEZAS = [
         'gasto' => 'Gasto operativo', 'compra' => 'Compra de mercancía', 'insumo' => 'Insumos y consumibles',
@@ -410,6 +421,23 @@ class Gastos
      * ------------------------------------------------------------------ */
 
     /**
+     * Un CFDI con timbre se adjuntó al gasto: se marca «validado» si seguía «por validar».
+     * Nunca toca «no_deducible» (esa decisión es del contador). Devuelve true si cambió.
+     */
+    public static function marcarValidadoPorCfdi(int $gastoId): bool
+    {
+        $consulta = self::$db->prepare(
+            "UPDATE gastos SET revision_fiscal = 'validado'
+              WHERE id = ? AND estado = 'vigente' AND revision_fiscal = 'por_validar'"
+        );
+        $consulta->bind_param('i', $gastoId);
+        $ok = $consulta->execute() && $consulta->affected_rows > 0;
+        $consulta->close();
+
+        return $ok;
+    }
+
+    /**
      * Valida y normaliza los datos del formulario.
      *
      * @return array{0: string[], 1: array<string, mixed>} errores y datos listos para guardar
@@ -417,6 +445,7 @@ class Gastos
     public static function normalizar(array $d, ?array $previo = null): array
     {
         $errores = [];
+        self::$duplicadoId = 0;
 
         // Formulario sencillo: el usuario captura el TOTAL pagado y si lleva IVA; el subtotal se despeja.
         $totalCapturado = str_replace(',', '.', trim((string) ($d['total'] ?? '')));
@@ -538,8 +567,9 @@ class Gastos
             $propio = (int) ($previo['id'] ?? 0);
             $consulta->bind_param('si', $uuid, $propio);
             $consulta->execute();
-            if ($consulta->get_result()->num_rows > 0) {
-                $errores[] = 'Ese UUID ya está registrado en otro gasto.';
+            if ($fila = $consulta->get_result()->fetch_assoc()) {
+                self::$duplicadoId = (int) $fila['id'];
+                $errores[] = 'Ese folio fiscal (UUID) ya está registrado en el gasto #' . self::$duplicadoId . ': un pago no se registra dos veces.';
             }
             $consulta->close();
         }
@@ -557,6 +587,12 @@ class Gastos
 
         $revision = (string) ($d['revision_fiscal'] ?? ($previo['revision_fiscal'] ?? 'por_validar'));
         $revision = isset(self::REVISION[$revision]) ? $revision : 'por_validar';
+        // Un CFDI con folio fiscal viene del SAT: el comprobante es auténtico y el gasto
+        // queda «validado» sin que nadie tenga que marcarlo. La deducibilidad material la
+        // sigue decidiendo el contador: `no_deducible` nunca se cambia automáticamente.
+        if ($revision === 'por_validar' && $uuid !== '') {
+            $revision = 'validado';
+        }
 
         // Uso del CFDI y método de pago del CFDI: son datos del comprobante, así que un gasto
         // SIN factura no los guarda (se limpian aunque el formulario los traiga ocultos).
@@ -813,35 +849,17 @@ class Gastos
         return true;
     }
 
-    /** Cancela un gasto (no se borra). Exige motivo. */
+    /**
+     * Cancela un gasto por error del usuario: lo elimina junto con sus documentos.
+     *
+     * «Cancelar» y «eliminar» son la misma operación para un gasto: una captura
+     * equivocada no debe quedar sumando ni siquiera como historial. La copia de
+     * 90 días queda en la Papelera y el motivo en la bitácora. Se conserva el
+     * nombre por compatibilidad con las llamadas existentes.
+     */
     public static function cancelar(int $id, string $motivo, int $usuarioId): bool
     {
-        self::$errores = [];
-        $motivo = trim($motivo);
-        $gasto = self::buscarID($id);
-
-        if (!$gasto || $gasto['estado'] !== 'vigente') {
-            self::$errores[] = 'El gasto no existe o ya está cancelado.';
-            return false;
-        }
-        if (mb_strlen($motivo) < 5) {
-            self::$errores[] = 'Escribe el motivo de la cancelación (mínimo 5 caracteres).';
-            return false;
-        }
-        if (Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $gasto['fecha'])) {
-            self::$errores[] = Contabilidad::mensajePeriodoCerrado($gasto['fecha']);
-            return false;
-        }
-
-        $consulta = self::$db->prepare(
-            "UPDATE gastos SET estado = 'cancelado', motivo_cancelacion = ?, cancelado_en = NOW(), cancelado_por = ? WHERE id = ?"
-        );
-        $consulta->bind_param('sii', $motivo, $usuarioId, $id);
-        $consulta->execute();
-        $consulta->close();
-
-        Auditoria::registrar('gasto', $id, 'cancelar', $usuarioId, $motivo, ['total' => $gasto['total']]);
-        return true;
+        return self::eliminar($id, $usuarioId, $motivo);
     }
 
     /** Documentos adjuntos que borró la última llamada a eliminar(). */
@@ -850,9 +868,10 @@ class Gastos
     /**
      * Elimina el gasto Y sus documentos adjuntos (filas y archivos del servidor).
      *
-     * A diferencia de cancelar(), aquí el registro desaparece: es para limpiar
-     * capturas erroneas. Exige motivo (queda en la bitácora), no toca meses ya
-     * cerrados y deja sin enlaces rotos todo lo que apuntaba al gasto:
+     * Es la operación de «cancelar» un gasto capturado por error, y también la
+     * del borrado masivo: el registro desaparece. Exige motivo (queda en la
+     * bitácora), no toca meses ya cerrados y deja sin enlaces rotos todo lo que
+     * apuntaba al gasto:
      *
      *   · `documentos` y sus archivos        se borran con el gasto;
      *   · `gasto_reparto`                    cae en cascada (FK);
