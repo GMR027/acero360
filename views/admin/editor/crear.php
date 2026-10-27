@@ -96,7 +96,7 @@ template('header', [
             <div class="alerta alerta--error"><?= s($e) ?></div>
         <?php endforeach; ?>
 
-        <form method="POST" action="/admin/editor/crear" class="formulario" id="ed-form-crear">
+        <form method="POST" action="/admin/editor/crear" class="formulario form-crear" id="ed-form-crear">
             <div class="form-grid">
                 <div class="campo campo--completo">
                     <label for="nombre">Nombre *</label>

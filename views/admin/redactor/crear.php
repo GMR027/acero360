@@ -85,7 +85,7 @@ template('header', [
               id="rd-form-plantilla-eliminar" formnovalidate
               data-confirm="¿Eliminar la plantilla seleccionada?|Se quitará de la lista de plantillas. Esta acción no se puede deshacer.|Eliminar"></form>
 
-        <form method="POST" action="/admin/redactor/crear" class="formulario">
+        <form method="POST" action="/admin/redactor/crear" class="formulario form-crear">
             <input type="hidden" name="tabla" value="<?= (int) ($_GET['tabla'] ?? 0) ?>">
             <div class="form-grid">
                 <div class="campo campo--completo">

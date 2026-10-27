@@ -69,7 +69,12 @@
 
   &__enlace {
     display: block;
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: 0;
     border-radius: $radio-md;
+    cursor: zoom-in;
 
     &:focus-visible {
       outline: 2px solid $color-primario;

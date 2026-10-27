@@ -120,14 +120,16 @@ function calendarioAbrirAlta(iso) {
 }
 
 /**
- * Cuerpo del modal «Ver»: los marcadores del negocio de ese día con sus
- * cifras, más el aviso de los recordatorios. Se construye con createElement,
- * nunca con innerHTML.
+ * Cuerpo del modal «Ver»: el resumen del negocio de ese día y, debajo, el
+ * listado de recordatorios y eventos capturados. Cada evento trae su icono,
+ * su nombre y un botón para abrir la ficha completa. Se construye con
+ * createElement, nunca con innerHTML.
  */
 function calendarioCuerpoDetalle(datos) {
   const envoltura = document.createElement('div');
   envoltura.className = 'agenda-detalle';
 
+  // --- Resumen de lo que pasó en los negocios ---
   if (!datos.negocio || datos.negocio.length === 0) {
     const vacio = document.createElement('p');
     vacio.className = 'texto-secundario';
@@ -163,14 +165,175 @@ function calendarioCuerpoDetalle(datos) {
     });
   }
 
-  const pie = document.createElement('p');
-  pie.className = 'texto-secundario agenda-detalle__pie';
-  pie.textContent = (datos.eventos || 0) === 0
-    ? 'No hay recordatorios ni eventos capturados ese día.'
-    : (datos.eventos === 1 ? '1 recordatorio o evento capturado' : datos.eventos + ' recordatorios o eventos capturados') + ' ese día.';
-  envoltura.appendChild(pie);
+  // --- Listado de recordatorios y eventos del día ---
+  const eventos = Array.isArray(datos.eventos) ? datos.eventos : [];
+
+  const titulo = document.createElement('h3');
+  titulo.className = 'agenda-detalle__titulo';
+  titulo.textContent = eventos.length === 1 ? 'Evento del día' : 'Eventos del día';
+  envoltura.appendChild(titulo);
+
+  if (eventos.length === 0) {
+    const sinEventos = document.createElement('p');
+    sinEventos.className = 'texto-secundario agenda-detalle__pie';
+    sinEventos.textContent = 'No hay recordatorios ni eventos capturados ese día.';
+    envoltura.appendChild(sinEventos);
+    return envoltura;
+  }
+
+  const listado = document.createElement('div');
+  listado.className = 'agenda-detalle__eventos';
+  eventos.forEach(function (evento) {
+    listado.appendChild(calendarioFilaEvento(datos, evento));
+  });
+  envoltura.appendChild(listado);
 
   return envoltura;
+}
+
+/**
+ * Una fila del listado de eventos: icono de importancia, nombre, hora y
+ * negocio, y el botón «Ver» (icono de ojo) que abre la ficha del evento.
+ */
+function calendarioFilaEvento(datos, evento) {
+  const fila = document.createElement('div');
+  fila.className = 'agenda-detalle__evento';
+
+  const icono = document.createElement('span');
+  icono.className = 'agenda-detalle__evento-icono agenda-detalle__evento-icono--' + (evento.importancia || 'medio');
+  icono.setAttribute('aria-hidden', 'true');
+  const iconoTexto = document.createElement('span');
+  iconoTexto.className = 'material-symbols-outlined';
+  iconoTexto.textContent = evento.importanciaIcono || 'event';
+  icono.appendChild(iconoTexto);
+  fila.appendChild(icono);
+
+  const cuerpo = document.createElement('div');
+  cuerpo.className = 'agenda-detalle__evento-cuerpo';
+
+  const nombre = document.createElement('strong');
+  nombre.className = 'agenda-detalle__evento-nombre';
+  nombre.textContent = evento.nombre || 'Evento sin nombre';
+  cuerpo.appendChild(nombre);
+
+  const meta = [];
+  if (evento.hora) {
+    meta.push(evento.hora);
+  }
+  if (evento.negocio) {
+    meta.push(evento.negocio);
+  }
+  if (meta.length > 0) {
+    const detalle = document.createElement('span');
+    detalle.className = 'agenda-detalle__evento-meta';
+    detalle.textContent = meta.join(' · ');
+    cuerpo.appendChild(detalle);
+  }
+  fila.appendChild(cuerpo);
+
+  const ver = document.createElement('button');
+  ver.type = 'button';
+  ver.className = 'btn btn--secundario btn--sm btn--icono agenda-detalle__evento-ver';
+  ver.title = 'Ver el detalle del evento';
+  ver.setAttribute('aria-label', 'Ver el detalle de ' + (evento.nombre || 'el evento'));
+  const verIcono = document.createElement('span');
+  verIcono.className = 'material-symbols-outlined';
+  verIcono.setAttribute('aria-hidden', 'true');
+  verIcono.textContent = 'visibility';
+  ver.appendChild(verIcono);
+  ver.addEventListener('click', function () {
+    calendarioVerEvento(datos, evento);
+  });
+  fila.appendChild(ver);
+
+  return fila;
+}
+
+/** Ficha completa de un evento, dentro del mismo modal. */
+function calendarioVerEvento(dia, evento) {
+  const cuerpo = document.createElement('div');
+  cuerpo.className = 'agenda-evento-detalle';
+
+  const cabecera = document.createElement('div');
+  cabecera.className = 'agenda-evento-detalle__cabecera';
+
+  const insignia = document.createElement('span');
+  insignia.className = 'badge ' + (evento.importanciaClase || 'badge--neutro');
+  insignia.textContent = evento.importanciaEtiqueta || 'Evento';
+  cabecera.appendChild(insignia);
+
+  if (evento.hora) {
+    const hora = document.createElement('span');
+    hora.className = 'agenda-evento-detalle__hora';
+    hora.textContent = evento.hora;
+    cabecera.appendChild(hora);
+  }
+  cuerpo.appendChild(cabecera);
+
+  const nombre = document.createElement('p');
+  nombre.className = 'agenda-evento-detalle__nombre';
+  nombre.textContent = evento.nombre || 'Evento sin nombre';
+  cuerpo.appendChild(nombre);
+
+  const lista = document.createElement('dl');
+  lista.className = 'agenda-evento-detalle__lista';
+
+  const agregar = function (termino, valor) {
+    if (!valor) {
+      return;
+    }
+    const dt = document.createElement('dt');
+    dt.textContent = termino;
+    const dd = document.createElement('dd');
+    dd.textContent = valor;
+    lista.appendChild(dt);
+    lista.appendChild(dd);
+  };
+
+  agregar('Fecha', dia.titulo);
+  agregar('Negocio', evento.negocio);
+  agregar('Autor', evento.autor);
+  cuerpo.appendChild(lista);
+
+  const descripcion = document.createElement('p');
+  descripcion.className = 'agenda-evento-detalle__descripcion';
+  descripcion.textContent = evento.descripcion || 'Sin descripción.';
+  cuerpo.appendChild(descripcion);
+
+  const volver = document.createElement('button');
+  volver.type = 'button';
+  volver.className = 'btn btn--secundario';
+  volver.textContent = 'Volver al día';
+  volver.addEventListener('click', function () {
+    calendarioVerDiaDatos(dia);
+  });
+
+  const editar = document.createElement('a');
+  editar.className = 'btn btn--primario';
+  editar.href = evento.rutaEditar || '#';
+  editar.textContent = 'Editar evento';
+
+  abrirModal({
+    sobreTitulo: 'Evento del calendario',
+    titulo: 'Detalle del evento',
+    cuerpo: cuerpo,
+    acciones: [volver, editar],
+  });
+}
+
+/** Abre el detalle de un día de la Agenda en ventana modal. */
+function calendarioVerDiaDatos(datos) {
+  const enlaceDia = document.createElement('a');
+  enlaceDia.className = 'btn btn--secundario';
+  enlaceDia.href = datos.rutaDia;
+  enlaceDia.textContent = 'Ver en el calendario';
+
+  abrirModal({
+    sobreTitulo: datos.hoy ? 'Hoy' : 'Agenda del mes',
+    titulo: datos.titulo,
+    cuerpo: calendarioCuerpoDetalle(datos),
+    acciones: [enlaceDia],
+  });
 }
 
 /** Abre el detalle de un día de la Agenda en ventana modal. */
@@ -185,17 +348,7 @@ function calendarioVerDia(tarjeta) {
     return;
   }
 
-  const enlaceDia = document.createElement('a');
-  enlaceDia.className = 'btn btn--secundario';
-  enlaceDia.href = datos.rutaDia;
-  enlaceDia.textContent = 'Ver en el calendario';
-
-  abrirModal({
-    sobreTitulo: datos.hoy ? 'Hoy' : 'Agenda del mes',
-    titulo: datos.titulo,
-    cuerpo: calendarioCuerpoDetalle(datos),
-    acciones: [enlaceDia],
-  });
+  calendarioVerDiaDatos(datos);
 }
 
 /** Baja hasta la tarjeta de la Agenda del día elegido y la resalta. */

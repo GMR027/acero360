@@ -540,6 +540,151 @@
   &__pie {
     margin: $espacio-xs 0 0;
   }
+
+  /* --- Listado de recordatorios y eventos del día --- */
+  &__titulo {
+    margin: $espacio-md 0 0;
+    padding-top: $espacio-md;
+    border-top: 1px solid $color-borde;
+    font-family: $fuente-titulos;
+    font-size: $fuente-sm;
+    font-weight: 700;
+    color: $color-texto;
+  }
+
+  &__eventos {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-xs;
+  }
+
+  &__evento {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    min-width: 0;
+    padding: $espacio-sm;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+  }
+
+  &__evento-icono {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+
+    .material-symbols-outlined {
+      font-size: 1.15rem;
+    }
+
+    &--bajo {
+      background-color: $color-exito-claro;
+      color: $color-exito-texto;
+    }
+
+    &--medio {
+      background-color: $color-advertencia-claro;
+      color: $color-advertencia-texto;
+    }
+
+    &--alto {
+      background-color: $color-error-claro;
+      color: $color-error-texto;
+    }
+  }
+
+  &__evento-cuerpo {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  &__evento-nombre {
+    font-size: $fuente-sm;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__evento-meta {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+
+  &__evento-ver {
+    flex: none;
+  }
+}
+
+/* --- Ficha de un evento (segundo paso del modal «Ver») ------------------ */
+.agenda-evento-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-sm;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-sm;
+  }
+
+  &__hora {
+    display: inline-flex;
+    align-items: center;
+    font-size: $fuente-sm;
+    font-weight: 600;
+    color: $color-texto-secundario;
+  }
+
+  &__nombre {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 700;
+    line-height: 1.35;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__lista {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: $espacio-xs $espacio-md;
+    margin: 0;
+    font-size: $fuente-sm;
+
+    dt {
+      font-weight: 600;
+      color: $color-texto-secundario;
+    }
+
+    dd {
+      margin: 0;
+      color: $color-texto;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__descripcion {
+    margin: 0;
+    padding: $espacio-sm $espacio-md;
+    background-color: $color-superficie-baja;
+    border-left: 3px solid $color-primario-borde;
+    border-radius: $radio-md;
+    font-size: $fuente-sm;
+    line-height: 1.6;
+    color: $color-texto;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* --- Ajustes de pantalla pequeña ---------------------------------------- */

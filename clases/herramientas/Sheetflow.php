@@ -249,10 +249,7 @@ class Sheetflow
     public static function plantillas(): array
     {
         return [
-            'materiales' => ['Control de materiales', 'Material, unidad, cantidad, precio e importe con total', 'fa-cubes'],
             'presupuesto' => ['Presupuesto por conceptos', 'Concepto, unidad, cantidad, P.U. e importe', 'fa-coins'],
-            'restricciones' => ['Registro de restricciones', 'Descripción, responsable, fecha compromiso y estado', 'fa-ban'],
-            'asistencia' => ['Asistencia semanal', 'Nombre, puesto y los seis días de la semana', 'fa-user-check'],
         ];
     }
 
@@ -278,20 +275,14 @@ class Sheetflow
     /** Datos iniciales de una plantilla (o null si la clave no existe) */
     public static function plantilla(string $clave): ?array
     {
-        $vacias = fn($n, $cols) => array_fill(0, $n, array_fill(0, $cols, ''));
         switch ($clave) {
-            case 'materiales': case 'presupuesto':
-                $mat = $clave === 'materiales';
+            case 'presupuesto':
                 $filas = [];
                 for ($i = 2; $i <= 11; $i++) $filas[] = ['', '', '', '', "=C$i*D$i"];
                 return self::plano([
-                    ['n' => $mat ? 'Material' : 'Concepto'], ['n' => 'Unidad'], ['n' => 'Cantidad', 't' => 'numero'], ['n' => $mat ? 'Precio unitario' : 'P.U.', 't' => 'moneda'],
+                    ['n' => 'Concepto'], ['n' => 'Unidad'], ['n' => 'Cantidad', 't' => 'numero'], ['n' => 'P.U.', 't' => 'moneda'],
                     ['n' => 'Importe', 't' => 'moneda', 'tot' => 'suma'],
                 ], $filas);
-            case 'restricciones':
-                return self::plano([['n' => 'No.'], ['n' => 'Descripción'], ['n' => 'Responsable'], ['n' => 'Fecha compromiso', 't' => 'fecha'], ['n' => 'Estado']], $vacias(10, 5));
-            case 'asistencia':
-                return self::plano(array_merge([['n' => 'Nombre'], ['n' => 'Puesto']], array_map(fn($x) => ['n' => $x, 'a' => 'centro'], ['L', 'M', 'M', 'J', 'V', 'S'])), $vacias(12, 8));
             case '': case 'blanco':
                 return self::vacia();
         }

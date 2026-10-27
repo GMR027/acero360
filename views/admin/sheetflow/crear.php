@@ -77,12 +77,12 @@ template('header', [
             <div class="alerta alerta--error"><?= s($e) ?></div>
         <?php endforeach; ?>
 
-        <form method="POST" action="/admin/sheetflow/crear" enctype="multipart/form-data" class="formulario">
+        <form method="POST" action="/admin/sheetflow/crear" enctype="multipart/form-data" class="formulario form-crear">
             <div class="form-grid sf-datos">
                 <div class="campo sf-d-nombre">
                     <label for="nombre">Nombre *</label>
                     <input type="text" id="nombre" name="nombre" maxlength="150"
-                           value="<?= s($hoja->nombre) ?>" placeholder="Ej: Control de materiales" required autofocus>
+                           value="<?= s($hoja->nombre) ?>" placeholder="Ej: Presupuesto de obra" required autofocus>
                 </div>
                 <div class="campo sf-d-fecha">
                     <label for="fecha">Fecha *</label>

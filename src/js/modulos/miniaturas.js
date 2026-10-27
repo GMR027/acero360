@@ -38,7 +38,7 @@ function ampliarImagenProducto(boton) {
   });
 
   abrirModal({
-    sobreTitulo: 'Imagen del producto',
+    sobreTitulo: boton.getAttribute('data-ampliar-sobre') || 'Imagen del producto',
     titulo: boton.getAttribute('data-ampliar-titulo') || 'Producto',
     cuerpo: imagen,
   });

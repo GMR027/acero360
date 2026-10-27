@@ -121,7 +121,7 @@ Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene
 ### Registrar una entrega
 
 1. Desde la hoja de seguimiento de la venta pulsa «Registrar entrega» (se abre en ventana modal): escribe cuántas piezas entregaste, puede ser parcial, y confirma. Lo que quede en cero sigue pendiente.
-2. Si quieres dejar constancia, adjunta una o varias FOTOS DEL ACTA (JPG, PNG o WebP, hasta 6 MB cada una y un máximo de 8): se guardan con la entrega y se ven en la hoja de seguimiento, en la sección «Fotos de la entrega», donde se abren a tamaño completo.
+2. Si quieres dejar constancia, adjunta una o varias FOTOS DEL ACTA (JPG, PNG o WebP, hasta 6 MB cada una y un máximo de 8): se guardan con la entrega y se ven en la hoja de seguimiento, en la sección «Fotos de la entrega», donde se abren en una ventana modal y se cierran con el botón X.
 
 ### Seguir una venta (incidencias y devoluciones)
 
@@ -451,7 +451,8 @@ Un calendario del mes que junta dos cosas: lo que pasó en tus negocios cada dí
 
 ### Ver el detalle de un día
 
-- Haz clic en el botón «Ver» de la tarjeta de ese día en la Agenda. Se abre una ventana con la fecha, cada tipo de marcador con su cantidad y su importe, y cuántos recordatorios hay. El botón «Ver en el calendario» te lleva a esa fecha.
+- Haz clic en el botón «Ver» de la tarjeta de ese día en la Agenda. Se abre una ventana con la fecha y cada tipo de marcador con su cantidad y su importe; debajo aparece el listado de recordatorios y eventos de ese día, cada uno con su icono, su nombre y un botón de ojo para ver su ficha completa.
+- En la ficha del evento ves su importancia, hora, negocio, autor y descripción; puedes volver al listado del día o pasar a «Editar evento». El botón «Ver en el calendario» te lleva a esa fecha.
 
 ### Recordatorios y eventos
 
@@ -475,7 +476,7 @@ El procesador de textos de la plataforma: cartas, oficios, memorias, actas y pro
 
 1. Menú → «Redactor» → «Nuevo documento». Dale nombre, fecha y elige carpeta.
 2. Elige el corrector ortográfico (Español, English o ambos), el tamaño de hoja (Carta, A4, Oficio o Tabloide), la orientación y una plantilla.
-3. Plantillas incluidas: Oficio/carta, Minuta, Informe de avance, Memoria técnica, RFI, Orden de cambio, Acta de entrega-recepción, Reporte de incidente y Lista de verificación. Pulsa «Crear y abrir».
+3. Plantillas incluidas: Oficio/carta, Minuta, Acta de entrega-recepción y Lista de verificación. Pulsa «Crear y abrir».
 
 ### Escribir con formato
 
@@ -507,7 +508,7 @@ La hoja de cálculo en línea para controles, presupuestos y listados que despu�
 ### Crear una tabla
 
 1. Menú → «SheetFlow» → «Nueva tabla». Dale nombre y fecha.
-2. Elige cómo empezar: «En blanco» (4 columnas × 10 renglones), «Tabla inteligente» (tú diseñas las columnas), una plantilla (Control de materiales, Presupuesto por conceptos, Registro de restricciones, Asistencia semanal) o «importar un archivo» (.sheetflow, .xlsx, .ods o .csv).
+2. Elige cómo empezar: «En blanco» (4 columnas × 10 renglones), «Tabla inteligente» (tú diseñas las columnas), la plantilla «Presupuesto por conceptos» o «importar un archivo» (.sheetflow, .xlsx, .ods o .csv).
 
 ### Llenarla
 

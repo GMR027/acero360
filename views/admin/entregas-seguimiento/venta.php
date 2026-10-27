@@ -145,7 +145,7 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
     <section class="tarjeta mb-lg">
         <div class="tabla-toolbar">
             <h2 class="titulo-5">Fotos de la entrega</h2>
-            <span class="texto-secundario texto-sm">Adjuntadas al registrar cada entrega. Se abren a tamaño completo.</span>
+            <span class="texto-secundario texto-sm">Adjuntadas al registrar cada entrega. Se abren en una ventana.</span>
         </div>
 
         <?php foreach ($entregasConFotos as $e) : $fechaE = date('d/m/Y', strtotime($e['fecha'])); $nFotos = count($e['fotos']); ?>
@@ -159,13 +159,16 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                 <ul class="seguimiento-fotos__lista">
                     <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); ?>
                         <li class="seguimiento-fotos__item">
-                            <a class="seguimiento-fotos__enlace" href="<?= escaparValores($rutaFoto) ?>"
-                               target="_blank" rel="noopener noreferrer"
-                               title="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?> (se abre en otra pestaña)">
+                            <button type="button" class="seguimiento-fotos__enlace"
+                                    data-ampliar-imagen="<?= escaparValores($rutaFoto) ?>"
+                                    data-ampliar-sobre="Fotos de la entrega"
+                                    data-ampliar-titulo="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                    title="Ver la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                    aria-label="Ampliar la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>">
                                 <img class="seguimiento-fotos__imagen" src="<?= escaparValores($rutaFoto) ?>"
                                      alt="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
                                      loading="lazy">
-                            </a>
+                            </button>
                         </li>
                     <?php endforeach; ?>
                 </ul>

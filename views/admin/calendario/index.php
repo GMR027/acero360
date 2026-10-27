@@ -427,12 +427,29 @@ template('header', [
                         'importe'  => $negocioDelDia[$tipo]['importe'],
                     ];
                 }
+                $eventosDia = [];
+                foreach ($eventosDelDia as $eventoDia) {
+                    $importanciaEvento = \App\EventosCalendario::datosImportancia($eventoDia->importancia);
+                    $eventosDia[] = [
+                        'id'                  => (int) $eventoDia->id,
+                        'nombre'              => (string) $eventoDia->nombre,
+                        'hora'                => $horaAmable($eventoDia->hora),
+                        'importancia'         => (string) $eventoDia->importancia,
+                        'importanciaEtiqueta' => $importanciaEvento['etiqueta'],
+                        'importanciaIcono'    => $importanciaEvento['icono'],
+                        'importanciaClase'    => $importanciaEvento['clase'],
+                        'negocio'             => trim((string) $eventoDia->negocio),
+                        'descripcion'         => trim((string) $eventoDia->descripcion),
+                        'autor'               => trim((string) $eventoDia->autor),
+                        'rutaEditar'          => '/admin/calendario/editar?id=' . (int) $eventoDia->id,
+                    ];
+                }
                 $detalleDia = json_encode([
                     'fecha'      => $fechaDia,
                     'titulo'     => $fechaAmable($fechaDia, true),
                     'hoy'        => $esHoy,
                     'negocio'    => $filasNegocio,
-                    'eventos'    => count($eventosDelDia),
+                    'eventos'    => $eventosDia,
                     'rutaDia'    => '/admin/calendario?anio=' . $anio . '&mes=' . $mes . '&dia=' . $numeroDia,
                 ], JSON_UNESCAPED_UNICODE);
                 ?>

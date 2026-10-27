@@ -45,27 +45,9 @@ class RedactorPlantillas
                 . '<h2>Asistentes</h2>' . self::tabla([['', '', ''], ['', '', ''], ['', '', '']], ['Nombre', 'Empresa / área', 'Cargo'])
                 . '<h2>Orden del día</h2><ol><li></li><li></li></ol><h2>Acuerdos</h2>' . self::tabla([['1', '', '', ''], ['2', '', '', '']], ['#', 'Acuerdo', 'Responsable', 'Fecha compromiso'])
                 . '<h2>Próxima reunión</h2><p></p>' . self::firmas([['Elaboró', '{{usuario}}'], ['Revisó', '']])],
-            'avance' => ['Informe de avance', 'Resumen, avance físico, actividades, riesgos y siguientes pasos', 'fa-chart-line',
-                self::encabezado('Informe de avance') . '<h2>1. Resumen ejecutivo</h2><p>Descripción general del periodo.</p><h2>2. Avance físico</h2>'
-                . self::tabla([['', '', '', ''], ['', '', '', '']], ['Concepto', '% programado', '% real', 'Observaciones'])
-                . '<h2>3. Actividades realizadas</h2><ul><li></li><li></li></ul><h2>4. Actividades próximas</h2><ul><li></li></ul><h2>5. Riesgos y restricciones</h2>'
-                . self::tabla([['', '', '']], ['Riesgo / restricción', 'Impacto', 'Acción']) . '<h2>6. Conclusiones</h2><p></p>'],
-            'memoria' => ['Memoria técnica', 'Documento largo con índice automático y secciones numeradas', 'fa-book',
-                '<p style="text-align:center;font-size:28pt"><strong>Memoria técnica</strong></p><p style="text-align:center"><strong>{{nombre}}</strong><br>{{proyecto}}<br>{{departamento}} · {{fecha}}</p><div class="salto-pagina" style="page-break-after:always"></div>'
-                . '<div class="rd-indice"><p><strong>Índice</strong></p><p><em>Inserta o actualiza el índice con el botón «Índice».</em></p></div><div class="salto-pagina" style="page-break-after:always"></div>'
-                . '<h1>1. Objetivo</h1><p></p><h1>2. Alcance</h1><p></p><h1>3. Descripción</h1><h2>3.1 Antecedentes</h2><p></p><h2>3.2 Criterios de diseño</h2><p></p><h1>4. Cálculos</h1><p></p><h1>5. Conclusiones</h1><p></p>'],
-            'rfi' => ['Solicitud de información (RFI)', 'Pregunta técnica con referencia, urgencia y respuesta', 'fa-circle-question',
-                self::encabezado('Solicitud de información (RFI)') . self::tabla([['<strong>No. de RFI</strong>', '', '<strong>Fecha</strong>', '{{fecha}}'], ['<strong>De</strong>', '{{usuario}}', '<strong>Para</strong>', ''], ['<strong>Disciplina</strong>', '', '<strong>Urgencia</strong>', 'Normal / Urgente'], ['<strong>Referencia</strong>', 'Plano, especificación o submittal', '<strong>Fecha límite de respuesta</strong>', '']])
-                . '<h2>Pregunta</h2><p></p><h2>Propuesta del contratista</h2><p></p><h2>Respuesta</h2><p></p>' . self::firmas([['Solicita', '{{usuario}}'], ['Responde', '']])],
-            'cambio' => ['Orden de cambio', 'Cambio de alcance con impacto en costo y tiempo', 'fa-arrows-rotate',
-                self::encabezado('Orden de cambio') . self::tabla([['<strong>No. de orden</strong>', '', '<strong>Fecha</strong>', '{{fecha}}']]) . '<h2>Descripción del cambio</h2><p></p><h2>Motivo</h2><p></p><h2>Impacto</h2>'
-                . self::tabla([['Costo', '', ''], ['Tiempo (días)', '', ''], ['Actividades afectadas', '', '']], ['Concepto', 'Importe / valor', 'Observaciones']) . self::firmas([['Contratista', ''], ['Supervisión', ''], ['Cliente', '']])],
             'acta' => ['Acta de entrega-recepción', 'Entrega de obra o equipo con observaciones y firmas', 'fa-clipboard-check',
                 self::encabezado('Acta de entrega-recepción') . '<p>En la fecha {{fecha}}, se hace entrega y recepción de los trabajos correspondientes a <strong>{{proyecto}}</strong>, conforme a lo contratado.</p><h2>Alcance entregado</h2><ul><li></li><li></li></ul><h2>Observaciones</h2>'
                 . self::tabla([['', '', '']], ['Observación', 'Responsable', 'Fecha de atención']) . '<h2>Documentación entregada</h2><ul><li>Planos as-built</li><li>Manuales y garantías</li></ul>' . self::firmas([['Entrega', ''], ['Recibe', ''], ['Testigo', '']])],
-            'incidente' => ['Reporte de incidente', 'Accidente o evento de seguridad: qué, cuándo, causas y acciones', 'fa-triangle-exclamation',
-                self::encabezado('Reporte de incidente') . self::tabla([['<strong>Fecha y hora</strong>', '', '<strong>Lugar</strong>', ''], ['<strong>Tipo</strong>', 'Accidente / casi accidente / daño', '<strong>Gravedad</strong>', ''], ['<strong>Persona(s) involucrada(s)</strong>', '', '<strong>Reporta</strong>', '{{usuario}}']])
-                . '<h2>Descripción de lo ocurrido</h2><p></p><h2>Causas probables</h2><p></p><h2>Acciones inmediatas</h2><p></p><h2>Acciones correctivas y preventivas</h2>' . self::tabla([['', '', '']], ['Acción', 'Responsable', 'Fecha']) . self::firmas([['Reporta', '{{usuario}}'], ['Seguridad', '']])],
             'checklist' => ['Lista de verificación', 'Puntos a revisar con casillas de cumplimiento', 'fa-list-check',
                 self::encabezado('Lista de verificación') . self::tabla([['', '☐ Sí  ☐ No  ☐ N/A', ''], ['', '☐ Sí  ☐ No  ☐ N/A', ''], ['', '☐ Sí  ☐ No  ☐ N/A', ''], ['', '☐ Sí  ☐ No  ☐ N/A', '']], ['Punto a verificar', 'Cumple', 'Observaciones']) . self::firmas([['Revisó', '{{usuario}}']])],
         ];

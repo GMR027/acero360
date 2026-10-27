@@ -4112,7 +4112,12 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 }
 .seguimiento-fotos__enlace {
   display: block;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
   border-radius: 0.375rem;
+  cursor: zoom-in;
 }
 .seguimiento-fotos__enlace:focus-visible {
   outline: 2px solid var(--color-primario);
@@ -5628,6 +5633,208 @@ input:focus-visible ~ .interruptor__pista {
   outline: 2px solid var(--color-foco);
   outline-offset: 1px;
   border-color: var(--color-primario);
+}
+.herr {
+  /* ---------- Formularios de creación (Redactor, SheetFlow y Editor) ----------
+     Sólo se aplican a las pantallas de alta (clase .form-crear): así el resto
+     de formularios de las herramientas conserva su aspecto. */
+}
+.herr .form-crear .form-grid {
+  gap: 1rem 1.15rem;
+}
+.herr .form-crear .campo {
+  gap: 0.4rem;
+}
+.herr .form-crear .campo label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-texto);
+}
+.herr .form-crear .campo input,
+.herr .form-crear .campo select,
+.herr .form-crear .campo textarea {
+  width: 100%;
+  min-height: 2.65rem;
+  padding: 0.62rem 0.8rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 0.55rem;
+  color: var(--color-texto);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.herr .form-crear .campo input::placeholder,
+.herr .form-crear .campo select::placeholder,
+.herr .form-crear .campo textarea::placeholder {
+  color: var(--color-texto-secundario);
+  opacity: 1;
+}
+.herr .form-crear .campo input:hover:not(:disabled):not(:focus),
+.herr .form-crear .campo select:hover:not(:disabled):not(:focus),
+.herr .form-crear .campo textarea:hover:not(:disabled):not(:focus) {
+  border-color: var(--color-primario-borde);
+}
+.herr .form-crear .campo input:focus,
+.herr .form-crear .campo select:focus,
+.herr .form-crear .campo textarea:focus {
+  outline: none;
+  border-color: var(--color-primario);
+  box-shadow: 0 0 0 3px var(--color-foco);
+}
+.herr .form-crear .campo input:disabled,
+.herr .form-crear .campo select:disabled,
+.herr .form-crear .campo textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.herr .form-crear .campo textarea {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+.herr .form-crear .campo select {
+  padding-right: 2.1rem;
+  cursor: pointer;
+}
+.herr .form-crear .campo input[type=date] {
+  cursor: pointer;
+}
+.herr .form-crear .campo input[type=date]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+}
+.herr .form-crear .campo input[type=date]:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+.herr .form-crear .campo input[type=number] {
+  font-variant-numeric: tabular-nums;
+}
+.herr .form-crear .campo input[type=color] {
+  min-height: 2.65rem;
+  padding: 0.25rem;
+  cursor: pointer;
+}
+.herr .form-crear .campo input[type=color]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.herr .form-crear .campo input[type=color]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 0.35rem;
+  box-shadow: inset 0 0 0 1px var(--color-borde);
+}
+.herr .form-crear .campo input[type=color]::-moz-color-swatch {
+  border: 1px solid var(--color-borde);
+  border-radius: 0.35rem;
+}
+.herr .form-crear .campo input[type=file] {
+  padding: 0.5rem 0.65rem;
+  background-color: var(--color-superficie-baja);
+  border-style: dashed;
+  cursor: pointer;
+}
+.herr .form-crear .campo input[type=file]::file-selector-button {
+  margin-right: 0.7rem;
+  padding: 0.42rem 0.75rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 0.4rem;
+  color: var(--color-texto);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.herr .form-crear .campo input[type=file]::file-selector-button:hover {
+  background-color: var(--color-superficie-baja);
+  border-color: var(--color-primario);
+  color: var(--color-primario-texto);
+}
+.herr .form-crear .campo small,
+.herr .form-crear .campo .texto-secundario {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-texto-secundario);
+}
+.herr .form-crear {
+  /* Las tarjetas de plantilla responden al puntero. */
+}
+.herr .form-crear .rd-plantilla > span {
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.herr .form-crear .rd-plantilla:hover > span {
+  border-color: var(--color-primario-borde);
+}
+.herr .form-crear {
+  /* Campos dinámicos de la «tabla inteligente» de SheetFlow. */
+}
+.herr .form-crear .sf-int-col input[type=text],
+.herr .form-crear .sf-int-col select {
+  min-height: 2.4rem;
+  padding: 0.5rem 0.65rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 0.5rem;
+  color: var(--color-texto);
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.herr .form-crear .sf-int-col input[type=text]:focus,
+.herr .form-crear .sf-int-col select:focus {
+  outline: none;
+  border-color: var(--color-primario);
+  box-shadow: 0 0 0 3px var(--color-foco);
+}
+.herr .form-crear .sf-int-col .sf-c {
+  width: 4.6rem;
+  height: 2.4rem;
+  padding: 0.15rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+.herr .form-crear .sf-int-pie input[type=number] {
+  min-height: 2.4rem;
+  padding: 0.45rem 0.55rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 0.5rem;
+  color: var(--color-texto);
+  font-size: 0.875rem;
+}
+.herr .form-crear .sf-int-pie input[type=number]:focus {
+  outline: none;
+  border-color: var(--color-primario);
+  box-shadow: 0 0 0 3px var(--color-foco);
+}
+.herr .form-crear {
+  /* Vista previa del tamaño de la hoja en el alta del Editor. En la
+     página de edición ya vive dentro de .herr.ed-pagina; aquí se repite
+     para que el alta muestre la hoja con su sombra y su borde. */
+}
+.herr .form-crear .ed-previa-marco {
+  display: flex;
+  justify-content: center;
+  padding: 1.2rem 0 0.4rem;
+}
+.herr .form-crear .ed-previa {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: #fff;
+  outline: 1px solid var(--color-borde);
+  box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.12);
+  font-size: 0.7rem;
+  color: #64748b;
+  transition: width 0.15s ease, height 0.15s ease;
+}
+.herr .form-crear .ed-previa span {
+  margin-bottom: 0.3rem;
+  padding: 0 0.3rem;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 0.2rem;
 }
 .herr .herramientas-pie-form {
   margin-top: 1.1rem;
@@ -9334,6 +9541,134 @@ body:has(.ed-pagina) .principal,
 }
 .agenda-detalle__pie {
   margin: 0.25rem 0 0;
+}
+.agenda-detalle {
+  /* --- Listado de recordatorios y eventos del día --- */
+}
+.agenda-detalle__titulo {
+  margin: 1rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-borde);
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-texto);
+}
+.agenda-detalle__eventos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.agenda-detalle__evento {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+}
+.agenda-detalle__evento-icono {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+}
+.agenda-detalle__evento-icono .material-symbols-outlined {
+  font-size: 1.15rem;
+}
+.agenda-detalle__evento-icono--bajo {
+  background-color: var(--color-exito-claro);
+  color: var(--color-exito-texto);
+}
+.agenda-detalle__evento-icono--medio {
+  background-color: var(--color-advertencia-claro);
+  color: var(--color-advertencia-texto);
+}
+.agenda-detalle__evento-icono--alto {
+  background-color: var(--color-error-claro);
+  color: var(--color-error-texto);
+}
+.agenda-detalle__evento-cuerpo {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.agenda-detalle__evento-nombre {
+  font-size: 0.875rem;
+  color: var(--color-texto);
+  overflow-wrap: anywhere;
+}
+.agenda-detalle__evento-meta {
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+  overflow-wrap: anywhere;
+}
+.agenda-detalle__evento-ver {
+  flex: none;
+}
+
+/* --- Ficha de un evento (segundo paso del modal «Ver») ------------------ */
+.agenda-evento-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.agenda-evento-detalle__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.agenda-evento-detalle__hora {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-texto-secundario);
+}
+.agenda-evento-detalle__nombre {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-texto);
+  overflow-wrap: anywhere;
+}
+.agenda-evento-detalle__lista {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.agenda-evento-detalle__lista dt {
+  font-weight: 600;
+  color: var(--color-texto-secundario);
+}
+.agenda-evento-detalle__lista dd {
+  margin: 0;
+  color: var(--color-texto);
+  overflow-wrap: anywhere;
+}
+.agenda-evento-detalle__descripcion {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-superficie-baja);
+  border-left: 3px solid var(--color-primario-borde);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-texto);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 /* --- Ajustes de pantalla pequeña ---------------------------------------- */
