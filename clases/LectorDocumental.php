@@ -117,6 +117,14 @@ class LectorDocumental
         $alta = static fn (string $v): array => ['valor' => $v, 'confianza' => $v === '' ? 'baja' : 'alta', 'origen' => 'XML del CFDI'];
         $fecha = $d['fecha'] !== '' ? substr($d['fecha'], 0, 10) : '';
 
+        /* En un CFDI con método PPD el emisor suele omitir FormaPago (es válido)
+         * porque la forma real se declara al timbrar cada parcialidad. Ese caso
+         * ES «99 · Por definir»: se propone así en vez de dejar el campo vacío. */
+        $forma = trim((string) $d['forma_pago']);
+        if ($forma === '' && strtoupper(trim((string) $d['metodo_pago'])) === 'PPD') {
+            $forma = '99';
+        }
+
         $resultado['campos'] = [
             'folio_comercial' => $alta((string) $d['folio_comercial']),
             'uuid'            => $alta((string) $d['uuid']),
@@ -130,7 +138,7 @@ class LectorDocumental
             'iva'             => $alta((string) $d['iva']),
             'total'           => $alta((string) $d['total']),
             'moneda'          => $alta((string) $d['moneda']),
-            'forma_pago'      => $alta((string) $d['forma_pago']),
+            'forma_pago'      => $alta($forma),
             'metodo_pago'     => $alta((string) $d['metodo_pago']),
             'uso_cfdi'        => $alta((string) $d['uso_cfdi']),
             'tipo_cfdi'       => $alta((string) $d['tipo']),
@@ -228,10 +236,7 @@ class LectorDocumental
             $moneda = 'MXN';
         }
 
-        $forma = '';
-        if (preg_match('/forma\s*de\s*pago\s*[:\-]?\s*(\d{2})\b/iu', $texto, $m)) {
-            $forma = $m[1];
-        }
+        $forma = self::formaPagoDeTexto($texto);
         $metodo = '';
         if (preg_match('/m[eé]todo\s*de\s*pago\s*[:\-]?\s*(?:[^\n]{0,30}?\b)?(PUE|PPD)\b/iu', $texto, $m)) {
             $metodo = strtoupper($m[1]);
@@ -291,6 +296,49 @@ class LectorDocumental
         $llana = strtr($primera, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n']);
 
         return $mapa[$llana] ?? '';
+    }
+
+    /**
+     * Forma de pago (clave SAT) escrita en un PDF o una foto.
+     *
+     * No todos los formatos imprimen «Forma de pago: 99»: también aparece como
+     * «Forma Pago: 99», «FormaPago: 28», con el nombre en vez de la clave
+     * («Tarjeta de débito») o con la clave separada del nombre («99 - Por
+     * definir»). Se aceptan todas; si no hay dato, devuelve '' y el campo queda
+     * vacío en vez de adivinar. «Por definir» es la clave 99 y la tarjeta de
+     * débito es la 28 (el catálogo del sistema la normaliza a 05).
+     */
+    private static function formaPagoDeTexto(string $texto): string
+    {
+        // Etiqueta + clave, con o sin la palabra «de» y con cualquier separador.
+        if (preg_match('/forma\s*(?:de\s*)?pago\b[^\n\d]{0,40}?(\d{2})\b/iu', $texto, $m)) {
+            return $m[1];
+        }
+        // Clave y nombre juntos, sin la etiqueta («99 - Por definir»).
+        if (preg_match('/\b(\d{2})\s*[-–—]\s*(?:por\s*definir|tarjeta\s*de\s*d[eé]bito)\b/iu', $texto, $m)) {
+            return $m[1];
+        }
+        // Sólo el nombre, pero únicamente junto a la etiqueta de forma de pago.
+        if (preg_match('/forma\s*(?:de\s*)?pago\b[^\n]{0,60}/iu', $texto, $ventana)) {
+            $cerca = mb_strtolower($ventana[0], 'UTF-8');
+            $cerca = strtr($cerca, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u']);
+            $nombres = [
+                '99' => '/por\s*definir/',
+                '28' => '/tarjeta\s*de\s*debito/',
+                '05' => '/tarjeta\s*de\s*debito/',
+                '04' => '/tarjeta\s*de\s*credito/',
+                '03' => '/transferencia/',
+                '02' => '/cheque/',
+                '01' => '/efectivo/',
+            ];
+            foreach ($nombres as $clave => $patron) {
+                if (preg_match($patron, $cerca)) {
+                    return $clave;
+                }
+            }
+        }
+
+        return '';
     }
 
     /**

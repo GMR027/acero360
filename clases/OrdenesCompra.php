@@ -389,6 +389,70 @@ class OrdenesCompra
     }
 
     /**
+     * Productos comprados a un proveedor, agrupados para saber cuánto se le compra de cada uno.
+     *
+     * Cada renglón suma TODAS las partidas de compras no canceladas que apuntan al mismo
+     * producto del catálogo, material, producto del catálogo del proveedor o descripción libre.
+     * `importe` es el costo unitario promedio (total ÷ cantidad) y `total` el gasto acumulado,
+     * ambos SIN IVA porque las partidas guardan importes sin impuestos.
+     *
+     * @return array<int, array{clave: string, producto: string, codigo: string, cantidad: int|float,
+     *               importe: float, total: float, compras: int, ultima_compra: ?string}>
+     */
+    public static function productosComprados(int $proveedorId, int $limite = 0): array
+    {
+        $limite = max(0, $limite);
+        $consulta = self::$db->prepare(
+            "SELECT
+                    CASE
+                        WHEN c.producto_id IS NOT NULL THEN CONCAT('p', c.producto_id)
+                        WHEN c.material_id IS NOT NULL THEN CONCAT('m', c.material_id)
+                        WHEN c.proveedor_producto_id IS NOT NULL THEN CONCAT('c', c.proveedor_producto_id)
+                        ELSE CONCAT('d', LOWER(TRIM(IFNULL(c.descripcion, ''))))
+                    END AS clave,
+                    COALESCE(NULLIF(TRIM(pr.nombre), ''), NULLIF(TRIM(mt.nombre), ''),
+                             NULLIF(TRIM(pp.nombre), ''), NULLIF(TRIM(c.descripcion), ''), 'Sin descripción') AS producto,
+                    COALESCE(NULLIF(TRIM(pr.sku), ''), NULLIF(TRIM(pp.codigo), ''), '') AS codigo,
+                    COALESCE(SUM(c.cantidad_solicitada), 0) AS cantidad,
+                    COALESCE(SUM(c.importe_esperado), 0) AS total,
+                    COUNT(DISTINCT c.orden_id) AS compras,
+                    MAX(o.fecha_solicitud) AS ultima_compra
+               FROM orden_compra_partidas c
+               JOIN ordenes_compra o ON o.id = c.orden_id
+               LEFT JOIN productos pr ON pr.id = c.producto_id
+               LEFT JOIN materiales mt ON mt.id = c.material_id
+               LEFT JOIN proveedor_productos pp ON pp.id = c.proveedor_producto_id
+              WHERE o.proveedor_id = ? AND o.estado <> 'cancelada'
+              GROUP BY clave, producto, codigo
+              ORDER BY cantidad DESC, total DESC, producto ASC"
+            . ($limite > 0 ? ' LIMIT ' . $limite : '')
+        );
+        $consulta->bind_param('i', $proveedorId);
+        $consulta->execute();
+        $resultado = $consulta->get_result();
+
+        $productos = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $cantidad = (float) $fila['cantidad'];
+            $total    = (float) $fila['total'];
+
+            $productos[] = [
+                'clave'         => (string) $fila['clave'],
+                'producto'      => (string) $fila['producto'],
+                'codigo'        => (string) $fila['codigo'],
+                'cantidad'      => self::num($cantidad),
+                'importe'       => $cantidad > 0 ? round($total / $cantidad, 2) : 0.0,
+                'total'         => round($total, 2),
+                'compras'       => (int) $fila['compras'],
+                'ultima_compra' => $fila['ultima_compra'],
+            ];
+        }
+        $consulta->close();
+
+        return $productos;
+    }
+
+    /**
      * Filtros: q (folio, proveedor, referencia), estado, proveedor, tipo, categoria, desde, hasta,
      * cfdi (pendiente_cfdi|con_cfdi|no_facturada), pago (pendiente|parcial|pagada), recepcion (pendiente).
      *

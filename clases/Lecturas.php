@@ -269,6 +269,12 @@ class Lecturas
                 continue;
             }
             $valor = trim((string) ($cfdi['datos'][$origen] ?? ''));
+            if ($clave === 'forma_pago') {
+                $valor = VentasFiscal::normalizarFormaPago($valor);
+                if ($valor === '' && strtoupper(trim((string) ($cfdi['datos']['metodo_pago'] ?? ''))) === 'PPD') {
+                    $valor = '99';
+                }
+            }
             $campos[$clave] = ['valor' => $valor, 'confianza' => $valor === '' ? 'baja' : 'alta', 'origen' => 'XML del CFDI'];
         }
 
@@ -603,6 +609,21 @@ class Lecturas
             self::$errores[] = 'Elige la venta a la que corresponde la factura (no se crean ventas desde un documento).';
             return null;
         }
+
+        /* La lectura inteligente es otra entrada a la misma facturación: aplica
+         * la misma validación previa que el formulario de la venta. Sin esto,
+         * una venta podía quedar facturada por aquí sin RFC, CP o régimen. */
+        $ventaId = (int) ($ingreso['venta_id'] ?? 0);
+        if ($ventaId > 0) {
+            $revision = VentasFiscal::validar($ventaId);
+            if ($revision !== null && !$revision['puede_facturar']) {
+                self::$errores[] = 'No se puede marcar como facturada: ' . implode(' · ', array_slice($revision['errores'], 0, 4))
+                    . (count($revision['errores']) > 4 ? ' (+' . (count($revision['errores']) - 4) . ' más)' : '')
+                    . ' Completa los datos fiscales desde «Facturación y cobro» de la venta.';
+                return null;
+            }
+        }
+
         $notas = [];
         if (Contabilidad::centavos($ingreso['total']) !== Contabilidad::centavos($v['total'] ?: '0')) {
             $notas[] = 'El total del documento (' . $v['total'] . ') difiere del de la venta (' . $ingreso['total'] . ').';

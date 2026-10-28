@@ -83,6 +83,15 @@ if ($accion === 'todo') {
     redirigir('/admin/contabilidad/lotes?carril=gastos', $r['registrados'] > 0 ? 'exito' : 'error', $mensaje);
 }
 
+if ($accion === 'descartar_resto') {
+    $r = \App\CargaLotes::descartarResto($usuario);
+    $mensaje = 'Se descartaron ' . (int) $r['descartados'] . ' documento(s) que no se iban a registrar.';
+    if ($r['errores']) {
+        $mensaje .= ' No se pudieron descartar: ' . implode(' · ', array_keys($r['errores'])) . '.';
+    }
+    redirigir('/admin/contabilidad/lotes?carril=gastos', $r['descartados'] > 0 ? 'exito' : 'error', $mensaje);
+}
+
 if ($accion === 'descartar') {
     if (\App\CargaLotes::descartar($lecturaId, $usuario)) {
         redirigir($destino, 'exito', 'Documento descartado: no se registró nada (queda la bitácora).');

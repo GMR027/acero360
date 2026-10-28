@@ -118,6 +118,23 @@ $prueba('el XML entrega los cuatro datos', $leido('forma_pago') === '03' && $lei
 $prueba('los cuatro salen con confianza alta (son del comprobante)',
     $lectura['campos']['uso_cfdi']['confianza'] === 'alta' && $lectura['campos']['tipo_cfdi']['confianza'] === 'alta');
 
+// Forma de pago: la 28 de la factura es la 05 del sistema (tarjeta de débito).
+$xmlTarjeta = $cfdi(['FormaPago' => '28', 'MetodoPago' => 'PUE', 'TipoDeComprobante' => 'I']);
+file_put_contents($origen, $xmlTarjeta);
+$lecturaTarjeta = LectorDocumental::leer($origen, 'xml');
+$prueba('el XML con 28 se lee como tarjeta de débito y se unifica a 05',
+    ($lecturaTarjeta['campos']['forma_pago']['valor'] ?? '') === '28'
+    && CoincidenciasFactura::analizar($lecturaTarjeta, 'gasto')['forma_pago'] === '05');
+file_put_contents($origen, $xmlConDatos);
+
+// Una factura PPD puede omitir FormaPago: el comprobante dice «99 · Por definir».
+$xmlSinForma = $cfdi(['MetodoPago' => 'PPD', 'TipoDeComprobante' => 'I']);
+file_put_contents($origen, $xmlSinForma);
+$lecturaSinForma = LectorDocumental::leer($origen, 'xml');
+$prueba('un XML PPD sin FormaPago se propone como 99 · Por definir',
+    ($lecturaSinForma['campos']['forma_pago']['valor'] ?? '') === '99');
+file_put_contents($origen, $xmlConDatos);
+
 $pdf = "FACTURA DE COMPRA\nUso del CFDI: G01\nTipo de comprobante: Ingreso\nForma de pago: 03\nMetodo de pago: PUE\nTotal: 116.00\n";
 $delPdf = LectorDocumental::analizarTexto($pdf, 'pdf_texto');
 $prueba('el PDF los detecta junto a su etiqueta',
@@ -126,6 +143,19 @@ $prueba('el PDF los detecta junto a su etiqueta',
     json_encode($delPdf));
 $sinDatos = LectorDocumental::analizarTexto("FACTURA\nTotal: 116.00\n", 'pdf_texto');
 $prueba('sin la etiqueta no inventa nada', ($sinDatos['uso_cfdi']['valor'] ?? '') === '' && ($sinDatos['tipo_cfdi']['valor'] ?? '') === '');
+
+// En el PDF la forma de pago puede venir con el nombre, no sólo con la clave.
+$formasPdf = [
+    'Forma de pago: 99 - Por definir' => '99',
+    'Forma Pago: 28 - Tarjeta de débito' => '28',
+    'Forma de Pago: Tarjeta de débito' => '28',
+];
+$formasLeidas = [];
+foreach ($formasPdf as $linea => $esperada) {
+    $formasLeidas[$linea] = (string) (LectorDocumental::analizarTexto("FACTURA\n$linea\nTotal: 116.00\n", 'pdf_texto')['forma_pago']['valor'] ?? '');
+}
+$prueba('el PDF lee 99, 28 y el nombre de la tarjeta de débito',
+    $formasLeidas === $formasPdf, json_encode($formasLeidas));
 
 echo "Independientes del resto del cotejo\n";
 // Ni el emisor ni el receptor existen y el concepto no está en el catálogo: el

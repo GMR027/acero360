@@ -32,7 +32,7 @@ class ComplementosPago
     private const FORMAS_SAT = [
         '01' => 'Efectivo', '02' => 'Cheque', '03' => 'Transferencia',
         '04' => 'Tarjeta', '05' => 'Tarjeta', '06' => 'Tarjeta',
-        '28' => 'Tarjeta', '48' => 'Tarjeta',
+        '28' => 'Tarjeta', '29' => 'Tarjeta', '48' => 'Tarjeta',
     ];
 
     public static function setDB($database): void

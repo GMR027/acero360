@@ -79,7 +79,9 @@ class CoincidenciasFactura
             'iva_tasa'     => self::ivaTasa($subtotal, $iva),
             'total'        => $total,
             'moneda'       => $campos('moneda'),
-            'forma_pago'   => $campos('forma_pago'),
+            // La tarjeta de débito llega como 28 en la factura y el sistema la
+            // maneja como 05: se unifica para que el formulario la reconozca.
+            'forma_pago'   => VentasFiscal::normalizarFormaPago($campos('forma_pago')),
             'metodo_pago'  => $campos('metodo_pago'),
             // Los cuatro datos del CFDI viajan aparte del cotejo: no dependen de
             // que se haya reconocido al cliente, al proveedor ni a un producto.

@@ -47,6 +47,7 @@ class ComplementosVenta
     private const FORMA_A_COBRO = [
         '01' => 'Efectivo', '02' => 'Cheque', '03' => 'Transferencia',
         '04' => 'Tarjeta', '05' => 'Tarjeta', '06' => 'Tarjeta', '08' => 'Tarjeta',
+        '28' => 'Tarjeta', '29' => 'Tarjeta',
         '09' => 'Otro', '12' => 'Otro', '99' => 'Otro',
     ];
 

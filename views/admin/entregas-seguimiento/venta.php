@@ -371,50 +371,55 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
     <?php endforeach; ?>
 </section>
 
-<!-- Facturación de la venta -->
+<!-- Facturación de la venta: aquí sólo el resumen. La captura vive en la
+     sección única «Facturación y cobro» del detalle de la venta. -->
 <?php if ($ingreso) : $fIva = \App\Contabilidad::FACTURACION[$ingreso['estado_facturacion']] ?? null; ?>
     <section class="tarjeta mb-lg">
         <div class="tabla-toolbar">
-            <h2 class="titulo-5">Facturación</h2>
-            <?php if ($fIva) : ?><span class="badge <?= $fIva['clase'] ?>"><?= escaparValores($fIva['etiqueta']) ?></span><?php endif; ?>
+            <div>
+                <h2 class="titulo-5">Facturación
+                    <?php if ($fIva) : ?><span class="badge <?= $fIva['clase'] ?>"><?= escaparValores($fIva['etiqueta']) ?></span><?php endif; ?>
+                    <?php if ($ingreso['estado_facturacion'] === 'facturada') : ?>
+                        <span class="badge <?= $ingreso['facturacion_manual'] ? 'badge--pendiente' : 'badge--aprobado' ?>"><?= $ingreso['facturacion_manual'] ? 'Confirmación manual' : 'Con CFDI adjunto' ?></span>
+                    <?php endif; ?>
+                </h2>
+                <p class="texto-sm texto-secundario mb-0">
+                    <?php if ($ingreso['uuid_fiscal']) : ?><strong>Folio fiscal:</strong> <?= escaparValores($ingreso['uuid_fiscal']) ?> · <?php endif; ?>
+                    <?php if ($ingreso['factura_folio']) : ?><strong>Factura:</strong> <?= escaparValores($ingreso['factura_folio']) ?> · <?php endif; ?>
+                    <strong>Importe contable:</strong> <span class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['total'], 2)) ?></span>
+                    · <strong>Cobrado:</strong> <span class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['cobrado'], 2)) ?></span>
+                    · <strong>Saldo:</strong> <span class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['saldo'], 2)) ?></span>
+                </p>
+            </div>
+            <a class="btn btn--secundario btn--sm" href="/admin/ventas/detalle?id=<?= $id ?>#facturacion">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">fact_check</span>
+                <span>Facturar o ver facturación</span>
+            </a>
         </div>
-        <p class="texto-sm mb-md">
-            <?php if ($ingreso['uuid_fiscal']) : ?>
-                <strong>Folio fiscal:</strong> <?= escaparValores($ingreso['uuid_fiscal']) ?><br>
+        <p class="texto-sm texto-secundario mb-0">
+            Los datos fiscales, el documento de la factura y los cobros se capturan en la sección única
+            «Facturación y cobro» del detalle de la venta.
+            <?php if ($incidencias && $abiertas > 0) : $primeraAbierta2 = 0; foreach ($incidencias as $inc) { if ($inc['estado'] === 'abierta') { $primeraAbierta2 = (int) $inc['id']; break; } } ?>
+                Para corregirla, usa la <a href="#incidencia-<?= $primeraAbierta2 ?>">incidencia de entrega</a>
+                que marque «Corregir factura».
+            <?php else : ?>
+                Para corregirla, registra una incidencia de entrega que marque «Corregir factura».
             <?php endif; ?>
-            <?php if ($ingreso['factura_folio']) : ?><strong>Factura:</strong> <?= escaparValores($ingreso['factura_folio']) ?><br><?php endif; ?>
-            <strong>Importe contable:</strong> <span class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['total'], 2)) ?></span>
-            <?php if ($ingreso['iva'] > 0) : ?> (IVA <span class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['iva'], 2)) ?></span>)<?php endif; ?>
-            · <strong>Cobrado:</strong> <span class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['cobrado'], 2)) ?></span>
-            · <strong>Saldo:</strong> <span class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['saldo'], 2)) ?></span>
         </p>
         <?php if ($cobradoExtra) : ?>
-            <p class="nota nota--advertencia" role="status">
+            <p class="nota nota--advertencia mt-sm" role="status">
                 <span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
                 <span>La venta tiene cobros por más del importe actual: <a href="/admin/ventas/detalle?id=<?= $id ?>#cobros">revisa los cobros</a> para cancelar los que sobren.</span>
             </p>
         <?php endif; ?>
         <?php if (\App\Contabilidad::centavos($ingreso['total']) !== \App\Contabilidad::centavos($venta->total)) : ?>
-            <p class="nota nota--advertencia" role="status">
+            <p class="nota nota--advertencia mt-sm" role="status">
                 <span class="material-symbols-outlined nota__icono" aria-hidden="true">receipt_long</span>
                 <span>La factura de esta venta es por <strong class="cifra"><?= escaparValores('$' . number_format((float) $ingreso['total'], 2)) ?></strong>
                     y la venta es por <strong class="cifra"><?= escaparValores('$' . number_format((float) $venta->total, 2)) ?></strong>:
                     en contabilidad manda la factura. Si cambió lo entregado, la corrección se hace desde una
-                    <a href="#incidencias">incidencia de entrega</a> (cancelar y subir la correcta).</span>
+                    <a href="#incidencias">incidencia de entrega</a>.</span>
             </p>
-        <?php endif; ?>
-        <?php if ($incidencias && $abiertas > 0) : $primeraAbierta2 = 0; foreach ($incidencias as $inc) { if ($inc['estado'] === 'abierta') { $primeraAbierta2 = (int) $inc['id']; break; } } ?>
-        <p class="texto-sm texto-secundario mb-0">
-            La factura se corrige desde la <a href="#incidencia-<?= $primeraAbierta2 ?>">incidencia de entrega</a>
-            que marque «Corregir factura»: se da de baja el documento anterior y se sube el correcto (PDF y XML),
-            sincronizando el ingreso con los montos del XML. El importe de la venta no cambia.
-        </p>
-        <?php else : ?>
-        <p class="texto-sm texto-secundario mb-0">
-            Para corregir la factura de esta venta, registra una incidencia de entrega marcando «se debe cancelar la factura
-            y subir la correcta»: el módulo da de baja los documentos anteriores y sincroniza folio, UUID, fecha y montos
-            con el XML nuevo. El importe de la venta no cambia.
-        </p>
         <?php endif; ?>
     </section>
 <?php endif; ?>

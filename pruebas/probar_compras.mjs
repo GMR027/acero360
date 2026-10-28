@@ -262,6 +262,13 @@ try {
   await pagina.goto(BASE + '/admin/proveedores/detalle?id=' + provId);
   const exp = await pagina.locator('main, body').first().innerText();
   verifica('muestra compras, recepciones, facturas y pagos del proveedor', ['Compras', 'Pendiente de recibir', 'Facturas pendientes', 'Pagos'].every((t) => exp.includes(t)));
+  verifica('muestra productos más comprados e historial de compras', ['Productos más comprados', 'Historial de compras'].every((t) => exp.includes(t)));
+  const historial = (await pagina.locator('#historial-compras').innerText()).toLowerCase();
+  const buscados = ['pintura esmalte negro', 'ui canastilla terminada', 'ui varilla 3/8', 'cantidad', 'importe unitario', 'total'];
+  verifica('el historial agrupa los productos comprados con cantidad e importes',
+    buscados.every((t) => historial.includes(t)),
+    buscados.filter((t) => !historial.includes(t)).join(' | '));
+  verifica('los más comprados muestran como máximo 5 productos', (await pagina.locator('#productos-mas-comprados tbody tr').count()) <= 5);
   const folioPintura = sql(`SELECT folio FROM ordenes_compra WHERE id=${idPintura}`);
   verifica('lista sus compras con su folio', (await pagina.locator('#compras').innerText()).includes(folioPintura), folioPintura);
   await pagina.goto(BASE + '/admin/proveedores');

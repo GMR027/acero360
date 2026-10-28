@@ -29,6 +29,12 @@ $facturasPend   = \App\OrdenesCompra::listar($filtroCompras + ['cfdi' => 'pendie
 $pagosProv      = \App\PagosCompra::listar(['proveedor' => $idProveedor, 'estado' => ''], 8, 0);
 $entradas      = \App\ProveedorEntradas::mostrarTodos(['proveedor' => (int) $proveedor->id], 5, 0);
 
+/* Productos comprados: el historial completo agrupado por producto y, arriba,
+ * los cinco con mayor cantidad comprada. Mismo cálculo para que las dos tablas
+ * cuadren entre sí (compras no canceladas, importes sin IVA). */
+$historialProductos = \App\OrdenesCompra::productosComprados($idProveedor);
+$topProductos       = array_slice($historialProductos, 0, 5);
+
 /* --- Balance general -------------------------------------------------------
  * Todos los pedidos del proveedor con su estado de pago, en una sola pasada
  * sobre la base: total, pagado y pendiente salen del mismo query, de modo que
@@ -252,6 +258,75 @@ template('tabsCompras', ['tab' => 'proveedores']);
         </table></div>
     <?php endif; ?>
     <p style="padding:0 1rem 1rem"><a class="btn btn--texto btn--sm" href="/admin/compras/pagos?proveedor=<?= $idProveedor ?>">Ver pagos</a></p>
+</section>
+
+<section class="tarjeta tarjeta--sin-relleno mb-lg" id="productos-mas-comprados">
+    <h2 class="titulo-5" style="padding:1rem 1rem 0">Productos más comprados</h2>
+    <p class="texto-secundario texto-sm" style="padding:.25rem 1rem 0">
+        Los cinco productos con mayor cantidad comprada a este proveedor.
+    </p>
+    <?php if (!$topProductos) : ?>
+        <p class="texto-secundario" style="padding:1rem">Aún no hay productos registrados en las compras de este proveedor.</p>
+    <?php else : ?>
+        <div class="tabla-contenedor"><table class="tabla">
+            <caption class="solo-lectores">Productos más comprados a <?= escaparValores($proveedor->nombre) ?></caption>
+            <thead><tr><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Cantidad</th>
+                <th scope="col" class="tabla--numerica">Importe unitario</th><th scope="col" class="tabla--numerica">Total</th></tr></thead>
+            <tbody>
+            <?php foreach ($topProductos as $p) : ?>
+                <tr>
+                    <td><strong><?= escaparValores($p['producto']) ?></strong>
+                        <span class="texto-xs texto-secundario"><br>
+                            <?= $p['codigo'] !== '' ? 'Código ' . escaparValores($p['codigo']) . ' · ' : '' ?>
+                            <?= number_format($p['compras']) ?> <?= $p['compras'] === 1 ? 'compra' : 'compras' ?>
+                            <?php if ($p['ultima_compra']) : ?>
+                                · última <?= escaparValores(date('d/m/Y', strtotime($p['ultima_compra']))) ?>
+                            <?php endif; ?>
+                        </span>
+                    </td>
+                    <td class="tabla--numerica cifra"><?= \App\OrdenesCompra::num($p['cantidad']) ?></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($p['importe']) ?></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($p['total']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
+</section>
+
+<section class="tarjeta tarjeta--sin-relleno mb-lg" id="historial-compras">
+    <h2 class="titulo-5" style="padding:1rem 1rem 0">Historial de compras</h2>
+    <p class="texto-secundario texto-sm" style="padding:.25rem 1rem 0">
+        Cuánto se ha comprado de cada producto a este proveedor. Importes sin IVA; el importe unitario
+        es el costo promedio de lo comprado.
+    </p>
+    <?php if (!$historialProductos) : ?>
+        <p class="texto-secundario" style="padding:1rem">Aún no hay compras con productos registrados para este proveedor.</p>
+    <?php else : ?>
+        <div class="tabla-contenedor"><table class="tabla">
+            <caption class="solo-lectores">Historial de productos comprados a <?= escaparValores($proveedor->nombre) ?></caption>
+            <thead><tr><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Cantidad</th>
+                <th scope="col" class="tabla--numerica">Importe unitario</th><th scope="col" class="tabla--numerica">Total</th></tr></thead>
+            <tbody>
+            <?php foreach ($historialProductos as $p) : ?>
+                <tr>
+                    <td><strong><?= escaparValores($p['producto']) ?></strong>
+                        <span class="texto-xs texto-secundario"><br>
+                            <?= $p['codigo'] !== '' ? 'Código ' . escaparValores($p['codigo']) . ' · ' : '' ?>
+                            <?= number_format($p['compras']) ?> <?= $p['compras'] === 1 ? 'compra' : 'compras' ?>
+                            <?php if ($p['ultima_compra']) : ?>
+                                · última <?= escaparValores(date('d/m/Y', strtotime($p['ultima_compra']))) ?>
+                            <?php endif; ?>
+                        </span>
+                    </td>
+                    <td class="tabla--numerica cifra"><?= \App\OrdenesCompra::num($p['cantidad']) ?></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($p['importe']) ?></td>
+                    <td class="tabla--numerica cifra"><?= formatoMoneda($p['total']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
 </section>
 
 <?php if ($totalEntradas > 0) : ?>

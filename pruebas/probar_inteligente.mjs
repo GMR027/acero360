@@ -229,14 +229,13 @@ try {
   comprobar('los cuatro datos del CFDI pasan al ingreso de la venta',
     sql(`SELECT CONCAT(IFNULL(forma_pago, '-'), '|', IFNULL(tipo_cfdi, '-'), '|', IFNULL(uso_cfdi, '-'), '|', IFNULL(metodo_pago, '-')) FROM ingresos WHERE venta_id = ${ventaCreada}`) === '03|I|G03|PUE');
 
-  await pagina.click('#btn-revision-fiscal');
-  await pagina.waitForSelector('#modal-principal:not([hidden])', { timeout: 5000 });
+  // La sección única de facturación ya trae uso, método, forma y tipo
+  // precargados desde el ingreso; no hay que abrir ninguna ventana.
   const valorDe = async (id) => pagina.locator(`#${id} option:checked`).getAttribute('value');
-  comprobar('la revisión previa trae uso, método, forma y tipo precargados',
+  comprobar('la facturación trae uso, método, forma y tipo precargados',
     (await valorDe('f-uso')) === 'G03' && (await valorDe('f-metodo')) === 'PUE'
     && (await valorDe('f-forma')) === '03' && (await valorDe('f-tipo')) === 'I',
     `uso=${await valorDe('f-uso')} metodo=${await valorDe('f-metodo')} forma=${await valorDe('f-forma')} tipo=${await valorDe('f-tipo')}`);
-  await pagina.keyboard.press('Escape');
 
   console.log('\n3. Registro compra inteligente');
   await pagina.goto(`${BASE}/admin/contabilidad`, { waitUntil: 'domcontentloaded' });

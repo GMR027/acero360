@@ -1610,6 +1610,150 @@ select.control {
   border-radius: 50%;
 }
 
+/* --- Carga de archivos genérica (input file + arrastrar y soltar) -------- */
+/* Aspecto de zona de carga: borde discontinuo, fondo suave y botón nativo
+   («Seleccionar archivo») con el estilo del sistema de diseño. */
+input[type=file].control,
+.campo-archivo__control {
+  height: auto;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px dashed var(--color-borde-fuerte);
+  border-radius: 0.375rem;
+  color: var(--color-texto-secundario);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+input[type=file].control::file-selector-button,
+.campo-archivo__control::file-selector-button {
+  margin-right: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 0.25rem;
+  color: var(--color-texto);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+input[type=file].control:hover,
+.campo-archivo__control:hover {
+  border-color: var(--color-primario-borde);
+}
+input[type=file].control:hover::file-selector-button,
+.campo-archivo__control:hover::file-selector-button {
+  background-color: var(--color-primario-claro);
+  border-color: var(--color-primario);
+  color: var(--color-primario-texto);
+}
+input[type=file].control:focus,
+.campo-archivo__control:focus {
+  border-color: var(--color-primario);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-foco);
+}
+input[type=file].control:disabled,
+.campo-archivo__control:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Los estados de validación (pendiente, sugerido, con error) conservan el
+   borde rojo por encima del estilo de zona de carga. */
+.campo--pendiente input[type=file].control,
+.campo--sugerido input[type=file].control,
+.campo--con-error input[type=file].control {
+  border-color: var(--color-error);
+}
+
+/* Mientras se arrastran archivos sobre el campo. */
+.campo-archivo--activo input[type=file].control,
+.campo-archivo--activo .campo-archivo__control, .campo-archivo--activo.campo-archivo__control {
+  border-color: var(--color-primario);
+  background-color: var(--color-primario-claro);
+  box-shadow: 0 0 0 3px var(--color-foco);
+}
+.campo-archivo--activo .campo-archivo__pista {
+  color: var(--color-primario-texto);
+  font-weight: 600;
+}
+
+.campo-archivo__detalle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+}
+
+.campo-archivo__pista {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1.4;
+}
+
+.campo-archivo__icono {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.campo-archivo__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.campo-archivo__archivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 9999px;
+  color: var(--color-texto);
+}
+.campo-archivo__archivo .campo-archivo__icono {
+  color: var(--color-primario-texto);
+}
+
+.campo-archivo__nombre {
+  max-width: 15rem;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campo-archivo__peso {
+  color: var(--color-texto-secundario);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Zona de previsualización de imágenes como destino de arrastre. */
+.carga-imagen__zona {
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.carga-imagen__zona--arrastrando {
+  border-color: var(--color-primario);
+  background-color: var(--color-primario-claro);
+  box-shadow: 0 0 0 3px var(--color-foco);
+}
+
 /* --- Barra de progreso / cargando ---------------------------------------- */
 .cargando {
   display: inline-block;

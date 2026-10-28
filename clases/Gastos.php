@@ -610,7 +610,7 @@ class Gastos
         }
         // Forma de pago y tipo de comprobante: los otros dos datos del CFDI. Se
         // capturan en el formulario y también los trae la lectura inteligente.
-        $formaSat = trim((string) ($d['forma_pago_sat'] ?? ''));
+        $formaSat = VentasFiscal::normalizarFormaPago((string) ($d['forma_pago_sat'] ?? ''));
         if ($formaSat !== '' && !isset(VentasFiscal::FORMAS_PAGO[$formaSat])) {
             $errores[] = 'La forma de pago "' . $formaSat . '" no es una clave del catálogo del SAT.';
             $formaSat = '';

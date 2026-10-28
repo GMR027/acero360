@@ -68,7 +68,7 @@ if ($avanza) {
         $resto = count($revisionFiscal['errores']) - count($pendientes);
         redirigir($destino, 'error', 'No se puede marcar como facturada: ' . implode(' · ', $pendientes)
             . ($resto > 0 ? " (+$resto más)" : '')
-            . ' Completa los datos desde «Revisar y facturar» en el detalle de la venta.');
+            . ' Completa los datos fiscales en «Facturación y cobro» del detalle de la venta.');
     }
 }
 

@@ -403,6 +403,164 @@ select.control {
   }
 }
 
+/* --- Carga de archivos genérica (input file + arrastrar y soltar) -------- */
+/* Aspecto de zona de carga: borde discontinuo, fondo suave y botón nativo
+   («Seleccionar archivo») con el estilo del sistema de diseño. */
+input[type='file'].control,
+.campo-archivo__control {
+  height: auto;
+  min-height: 2.75rem;
+  padding: $espacio-sm;
+  background-color: $color-superficie-baja;
+  border: 1px dashed $color-borde-fuerte;
+  border-radius: $radio-md;
+  color: $color-texto-secundario;
+  font-size: $fuente-sm;
+  cursor: pointer;
+  transition:
+    border-color $transicion-rapida,
+    background-color $transicion-rapida,
+    box-shadow $transicion-rapida;
+
+  &::file-selector-button {
+    margin-right: $espacio-sm;
+    padding: 0.45rem 0.85rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde-fuerte;
+    border-radius: $radio;
+    color: $color-texto;
+    font-family: inherit;
+    font-size: $fuente-sm;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color $transicion-rapida,
+      border-color $transicion-rapida,
+      color $transicion-rapida;
+  }
+
+  &:hover {
+    border-color: $color-primario-borde;
+
+    &::file-selector-button {
+      background-color: $color-primario-claro;
+      border-color: $color-primario;
+      color: $color-primario-texto;
+    }
+  }
+
+  &:focus {
+    border-color: $color-primario;
+    outline: none;
+    box-shadow: 0 0 0 3px $color-foco;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+/* Los estados de validación (pendiente, sugerido, con error) conservan el
+   borde rojo por encima del estilo de zona de carga. */
+.campo--pendiente input[type='file'].control,
+.campo--sugerido input[type='file'].control,
+.campo--con-error input[type='file'].control {
+  border-color: $color-error;
+}
+
+/* Mientras se arrastran archivos sobre el campo. */
+.campo-archivo--activo {
+  input[type='file'].control,
+  .campo-archivo__control,
+  &.campo-archivo__control {
+    border-color: $color-primario;
+    background-color: $color-primario-claro;
+    box-shadow: 0 0 0 3px $color-foco;
+  }
+
+  .campo-archivo__pista {
+    color: $color-primario-texto;
+    font-weight: 600;
+  }
+}
+
+.campo-archivo__detalle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-xs;
+  min-height: 1.25rem;
+  font-size: $fuente-xs;
+  color: $color-texto-secundario;
+}
+
+.campo-archivo__pista {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1.4;
+}
+
+.campo-archivo__icono {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.campo-archivo__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $espacio-xs;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.campo-archivo__archivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio-full;
+  color: $color-texto;
+
+  .campo-archivo__icono {
+    color: $color-primario-texto;
+  }
+}
+
+.campo-archivo__nombre {
+  max-width: 15rem;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campo-archivo__peso {
+  color: $color-texto-secundario;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Zona de previsualización de imágenes como destino de arrastre. */
+.carga-imagen__zona {
+  transition:
+    border-color $transicion-rapida,
+    background-color $transicion-rapida,
+    box-shadow $transicion-rapida;
+}
+
+.carga-imagen__zona--arrastrando {
+  border-color: $color-primario;
+  background-color: $color-primario-claro;
+  box-shadow: 0 0 0 3px $color-foco;
+}
+
 /* --- Barra de progreso / cargando ---------------------------------------- */
 .cargando {
   display: inline-block;

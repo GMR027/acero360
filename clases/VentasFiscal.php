@@ -73,7 +73,14 @@ class VentasFiscal
         'PPD' => 'Pago en parcialidades o diferido',
     ];
 
-    /** Formas de pago (c_FormaPago). */
+    /**
+     * Formas de pago (c_FormaPago).
+     *
+     * La tarjeta de débito es la 28 en el CFDI y la 05 en el catálogo que usa el
+     * sistema; ambas se aceptan y `normalizarFormaPago()` las unifica en la 05
+     * para que una factura con 28 no quede como una forma distinta. La 99 es
+     * «por definir» y es válida: una factura PPD puede declararla (o omitirla).
+     */
     public const FORMAS_PAGO = [
         '01' => 'Efectivo', '02' => 'Cheque nominativo', '03' => 'Transferencia electrónica',
         '04' => 'Tarjeta de crédito', '05' => 'Tarjeta de débito', '06' => 'Crédito en tienda',
@@ -82,9 +89,24 @@ class VentasFiscal
         '17' => 'Obligación fiscal', '18' => 'Convenio de deuda', '19' => 'Novación de deuda',
         '20' => 'Confusión de deuda', '21' => 'Pago a favor de terceros', '23' => 'Dación en pago',
         '24' => 'Pago por mediación', '25' => 'Compensación', '26' => 'Novación',
-        '27' => 'Confusión', '28' => 'Pago por mediación', '29' => 'Reembolso',
+        '27' => 'Confusión', '28' => 'Tarjeta de débito', '29' => 'Reembolso',
         '30' => 'Descuento', '31' => 'Pago por cobranza', '99' => 'Por definir',
     ];
+
+    /**
+     * Claves equivalentes entre la factura y el sistema. La tarjeta de débito
+     * viene como 28 en los CFDI y el sistema la maneja como 05.
+     * @var array<string, string>
+     */
+    public const FORMAS_PAGO_EQUIVALENTES = ['28' => '05'];
+
+    /** Clave de forma de pago unificada al catálogo del sistema (28 → 05). */
+    public static function normalizarFormaPago(string $clave): string
+    {
+        $clave = trim($clave);
+
+        return self::FORMAS_PAGO_EQUIVALENTES[$clave] ?? $clave;
+    }
 
     /** Método de cobro interno (Contabilidad::METODOS_PAGO) → forma de pago SAT. */
     public const FORMA_POR_COBRO = [
@@ -479,7 +501,7 @@ class VentasFiscal
         }
         $cobrado = round($cobrado, 2);
         $metodo = $ingreso ? mb_strtoupper(trim((string) $ingreso['metodo_pago'])) : '';
-        $forma  = $ingreso ? trim((string) $ingreso['forma_pago']) : '';
+        $forma  = $ingreso ? self::normalizarFormaPago((string) $ingreso['forma_pago']) : '';
         $condiciones = mb_strtolower(trim(
             (string) ($venta['condiciones_compra'] ?? '') . ' ' . (string) ($venta['condiciones_envio'] ?? '')
             . ' ' . (string) ($venta['comentarios'] ?? '')
@@ -771,7 +793,7 @@ class VentasFiscal
     {
         self::$errores = [];
         $metodo = mb_strtoupper(trim($metodo));
-        $forma  = trim($forma);
+        $forma  = self::normalizarFormaPago($forma);
 
         if ($metodo === '' || !isset(self::METODOS[$metodo])) {
             self::$errores[] = 'El método de pago debe ser PUE o PPD.';
@@ -819,7 +841,7 @@ class VentasFiscal
      *
      * Aquí manda el DOCUMENTO, no la persona: sólo se escriben los valores que
      * pertenezcan al catálogo del SAT, y un dato ilegible no bloquea nada (queda
-     * vacío y se captura a mano en «Revisar y facturar»). Las claves que no
+     * vacío y se captura a mano en «Facturación y cobro»). Las claves que no
      * vengan en $datos no se tocan: lo que la persona ya haya declarado se conserva.
      *
      * @param array<string, mixed> $datos metodo_pago, forma_pago, uso_cfdi y/o tipo_cfdi
@@ -854,6 +876,9 @@ class VentasFiscal
                 continue;
             }
             $valor = strtoupper(trim((string) $datos[$campo]));
+            if ($campo === 'forma_pago') {
+                $valor = self::normalizarFormaPago($valor);
+            }
             // Catálogo asociativo (clave => etiqueta) o lista simple de claves: los dos
             // estilos ya conviven en este archivo (USOS_CFDI es lista, METODOS no).
             $enCatalogo = $valor !== '' && (array_key_exists($valor, $catalogo) || in_array($valor, $catalogo, true));

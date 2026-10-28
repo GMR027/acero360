@@ -1664,3 +1664,41 @@ Los documentos adjuntos ya no obligan a descargarlos: cada archivo de «Facturas
 - **Botones «Ver»:** `templates/documentosOperacion.php` (ingresos y gastos), `views/admin/compras/detalle.php` y `views/admin/contabilidad/documentos/index.php`.
 - **Estilos:** `src/scss/layout/_documentos.scss` (visor, resumen del CFDI y XML plegado; responsive).
 - **Manual:** se explica el botón «Ver» en `MANUAL_USUARIO.md` e `includes/manual.php`. Assets recompilados. Sin migraciones.
+
+---
+
+## Ronda — Forma de pago del CFDI: tarjeta de débito (28/05) y «99 · Por definir» (2026-10-27)
+
+La carga inteligente seguía dejando la forma de pago mal o vacía en dos casos reales: las facturas con clave **28** (tarjeta de débito) no se reconocían porque el catálogo la etiquetaba como otra cosa, y las facturas **PPD sin FormaPago** (o con la leyenda «99 - Por definir») quedaban en «Sin definir».
+
+- **`clases/VentasFiscal.php`:** `FORMAS_PAGO['28']` pasa a **Tarjeta de débito** y se agrega `normalizarFormaPago()`: las claves 28 (factura) y 05 (sistema) se unifican en **05**, así una factura con 28 se guarda y se muestra como la tarjeta de débito que ya usa el sistema. La 99 sigue siendo una clave válida del catálogo.
+- **`clases/LectorDocumental.php`:** la forma de pago se lee con un detector que acepta **«Forma de pago» / «Forma Pago» / «FormaPago»**, la clave junto al nombre («99 - Por definir», «28 - Tarjeta de débito»), el nombre solo («Tarjeta de débito») y, en XML, propone **99** cuando el CFDI es PPD y omite `FormaPago` (caso válido del SAT).
+- **Normalización en todo el flujo:** `CoincidenciasFactura`, `Gastos`, `CompraContable`, `Lecturas`, `CargaLotes`, el alta/edición de gasto, el detalle del gasto y «Revisar y facturar» usan la misma equivalencia 28 → 05; el gasto creado desde un lote también propone 99 si es PPD sin forma. `ComplementosPago` y `ComplementosVenta` reconocen 28/29 como tarjeta.
+- **Pruebas:** `etapa44` suma la lectura de 28 → 05, el PPD sin `FormaPago` → 99 y las tres variantes del PDF (clave con nombre, «Forma Pago» y solo el nombre). Corrida: `etapa44` TODO OK; regresión `etapa13`, `etapa28`, `etapa33`, `etapa34`, `etapa41` TODO OK. Sin migraciones.
+
+---
+
+## Ronda — Productos más comprados e historial de compras en la ficha del proveedor (2026-10-27)
+
+La ficha del proveedor ya muestra, después de «Pagos», cuánto se le compra de cada producto.
+
+- **`clases/OrdenesCompra.php`:** nuevo `productosComprados($proveedorId, $limite = 0)` que agrupa las partidas de compras **no canceladas** por producto del catálogo, material, producto del proveedor o descripción libre. Devuelve cantidad acumulada, importe unitario promedio, total sin IVA, número de compras y fecha de la última compra, ordenado de mayor a menor cantidad.
+- **`views/admin/proveedores/detalle.php`:** dos secciones nuevas después de «Pagos»:
+  - **Productos más comprados** (arriba): los 5 con mayor cantidad, con producto, cantidad, importe unitario y total.
+  - **Historial de compras** (abajo): el mismo detalle para todos los productos comprados al proveedor.
+  Las dos tablas salen del mismo cálculo, así que sus cifras coinciden; los importes son sin IVA y el importe unitario es el costo promedio de lo comprado.
+- **Sin migración.**
+
+---
+
+## Ronda — Facturación de una venta en un solo formulario (2026-10-27)
+
+La sección «Facturación y cobro» tenía dos formularios para la misma operación: el modal **«Revisar y facturar»** capturaba los datos fiscales pero, sin PAC, no facturaba (pedía bajar a marcar «Facturada»), y el formulario **«¿Ya se facturó?»** era el que realmente subía el CFDI y guardaba folio/UUID/fecha. Además, «Leer factura» era una tercera puerta que se saltaba la validación previa.
+
+- **`templates/facturacionVenta.php`:** un solo formulario «Facturar y guardar» con datos fiscales del receptor, método/forma/uso/tipo, archivo (XML/PDF/foto), folio/UUID/fecha y confirmación manual cuando no hay CFDI. Se eliminan el modal, el segundo formulario y el enlace suelto «Leer factura». «No se facturará» y «Volver a pendiente» quedan como acciones aparte, sin captura. Una venta ya facturada con CFDI no muestra el formulario: su corrección va por una incidencia de entrega.
+- **`views/admin/ventas/fiscal.php`:** una sola acción POST que guarda los datos fiscales, adjunta los documentos, revalida y marca la facturación en el mismo envío (con CFDI o confirmación manual). Las acciones de clasificación no capturan nada.
+- **`views/admin/entregas-seguimiento/venta.php`:** la tarjeta de facturación del hub deja de repetir el bloque completo; muestra el resumen y enlaza a la sección única del detalle de la venta.
+- **`clases/Lecturas.php`:** la lectura inteligente de una factura de venta ahora aplica `VentasFiscal::validar()` antes de marcar facturada, igual que el formulario.
+- **`views/admin/contabilidad/ingresos/accion.php`:** el mensaje de validación apunta a «Facturación y cobro» en lugar del modal retirado.
+- **Manual:** `includes/manual.php` y `MANUAL_USUARIO.md` describen el paso único y las opciones de no facturar/corregir.
+- **Pruebas:** `pruebas/probar_inteligente.mjs` lee los cuatro datos del CFDI directamente en el formulario (ya no abre el modal). `etapa44`, `etapa40` y `etapa35` se corrieron contra `cotizaciones_test`; los fallos observados son los de la base de pruebas (RFC principal, periodo cerrado), no de este cambio. Sin migración.

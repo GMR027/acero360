@@ -253,6 +253,10 @@ function inicializarAplicacion() {
     }
   });
 
+  // 5b. Campos de archivo: aspecto de zona de carga, lista de elegidos y
+  //     arrastrar y soltar (va antes de mover campos en modales).
+  prepararCargaArchivos();
+
   // 6. Panel de ganancias: mes y semestre sólo aplican con un año concreto.
   const filtroAnio = document.getElementById('filtro-anio');
   if (filtroAnio) {

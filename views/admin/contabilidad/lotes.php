@@ -21,6 +21,27 @@ $carril = ($_GET['carril'] ?? 'gastos') === 'ventas' ? 'ventas' : 'gastos';
 $usuario = (int) ($_SESSION['id'] ?? 0);
 $destino = '/admin/contabilidad/lotes?carril=' . $carril;
 
+/**
+ * Formulario de descarte de una lectura del lote (con su token de un solo uso).
+ * Se usa en TODAS las clases —factura, duplicado, complemento, ajeno y manual—
+ * para que ninguna fila se quede sin forma de salir de la bandeja.
+ */
+$formDescartar = static function (int $lecturaId, string $carril): string {
+    ob_start(); ?>
+    <form action="/admin/contabilidad/lotes-accion" method="post" data-validar
+          data-confirmacion-sobre="Lectura"
+          data-confirmacion="¿Descartar este documento?"
+          data-confirmacion-mensaje="Dejará de aparecer en la bandeja. No se registra nada y queda la bitácora."
+          data-confirmacion-boton="Sí, descartar">
+        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+        <input type="hidden" name="accion" value="descartar">
+        <input type="hidden" name="carril" value="<?= $carril ?>">
+        <input type="hidden" name="lectura" value="<?= $lecturaId ?>">
+        <button class="btn btn--peligro btn--sm" type="submit">Descartar</button>
+    </form>
+    <?php return (string) ob_get_clean();
+};
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'subir') {
     if (!consumirToken($_POST['token'] ?? null)) {
         redirigir($destino, 'error', 'Este formulario ya se envió; sube los archivos de nuevo.');
@@ -39,6 +60,9 @@ foreach ($filas as $f) {
     $porClase[$f['clase']] = ($porClase[$f['clase']] ?? 0) + 1;
 }
 $registrables = array_filter($filas, static fn ($f) => $f['clase'] === 'factura');
+// Lo que el atajo de limpieza sí puede descartar sin tocar nada útil.
+$descartables = array_filter($filas, static fn ($f) => in_array($f['clase'], ['duplicado', 'ajeno'], true)
+    || ($f['clase'] === 'complemento' && !empty($f['duplicado'])));
 
 template('header', ['titulo' => 'Carga por lotes', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 template('tabsContabilidad', ['tab' => 'lotes']);
@@ -73,20 +97,37 @@ template('tabsContabilidad', ['tab' => 'lotes']);
         confianza): si no hay XML, el documento queda para revisar a mano.</p>
 </section>
 
-<?php if ($carril === 'gastos' && $registrables) : ?>
+<?php if ($carril === 'gastos' && ($registrables || $descartables)) : ?>
     <section class="tarjeta mb-lg">
         <h2 class="titulo-5 mb-md">Atajos del lote</h2>
-        <form action="/admin/contabilidad/lotes-accion" method="post" data-validar
-              data-confirmacion-sobre="Registro en lote"
-              data-confirmacion="¿Registrar <?= count($registrables) ?> factura(s) de proveedor como gasto contable?"
-              data-confirmacion-mensaje="Se usará la sugerencia de pago de cada renglón (PUE + Contado ⇒ pagado). Las que no sean facturas limpias no se tocan."
-              data-confirmacion-boton="Sí, registrar todo">
-            <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-            <input type="hidden" name="accion" value="todo">
-            <button class="btn btn--secundario" type="submit">
-                <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
-                <span>Registrar todas las facturas limpias como gasto (<?= count($registrables) ?>)</span></button>
-        </form>
+        <div style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:center">
+            <?php if ($registrables) : ?>
+                <form action="/admin/contabilidad/lotes-accion" method="post" data-validar
+                      data-confirmacion-sobre="Registro en lote"
+                      data-confirmacion="¿Registrar <?= count($registrables) ?> factura(s) de proveedor como gasto contable?"
+                      data-confirmacion-mensaje="Se usará la sugerencia de pago de cada renglón (PUE + Contado ⇒ pagado). Las que no sean facturas limpias no se tocan."
+                      data-confirmacion-boton="Sí, registrar todo">
+                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                    <input type="hidden" name="accion" value="todo">
+                    <button class="btn btn--secundario" type="submit">
+                        <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
+                        <span>Registrar todas las facturas limpias como gasto (<?= count($registrables) ?>)</span></button>
+                </form>
+            <?php endif; ?>
+            <?php if ($descartables) : ?>
+                <form action="/admin/contabilidad/lotes-accion" method="post" data-validar
+                      data-confirmacion-sobre="Limpiar la bandeja"
+                      data-confirmacion="¿Descartar <?= count($descartables) ?> documento(s) que no se van a registrar?"
+                      data-confirmacion-mensaje="Se descartan los ya registrados, los que no son de este negocio y los complementos ya cargados. Las facturas limpias y las que se revisan a mano no se tocan."
+                      data-confirmacion-boton="Sí, descartar">
+                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                    <input type="hidden" name="accion" value="descartar_resto">
+                    <button class="btn btn--peligro" type="submit">
+                        <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
+                        <span>Descartar lo que no se va a registrar (<?= count($descartables) ?>)</span></button>
+                </form>
+            <?php endif; ?>
+        </div>
     </section>
 <?php endif; ?>
 
@@ -150,6 +191,7 @@ template('tabsContabilidad', ['tab' => 'lotes']);
                                     <form action="/admin/contabilidad/lotes-accion" method="post">
                                         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
                                         <input type="hidden" name="accion" value="gasto_solo">
+                                        <input type="hidden" name="carril" value="<?= $carril ?>">
                                         <input type="hidden" name="lectura" value="<?= (int) $f['id'] ?>">
                                         <label class="comprobacion texto-xs">
                                             <input type="checkbox" name="pagado" value="1"<?= !empty($f['sugiere_pagado']) ? ' checked' : '' ?>>
@@ -164,6 +206,7 @@ template('tabsContabilidad', ['tab' => 'lotes']);
                                           data-confirmacion-boton="Sí, registrar">
                                         <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
                                         <input type="hidden" name="accion" value="compra_nueva">
+                                        <input type="hidden" name="carril" value="<?= $carril ?>">
                                         <input type="hidden" name="lectura" value="<?= (int) $f['id'] ?>">
                                         <button class="btn btn--primario btn--sm" type="submit">Gasto y compra</button>
                                     </form>
@@ -171,6 +214,7 @@ template('tabsContabilidad', ['tab' => 'lotes']);
                                         <form action="/admin/contabilidad/lotes-accion" method="post" class="texto-xs">
                                             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
                                             <input type="hidden" name="accion" value="relacionar">
+                                            <input type="hidden" name="carril" value="<?= $carril ?>">
                                             <input type="hidden" name="lectura" value="<?= (int) $f['id'] ?>">
                                             <label class="solo-lectores" for="orden-<?= (int) $f['id'] ?>">Compra existente</label>
                                             <select class="control control--compacto" id="orden-<?= (int) $f['id'] ?>" name="orden">
@@ -182,14 +226,7 @@ template('tabsContabilidad', ['tab' => 'lotes']);
                                             <button class="btn btn--secundario btn--sm" type="submit">Relacionar</button>
                                         </form>
                                     <?php endif; ?>
-                                    <form action="/admin/contabilidad/lotes-accion" method="post" data-validar
-                                          data-confirmacion-sobre="Lectura"
-                                          data-confirmacion="¿Descartar este documento?" data-confirmacion-boton="Sí, descartar">
-                                        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-                                        <input type="hidden" name="accion" value="descartar">
-                                        <input type="hidden" name="lectura" value="<?= (int) $f['id'] ?>">
-                                        <button class="btn btn--peligro btn--sm" type="submit">Descartar</button>
-                                    </form>
+                                    <?= $formDescartar((int) $f['id'], $carril) ?>
                                 </div>
                             <?php elseif ($f['clase'] === 'factura' && $carril === 'ventas') : ?>
                                 <div style="display:flex;flex-direction:column;gap:.35rem">
@@ -197,42 +234,43 @@ template('tabsContabilidad', ['tab' => 'lotes']);
                                         <form action="/admin/contabilidad/lotes-accion" method="post">
                                             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
                                             <input type="hidden" name="accion" value="alta_cliente">
+                                            <input type="hidden" name="carril" value="<?= $carril ?>">
                                             <input type="hidden" name="lectura" value="<?= (int) $f['id'] ?>">
                                             <button class="btn btn--primario btn--sm" type="submit">Registrar cliente</button>
                                         </form>
                                     <?php endif; ?>
                                     <a class="btn btn--secundario btn--sm" href="/admin/ventas/crear?lectura=<?= (int) $f['id'] ?>">Crear venta</a>
-                                    <form action="/admin/contabilidad/lotes-accion" method="post" data-validar
-                                          data-confirmacion-sobre="Lectura" data-confirmacion="¿Descartar este documento?" data-confirmacion-boton="Sí, descartar">
-                                        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-                                        <input type="hidden" name="accion" value="descartar">
-                                        <input type="hidden" name="lectura" value="<?= (int) $f['id'] ?>">
-                                        <button class="btn btn--peligro btn--sm" type="submit">Descartar</button>
-                                    </form>
+                                    <?= $formDescartar((int) $f['id'], $carril) ?>
                                 </div>
                             <?php elseif ($f['clase'] === 'complemento') : ?>
-                                <a class="btn btn--primario btn--sm" href="<?= !empty($f['lado_cliente'])
-                                    ? '/admin/ventas/complemento/revision?id=' . (int) $f['id']
-                                    : '/admin/compras/complemento/revision?id=' . (int) $f['id'] ?>">
-                                    Revisar complemento</a>
-                                <?php if (!empty($f['duplicado'])) : ?>
-                                    <p class="texto-xs texto-secundario">Ya registrado antes: no se carga dos veces.</p>
-                                <?php endif; ?>
+                                <div style="display:flex;flex-direction:column;gap:.35rem">
+                                    <a class="btn btn--primario btn--sm" href="<?= !empty($f['lado_cliente'])
+                                        ? '/admin/ventas/complemento/revision?id=' . (int) $f['id']
+                                        : '/admin/compras/complemento/revision?id=' . (int) $f['id'] ?>">
+                                        Revisar complemento</a>
+                                    <?php if (!empty($f['duplicado'])) : ?>
+                                        <p class="texto-xs texto-secundario">Ya registrado antes: no se carga dos veces.</p>
+                                    <?php endif; ?>
+                                    <?= $formDescartar((int) $f['id'], $carril) ?>
+                                </div>
                             <?php elseif ($f['clase'] === 'duplicado') : ?>
-                                <a class="btn btn--secundario btn--sm" href="<?= escaparValores((string) ($f['duplicado']['ruta'] ?? '#')) ?>">Ver el existente</a>
-                                <p class="texto-xs texto-secundario"><?= escaparValores((string) ($f['duplicado']['etiqueta'] ?? '')) ?></p>
+                                <div style="display:flex;flex-direction:column;gap:.35rem">
+                                    <a class="btn btn--secundario btn--sm" href="<?= escaparValores((string) ($f['duplicado']['ruta'] ?? '#')) ?>">Ver el existente</a>
+                                    <p class="texto-xs texto-secundario"><?= escaparValores((string) ($f['duplicado']['etiqueta'] ?? '')) ?></p>
+                                    <?= $formDescartar((int) $f['id'], $carril) ?>
+                                </div>
                             <?php elseif ($f['clase'] === 'ajeno') : ?>
-                                <p class="texto-xs">El receptor es <?= escaparValores((string) ($f['receptor'] ?? '')) ?>, no este negocio.</p>
-                                <form action="/admin/contabilidad/lotes-accion" method="post">
-                                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-                                    <input type="hidden" name="accion" value="descartar">
-                                    <input type="hidden" name="lectura" value="<?= (int) $f['id'] ?>">
-                                    <button class="btn btn--peligro btn--sm" type="submit">Descartar</button>
-                                </form>
+                                <div style="display:flex;flex-direction:column;gap:.35rem">
+                                    <p class="texto-xs">El receptor es <?= escaparValores((string) ($f['receptor'] ?? '')) ?>, no este negocio.</p>
+                                    <?= $formDescartar((int) $f['id'], $carril) ?>
+                                </div>
                             <?php else : ?>
-                                <a class="btn btn--secundario btn--sm" href="<?= $carril === 'gastos'
-                                    ? '/admin/compras/inteligente/revision?id=' . (int) $f['id']
-                                    : '/admin/contabilidad/lectura/revisar?id=' . (int) $f['id'] ?>">Revisar a mano</a>
+                                <div style="display:flex;flex-direction:column;gap:.35rem">
+                                    <a class="btn btn--secundario btn--sm" href="<?= $carril === 'gastos'
+                                        ? '/admin/compras/inteligente/revision?id=' . (int) $f['id']
+                                        : '/admin/contabilidad/lectura/revisar?id=' . (int) $f['id'] ?>">Revisar a mano</a>
+                                    <?= $formDescartar((int) $f['id'], $carril) ?>
+                                </div>
                             <?php endif; ?>
                         </td>
                     </tr>

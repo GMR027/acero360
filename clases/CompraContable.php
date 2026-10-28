@@ -284,7 +284,7 @@ class CompraContable
             $moneda = strtoupper((string) ($d['moneda'] ?? ''));
             $emisor = (string) ($d['emisor_rfc'] ?? '');
             $receptor = (string) ($d['receptor_rfc'] ?? '');
-            $forma = (string) ($d['forma_pago'] ?? '');
+            $forma = VentasFiscal::normalizarFormaPago((string) ($d['forma_pago'] ?? ''));
             $metodo = in_array(strtoupper((string) ($d['metodo_pago'] ?? '')), ['PUE', 'PPD'], true) ? strtoupper((string) $d['metodo_pago']) : '';
             $actualizar->bind_param('ssssssssi', $uuid, $folio, $moneda, $moneda, $emisor, $receptor, $forma, $metodo, $gastoId);
             $actualizar->execute();

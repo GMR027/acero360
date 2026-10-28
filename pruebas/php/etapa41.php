@@ -283,6 +283,15 @@ $soloEspeciales = array_filter($pendientesTras, static fn ($f) => $f['clase'] ==
 $prueba('la bandeja queda sin facturas limpias pendientes (sólo complemento/manual/duplicado)',
     $soloEspeciales === [], json_encode(array_column($pendientesTras, 'clase')));
 
+// El atajo de limpieza quita lo que ya no sirve y respeta lo revisable.
+$resto = CargaLotes::descartarResto($usuario);
+$trasResto = array_column(CargaLotes::pendientes('gastos'), 'clase');
+$prueba('«descartar lo que no se va a registrar» limpia duplicados y deja complemento/manual',
+    $resto['descartados'] >= 1 && $resto['errores'] === []
+    && !in_array('duplicado', $trasResto, true) && !in_array('ajeno', $trasResto, true)
+    && in_array('complemento', $trasResto, true) && in_array('manual', $trasResto, true),
+    json_encode(['resto' => $resto, 'clases' => $trasResto]));
+
 /* ==================================================================== *
  * 5. CARRIL DE VENTAS: cliente nuevo con un botón
  * ================================================================== */
@@ -322,6 +331,11 @@ $prueba('la bandeja existe con sus dos carriles, la regla de pago visible y el b
     && str_contains($lotes, 'Solo gasto') && str_contains($lotes, 'Gasto y compra')
     && str_contains($lotes, 'Relacionar') && str_contains($lotes, 'PUE y «Contado»')
     && str_contains($lotes, 'Registrar todas las facturas limpias'));
+$prueba('toda clase de fila tiene descarte y el atajo de limpieza está en la bandeja',
+    substr_count($lotes, '$formDescartar((int) $f[\'id\'], $carril)') >= 5
+    && str_contains($lotes, 'value="descartar_resto"')
+    && str_contains(file_get_contents($raiz . '/views/admin/contabilidad/lotes-accion.php'), "'descartar_resto'")
+    && str_contains(file_get_contents($raiz . '/clases/CargaLotes.php'), 'function descartarResto'));
 $prueba('las rutas y la pestaña de Contabilidad están registradas',
     str_contains(file_get_contents($raiz . '/index.php'), "'/admin/contabilidad/lotes'")
     && str_contains(file_get_contents($raiz . '/index.php'), "'/admin/contabilidad/lotes-accion'")

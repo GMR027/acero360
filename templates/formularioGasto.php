@@ -135,7 +135,7 @@ $numEmpresas = max(1, count($empresas));
     if (!isset(\App\Gastos::METODOS_CFDI[$metodoCfdi])) {
         $metodoCfdi = 'POR';   // sin dato guardado: la factura está «por definir»
     }
-    $formaCfdi = trim((string) ($gasto['forma_pago_sat'] ?? ''));
+    $formaCfdi = \App\VentasFiscal::normalizarFormaPago((string) ($gasto['forma_pago_sat'] ?? ''));
     if ($formaCfdi !== '' && !isset(\App\VentasFiscal::FORMAS_PAGO[$formaCfdi])) {
         $formaCfdi = '';   // clave fuera del catálogo: se captura de nuevo
     }

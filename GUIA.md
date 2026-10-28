@@ -64,7 +64,7 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
 ## 4. Operación diaria
 
 1. **Vender:** cotización → *Vendido* (o venta directa). El inventario baja una vez y se crea el ingreso contable solo.
-2. **Cobrar y facturar:** *Ventas → abrir la venta* → en «Facturación y cobro» (arriba) registras cada cobro y marcas la **facturación** (facturada / no facturada) — es un dato explícito. *Contabilidad → Ingresos* lleva a esa misma pantalla.
+2. **Cobrar y facturar:** *Ventas → abrir la venta* → en «Facturación y cobro» (arriba) registras cada cobro y, en un solo formulario, capturas los datos fiscales, adjuntas el CFDI y pulsas **«Facturar y guardar»**. Si no se va a facturar, usa «Otras opciones → No se facturará». *Contabilidad → Ingresos* lleva a esa misma pantalla.
 3. **Comprar:** *Órdenes de compra* → registrar recepción (parcial o total) → cerrar → PDF «solicitado vs recibido».
 4. **Entregar y seguir:** *Operación Comercial* → «Preparación de pedidos» para alistar; en la venta, «Operación de esta venta» abre su hoja con entregas, incidencias, devoluciones y la corrección de factura (todo en ventanas modales).
 5. **Gastos:** *Contabilidad → Egresos*; adjunta CFDI (XML) y comprobantes; marca como pagado lo que ya pagaste (sólo eso entra en la estimación fiscal; el CFDI es el respaldo para tu contador).

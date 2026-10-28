@@ -567,10 +567,12 @@ function tokenFormulario(): string
     $token = bin2hex(random_bytes(16));
     $_SESSION['tokens_formulario'][$token] = time();
 
-    // Se conservan solo los 50 más recientes.
-    if (count($_SESSION['tokens_formulario']) > 50) {
+    // Se conservan solo los más recientes. El tope debe cubrir la pantalla con
+    // más formularios (la bandeja de carga por lotes pinta uno por renglón): si
+    // fuera menor, los primeros botones de una tabla larga nacerían ya vencidos.
+    if (count($_SESSION['tokens_formulario']) > 500) {
         asort($_SESSION['tokens_formulario']);
-        $_SESSION['tokens_formulario'] = array_slice($_SESSION['tokens_formulario'], -50, null, true);
+        $_SESSION['tokens_formulario'] = array_slice($_SESSION['tokens_formulario'], -500, null, true);
     }
 
     return $token;

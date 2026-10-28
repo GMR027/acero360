@@ -57,9 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $lecturaArchivo !== null && $lectur
         if (!isset(\App\Gastos::METODOS_CFDI[$metodoPagoCfdi])) {
             $metodoPagoCfdi = '';
         }
-        $formaPagoCfdi = trim((string) ($propuesta['forma_pago'] ?? ''));
+        $formaPagoCfdi = \App\VentasFiscal::normalizarFormaPago((string) ($propuesta['forma_pago'] ?? ''));
         if ($formaPagoCfdi !== '' && !isset(\App\VentasFiscal::FORMAS_PAGO[$formaPagoCfdi])) {
             $formaPagoCfdi = '';
+        }
+        // Una factura PPD puede omitir la forma de pago: es «99 · Por definir».
+        if ($formaPagoCfdi === '' && $metodoPagoCfdi === 'PPD') {
+            $formaPagoCfdi = '99';
         }
         $yaPagado = $metodoPagoCfdi === 'PUE'
             || ($metodoPagoCfdi === '' && $formaPagoCfdi !== '' && $formaPagoCfdi !== '99');
@@ -179,8 +183,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
                 $datos['uso_cfdi'] = $x['uso_cfdi'];
             }
             // Forma de pago y tipo de comprobante: lo mismo, los otros dos datos del CFDI.
-            if (trim((string) ($datos['forma_pago_sat'] ?? '')) === '' && isset(\App\VentasFiscal::FORMAS_PAGO[(string) ($x['forma_pago'] ?? '')])) {
-                $datos['forma_pago_sat'] = $x['forma_pago'];
+            $formaXml = \App\VentasFiscal::normalizarFormaPago((string) ($x['forma_pago'] ?? ''));
+            if ($formaXml === '' && strtoupper((string) ($x['metodo_pago'] ?? '')) === 'PPD') {
+                $formaXml = '99';
+            }
+            if (trim((string) ($datos['forma_pago_sat'] ?? '')) === '' && isset(\App\VentasFiscal::FORMAS_PAGO[$formaXml])) {
+                $datos['forma_pago_sat'] = $formaXml;
             }
             if (trim((string) ($datos['tipo_cfdi'] ?? '')) === '' && isset(\App\Contabilidad::TIPOS_CFDI[(string) ($x['tipo'] ?? '')])) {
                 $datos['tipo_cfdi'] = $x['tipo'];

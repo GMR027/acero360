@@ -227,9 +227,16 @@ class CargaLotes
             return ['ok' => false, 'errores' => ['Ese folio fiscal ya está registrado: no se carga dos veces.']];
         }
 
-        $formaSata = ['01' => 'Efectivo', '02' => 'Cheque', '03' => 'Transferencia', '04' => 'Tarjeta', '05' => 'Tarjeta', '06' => 'Tarjeta'];
+        $formaSata = ['01' => 'Efectivo', '02' => 'Cheque', '03' => 'Transferencia', '04' => 'Tarjeta',
+            '05' => 'Tarjeta', '06' => 'Tarjeta', '28' => 'Tarjeta', '29' => 'Tarjeta'];
         $proveedorId = $prop['proveedor'] ? (int) $prop['proveedor']['id'] : 0;
         $emisor = trim((string) ($prop['campos']['emisor_nombre']['valor'] ?? ''));
+        // La tarjeta de débito viene como 28 y el sistema la maneja como 05. Si
+        // una factura PPD no declara forma, es «99 · Por definir».
+        $formaPago = VentasFiscal::normalizarFormaPago((string) $prop['forma_pago']);
+        if ($formaPago === '' && strtoupper((string) $prop['metodo_pago']) === 'PPD') {
+            $formaPago = '99';
+        }
 
         $datos = [
             'fecha'              => (string) $prop['fecha'],
@@ -249,9 +256,9 @@ class CargaLotes
             'rfc_emisor'         => (string) ($prop['campos']['emisor_rfc']['valor'] ?? ''),
             'rfc_receptor'       => (string) ($prop['campos']['receptor_rfc']['valor'] ?? ''),
             'moneda'             => $prop['moneda'] !== '' ? $prop['moneda'] : 'MXN',
-            'forma_pago_sat'     => (string) $prop['forma_pago'],
+            'forma_pago_sat'     => $formaPago,
             'metodo_pago_sat'    => (string) $prop['metodo_pago'],
-            'metodo_pago'        => $formaSata[substr((string) $prop['forma_pago'], 0, 2)] ?? '',
+            'metodo_pago'        => $formaSata[substr($formaPago, 0, 2)] ?? '',
             'naturaleza'         => 'compra',
             'revision_fiscal'    => 'por_validar',
             'empresa_id'         => $prop['empresa'] ? (int) $prop['empresa']['id'] : 0,
@@ -349,6 +356,35 @@ class CargaLotes
             return false;
         }
         return true;
+    }
+
+    /**
+     * Atajo «limpiar la bandeja»: descarta del carril de gastos lo que ya no
+     * tiene sentido conservar —duplicados por folio, facturas ajenas y
+     * complementos ya registrados— sin tocar las facturas limpias ni las que se
+     * revisan a mano. Todo queda auditado, igual que el descarte por renglón.
+     * @return array{descartados: int, errores: array<string, string>}
+     */
+    public static function descartarResto(int $usuarioId): array
+    {
+        self::$errores = [];
+        $descartados = 0;
+        $errores = [];
+        foreach (self::pendientes('gastos') as $fila) {
+            $clase = (string) $fila['clase'];
+            $sobra = in_array($clase, ['duplicado', 'ajeno'], true)
+                || ($clase === 'complemento' && !empty($fila['duplicado']));
+            if (!$sobra) {
+                continue;
+            }
+            if (self::descartar((int) $fila['id'], $usuarioId)) {
+                $descartados++;
+            } else {
+                $errores[$fila['nombre']] = implode(' ', self::getErrores());
+            }
+        }
+
+        return ['descartados' => $descartados, 'errores' => $errores];
     }
 
     /**

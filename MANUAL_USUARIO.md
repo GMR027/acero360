@@ -275,7 +275,7 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 
 ### Que la plataforma lea la factura
 
-1. Gastos → «Leer factura» (o desde una venta, «Leer factura»). Sube el XML (lo mejor: datos exactos), el PDF o una foto.
+1. Contabilidad → Gastos → «Leer factura». Sube el XML (lo mejor: datos exactos), el PDF o una foto.
 2. Aparece una pantalla de revisión con lo que se leyó, qué tan seguro es cada dato y el aviso de discrepancias o duplicados. Corrige lo necesario y marca «Revisé este dato» en lo dudoso.
 3. Nada se guarda hasta que pulsas «Confirmar datos». Puedes asociar el documento a un gasto o venta que ya existe (sin duplicarlo) y queda registrado quién confirmó y cuándo.
 4. El folio de la factura (p. ej. A-123) y el UUID son datos distintos. Si no se puede leer el archivo, captura los datos a mano en la misma pantalla.
@@ -297,20 +297,21 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 1. Abre la venta (Ventas → su folio; también desde Contabilidad → Ingresos → «Abrir», desde los avisos del panel o desde «Pendientes de facturar») y busca «Facturación y cobro».
 2. En «Pago»: pulsa «Ya me pagaron todo» si ya te pagaron completo, o despliega «Anotar un pago parcial» y escribe cuándo, cuánto y cómo te pagaron. Si paga en partes, anota cada pago: queda «Pago parcial» hasta completar.
 
-### Decir si se facturó
+### Facturar la venta
 
-1. En esa misma sección, «¿Ya se facturó?» → elige el estado: Pendiente de facturar, Facturada o No facturada.
-2. Si hay factura, despliega «Folio, UUID y fecha (opcional)» y escribe el folio y el UUID (o súbelos: el XML los llena solos).
+1. En esa misma sección, llena los datos fiscales del receptor y el método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente», esos datos vienen precargados con los que trae el CFDI: revísalos.
+2. Adjunta el XML del CFDI (lo respalda y trae UUID y montos), el PDF o una foto. También puedes escribir el folio, el UUID y la fecha a mano.
+3. Si no tienes el archivo, marca «No tengo el archivo del CFDI: confirmo que la factura ya se emitió»: queda como confirmación manual, con quién y cuándo.
+4. Pulsa «Facturar y guardar»: la validación, los datos, el documento y la marca de facturada se guardan en un solo paso. Si falta algo obligatorio, no se factura y la pantalla te dice qué corregir.
 
-### Revisar y facturar
+### Si no se va a facturar
 
-1. El botón «Revisar y facturar» abre la revisión previa con los datos fiscales del receptor y con método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente» (subiste la factura que emitiste), esos cuatro campos vienen precargados con los que trae el CFDI; revísalos antes de continuar.
-2. La validación previa te avisa qué falta y qué no cuadra; no se factura hasta que no quede ningún error obligatorio.
+1. Despliega «Otras opciones (sin facturar)» y pulsa «Marcar No se facturará»: la venta deja de aparecer como pendiente.
+2. Si después sí se factura, vuelve a esa sección y usa «Volver a pendiente» para capturarla.
 
-### Subir la factura de la venta
+### Corregir una factura ya emitida
 
-1. Pulsa «Subir factura (PDF y/o XML)», de la misma sección: se abre una ventana —igual que en «Registro Venta Inteligente»— donde eliges el PDF y el XML juntos; después pulsa «Guardar facturación».
-2. Los archivos quedan listados en «Facturas y comprobantes», con su validación documental; ahí también se ven (el PDF en el visor y el XML con sus datos), se descargan o se dan de baja.
+La corrección no se hace en el formulario de facturación: registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
 
 ### Pendientes de facturar
 
