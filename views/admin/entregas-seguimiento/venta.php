@@ -145,7 +145,7 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
     <section class="tarjeta mb-lg">
         <div class="tabla-toolbar">
             <h2 class="titulo-5">Fotos de la entrega</h2>
-            <span class="texto-secundario texto-sm">Adjuntadas al registrar cada entrega. Se abren en una ventana.</span>
+            <span class="texto-secundario texto-sm">Adjuntadas al registrar cada entrega. Al abrirlas se muestran con la marca de agua del negocio, la fecha, la hora y la ubicación.</span>
         </div>
 
         <?php foreach ($entregasConFotos as $e) : $fechaE = date('d/m/Y', strtotime($e['fecha'])); $nFotos = count($e['fotos']); ?>
@@ -157,10 +157,10 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                     </span>
                 </p>
                 <ul class="seguimiento-fotos__lista">
-                    <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); ?>
+                    <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); $rutaMarcada = \App\FotosEntrega::url($foto['archivo']); ?>
                         <li class="seguimiento-fotos__item">
                             <button type="button" class="seguimiento-fotos__enlace"
-                                    data-ampliar-imagen="<?= escaparValores($rutaFoto) ?>"
+                                    data-ampliar-imagen="<?= escaparValores($rutaMarcada) ?>"
                                     data-ampliar-sobre="Fotos de la entrega"
                                     data-ampliar-titulo="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
                                     title="Ver la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
@@ -174,6 +174,30 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                 </ul>
             </div>
         <?php endforeach; ?>
+
+        <?php
+        // Una sola ubicación para toda la sección: la de la primera foto.
+        $primeraFoto = $entregasConFotos[0]['fotos'][0] ?? [];
+        $mapas = \App\FotosEntrega::urlsMapa($primeraFoto, (string) $venta->cliente_ubicacion);
+        ?>
+        <?php if ($mapas) : ?>
+            <div class="seguimiento-fotos__acciones">
+                <a class="btn btn--secundario btn--sm"
+                   href="<?= escaparValores($mapas['google']) ?>"
+                   target="_blank" rel="noopener noreferrer"
+                   aria-label="Abrir la ubicación de la entrega en Google Maps">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">location_on</span>
+                    <span>Google Maps</span>
+                </a>
+                <a class="btn btn--secundario btn--sm"
+                   href="<?= escaparValores($mapas['apple']) ?>"
+                   target="_blank" rel="noopener noreferrer"
+                   aria-label="Abrir la ubicación de la entrega en Apple Maps">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">map</span>
+                    <span>Apple Maps</span>
+                </a>
+            </div>
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 

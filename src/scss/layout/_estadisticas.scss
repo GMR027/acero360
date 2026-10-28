@@ -197,3 +197,63 @@
   align-items: center;
   margin-bottom: $espacio-lg;
 }
+
+/* Mapa histórico de ventas (Leaflet + OpenStreetMap). */
+.mapa-ventas {
+  &__resumen {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $espacio-xs;
+    align-items: center;
+  }
+
+  &__figura {
+    margin: $espacio-md 0 0;
+  }
+
+  &__lienzo {
+    height: clamp(20rem, 55vh, 34rem);
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+    overflow: hidden;
+    background-color: $color-superficie-baja;
+  }
+
+  /* El divIcon de Leaflet no debe traer fondo ni borde propios. */
+  &__pin-capa {
+    background: none;
+    border: 0;
+  }
+
+  &__pin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: $radio-full;
+    border: 2px solid #fff;
+    background-color: $color-primario;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 2px 8px rgba(31, 42, 55, 0.35);
+  }
+
+  &__numero {
+    line-height: 1;
+  }
+
+  &__globo {
+    font-size: 0.875rem;
+
+    p {
+      margin: $espacio-xs 0 0;
+    }
+  }
+
+  &__globo-fechas {
+    color: var(--color-texto-secundario);
+  }
+}

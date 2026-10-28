@@ -756,17 +756,25 @@ class Entregas
      * alguna falla lanza RuntimeException; los archivos ya escritos los retira
      * el que llama (borrarFotos), manteniendo un único punto de limpieza.
      *
+     * La fecha/hora de captura y el GPS se leen del temporal ANTES de
+     * procesarlo: Intervention re-codifica y borra el EXIF. Esos datos son los
+     * que usa la marca de agua al abrir la foto ampliada (FotosEntrega).
+     *
      * @param array<int, array> $fotos       entradas de $_FILES ya separadas.
      * @param array<int, string> $guardadas  nombres escritos, por referencia.
      */
     private static function guardarFotos(int $entregaId, array $fotos, int $usuarioId, array &$guardadas): void
     {
-        $insertar = self::$db->prepare('INSERT INTO entrega_fotos (entrega_id, archivo, usuario_id) VALUES (?, ?, ?)');
+        $insertar = self::$db->prepare(
+            'INSERT INTO entrega_fotos (entrega_id, archivo, tomada_en, latitud, longitud, usuario_id) VALUES (?, ?, ?, ?, ?, ?)'
+        );
 
         foreach ($fotos as $foto) {
             if (empty($foto['tmp_name'])) {
                 continue;   // campo sin archivo: no es un error.
             }
+
+            $metadatos = FotosEntrega::metadatos($foto);
 
             $nombre = Imagenes::subir($foto, 'entrega', 'informe');
             if ($nombre === null) {
@@ -775,7 +783,10 @@ class Entregas
             }
 
             $guardadas[] = $nombre;
-            $insertar->bind_param('isi', $entregaId, $nombre, $usuarioId);
+            $tomada      = $metadatos['tomada_en'];
+            $latitud     = $metadatos['latitud'];
+            $longitud    = $metadatos['longitud'];
+            $insertar->bind_param('issddi', $entregaId, $nombre, $tomada, $latitud, $longitud, $usuarioId);
             $insertar->execute();
         }
 
@@ -871,6 +882,42 @@ class Entregas
         }
 
         return array_values($entregas);
+    }
+
+    /**
+     * Datos de UNA foto del acta para dibujar su marca de agua al mostrarla.
+     *
+     * La búsqueda es por nombre de archivo y sólo devuelve fotos registradas
+     * en entrega_fotos: el endpoint nunca sirve una ruta arbitraria del disco.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function fotoDeEntrega(string $archivo): ?array
+    {
+        $archivo = basename(trim($archivo));
+        if ($archivo === '' || !preg_match('/^[A-Za-z0-9._-]+$/', $archivo)) {
+            return null;
+        }
+
+        $consulta = self::$db->prepare(
+            'SELECT f.archivo, f.tomada_en, f.latitud, f.longitud,
+                    en.fecha, en.creado_en,
+                    e.logo AS empresa_logo, e.nombre AS empresa_nombre,
+                    cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                    cl.ubicacion AS cliente_ubicacion
+               FROM entrega_fotos f
+               JOIN entregas en ON en.id = f.entrega_id
+               JOIN ventas v    ON v.id = en.venta_id
+               JOIN empresas e  ON e.id = v.empresa_id
+               JOIN clientes cl ON cl.id = v.cliente_id
+              WHERE f.archivo = ? LIMIT 1'
+        );
+        $consulta->bind_param('s', $archivo);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ?: null;
     }
 
     /* --------------------------------------------------------------------

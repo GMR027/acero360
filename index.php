@@ -325,6 +325,7 @@ $router->get('/admin/entregas/detalle',  'views/admin/entregas/detalle.php',  's
 $router->post('/admin/entregas/estado',  'views/admin/entregas/estado.php',   'soloAdmin');
 $router->get('/admin/entregas/entregar', 'views/admin/entregas/entregar.php', 'soloAdmin');
 $router->post('/admin/entregas/entregar','views/admin/entregas/entregar.php', 'soloAdmin');
+$router->get('/admin/entregas/foto',     'views/admin/entregas/foto.php',     'soloAdmin');
 $router->get('/admin/entregas/pdf',      'views/admin/entregas/pdf.php',      'soloAdmin');
 $router->get('/admin/entregas/imprimir', 'views/admin/entregas/imprimir.php', 'soloAdmin');
 

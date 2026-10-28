@@ -96,6 +96,14 @@
       border-color: $color-primario;
     }
   }
+
+  /* Acciones de la sección: abrir la ubicación en Google o Apple Maps. */
+  &__acciones {
+    margin-top: $espacio-sm;
+    display: flex;
+    flex-wrap: wrap;
+    gap: $espacio-sm;
+  }
 }
 
 /* Línea de tiempo del historial de la venta. */

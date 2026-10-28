@@ -57,6 +57,8 @@ const hash = execFileSync('php', ['-r', `echo password_hash('${CLAVE}', PASSWORD
 sql(`INSERT INTO usuarios (nombre,email,contrasena,rol) VALUES ('Prueba operación','${EMAIL}','${hash}',1)`);
 const usuario = sql(`SELECT id FROM usuarios WHERE email='${EMAIL}'`);
 const cliente = sql('SELECT id FROM clientes ORDER BY id LIMIT 1');
+const ubicacionCliente = sql(`SELECT ubicacion FROM clientes WHERE id=${cliente}`);
+let ubicacionClienteTocada = false;
 sql('UPDATE productos SET stock = 100 WHERE id = 37');
 execFileSync('php', ['-r', `require '${RAIZ}/includes/app.php';
 App\\Ventas::crear(['empresa_id'=>1,'cliente_id'=>${cliente},'fecha'=>date('Y-m-d'),'aplica_iva'=>0,'descuento_pct'=>0],[37=>['cantidad'=>10,'precio'=>100,'descuento_pct'=>0,'no_recordar'=>1]],${usuario});`], { env: { ...process.env, DB_NAME: DB } });
@@ -178,6 +180,69 @@ try {
     await pagina.locator('.seguimiento-fotos__imagen').count() === 2,
     String(await pagina.locator('.seguimiento-fotos__imagen').count()));
 
+  // Ubicación: un único par de botones para toda la sección, con la primera foto.
+  verifica('sin GPS ni dirección no se muestran los botones de mapas',
+    await pagina.locator('.seguimiento-fotos__acciones').count() === 0);
+
+  const primera = sql(`SELECT f.archivo FROM entrega_fotos f
+                         JOIN entregas e ON e.id = f.entrega_id
+                        WHERE e.venta_id=${venta} ORDER BY f.id LIMIT 1`);
+  sql(`UPDATE entrega_fotos SET latitud=24.1426667, longitud=-110.3127500 WHERE archivo='${primera}'`);
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  const mapaGoogle = pagina.locator('.seguimiento-fotos__acciones a', { hasText: 'Google Maps' });
+  const mapaApple  = pagina.locator('.seguimiento-fotos__acciones a', { hasText: 'Apple Maps' });
+  verifica('hay un botón de Google Maps y uno de Apple Maps',
+    await mapaGoogle.count() === 1 && await mapaApple.count() === 1);
+  const hrefGoogle = await mapaGoogle.getAttribute('href');
+  const hrefApple  = await mapaApple.getAttribute('href');
+  verifica('Google Maps abre el GPS de la primera foto',
+    hrefGoogle === 'https://www.google.com/maps/search/?api=1&query=24.1426667%2C-110.3127500', hrefGoogle);
+  verifica('Apple Maps abre el GPS de la primera foto',
+    hrefApple === 'https://maps.apple.com/?q=24.1426667%2C-110.3127500', hrefApple);
+  verifica('los dos abren en pestaña nueva sin acceso al origen',
+    await mapaGoogle.getAttribute('target') === '_blank'
+    && (await mapaGoogle.getAttribute('rel') || '').includes('noopener')
+    && await mapaApple.getAttribute('target') === '_blank'
+    && (await mapaApple.getAttribute('rel') || '').includes('noopener'));
+
+  // Sin GPS, los botones caen a la dirección registrada del cliente.
+  sql(`UPDATE entrega_fotos SET latitud=NULL, longitud=NULL WHERE archivo='${primera}'`);
+  sql(`UPDATE clientes SET ubicacion='La Paz, Baja California Sur' WHERE id=${cliente}`);
+  ubicacionClienteTocada = true;
+  await pagina.reload({ waitUntil: 'domcontentloaded' });
+  const hrefGoogleDir = await pagina.locator('.seguimiento-fotos__acciones a', { hasText: 'Google Maps' }).getAttribute('href');
+  const hrefAppleDir  = await pagina.locator('.seguimiento-fotos__acciones a', { hasText: 'Apple Maps' }).getAttribute('href');
+  verifica('sin GPS los mapas usan la dirección del cliente',
+    hrefGoogleDir === 'https://www.google.com/maps/search/?api=1&query=La%20Paz%2C%20Baja%20California%20Sur'
+    && hrefAppleDir === 'https://maps.apple.com/?q=La%20Paz%2C%20Baja%20California%20Sur',
+    `${hrefGoogleDir} | ${hrefAppleDir}`);
+
+  // La miniatura sigue siendo el archivo original, pero el visor abre la
+  // versión con marca de agua (endpoint /admin/entregas/foto).
+  const enlaces = await pagina.locator('.seguimiento-fotos__enlace')
+    .evaluateAll((botones) => botones.map((b) => b.getAttribute('data-ampliar-imagen') || ''));
+  verifica('la foto ampliada apunta al endpoint de la marca de agua',
+    enlaces.length === 2 && enlaces.every((u) => u.startsWith('/admin/entregas/foto?f=')),
+    enlaces.join(' | '));
+
+  const respuesta = await pagina.request.get(new URL(enlaces[0], BASE).href);
+  const cuerpo = Buffer.from(await respuesta.body());
+  const original = readFileSync(`${RAIZ}public/image/${lista[0]}`);
+  verifica('el endpoint de la foto responde una imagen',
+    respuesta.ok() && (respuesta.headers()['content-type'] || '').startsWith('image/'),
+    `${respuesta.status()} ${respuesta.headers()['content-type'] || ''}`);
+  verifica('la foto ampliada lleva la marca de agua (no es el original)',
+    cuerpo.length > 0 && !cuerpo.equals(original),
+    `${cuerpo.length} vs ${original.length} bytes`);
+
+  // El visor real también debe cargar la versión marcada.
+  await pagina.click('.seguimiento-fotos__enlace');
+  await pagina.waitForSelector('#modal-principal:not([hidden]) .imagen-ampliada', { timeout: 5000 });
+  const cargaVisor = await pagina.locator('#modal-principal .imagen-ampliada')
+    .evaluate((img) => img.complete && img.naturalWidth > 0);
+  verifica('la ventana ampliada carga la foto con marca', cargaVisor);
+  await pagina.locator('#modal-principal [data-cerrar-modal]').first().click();
+
   console.log('6. Consola');
   verifica('sin errores de JavaScript', errores.length === 0, errores.join(' | '));
 } catch (e) {
@@ -185,6 +250,9 @@ try {
   console.log('  ✗ se interrumpió → ' + e.message);
 } finally {
   limpiar();
+  if (ubicacionClienteTocada) {
+    sql(`UPDATE clientes SET ubicacion='${ubicacionCliente.replace(/'/g, "''")}' WHERE id=${cliente}`);
+  }
   sql('UPDATE productos SET stock = 100 WHERE id = 37');
   await navegador.close();
 }

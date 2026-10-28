@@ -47,6 +47,17 @@ export function graficas(done) {
   done();
 }
 
+/** Copia Leaflet a build/ (solo lo carga el mapa de ventas de estadísticas). */
+export function mapas(done) {
+  src('node_modules/leaflet/dist/leaflet.js', { encoding: false })
+    .pipe(dest(rutas.jsOut));
+  src('node_modules/leaflet/dist/leaflet.css', { encoding: false })
+    .pipe(dest(rutas.cssOut));
+  src('node_modules/leaflet/dist/images/*', { encoding: false })
+    .pipe(dest(rutas.cssOut + '/images'));
+  done();
+}
+
 /** Observa los archivos fuente y recompila ante cambios. */
 export function watchArchivos() {
   watch(rutas.scssWatch, css);
@@ -54,7 +65,7 @@ export function watchArchivos() {
 }
 
 /** Compilación completa (lo que ejecuta `npm run build`). */
-export const build = series(parallel(css, js, graficas));
+export const build = series(parallel(css, js, graficas, mapas));
 
 /** Tarea por defecto: compila y queda observando. */
 export default series(build, watchArchivos);

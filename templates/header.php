@@ -63,6 +63,17 @@ $versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
     <link href="https://fonts.googleapis.com/css2?family=Material+Icons&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="/build/css/app.css<?= $versionCss !== false ? '?v=' . $versionCss : '' ?>">
+    <?php foreach (($GLOBALS['estilosPagina'] ?? []) as $estiloPagina) :
+        // Igual que scriptsPagina: los ficheros locales se auto-versionan con filemtime.
+        if (strpos($estiloPagina, '?') === false && str_starts_with($estiloPagina, '/')) {
+            $ficheroEstilo = __DIR__ . '/..' . $estiloPagina;
+            if (is_file($ficheroEstilo)) {
+                $estiloPagina .= '?v=' . filemtime($ficheroEstilo);
+            }
+        }
+    ?>
+    <link rel="stylesheet" href="<?= escaparValores($estiloPagina) ?>">
+    <?php endforeach; ?>
 </head>
 <body data-movil="<?= modoMovil() ?>">
 <!-- Primera parada del teclado: permite saltarse el menú lateral.

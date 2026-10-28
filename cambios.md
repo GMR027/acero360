@@ -1702,3 +1702,32 @@ La sección «Facturación y cobro» tenía dos formularios para la misma operac
 - **`views/admin/contabilidad/ingresos/accion.php`:** el mensaje de validación apunta a «Facturación y cobro» en lugar del modal retirado.
 - **Manual:** `includes/manual.php` y `MANUAL_USUARIO.md` describen el paso único y las opciones de no facturar/corregir.
 - **Pruebas:** `pruebas/probar_inteligente.mjs` lee los cuatro datos del CFDI directamente en el formulario (ya no abre el modal). `etapa44`, `etapa40` y `etapa35` se corrieron contra `cotizaciones_test`; los fallos observados son los de la base de pruebas (RFC principal, periodo cerrado), no de este cambio. Sin migración.
+
+---
+
+## Ronda — Marca de agua en las fotos de entrega (2026-10-28)
+
+Las fotos del acta se abren ahora con una marca de agua: **logo del negocio emisor arriba a la izquierda** y, abajo a la izquierda, **fecha, hora y ubicación** con sombra para resaltar sobre la imagen. La foto original **no se modifica**: la marca se dibuja al vuelo cuando se abre el visor, así que también salen marcadas las fotos anteriores y el archivo de disco queda intacto.
+
+- **Migración `041_entrega_fotos_metadatos.sql`:** `entrega_fotos.tomada_en`, `latitud` y `longitud` (nulas). Guardan el EXIF leído **antes** de que Intervention re-codifique la foto y lo borre; con ellas la marca muestra la fecha, la hora y el GPS reales de la toma.
+- **`clases/FotosEntrega.php`:** `metadatos()` lee `DateTimeOriginal`/`DateTime` y el GPS (grados decimales, con S/O negativos); `marcada()` dibuja logo y texto con Intervention/GD; `url()` arma el enlace al endpoint. El logo se recorta con `Imagenes::logoRecortado` y se limita a ~20 % del ancho; el texto va en blanco con sombra negra desplazada y se recorta con «…» si no cabe.
+- **`clases/Entregas.php`:** `guardarFotos()` guarda los metadatos junto con la fila; nuevo `fotoDeEntrega($archivo)` que sólo devuelve fotos registradas en `entrega_fotos`, con su venta, empresa y cliente.
+- **`views/admin/entregas/foto.php` + ruta `GET /admin/entregas/foto`:** sirve la foto ampliada con la marca (sólo administradores, `Cache-Control: private, max-age=86400`). Si el dibujo falla, devuelve el original para no romper el visor.
+- **`views/admin/entregas-seguimiento/venta.php`:** las miniaturas siguen mostrando el original; `data-ampliar-imagen` apunta al endpoint, de modo que el visor existente abre la versión marcada sin tocar JavaScript. Se actualiza la leyenda de la sección.
+- **Botones «Google Maps» y «Apple Maps»:** debajo de la galería, un único par de botones para toda la sección. Toman la ubicación de la **primera foto** (primer entrega, primera miniatura): su GPS si lo tiene y, si no, `clientes.ubicacion`. `FotosEntrega::urlsMapa()` arma los dos enlaces sin API key (`google.com/maps/search/?api=1&query=…` y `maps.apple.com/?q=…`), abren en pestaña nueva y no se pintan si no hay ni GPS ni dirección.
+- **Respaldos:** si la foto no trae EXIF (todas las anteriores y algunas nuevas), la fecha/hora salen de `entregas.creado_en` y la ubicación de `clientes.ubicacion`; si tampoco hay dirección, sólo se omite esa línea.
+- **Pruebas:** `pruebas/probar_operacion.mjs` comprueba que el visor apunta al endpoint, que responde una imagen válida y que la versión marcada no es el archivo original; además, que los botones de mapas no aparecen sin datos, que usan el GPS de la primera foto y que caen a la dirección del cliente cuando falta GPS. Corrida completa contra `cotizaciones_test`: **37/37**. También se verificó el camino real de subida con un JPEG con EXIF (fecha `2026-10-28 14:35:22`, latitud `24.1426667`, longitud `-110.3127500`): la fila guardó los tres datos y la limpieza dejó la base de prueba intacta.
+
+---
+
+## Ronda — Mapa histórico de ventas por GPS (2026-10-28)
+
+Hasta abajo de `/admin/estadisticas` hay ahora un mapa de OpenStreetMap con un pin por lugar donde se ha entregado. El número del pin es la **cantidad de ventas** registradas a **50 m o menos** de ese punto; al tocarlo se ven los clientes y el rango de fechas.
+
+- **`clases/Estadisticas.php`:** nuevo `mapaVentas($empresa, $cliente)` y constante `RADIO_MAPA = 50`. Toma la **primera foto con GPS de cada venta** (una entrega con varias fotos no infla el conteo), agrupa con distancia haversine contra el primer punto del lugar y devuelve `puntos`, `ventas_ubicadas` y `ventas_sin_ubicacion`.
+- **Ventas incluidas:** solo `estado = 'registrada'`; las canceladas quedan fuera. Las ventas sin ninguna foto con GPS se cuentan aparte y se avisa cuántas no aparecen en el mapa. El mapa es **histórico completo** y respeta los filtros de negocio y cliente, no el periodo.
+- **`views/admin/estadisticas/index.php`:** tarjeta «Mapa de ventas» al final, con resumen, JSON de los puntos en `data-mapa-ventas` y aviso cuando todavía no hay ubicaciones.
+- **`src/js/modulos/mapaVentas.js`:** Leaflet se inicializa al acercarse el mapa a la pantalla; pines circulares numerados, popup con nodos del DOM y ajuste automático de la vista. La rueda no secuestra el scroll.
+- **Leaflet 1.9.4:** nueva dependencia de npm y tarea `mapas` en `gulpfile.js`, que copia `leaflet.js`, `leaflet.css` e imágenes a `build/`. Solo la página de estadísticas los carga (`estilosPagina` nuevo en `templates/header.php`, `scriptsPagina` para el JS).
+- **CSP:** `img-src` permite `https://tile.openstreetmap.org` para las teselas. La atribución de OpenStreetMap aparece en el mapa y en el pie de la figura.
+- **Pruebas:** `pruebas/php/mapa_ventas.php` verifica los grupos 4/2/1, el radio de 50 m, la foto doble, la venta cancelada, la sin GPS y los filtros por negocio (TODO OK). `pruebas/probar_mapa_ventas.mjs` comprueba en navegador los 3 pines, sus números, las teselas, el globo y el resumen (**10/10**). `probar_etapa7.mjs` sigue en **42/42** y ambas pruebas quedaron en `pruebas/ejecutar_todo.sh`.

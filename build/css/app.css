@@ -4403,6 +4403,15 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 .seguimiento-fotos__imagen:hover {
   border-color: var(--color-primario);
 }
+.seguimiento-fotos {
+  /* Acciones de la sección: abrir la ubicación en Google o Apple Maps. */
+}
+.seguimiento-fotos__acciones {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 
 /* Línea de tiempo del historial de la venta. */
 .seguimiento-timeline {
@@ -4664,6 +4673,58 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   gap: 0.5rem;
   align-items: center;
   margin-bottom: 1.5rem;
+}
+
+/* Mapa histórico de ventas (Leaflet + OpenStreetMap). */
+.mapa-ventas__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+.mapa-ventas__figura {
+  margin: 1rem 0 0;
+}
+.mapa-ventas__lienzo {
+  height: clamp(20rem, 55vh, 34rem);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  background-color: var(--color-superficie-baja);
+}
+.mapa-ventas {
+  /* El divIcon de Leaflet no debe traer fondo ni borde propios. */
+}
+.mapa-ventas__pin-capa {
+  background: none;
+  border: 0;
+}
+.mapa-ventas__pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  background-color: var(--color-primario);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(31, 42, 55, 0.35);
+}
+.mapa-ventas__numero {
+  line-height: 1;
+}
+.mapa-ventas__globo {
+  font-size: 0.875rem;
+}
+.mapa-ventas__globo p {
+  margin: 0.25rem 0 0;
+}
+.mapa-ventas__globo-fechas {
+  color: var(--color-texto-secundario);
 }
 
 /* ==========================================================================

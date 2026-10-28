@@ -751,4 +751,152 @@ class Estadisticas
 
         return Exportador::libro($hojas);
     }
+
+    /* --------------------------------------------------------------------
+     * MAPA DE VENTAS (GPS DE LAS FOTOS DE ENTREGA)
+     * ------------------------------------------------------------------ */
+
+    /** Radio en metros para considerar que dos entregas son el mismo lugar. */
+    public const RADIO_MAPA = 50;
+
+    /**
+     * Ventas ubicadas por el GPS de sus fotos de entrega, agrupadas por lugar.
+     *
+     * Se usa la PRIMERA foto con GPS de cada venta, así una entrega con varias
+     * fotos no infla el conteo. Los grupos se forman contra el primer punto:
+     * todo lo que esté a 50 m o menos del ancla cuenta como el mismo lugar.
+     * Las ventas canceladas y las que no tienen ninguna foto con GPS quedan
+     * fuera del mapa; estas últimas se informan en «ventas_sin_ubicacion».
+     *
+     * @return array{radio: int, puntos: array<int, array{lat: float, lon: float, ventas: int, clientes: string[], primera: string, ultima: string}>, ventas_ubicadas: int, ventas_sin_ubicacion: int}
+     */
+    public static function mapaVentas(int $empresa = 0, int $cliente = 0): array
+    {
+        $donde = ["v.estado = 'registrada'", 'f.latitud IS NOT NULL', 'f.longitud IS NOT NULL'];
+        $tipos = '';
+        $valores = [];
+        if ($empresa > 0) {
+            $donde[] = 'v.empresa_id = ?';
+            $tipos .= 'i';
+            $valores[] = $empresa;
+        }
+        if ($cliente > 0) {
+            $donde[] = 'v.cliente_id = ?';
+            $tipos .= 'i';
+            $valores[] = $cliente;
+        }
+
+        $consulta = self::$db->prepare(
+            'SELECT v.id AS venta_id, v.fecha,
+                    COALESCE(NULLIF(cl.nombre_empresa, ""), cl.nombre) AS cliente,
+                    f.latitud, f.longitud
+               FROM ventas v
+               JOIN clientes cl   ON cl.id = v.cliente_id
+               JOIN entregas en   ON en.venta_id = v.id
+               JOIN entrega_fotos f ON f.entrega_id = en.id
+              WHERE ' . implode(' AND ', $donde) . '
+              ORDER BY v.id, f.id'
+        );
+        if ($tipos !== '') {
+            $consulta->bind_param($tipos, ...$valores);
+        }
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        // Agrupa por lugar; cada venta entra una sola vez aunque tenga varias fotos.
+        $grupos = [];
+        $vistas = [];
+        foreach ($filas as $fila) {
+            $ventaId = (int) $fila['venta_id'];
+            if (isset($vistas[$ventaId])) {
+                continue;
+            }
+            $vistas[$ventaId] = true;
+
+            $lat     = (float) $fila['latitud'];
+            $lon     = (float) $fila['longitud'];
+            $clienteNombre = (string) $fila['cliente'];
+            $fecha   = (string) $fila['fecha'];
+
+            $indice = null;
+            foreach ($grupos as $i => $grupo) {
+                if (self::distanciaMetros($lat, $lon, $grupo['lat'], $grupo['lon']) <= self::RADIO_MAPA) {
+                    $indice = $i;
+                    break;
+                }
+            }
+
+            if ($indice === null) {
+                $grupos[] = [
+                    'lat'      => $lat,
+                    'lon'      => $lon,
+                    'ventas'   => 1,
+                    'clientes' => $clienteNombre !== '' ? [$clienteNombre] : [],
+                    'primera'  => $fecha,
+                    'ultima'   => $fecha,
+                ];
+                continue;
+            }
+
+            $grupos[$indice]['ventas']++;
+            if ($clienteNombre !== '' && !in_array($clienteNombre, $grupos[$indice]['clientes'], true)) {
+                $grupos[$indice]['clientes'][] = $clienteNombre;
+            }
+            if ($fecha !== '' && ($grupos[$indice]['primera'] === '' || $fecha < $grupos[$indice]['primera'])) {
+                $grupos[$indice]['primera'] = $fecha;
+            }
+            if ($fecha !== '' && ($grupos[$indice]['ultima'] === '' || $fecha > $grupos[$indice]['ultima'])) {
+                $grupos[$indice]['ultima'] = $fecha;
+            }
+        }
+
+        usort($grupos, static fn (array $a, array $b): int => $b['ventas'] <=> $a['ventas']);
+
+        // Ventas registradas sin ninguna foto con GPS (incluye las que no tienen fotos).
+        $dondeSin = [
+            "v.estado = 'registrada'",
+            'NOT EXISTS (SELECT 1 FROM entregas en2 JOIN entrega_fotos f2 ON f2.entrega_id = en2.id
+                          WHERE en2.venta_id = v.id AND f2.latitud IS NOT NULL AND f2.longitud IS NOT NULL)',
+        ];
+        $tiposSin = '';
+        $valoresSin = [];
+        if ($empresa > 0) {
+            $dondeSin[] = 'v.empresa_id = ?';
+            $tiposSin .= 'i';
+            $valoresSin[] = $empresa;
+        }
+        if ($cliente > 0) {
+            $dondeSin[] = 'v.cliente_id = ?';
+            $tiposSin .= 'i';
+            $valoresSin[] = $cliente;
+        }
+
+        $consulta = self::$db->prepare('SELECT COUNT(*) FROM ventas v WHERE ' . implode(' AND ', $dondeSin));
+        if ($tiposSin !== '') {
+            $consulta->bind_param($tiposSin, ...$valoresSin);
+        }
+        $consulta->execute();
+        $sinUbicacion = (int) $consulta->get_result()->fetch_row()[0];
+        $consulta->close();
+
+        return [
+            'radio'               => self::RADIO_MAPA,
+            'puntos'              => $grupos,
+            'ventas_ubicadas'     => array_sum(array_column($grupos, 'ventas')),
+            'ventas_sin_ubicacion' => $sinUbicacion,
+        ];
+    }
+
+    /** Distancia en metros entre dos coordenadas (fórmula de haversine). */
+    private static function distanciaMetros(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $radioTierra = 6371000.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
+        return $radioTierra * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
 }

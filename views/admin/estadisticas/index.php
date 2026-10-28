@@ -11,6 +11,7 @@ soloAdmin();
 $p        = \App\Estadisticas::parametros($_GET);
 $r        = \App\Estadisticas::reporte($p);
 $f        = $p['filtros'];
+$mapaVentas = \App\Estadisticas::mapaVentas($f['empresa'], $f['cliente']);
 $empresas = \App\Empresas::mostrarTodos(100, 0);
 $clientes = \App\Clientes::mostrarTodos(1000, 0, '');
 $productos = \App\Productos::mostrarTodos(500, 0);
@@ -63,6 +64,9 @@ $tarjetaGrafica = static function (array $g) use ($anchas): string {
 $vacio = static fn (string $texto): string => '<div class="vacio"><p class="vacio__titulo">' . escaparValores($texto) . '</p></div>';
 
 $hoyAnio = (int) date('Y');
+
+// Leaflet sólo se carga en esta página (JS y CSS), igual que ECharts.
+$GLOBALS['estilosPagina'] = ['/build/css/leaflet.css'];
 
 template('header', [
     'titulo' => 'Estadísticas', 'subtitulo' => 'Cómo van tus ventas', 'rutaActiva' => '/admin/estadisticas',
@@ -311,4 +315,46 @@ template('header', [
     </div>
 </details>
 
-<?php $GLOBALS['scriptsPagina'] = ['/build/js/echarts.min.js']; template('footer'); ?>
+<!-- Mapa histórico de ventas: GPS de las fotos de entrega, agrupado a 50 m. -->
+<section class="tarjeta mb-lg mapa-ventas" id="mapa-ventas-seccion" aria-labelledby="t-mapa-ventas">
+    <div class="tabla-toolbar">
+        <div>
+            <h2 class="titulo-5" id="t-mapa-ventas">Mapa de ventas</h2>
+            <p class="texto-sm texto-secundario mb-0">
+                Histórico completo, según el GPS de las fotos de entrega. Los pines agrupan las ventas a
+                <strong><?= (int) $mapaVentas['radio'] ?> m</strong> o menos y muestran cuántas hay en cada lugar.
+            </p>
+        </div>
+        <div class="mapa-ventas__resumen">
+            <span class="badge badge--info"><?= number_format($mapaVentas['ventas_ubicadas']) ?> venta<?= $mapaVentas['ventas_ubicadas'] === 1 ? '' : 's' ?> ubicada<?= $mapaVentas['ventas_ubicadas'] === 1 ? '' : 's' ?></span>
+            <?php if ($mapaVentas['ventas_sin_ubicacion'] > 0) : ?>
+                <span class="badge badge--neutro"><?= number_format($mapaVentas['ventas_sin_ubicacion']) ?> sin ubicación</span>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <?php if ($mapaVentas['puntos']) : ?>
+        <figure class="mapa-ventas__figura" data-mapa-ventas="<?= escaparValores(json_encode($mapaVentas, JSON_UNESCAPED_UNICODE)) ?>">
+            <div class="mapa-ventas__lienzo" id="mapa-ventas" aria-label="Mapa de ventas por ubicación"></div>
+            <figcaption class="campo__ayuda">
+                Cada número indica las ventas registradas en ese lugar. Toca un pin para ver los clientes y las fechas.
+                © colaboradores de OpenStreetMap.
+            </figcaption>
+        </figure>
+    <?php else : ?>
+        <p class="nota nota--info" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">location_off</span>
+            <span>Aún no hay ventas con GPS en las fotos de entrega. El mapa aparecerá cuando una foto del acta incluya su ubicación.</span>
+        </p>
+    <?php endif; ?>
+
+    <?php if ($mapaVentas['ventas_sin_ubicacion'] > 0) : ?>
+        <p class="campo__ayuda mt-sm mb-0">
+            <?= number_format($mapaVentas['ventas_sin_ubicacion']) ?> venta<?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? '' : 's' ?> registrada<?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? '' : 's' ?>
+            no <?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? 'tiene' : 'tienen' ?> una foto con GPS y no
+            <?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? 'aparece' : 'aparecen' ?> en el mapa.
+        </p>
+    <?php endif; ?>
+</section>
+
+<?php $GLOBALS['scriptsPagina'] = ['/build/js/leaflet.js', '/build/js/echarts.min.js']; template('footer'); ?>
