@@ -18,6 +18,12 @@ $revision = \App\Gastos::REVISION[$gasto['revision_fiscal']];
 $factura  = \App\Gastos::estadoFactura($gasto);
 $periodo  = ['anio' => (int) substr($gasto['fecha'], 0, 4), 'mes' => (int) substr($gasto['fecha'], 5, 2), 'empresa' => 0];
 
+// El gasto que nació de una compra se paga en la compra (pagos_compra), no aquí.
+// La factura puede ser de un periodo ya cerrado: lo que importa es que la fecha
+// de pago caiga en un periodo abierto (lo valida Gastos::pagar).
+$orden = \App\CompraContable::ordenDeGasto($id);
+$puedePagar = $vigente && $gasto['estado_pago'] === 'pendiente' && !$orden;
+
 template('header', ['titulo' => 'Gasto: ' . $gasto['beneficiario'], 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
 ?>
@@ -53,8 +59,7 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
 
     <?php /* Este gasto nació de una compra: aquí se ve el dinero realmente pagado al proveedor
              (trazabilidad de pagos_compra), no solo la bandera «pagado» del gasto. */ ?>
-    <?php $orden = \App\CompraContable::ordenDeGasto($id);
-    if ($orden) :
+    <?php if ($orden) :
         $totalC = \App\PagosCompra::totalCompra($orden);
         $pagadoC = \App\PagosCompra::pagado((int) $orden['id']);
         $estadoPagoC = \App\PagosCompra::estado($totalC, $pagadoC);
@@ -86,23 +91,45 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
     <?php if ($gasto['observaciones']) : ?><p class="texto-secundario mt-md"><?= nl2br(escaparValores($gasto['observaciones'])) ?></p><?php endif; ?>
     <?php if (!$vigente) : ?><p class="nota nota--advertencia mt-md"><span>Cancelado: <?= escaparValores((string) $gasto['motivo_cancelacion']) ?></span></p><?php endif; ?>
 
-    <?php if ($vigente && !$cerrado) : ?>
+    <?php if ($vigente && ($puedePagar || !$cerrado)) : ?>
         <div class="encabezado-pagina__acciones mt-lg">
-            <a class="btn btn--secundario" href="/admin/contabilidad/gastos/editar?id=<?= $id ?>">Editar</a>
-            <form action="/admin/contabilidad/gastos/accion" method="post" data-validar
-                  data-confirmacion-sobre="Gasto"
-                  data-confirmacion="¿Eliminar este gasto?"
-                  data-confirmacion-mensaje="El gasto se borrará junto con sus documentos. Queda 90 días en la Papelera por si necesitas restaurarlo."
-                  data-confirmacion-boton="Sí, eliminar">
-                <input type="hidden" name="id" value="<?= $id ?>">
-                <label class="solo-lectores" for="motivo">Motivo de la eliminación</label>
-                <input class="control control--compacto" type="text" id="motivo" name="motivo" placeholder="Motivo de la eliminación" maxlength="200" required minlength="5">
-                <button class="btn btn--peligro" type="submit">Eliminar gasto</button>
-            </form>
+            <?php if ($puedePagar) : ?>
+                <a class="btn btn--primario" href="/admin/contabilidad/gastos/pagar?id=<?= $id ?>"
+                   data-modal-form="tpl-pagar-gasto"
+                   data-modal-sobre-titulo="Gasto: <?= escaparValores($gasto['beneficiario']) ?>"
+                   data-modal-titulo="Registrar pago"
+                   data-modal-confirmar="Guardar pago">Pagar</a>
+            <?php endif; ?>
+            <?php /* Editar y eliminar sí mueven el gasto: siguen bloqueados en un periodo cerrado. */ ?>
+            <?php if (!$cerrado) : ?>
+                <a class="btn btn--secundario" href="/admin/contabilidad/gastos/editar?id=<?= $id ?>">Editar</a>
+                <form action="/admin/contabilidad/gastos/accion" method="post" data-validar
+                      data-confirmacion-sobre="Gasto"
+                      data-confirmacion="¿Eliminar este gasto?"
+                      data-confirmacion-mensaje="El gasto se borrará junto con sus documentos. Queda 90 días en la Papelera por si necesitas restaurarlo."
+                      data-confirmacion-boton="Sí, eliminar">
+                    <input type="hidden" name="id" value="<?= $id ?>">
+                    <label class="solo-lectores" for="motivo">Motivo de la eliminación</label>
+                    <input class="control control--compacto" type="text" id="motivo" name="motivo" placeholder="Motivo de la eliminación" maxlength="200" required minlength="5">
+                    <button class="btn btn--peligro" type="submit">Eliminar gasto</button>
+                </form>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </section>
 
-<?php template('documentosOperacion', ['entidad' => 'gasto', 'entidadId' => $id, 'retorno' => '/admin/contabilidad/gastos/detalle?id=' . $id, 'bloqueado' => $cerrado || !$vigente]); ?>
+<?php template('documentosOperacion', [
+    'entidad' => 'gasto',
+    'entidadId' => $id,
+    'retorno' => '/admin/contabilidad/gastos/detalle?id=' . $id,
+    'bloqueado' => $cerrado || !$vigente,
+    'gasto' => $gasto,
+]); ?>
+
+<?php if ($puedePagar) : ?>
+    <template id="tpl-pagar-gasto">
+        <?php template('formPagoGasto', ['gasto' => $gasto, 'token' => tokenFormulario()]); ?>
+    </template>
+<?php endif; ?>
 
 <?php template('footer'); ?>

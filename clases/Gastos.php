@@ -820,6 +820,98 @@ class Gastos
         return true;
     }
 
+    /**
+     * Registra el pago de un gasto pendiente con la fecha y los datos del pago.
+     *
+     * El gasto nació de una compra no se paga aquí: su pago se registra en la
+     * compra (pagos_compra) para no contar el mismo dinero dos veces.
+     *
+     * @param array<string, mixed> $datos fecha_pago, metodo_pago, forma_pago_sat, metodo_pago_sat
+     */
+    public static function pagar(int $id, array $datos, int $usuarioId): bool
+    {
+        self::$errores = [];
+        $gasto = self::buscarID($id);
+
+        if (!$gasto || $gasto['estado'] !== 'vigente') {
+            self::$errores[] = 'El gasto no existe o está cancelado.';
+            return false;
+        }
+        if ($gasto['estado_pago'] === 'pagado') {
+            self::$errores[] = 'El gasto ya estaba pagado.';
+            return false;
+        }
+        if (CompraContable::ordenDeGasto($id)) {
+            self::$errores[] = 'Este gasto viene de una compra: registra el pago desde la compra.';
+            return false;
+        }
+
+        $fecha = trim((string) ($datos['fecha_pago'] ?? '')) ?: date('Y-m-d');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !strtotime($fecha)) {
+            self::$errores[] = 'Indica una fecha de pago válida.';
+            return false;
+        }
+        if ($fecha > date('Y-m-d')) {
+            self::$errores[] = 'La fecha de pago no puede ser futura.';
+            return false;
+        }
+        if (Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $fecha)) {
+            self::$errores[] = Contabilidad::mensajePeriodoCerrado($fecha);
+            return false;
+        }
+
+        // Si el campo viene en la petición, es la elección de la persona (aunque
+        // venga vacío). Si no viene —como en el aviso del Centro de seguimiento—,
+        // se conserva lo que ya tenía el gasto.
+        $metodo = array_key_exists('metodo_pago', $datos)
+            ? trim((string) $datos['metodo_pago']) : (string) ($gasto['metodo_pago'] ?? '');
+        if ($metodo !== '' && !in_array($metodo, Contabilidad::METODOS_PAGO, true)) {
+            self::$errores[] = 'Elige un método de pago válido.';
+        }
+
+        $forma = array_key_exists('forma_pago_sat', $datos)
+            ? VentasFiscal::normalizarFormaPago((string) $datos['forma_pago_sat'])
+            : (string) ($gasto['forma_pago_sat'] ?? '');
+        if ($forma !== '' && !isset(VentasFiscal::FORMAS_PAGO[$forma])) {
+            self::$errores[] = 'La forma de pago no pertenece al catálogo del SAT.';
+        }
+
+        $metodoCfdi = array_key_exists('metodo_pago_sat', $datos)
+            ? strtoupper(trim((string) $datos['metodo_pago_sat']))
+            : strtoupper(trim((string) ($gasto['metodo_pago_sat'] ?? '')));
+        if ($metodoCfdi !== '' && !isset(self::METODOS_CFDI[$metodoCfdi])) {
+            self::$errores[] = 'Elige el método de pago del CFDI: PUE, PPD o por definir.';
+        }
+
+        // Sin factura no hay datos del CFDI que cambiar.
+        if ((int) $gasto['comprobante_fiscal'] !== 1) {
+            $forma = '';
+            $metodoCfdi = '';
+        }
+        if (self::$errores) {
+            return false;
+        }
+
+        $metodoDb = $metodo !== '' ? $metodo : null;
+        $formaDb = $forma !== '' ? $forma : null;
+        $metodoCfdiDb = $metodoCfdi !== '' ? $metodoCfdi : null;
+
+        $consulta = self::$db->prepare(
+            "UPDATE gastos SET estado_pago = 'pagado', fecha_pago = ?, metodo_pago = ?, forma_pago_sat = ?, metodo_pago_sat = ? WHERE id = ?"
+        );
+        $consulta->bind_param('ssssi', $fecha, $metodoDb, $formaDb, $metodoCfdiDb, $id);
+        $consulta->execute();
+        $consulta->close();
+
+        Auditoria::registrar('gasto', $id, 'pagar', $usuarioId, null, [
+            'fecha_pago'      => [$gasto['fecha_pago'], $fecha],
+            'metodo_pago'     => [$gasto['metodo_pago'], $metodoDb],
+            'forma_pago_sat'  => [$gasto['forma_pago_sat'], $formaDb],
+            'metodo_pago_sat' => [$gasto['metodo_pago_sat'], $metodoCfdiDb],
+        ]);
+        return true;
+    }
+
     /** Marca como pagado un gasto pendiente (fecha de pago = hoy). */
     public static function marcarPagado(int $id, string $metodo, int $usuarioId): bool
     {
@@ -834,8 +926,13 @@ class Gastos
             self::$errores[] = 'El gasto ya estaba pagado.';
             return false;
         }
-        if (Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $gasto['fecha'])) {
-            self::$errores[] = Contabilidad::mensajePeriodoCerrado($gasto['fecha']);
+        if (CompraContable::ordenDeGasto($id)) {
+            self::$errores[] = 'Este gasto viene de una compra: registra el pago desde la compra.';
+            return false;
+        }
+        $hoy = date('Y-m-d');
+        if (Contabilidad::periodoCerrado((int) $gasto['contribuyente_id'], $hoy)) {
+            self::$errores[] = Contabilidad::mensajePeriodoCerrado($hoy);
             return false;
         }
 

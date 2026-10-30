@@ -262,6 +262,7 @@ $router->post('/admin/contabilidad/gastos/crear',           'views/admin/contabi
 $router->get('/admin/contabilidad/gastos/editar',           'views/admin/contabilidad/gastos/editar.php',        'soloAdmin');
 $router->post('/admin/contabilidad/gastos/editar',          'views/admin/contabilidad/gastos/editar.php',        'soloAdmin');
 $router->get('/admin/contabilidad/gastos/detalle',          'views/admin/contabilidad/gastos/detalle.php',       'soloAdmin');
+$router->get('/admin/contabilidad/gastos/pagar',            'views/admin/contabilidad/gastos/pagar.php',         'soloAdmin');
 $router->post('/admin/contabilidad/gastos/accion',          'views/admin/contabilidad/gastos/accion.php',        'soloAdmin');
 $router->post('/admin/contabilidad/gastos/masivo',          'views/admin/contabilidad/gastos/masivo.php',        'soloAdmin');
 $router->get('/admin/contabilidad/gastos/exportar',        'views/admin/contabilidad/gastos/exportar.php',      'soloAdmin');

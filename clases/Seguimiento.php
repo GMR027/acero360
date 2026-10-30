@@ -195,7 +195,9 @@ class Seguimiento
         // «Por definir» incluye los gastos antiguos guardados sin método: la factura existe y todavía
         // no se sabe si se paga de una vez (PUE) o en parcialidades (PPD).
         $gastos = self::$db->query(
-            "SELECT id, fecha, beneficiario, concepto, total, estado_pago, comprobante_fiscal, metodo_pago_sat FROM gastos
+            "SELECT id, fecha, beneficiario, concepto, total, estado_pago, comprobante_fiscal, metodo_pago_sat,
+                    (SELECT oc.id FROM ordenes_compra oc WHERE oc.gasto_id = gastos.id LIMIT 1) AS compra_id
+              FROM gastos
               WHERE estado = 'vigente' AND (estado_pago = 'pendiente' OR comprobante_fiscal = 0 OR
                     (comprobante_fiscal = 1 AND IFNULL(metodo_pago_sat, 'POR') <> 'PUE'))
               ORDER BY fecha, id LIMIT $lim"
@@ -209,6 +211,10 @@ class Seguimiento
                     'titulo' => 'Gasto por pagar · ' . $g['beneficiario'],
                     'detalle' => $g['concepto'] . ' · ' . $moneda($g['total']) . ' · gasto ' . self::antiguedad($dias),
                     'huella' => 'pendiente',
+                    // Si nació de una compra, el pago se registra allí (pagos_compra):
+                    // el aviso sigue para no perder la deuda contable, pero la acción
+                    // rápida debe llevar a la compra, no marcar el gasto por su cuenta.
+                    'compra_id' => (int) ($g['compra_id'] ?? 0),
                 ];
             }
             if ((int) $g['comprobante_fiscal'] === 0) {

@@ -19,6 +19,15 @@ if (preg_match('#^/admin/seguimiento(\?[a-z_=&]*)?$#', (string) ($_POST['volver'
 }
 
 if (($_POST['accion'] ?? '') === 'pagar') {
+    if (\App\Gastos::pagar($id, $_POST, (int) ($_SESSION['id'] ?? 0))) {
+        redirigir($destino, 'exito', 'Gasto marcado como pagado.');
+    }
+    redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible marcar el gasto como pagado.');
+}
+
+// Atajo del Centro de seguimiento: marca pagado con la fecha de hoy sin abrir
+// el formulario completo (el gasto de una compra se sigue pagando en la compra).
+if (($_POST['accion'] ?? '') === 'marcar_pagado') {
     if (\App\Gastos::marcarPagado($id, (string) ($_POST['metodo'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {
         redirigir($destino, 'exito', 'Gasto marcado como pagado.');
     }

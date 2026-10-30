@@ -128,10 +128,14 @@ template('header', [
                     </form>
                 </details>
             <?php elseif ($tipoAviso === 'gasto_pago') : ?>
-                <form action="/admin/contabilidad/gastos/accion" method="post">
-                    <input type="hidden" name="accion" value="pagar"><input type="hidden" name="id" value="<?= $idAviso ?>"><input type="hidden" name="volver" value="<?= escaparValores($volverA) ?>">
-                    <button class="btn btn--secundario btn--sm" type="submit">Marcar como pagado</button>
-                </form>
+                <?php if (!empty($a['compra_id'])) : ?>
+                    <a class="btn btn--secundario btn--sm" href="/admin/compras/detalle?id=<?= (int) $a['compra_id'] ?>#pagos">Registrar pago en la compra</a>
+                <?php else : ?>
+                    <form action="/admin/contabilidad/gastos/accion" method="post">
+                        <input type="hidden" name="accion" value="marcar_pagado"><input type="hidden" name="id" value="<?= $idAviso ?>"><input type="hidden" name="volver" value="<?= escaparValores($volverA) ?>">
+                        <button class="btn btn--secundario btn--sm" type="submit">Marcar como pagado</button>
+                    </form>
+                <?php endif; ?>
             <?php elseif ($tipoAviso === 'gasto_cfdi') : ?>
                 <details class="accion-rapida">
                     <summary class="btn btn--secundario btn--sm">Definir método de pago</summary>
