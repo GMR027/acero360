@@ -1731,3 +1731,29 @@ Hasta abajo de `/admin/estadisticas` hay ahora un mapa de OpenStreetMap con un p
 - **Leaflet 1.9.4:** nueva dependencia de npm y tarea `mapas` en `gulpfile.js`, que copia `leaflet.js`, `leaflet.css` e imágenes a `build/`. Solo la página de estadísticas los carga (`estilosPagina` nuevo en `templates/header.php`, `scriptsPagina` para el JS).
 - **CSP:** `img-src` permite `https://tile.openstreetmap.org` para las teselas. La atribución de OpenStreetMap aparece en el mapa y en el pie de la figura.
 - **Pruebas:** `pruebas/php/mapa_ventas.php` verifica los grupos 4/2/1, el radio de 50 m, la foto doble, la venta cancelada, la sin GPS y los filtros por negocio (TODO OK). `pruebas/probar_mapa_ventas.mjs` comprueba en navegador los 3 pines, sus números, las teselas, el globo y el resumen (**10/10**). `probar_etapa7.mjs` sigue en **42/42** y ambas pruebas quedaron en `pruebas/ejecutar_todo.sh`.
+
+---
+
+## Ronda — Impuestos: todo gasto pagado resta (2026-10-30)
+
+El Resumen de Fiscal seguía mostrando «Gastos pagados que NO se descuentan: N pagado(s) sin validación fiscal» aunque la decisión del 23-oct era que **la deducción la decide el contador** y que el motor no filtrara por comprobante ni por revisión fiscal. El cambio de entonces sólo se aplicó al archivo `reglas_plataforma_2026.json`; el motor seguía leyendo la regla de la **versión activa en la base** (que tenía `gasto_requiere_validacion: true`) y la pantalla conservaba el bloque.
+
+- **`clases/MotorFiscal.php`:** se eliminan los filtros por `revision_fiscal` y `comprobante_fiscal`. Todo gasto **pagado** resta; sólo quedan fuera los marcados **no deducible** y las naturalezas excluidas del catálogo (`activo`, `impuesto`). Se retiran los avisos «siguen por validar» y «no tienen factura». `gastos_excluidos` queda con `no_deducibles` y `naturaleza`.
+- **`views/admin/fiscal/resumen.php`:** desaparece el pie «Gastos pagados que NO se descuentan». Si hay exclusiones reales se muestra una sola línea: «Gastos pagados fuera del cálculo por decisión fiscal: N no deducible(s), M por naturaleza excluida». En «Reglas aplicadas» el comprobante y la validación fiscal se declaran **informativos** (no cambian el cálculo).
+- **`clases/ResumenFiscal.php`:** default de `gastos_excluidos` y comentarios alineados con el criterio.
+- **Migración `043_gastos_cfdi_validado.sql`:** marca `revision_fiscal = 'validado'` en los gastos vigentes con `comprobante_fiscal = 1` y UUID (XML del SAT) que seguían en `por_validar` por ser anteriores a `marcarValidadoPorCfdi()`. No toca `no_deducible` ni los gastos sin UUID. Sin reversión automática: volver a «por validar» un CFDI auténtico sería un dato incorrecto.
+- **Catálogo:** el JSON del repositorio ya trae `gasto_requiere_validacion: false`. La versión activa en una base que se sembró con el modo estricto puede seguir en `true`; el motor ya no la usa. Si se quiere coherencia visual, se importa y activa una v2 desde Fiscal → Catálogos.
+- **Pruebas:** `etapa6` actualizada (el gasto «Sin validar» ahora cuenta: IVA acreditable 368, IVA a cargo 702, deducciones 4,500, ISR 404.33) y `etapa37` (gasto sin comprobante y «por validar» sí se descuentan, incluso con la regla estricta inyectada). `etapa14/30/33/38/41/44/45` en verde.
+- **Efecto:** las estimaciones históricas suben sus deducciones (y bajan ISR/IVA a cargo) por los gastos que antes se excluían. Conviene avisar al contador.
+
+---
+
+## Ronda — «Revisar complemento» en la carga por lotes (2026-10-30)
+
+El botón **Revisar complemento** de `/admin/contabilidad/lotes` mandaba el id de la lectura a `/admin/compras/complemento/revision`, pero esa lectura se guardó con destino `compra` y `ComplementosPago::analizar()` exigía destino `complemento`: devolvía `null` y la pantalla respondía 404. Al confirmar tampoco se cerraba por el mismo filtro.
+
+- **`clases/ComplementosPago.php`:** `analizar()` acepta una lectura de cualquier destino cuando el CFDI es tipo `P` (manda el documento, no la bandeja). `cerrarLectura()` deja de exigir `destino = 'complemento'`.
+- **`clases/ComplementosVenta.php`:** mismo criterio para el lado de clientes (`destino = 'complemento_venta'` o CFDI tipo `P`); `cerrarLectura()` ya no filtra por destino.
+- **`clases/CargaLotes.php`:** la detección de CFDI tipo `P` se movió **antes** del carril, para que también el carril de ventas clasifique el complemento y el botón apunte al lado correcto (`lado_cliente`).
+- **Pruebas:** `etapa41` agrega la regresión: un complemento tipo `P` subido al carril de gastos (destino `compra`) se clasifica como complemento, `analizar()` lo abre y `registrar()` cierra su lectura. `etapa32/34/36/38` en verde.
+- **Efecto:** los complementos que ya estaban atorados en la bandeja se pueden abrir y registrar; al confirmarlos desaparecen de la lista de pendientes.

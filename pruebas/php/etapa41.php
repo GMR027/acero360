@@ -25,6 +25,7 @@ require __DIR__ . '/../../includes/app.php';
 @session_start();
 
 use App\CargaLotes;
+use App\ComplementosPago;
 use App\ComprasIntel;
 use App\Contabilidad;
 use App\Lecturas;
@@ -61,6 +62,11 @@ $limpiar = static function () use ($db) {
     $db->query("DELETE FROM ordenes_compra WHERE referencia LIKE '%T41%'");
     $db->query("DELETE FROM proveedores WHERE nombre LIKE 'T41 %'");
     $db->query("DELETE FROM clientes WHERE nombre_empresa LIKE 'T41 %'");
+    // Complemento de pago que registra la prueba de regresión (carga por lotes).
+    $db->query("DELETE cp FROM complemento_pagos cp JOIN complemento_doctos cd ON cd.id = cp.complemento_docto_id
+                 WHERE cd.documento_uuid = 'FA410000-0000-4000-8000-000000000099'");
+    $db->query("DELETE FROM complemento_doctos WHERE documento_uuid = 'FA410000-0000-4000-8000-000000000099'");
+    $db->query("DELETE FROM complementos_pago WHERE emisor_rfc = 'ZZ410101AAA'");
     $db->query("DELETE FROM lecturas_documentales WHERE nombre_original LIKE 't41-%'");
 };
 $limpiar();
@@ -320,6 +326,31 @@ $prueba('el botón de alta de cliente la crea con los datos de la factura (reuti
 $filasV2 = CargaLotes::pendientes('ventas');
 $prueba('y la bandeja de ventas ya lo reconoce para crear la venta',
     $filasV2 !== [] && (int) ($filasV2[0]['cliente']['id'] ?? 0) > 0, json_encode($filasV2[0]['cliente'] ?? null));
+
+/* ==================================================================== *
+ * 5b. COMPLEMENTO SUBIDO POR LA CARGA POR LOTES (regresión)
+ * ================================================================== */
+echo "Complemento de pago en la carga por lotes\n";
+file_put_contents("$tmp/t41-comp.xml", $complemento('FA410000-0000-4000-8000-0000000000C1'));
+CargaLotes::subir($archivos('t41-comp.xml'), 'gastos', $usuario, false);
+$filaComp = null;
+foreach (CargaLotes::pendientes('gastos') as $f) {
+    if ($f['nombre'] === 't41-comp.xml') { $filaComp = $f; }
+}
+$prueba('un complemento tipo P subido al carril de gastos se clasifica como complemento',
+    ($filaComp['clase'] ?? '') === 'complemento' && ($filaComp['lado_cliente'] ?? true) === false,
+    json_encode($filaComp['clase'] ?? null));
+$anLote = ComplementosPago::analizar((int) ($filaComp['id'] ?? 0));
+$prueba('«Revisar complemento» lo abre aunque su lectura sea de destino «compra»',
+    $anLote !== null && ($anLote['lado'] ?? '') === 'proveedor'
+    && (string) ($anLote['lectura']['destino'] ?? '') === 'compra');
+$okLote = ComplementosPago::registrar((int) ($filaComp['id'] ?? 0), ['doctos' => [0 => ['vincular' => '1']]], $usuario);
+$prueba('al registrarlo se cierra la lectura de la carga por lotes (ya no queda pendiente)',
+    $okLote
+    && (string) $uno("SELECT estado FROM lecturas_documentales WHERE id = " . (int) $filaComp['id']) === 'confirmada'
+    && (string) $uno("SELECT entidad FROM lecturas_documentales WHERE id = " . (int) $filaComp['id']) === 'complemento',
+    implode(' ', ComplementosPago::getErrores()));
+ComplementosPago::getErrores();
 
 /* ==================================================================== *
  * 6. Vistas y rutas

@@ -84,8 +84,8 @@ $prueba('versión idéntica v3 validada, sin diferencias contra la activa', Cata
 $prueba('activar v3 reemplaza a v1 SIN tocarla', CatalogoFiscal::activar($v3, $usuario, $claveBuena, 'Reimportación de la misma tarifa')
     && CatalogoFiscal::buscarID($v1)['estado'] === 'reemplazada' && $uno("SELECT sha256_datos FROM catalogo_fiscal WHERE id = $v1") === $huellaV1);
 foreach (['iva_tasas_2026', 'reglas_plataforma_2026'] as $archivo) {
-    // Estas pruebas verifican el modo ESTRICTO del motor (solo gastos validados); el archivo de reglas lo trae relajado.
-    CatalogoFiscal::importar(str_replace('"gasto_requiere_validacion": false', '"gasto_requiere_validacion": true', file_get_contents("$raiz/mysql/catalogo_fiscal/$archivo.json")), $usuario);
+    // El motor ya no filtra por validación fiscal ni comprobante: se activa el archivo tal cual.
+    CatalogoFiscal::importar(file_get_contents("$raiz/mysql/catalogo_fiscal/$archivo.json"), $usuario);
     $id = CatalogoFiscal::$ultimoId;
     CatalogoFiscal::validar($id, $usuario);
     CatalogoFiscal::activar($id, $usuario, $claveBuena, 'Catálogo inicial de prueba');
@@ -133,12 +133,12 @@ RegistrosFiscales::guardarDeclaracion($contrib, 2026, 1, 'ISR', 90.17, 0, 90.17,
 
 $feb = MotorFiscal::calcular($contrib, 2026, 2);
 $prueba('febrero · IVA trasladado cobrado $1,120 (800 de V1 + 320 de V2)', $feb['iva']['trasladado_cobrado'] === 112000, $pesos($feb['iva']['trasladado_cobrado']));
-$prueba('febrero · IVA acreditable $288 (160 + 128; el gasto sin validar NO cuenta)', $feb['iva']['acreditable_considerado'] === 28800, $pesos($feb['iva']['acreditable_considerado']));
-$prueba('febrero · IVA a cargo = 1,120 − 288 − 50 retenido = $782', $feb['iva']['a_cargo'] === 78200 && $feb['iva']['saldo_a_favor'] === 0, $pesos($feb['iva']['a_cargo']));
-$prueba('febrero · ingresos acumulados 12,000; deducciones 4,000 (activo y sin validar excluidos)', $feb['isr']['ingresos_acumulados'] === 1200000 && $feb['isr']['deducciones_acumuladas'] === 400000);
-$prueba('febrero · utilidad 8,000 → ISR determinado $436.33 con la tarifa del mes 2', $feb['isr']['impuesto_determinado'] === 43633, $pesos($feb['isr']['impuesto_determinado']));
-$prueba('febrero · acredita 100 retenido + 90.17 pago de enero → a pagar $246.16', $feb['isr']['a_pagar'] === 24616 && $feb['isr']['pagos_provisionales_anteriores'] === 9017, $pesos($feb['isr']['a_pagar']));
-$prueba('avisa que hay un gasto pagado sin validar', (bool) array_filter($feb['avisos'], fn ($a) => str_contains($a, 'por validar')));
+$prueba('febrero · IVA acreditable $368 (160 + 80 del gasto sin validar + 128)', $feb['iva']['acreditable_considerado'] === 36800, $pesos($feb['iva']['acreditable_considerado']));
+$prueba('febrero · IVA a cargo = 1,120 − 368 − 50 retenido = $702', $feb['iva']['a_cargo'] === 70200 && $feb['iva']['saldo_a_favor'] === 0, $pesos($feb['iva']['a_cargo']));
+$prueba('febrero · ingresos acumulados 12,000; deducciones 4,500 (sólo el activo queda fuera)', $feb['isr']['ingresos_acumulados'] === 1200000 && $feb['isr']['deducciones_acumuladas'] === 450000);
+$prueba('febrero · utilidad 7,500 → ISR determinado $404.33 con la tarifa del mes 2', $feb['isr']['impuesto_determinado'] === 40433, $pesos($feb['isr']['impuesto_determinado']));
+$prueba('febrero · acredita 100 retenido + 90.17 pago de enero → a pagar $214.16', $feb['isr']['a_pagar'] === 21416 && $feb['isr']['pagos_provisionales_anteriores'] === 9017, $pesos($feb['isr']['a_pagar']));
+$prueba('ya no avisa de gastos «por validar»: todo gasto pagado resta', !array_filter($feb['avisos'], fn ($a) => str_contains($a, 'por validar')));
 $prueba('avisa que la configuración no está confirmada con el contador', (bool) array_filter($feb['avisos'], fn ($a) => str_contains($a, 'contador')));
 
 $mar = MotorFiscal::calcular($contrib, 2026, 3);
@@ -165,26 +165,26 @@ $prueba('ya no hay factura excluida ni aviso de parcialidades', $may2['facturas_
 
 RegistrosFiscales::registrarAjuste($contrib, 2026, 2, 'saldo_favor_iva_anterior', 100, '', $usuario);
 $feb2 = MotorFiscal::calcular($contrib, 2026, 2);
-$prueba('un saldo a favor anterior de $100 baja el IVA a cargo a $682', $feb2['iva']['a_cargo'] === 68200);
+$prueba('un saldo a favor anterior de $100 baja el IVA a cargo a $602', $feb2['iva']['a_cargo'] === 60200);
 RegistrosFiscales::registrarAjuste($contrib, 2026, 2, 'ptu_pagada', 1000, '', $usuario);
 $feb3 = MotorFiscal::calcular($contrib, 2026, 2);
-$prueba('PTU pagada de $1,000 baja la utilidad a 7,000 (ISR del mes distinto del anterior)', $feb3['isr']['utilidad_fiscal'] === 700000 && $feb3['isr']['impuesto_determinado'] < $feb['isr']['impuesto_determinado']);
+$prueba('PTU pagada de $1,000 baja la utilidad a 6,500 (ISR del mes distinto del anterior)', $feb3['isr']['utilidad_fiscal'] === 650000 && $feb3['isr']['impuesto_determinado'] < $feb['isr']['impuesto_determinado']);
 $db->query('DELETE FROM ajustes_fiscales');
 
 echo "Pagos reales y comparación\n";
-RegistrosFiscales::guardarDeclaracion($contrib, 2026, 2, 'IVA', 782, 0, 700, '2026-03-17', '2026-03-17', '', '', $usuario);
+RegistrosFiscales::guardarDeclaracion($contrib, 2026, 2, 'IVA', 702, 0, 700, '2026-03-17', '2026-03-17', '', '', $usuario);
 $feb4 = MotorFiscal::calcular($contrib, 2026, 2);
-$prueba('lo declarado ($782) coincide con la estimación: diferencia 0', $feb4['comparacion']['iva'] === 0);
-$prueba('pendiente de pago de IVA = declarado − pagado = $82', $feb4['pendiente_de_pago']['iva'] === 8200);
+$prueba('lo declarado ($702) coincide con la estimación: diferencia 0', $feb4['comparacion']['iva'] === 0);
+$prueba('pendiente de pago de IVA = declarado − pagado = $2', $feb4['pendiente_de_pago']['iva'] === 200);
 RegistrosFiscales::guardarDeclaracion($contrib, 2026, 2, 'ISR', 300, 0, 300, '', '', '', '', $usuario);
-$prueba('si se declaró $300 de ISR contra $246.16 estimados: diferencia −$53.84', MotorFiscal::calcular($contrib, 2026, 2)['comparacion']['isr'] === -5384);
+$prueba('si se declaró $300 de ISR contra $214.16 estimados: diferencia −$85.84', MotorFiscal::calcular($contrib, 2026, 2)['comparacion']['isr'] === -8584);
 
 echo "Sin reglas activas no se inventa nada\n";
 $db->query("UPDATE catalogo_fiscal SET estado = 'reemplazada' WHERE tipo = 'isr_pagos_provisionales_art106' AND estado = 'activa'");
 $sinIsr = MotorFiscal::calcular($contrib, 2026, 2);
 $prueba('sin tarifa ISR activa: ISR sin calcular y con aviso', $sinIsr['isr']['habilitado'] === false && $sinIsr['isr']['a_pagar'] === null
     && (bool) array_filter($sinIsr['avisos'], fn ($a) => str_contains($a, 'ISR')));
-$prueba('→ el IVA sí se calcula con su regla', $sinIsr['iva']['a_cargo'] === 78200);
+$prueba('→ el IVA sí se calcula con su regla', $sinIsr['iva']['a_cargo'] === 70200);
 $db->query("UPDATE catalogo_fiscal SET estado = 'activa' WHERE id = $v3");
 
 echo "Cálculos guardados conservan su versión\n";

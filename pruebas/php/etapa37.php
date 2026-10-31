@@ -293,10 +293,10 @@ $desp4 = $cal(4);
 $deduccionAbril = (int) $desp4['por_mes']['deduccion'][4] - (int) $antes4['por_mes']['deduccion'][4];
 
 if ($reqComprobante) {
-    $prueba('gasto PAGADO sin comprobante fiscal NO se descuenta (regla activa)', $deduccionAbril === 0,
+    $prueba('gasto PAGADO sin comprobante fiscal SÍ se descuenta (la deducción la decide el contador)', $deduccionAbril === 5000,
         'deducción abril=' . $deduccionAbril);
-    $prueba('queda contado en los excluidos con su motivo', (int) $desp4['gastos_excluidos']['sin_comprobante'] >= 1);
-    $prueba('y el motor lo avisa (por qué está fuera)', (bool) array_filter($desp4['avisos'],
+    $prueba('no queda contado en los excluidos por comprobante', !isset($desp4['gastos_excluidos']['sin_comprobante']));
+    $prueba('y el motor ya no avisa de gastos sin factura', !array_filter($desp4['avisos'],
         static fn ($x) => str_contains($x, 'no tienen factura')));
 } else {
     $prueba('la regla activa NO exige comprobante: el gasto sí se descuenta', $deduccionAbril === 5000);
@@ -304,7 +304,7 @@ if ($reqComprobante) {
 $prueba('el gasto marcado NO deducible nunca se descuenta', (int) $desp4['gastos_excluidos']['no_deducibles'] >= 1
     && (int) $antes4['gastos_excluidos']['no_deducibles'] < (int) $desp4['gastos_excluidos']['no_deducibles']);
 
-// Revisión «por validar»: lo decide la REGLA activa (y se puede probar estricta sin tocar la base).
+// Revisión «por validar»: ya no cambia el cálculo, la deducción la decide el contador.
 $antes5 = $cal(5);
 $db->query("INSERT INTO gastos (contribuyente_id, fecha, beneficiario, concepto, naturaleza, empresa_id, subtotal, iva_tasa, iva, total,
         estado_pago, fecha_pago, comprobante_fiscal, revision_fiscal, usuario_id)
@@ -312,15 +312,13 @@ $db->query("INSERT INTO gastos (contribuyente_id, fecha, beneficiario, concepto,
         40.00, 16.00, 6.40, 46.40, 'pagado', '2026-05-06', 1, 'por_validar', $usuario)");
 $desp5 = $cal(5);
 $deduccionMayo = (int) $desp5['por_mes']['deduccion'][5] - (int) $antes5['por_mes']['deduccion'][5];
-$prueba('gasto «por validar»: entra o sale según la regla ACTIVA ('
-    . ($reqValidacion ? 'la regla exige validación' : 'la regla no la exige') . ')',
-    $reqValidacion ? $deduccionMayo === 0 : $deduccionMayo === 4000, 'delta=' . $deduccionMayo);
+$prueba('gasto «por validar»: se descuenta igual (no se filtra por revisión fiscal)', $deduccionMayo === 4000, 'delta=' . $deduccionMayo);
 
 $catalogosEstrictos = MotorFiscal::catalogosActivos($anio);
 $catalogosEstrictos['reglas']['doc']['gasto_requiere_validacion'] = true;
 $estricto = MotorFiscal::calcular($contrib, $anio, 5, $catalogosEstrictos);
-$prueba('con regla estricta inyectada (misma versión, otro criterio) el gasto sale del cálculo',
-    ((int) $estricto['por_mes']['deduccion'][5] - (int) $antes5['por_mes']['deduccion'][5]) === 0);
+$prueba('con la regla de validación inyectada el gasto sigue contando (el motor ya no filtra)',
+    ((int) $estricto['por_mes']['deduccion'][5] - (int) $antes5['por_mes']['deduccion'][5]) === 4000);
 
 /* ==================================================================== *
  * 5. RETENCIONES, AJUSTES Y DECLARACIONES (objetivos 6, 10 y 11)

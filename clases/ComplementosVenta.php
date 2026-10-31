@@ -93,13 +93,18 @@ class ComplementosVenta
     {
         self::$errores = [];
         $lectura = Lecturas::buscarID($lecturaId);
-        if (!$lectura || (string) $lectura['destino'] !== self::DESTINO) {
+        if (!$lectura) {
             return null;
         }
 
         $ruta = Archivos::base() . '/' . (string) $lectura['archivo'];
         $xml = is_file($ruta) ? (string) file_get_contents($ruta) : '';
         $cfdi = CfdiXml::leer($xml);
+        // Mismo criterio que en Compras: vale el destino propio o un CFDI tipo «P»
+        // que llegó por la carga por lotes.
+        if ((string) $lectura['destino'] !== self::DESTINO && (string) ($cfdi['datos']['tipo'] ?? '') !== 'P') {
+            return null;
+        }
         $datos = $cfdi['datos'];
         $complemento = CfdiXml::complementoPago($xml);
         $avisos = $lectura['avisos_lista'];
@@ -577,7 +582,7 @@ class ComplementosVenta
         $consulta = self::$db->prepare(
             "UPDATE lecturas_documentales SET estado = 'confirmada', entidad = 'complemento', entidad_id = ?,
                     confirmado_por = ?, confirmado_en = NOW()
-              WHERE id = ? AND destino = 'complemento_venta' AND estado = 'pendiente'"
+              WHERE id = ? AND estado = 'pendiente'"
         );
         $consulta->bind_param('iii', $complementoId, $usuarioId, $lecturaId);
         $consulta->execute();

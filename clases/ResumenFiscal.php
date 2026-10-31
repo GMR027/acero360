@@ -20,10 +20,12 @@ namespace App;
  *
  * Criterio del motor (flujo de efectivo, único método soportado):
  *   · Entra lo COBRADO (facturas al 100 %, con el IVA prorrateado por cada cobro) y los
- *     gastos PAGADOS que cumplan sus reglas versionadas (comprobante, naturaleza,
- *     revisión fiscal). El mes es el del cobro/pago efectivo, no el de la operación.
- *   · No entra nada sin pagar o en parcialidades, ni gastos excluidos; lo excluido se
- *     declara en 'facturas_excluidas', 'gastos_excluidos' y 'avisos'.
+ *     gastos PAGADOS que cumplan la naturaleza del catálogo. La deducción material la
+ *     decide el contador: no se filtra por comprobante ni por revisión fiscal. El mes
+ *     es el del cobro/pago efectivo, no el de la operación.
+ *   · No entra nada sin pagar o en parcialidades, ni gastos marcados no deducibles o de
+ *     naturaleza excluida; lo excluido se declara en 'facturas_excluidas',
+ *     'gastos_excluidos' y 'avisos'.
  *   · IVA = IVA cobrado − acreditable − retenciones − saldo a favor − otros ajustes.
  *     ISR = tarifa art. 106 del catálogo sobre el acumulado, contra pagos previos,
  *     retenciones y otros acreditamientos. IVA e ISR no comparten cifras.
@@ -98,7 +100,7 @@ class ResumenFiscal
      *     de una tasa plana configurable.
      *   · iva_por_pagar          cobrado − acreditable − retenciones − saldo a favor
      *     − otros ajustes (antes sólo facturado − gastos).
-     *   · Los gastos que no entran (sin comprobante, no deducibles, naturaleza excluida)
+     *   · Los gastos que no entran (no deducibles, naturaleza excluida)
      *     quedan en 'gastos_excluidos' y sus reglas en 'reglas' para mostrar el porqué.
      *   Si el motor está deshabilitado (sin catálogo activo, sin configuración o régimen
      *   no admitido) 'habilitado' es false con 'avisos': NO se inventa ningún importe.
@@ -188,7 +190,7 @@ class ResumenFiscal
             'configuracion'  => $anual['configuracion'] ?? null,
             'aviso_legal'    => $anual['aviso_legal'] ?? null,
             'reglas'         => $anual['reglas'] ?? null,
-            'gastos_excluidos'  => $anual['gastos_excluidos'] ?? ['no_validados' => 0, 'sin_comprobante' => 0, 'naturaleza' => 0, 'no_deducibles' => 0],
+            'gastos_excluidos'  => $anual['gastos_excluidos'] ?? ['naturaleza' => 0, 'no_deducibles' => 0],
             'facturas_excluidas' => $anual['facturas_excluidas'] ?? ['n' => 0, 'pendiente' => 0.0],
         ];
     }

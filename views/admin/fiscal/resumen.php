@@ -209,18 +209,14 @@ if ($gastosFuera > 0) {
                 <?= (int) $fx['n'] ?> factura(s) cobradas al 100 % (les falta <strong><?= $m($fx['pendiente']) ?></strong> por cobrar)
                 y <?= (int) ($r['meses'][$mes]['gastos_no_pagados_n'] ?? 0) ?> gasto(s) por pagar en <?= escaparValores(mb_strtolower(nombreMes($mes))) ?>.</li>
             <?php $gx = $r['gastos_excluidos']; $pieGastos = [];
-            if ((int) $gx['sin_comprobante'] > 0) { $pieGastos[] = '<strong>' . (int) $gx['sin_comprobante'] . '</strong> pagado(s) <strong>sin comprobante fiscal</strong>'; }
-            if ((int) $gx['no_validados'] > 0) { $pieGastos[] = '<strong>' . (int) $gx['no_validados'] . '</strong> pagado(s) <strong>sin validación fiscal</strong>'; }
-            if ((int) $gx['no_deducibles'] > 0) { $pieGastos[] = '<strong>' . (int) $gx['no_deducibles'] . '</strong> marcado(s) como <strong>no deducible(s)</strong>'; }
-            if ((int) $gx['naturaleza'] > 0) { $pieGastos[] = '<strong>' . (int) $gx['naturaleza'] . '</strong> por <strong>naturaleza excluida</strong>'; } ?>
+            if ((int) ($gx['no_deducibles'] ?? 0) > 0) { $pieGastos[] = '<strong>' . (int) $gx['no_deducibles'] . '</strong> marcado(s) como <strong>no deducible(s)</strong>'; }
+            if ((int) ($gx['naturaleza'] ?? 0) > 0) { $pieGastos[] = '<strong>' . (int) $gx['naturaleza'] . '</strong> por <strong>naturaleza excluida</strong>'; } ?>
             <?php if ($pieGastos) : ?>
-                <li><strong>Gastos pagados que NO se descuentan:</strong> <?= implode(', ', $pieGastos) ?>.</li>
-            <?php else : ?>
-                <li><strong>Gastos pagados que NO se descuentan:</strong> ninguno este año.</li>
+                <li><strong>Gastos pagados fuera del cálculo por decisión fiscal:</strong> <?= implode(', ', $pieGastos) ?>.</li>
             <?php endif; ?>
             <li><strong>Reglas aplicadas (catálogo v<?= $versionReglas ?>):</strong>
-                comprobante fiscal <?= !empty($r['reglas']['gasto_requiere_comprobante']) ? '<strong>obligatorio</strong>' : 'no obligatorio' ?>;
-                validación fiscal <?= !empty($r['reglas']['gasto_requiere_validacion']) ? '<strong>obligatoria</strong>' : 'no obligatoria' ?>;
+                comprobante fiscal <strong>informativo</strong> (no cambia el cálculo);
+                validación fiscal <strong>informativa</strong> (no cambia el cálculo);
                 naturalezas sin deducción: <?= escaparValores(implode(', ', $r['reglas']['naturalezas_excluidas_deduccion'] ?? []) ?: 'ninguna') ?>;
                 sin IVA acreditable: <?= escaparValores(implode(', ', $r['reglas']['naturalezas_excluidas_iva_acreditable'] ?? []) ?: 'ninguna') ?>.</li>
         </ul>

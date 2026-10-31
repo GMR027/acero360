@@ -61,13 +61,19 @@ class ComplementosPago
     {
         self::$errores = [];
         $lectura = Lecturas::buscarID($lecturaId);
-        if (!$lectura || (string) $lectura['destino'] !== 'complemento') {
+        if (!$lectura) {
             return null;
         }
 
         $ruta = Archivos::base() . '/' . (string) $lectura['archivo'];
         $xml = is_file($ruta) ? (string) file_get_contents($ruta) : '';
         $cfdi = CfdiXml::leer($xml);
+        // Un complemento puede llegar por su propia bandeja (destino «complemento»)
+        // o por la carga por lotes (destino «compra»/«venta»): manda el CFDI.
+        // Si no es tipo «P» y no viene de la bandeja de complementos, no es suyo.
+        if ((string) $lectura['destino'] !== 'complemento' && (string) ($cfdi['datos']['tipo'] ?? '') !== 'P') {
+            return null;
+        }
         $datos = $cfdi['datos'];
         $complemento = CfdiXml::complementoPago($xml);
         $avisos = $lectura['avisos_lista'];
@@ -513,7 +519,7 @@ class ComplementosPago
         $consulta = self::$db->prepare(
             "UPDATE lecturas_documentales SET estado = 'confirmada', entidad = 'complemento', entidad_id = ?,
                     confirmado_por = ?, confirmado_en = NOW()
-              WHERE id = ? AND destino = 'complemento' AND estado = 'pendiente'"
+              WHERE id = ? AND estado = 'pendiente'"
         );
         $consulta->bind_param('iii', $complementoId, $usuarioId, $lecturaId);
         $consulta->execute();

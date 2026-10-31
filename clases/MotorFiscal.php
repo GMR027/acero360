@@ -217,9 +217,12 @@ class MotorFiscal
                 . number_format($pendienteExcluido / 100, 2, '.', '') . ' por cobrar) no se consideran: entran cuando se paguen al 100 %.';
         }
 
-        /* --- 2. Gastos pagados que cumplen las reglas ------------------------------- */
+        /* --- 2. Gastos pagados que restan --------------------------------------------
+         * Todo gasto pagado resta. La deducción material la decide el contador: no se
+         * filtra por `revision_fiscal` ni por comprobante. Sólo quedan fuera los que
+         * el contador marcó como no deducibles y las naturalezas excluidas del catálogo. */
         $consulta = $db->prepare(
-            "SELECT id, fecha_pago, subtotal, iva, naturaleza, revision_fiscal, comprobante_fiscal
+            "SELECT id, fecha_pago, subtotal, iva, naturaleza, revision_fiscal
                FROM gastos WHERE estado = 'vigente' AND estado_pago = 'pagado' AND contribuyente_id = ?
                 AND YEAR(fecha_pago) = ? AND MONTH(fecha_pago) <= ?"
         );
@@ -230,7 +233,7 @@ class MotorFiscal
 
         $deduccionMes = array_fill(1, 12, 0);
         $ivaAcreditableMes = array_fill(1, 12, 0);
-        $excluidos = ['no_validados' => 0, 'sin_comprobante' => 0, 'naturaleza' => 0, 'no_deducibles' => 0];
+        $excluidos = ['naturaleza' => 0, 'no_deducibles' => 0];
         $potencialIva = 0;
 
         foreach ($gastos as $g) {
@@ -243,14 +246,6 @@ class MotorFiscal
 
             if ($g['revision_fiscal'] === 'no_deducible') {
                 $excluidos['no_deducibles']++;
-                continue;
-            }
-            if (!empty($reglas['gasto_requiere_validacion']) && $g['revision_fiscal'] !== 'validado') {
-                $excluidos['no_validados']++;
-                continue;
-            }
-            if (!empty($reglas['gasto_requiere_comprobante']) && (int) $g['comprobante_fiscal'] !== 1) {
-                $excluidos['sin_comprobante']++;
                 continue;
             }
 
@@ -412,12 +407,6 @@ class MotorFiscal
 
         /* --- 6. Gastos que no entraron, para que se vea por qué ---------------------- */
         $r['gastos_excluidos'] = $excluidos;
-        if ($excluidos['no_validados'] > 0) {
-            $avisos[] = $excluidos['no_validados'] . ' gasto(s) pagado(s) siguen «por validar» y no se restan en el cálculo.';
-        }
-        if ($excluidos['sin_comprobante'] > 0) {
-            $avisos[] = $excluidos['sin_comprobante'] . ' gasto(s) pagado(s) no tienen factura y no se restan de tus impuestos.';
-        }
 
         /* --- 7. Pagos reales registrados y comparación ------------------------------ */
         $realIsr = $declaraciones['ISR-' . $mes] ?? null;

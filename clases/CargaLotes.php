@@ -129,6 +129,23 @@ class CargaLotes
         $cfdi = Lecturas::cfdi((int) $lectura['id']);
         $fila['cfdi'] = $cfdi;
 
+        // ¿Complemento de pago (CFDI tipo P)? A su propio flujo, en cualquier carril.
+        // Se detecta antes del carril para que «Revisar complemento» apunte al lado
+        // correcto (Compras si el emisor es el proveedor; Ventas si el emisor soy yo).
+        if ($cfdi !== null && ($cfdi['tipo'] ?? '') === 'P') {
+            $fila['clase'] = 'complemento';
+            $fila['lado_cliente'] = Contabilidad::esRfcPropio((string) $cfdi['emisor_rfc']);
+            // Ya registrado en cualquier lado (proveedor o cliente): no se carga dos veces.
+            $q = self::$db->prepare("SELECT id FROM complementos_pago WHERE uuid = ? AND estado = 'vigente' LIMIT 1");
+            $uuidComp = (string) $cfdi['uuid'];
+            $q->bind_param('s', $uuidComp);
+            $q->execute();
+            $previo = $q->get_result()->fetch_assoc();
+            $q->close();
+            $fila['duplicado'] = $previo ? ['id' => (int) $previo['id']] : null;
+            return $fila;
+        }
+
         if ($carril === 'ventas') {
             $prop = Lecturas::propuesta((int) $lectura['id'], 'venta');
             $fila['propuesta_venta'] = $prop;
@@ -153,21 +170,6 @@ class CargaLotes
         $fila['metodo_pago'] = (string) ($cfdi['metodo_pago'] ?? '');
         $fila['folio'] = (string) ($cfdi['folio_comercial'] ?? '');
         $fila['uuid'] = (string) $cfdi['uuid'];
-
-        // ¿Complemento de pago (CFDI tipo P)? A su propio flujo, nada de gastos.
-        if (($cfdi['tipo'] ?? '') === 'P') {
-            $fila['clase'] = 'complemento';
-            $fila['lado_cliente'] = Contabilidad::esRfcPropio((string) $cfdi['emisor_rfc']);
-            // Ya registrado en cualquier lado (proveedor o cliente): no se carga dos veces.
-            $q = self::$db->prepare("SELECT id FROM complementos_pago WHERE uuid = ? AND estado = 'vigente' LIMIT 1");
-            $uuidComp = (string) $cfdi['uuid'];
-            $q->bind_param('s', $uuidComp);
-            $q->execute();
-            $previo = $q->get_result()->fetch_assoc();
-            $q->close();
-            $fila['duplicado'] = $previo ? ['id' => (int) $previo['id']] : null;
-            return $fila;
-        }
 
         // ¿La factura es de otro receptor? No es un gasto de este negocio.
         $rfcReceptor = (string) $cfdi['receptor_rfc'];
