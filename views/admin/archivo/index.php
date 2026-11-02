@@ -236,19 +236,46 @@ template('header', [
                         </tr>
                     </thead>
                     <tbody>
-                    <?php foreach ($archivos as $a) : ?>
+                    <?php foreach ($archivos as $a) : $vista = $a->vista(); ?>
                         <tr>
                             <td>
-                                <span class="material-symbols-outlined ar-ico-tipo" aria-hidden="true"><?= $iconoArchivo($a) ?></span>
-                                <strong><?= s($a->titulo()) ?></strong>
-                                <?php if ($a->descripcion !== '') : ?>
-                                    <br><small class="text-muted"><?= s($a->descripcion) ?></small>
-                                <?php endif; ?>
+                                <div class="ar-archivo">
+                                    <?php if ($vista) : ?>
+                                        <a class="ar-miniatura" href="/admin/archivo/ver?id=<?= (int) $a->id ?>"
+                                           data-ver-archivo="<?= (int) $a->id ?>"
+                                           data-archivo-tipo="<?= s($vista) ?>"
+                                           data-archivo-nombre="<?= s($a->titulo()) ?>"
+                                           title="Ver «<?= s($a->titulo()) ?>»"
+                                           aria-label="Ver «<?= s($a->titulo()) ?>»">
+                                    <?php else : ?>
+                                        <span class="ar-miniatura ar-miniatura--icono" aria-hidden="true">
+                                    <?php endif; ?>
+                                        <?php if ($a->tieneMiniatura()) : ?>
+                                            <img src="/admin/archivo/miniatura?id=<?= (int) $a->id ?>"
+                                                 alt="" loading="lazy" decoding="async">
+                                        <?php else : ?>
+                                            <span class="material-symbols-outlined ar-ico-tipo" aria-hidden="true"><?= $iconoArchivo($a) ?></span>
+                                        <?php endif; ?>
+                                    <?php if ($vista) : ?></a><?php else : ?></span><?php endif; ?>
+                                    <span class="ar-archivo__textos">
+                                        <strong><?= s($a->titulo()) ?></strong>
+                                        <?php if ($a->descripcion !== '') : ?>
+                                            <small class="text-muted"><?= s($a->descripcion) ?></small>
+                                        <?php endif; ?>
+                                    </span>
+                                </div>
                             </td>
                             <td class="mono"><?= strtoupper($a->extension()) !== '' ? s(strtoupper($a->extension())) : '—' ?></td>
                             <td class="mono"><?= $a->tamanoLegible() ?></td>
                             <td class="mono"><?= formatear_fecha($a->subido, 'd/m/Y H:i') ?></td>
                             <td class="herramientas-acciones">
+                                <a class="btn btn--secundario btn--sm"
+                                   href="<?= $vista ? '/admin/archivo/ver?id=' . (int) $a->id : '/admin/archivo/descargar?id=' . (int) $a->id ?>"
+                                   data-ver-archivo="<?= (int) $a->id ?>"
+                                   data-archivo-tipo="<?= s($vista ?? 'otro') ?>"
+                                   data-archivo-nombre="<?= s($a->titulo()) ?>">
+                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver
+                                </a>
                                 <a class="btn btn--primario btn--sm" href="/admin/archivo/descargar?id=<?= (int) $a->id ?>">
                                     <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar
                                 </a>

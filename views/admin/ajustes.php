@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $stockNegativo = \App\Configuracion::permitirStockNegativo();
 $temaActual = temaPreferido();
+$colorActual = colorPreferido();
 
 $seccion = in_array($_GET['seccion'] ?? '', ['version', 'novedades'], true) ? $_GET['seccion'] : 'general';
 
@@ -34,7 +35,7 @@ template('tabsAjustes', ['tab' => $seccion]);
         <span class="ajustes-cabecera__icono"><span class="material-symbols-outlined" aria-hidden="true">palette</span></span>
         <div>
             <h2 class="titulo-5" id="titulo-apariencia">Apariencia</h2>
-            <p class="texto-xs texto-secundario">Cómo se ve la aplicación en este equipo.</p>
+            <p class="texto-xs texto-secundario">Cómo se ve la aplicación para ti, en cualquier equipo.</p>
         </div>
     </div>
     <form data-selector-tema action="/admin/ajustes/tema" method="post">
@@ -56,7 +57,20 @@ template('tabsAjustes', ['tab' => $seccion]);
                 </label>
             <?php endforeach; ?>
         </fieldset>
-        <p class="campo__ayuda mt-md" role="status" data-estado-tema>El cambio se aplica al instante en toda la aplicación y se recuerda la próxima vez que entres. Los PDF y documentos para imprimir siempre salen en claro.</p>
+        <fieldset class="selector-color">
+            <legend class="campo__etiqueta">Color de acento</legend>
+            <?php foreach (COLORES_ACENTO as $clave => [$nombre, $descripcion]) : ?>
+                <label class="selector-color__opcion">
+                    <input type="radio" name="color" value="<?= $clave ?>" <?= $colorActual === $clave ? 'checked' : '' ?>>
+                    <span class="selector-color__tarjeta">
+                        <span class="selector-color__muestra" data-color="<?= $clave ?>" aria-hidden="true"></span>
+                        <strong><?= escaparValores($nombre) ?></strong>
+                        <span class="texto-xs texto-secundario"><?= escaparValores($descripcion) ?></span>
+                    </span>
+                </label>
+            <?php endforeach; ?>
+        </fieldset>
+        <p class="campo__ayuda mt-md" role="status" data-estado-tema>El cambio se aplica al instante en toda la aplicación y se recuerda en tu usuario, también en otros equipos. Los PDF y documentos para imprimir siempre salen en claro.</p>
     </form>
 </section>
 

@@ -1757,3 +1757,63 @@ El botón **Revisar complemento** de `/admin/contabilidad/lotes` mandaba el id d
 - **`clases/CargaLotes.php`:** la detección de CFDI tipo `P` se movió **antes** del carril, para que también el carril de ventas clasifique el complemento y el botón apunte al lado correcto (`lado_cliente`).
 - **Pruebas:** `etapa41` agrega la regresión: un complemento tipo `P` subido al carril de gastos (destino `compra`) se clasifica como complemento, `analizar()` lo abre y `registrar()` cierra su lectura. `etapa32/34/36/38` en verde.
 - **Efecto:** los complementos que ya estaban atorados en la bandeja se pueden abrir y registrar; al confirmarlos desaparecen de la lista de pendientes.
+
+---
+
+## Ronda — Color de acento combinable con el tema visual (2026-11-01)
+
+Ajustes → Apariencia ya no elige sólo entre claro, oscuro y automático: debajo hay ahora **Color de acento** con seis opciones (azul acero, verde bosque, violeta, teja, grafito y turquesa). El color se combina con el tema visual, de modo que la misma preferencia se ve bien en claro y en oscuro. Las dos preferencias son **por usuario**: se guardan en `configuracion` y se recuerdan en cualquier equipo, además de la cookie del navegador que evita el parpadeo.
+
+- **`includes/funciones.php`:** `COLORES_VALIDOS` y `colorPreferido()`; `preferenciaDeApariencia()` centraliza la lectura cookie → usuario → valor por defecto (ahora también usada por `temaPreferido()`).
+- **`views/admin/ajustes-tema.php`:** acepta `tema` y `color` en el mismo POST (cualquiera de los dos, o ambos) y guarda `tema_usuario_ID` / `color_usuario_ID`; un valor fuera del catálogo sigue respondiendo 422.
+- **`templates/header.php`:** `<html data-tema data-color>` y la cookie `a360_color` se crea en el primer acceso si falta.
+- **`src/scss/base/_tema.scss`:** mapa de seis colores con variante clara y oscura ya contrastadas (WCAG AA); sólo cambian primario, hover, texto de acento, fondos suaves y halo de foco. Las reglas oscuras van al final para ganar en `auto` y en `oscuro`.
+- **`src/js/modulos/tema.js`:** aplica y guarda las dos preferencias juntas en cada cambio; «tema:cambio» ahora incluye el color para que las gráficas se repinten.
+- **`src/scss/layout/_apariencia.scss` + `views/admin/ajustes.php`:** selector de color con muestras reales, estados de foco y selección.
+- **Pruebas:** `pruebas/probar_ajustes_tema_version.mjs` suma color por defecto, cambio instantáneo, guardado por usuario, persistencia al navegar y en otro navegador, combinación con oscuro y rechazo de un color inválido → **26/26**.
+
+---
+
+## Ronda — 19 temas de color con textura (2026-11-01)
+
+El selector de acento crece de 6 a **19 temas** y cada uno deja de ser un círculo plano: ahora es una **muestra texturizada** (brillo, dos tramas cruzadas y degradado del propio acento) con palomita al estar elegido y un leve realce al pasar el ratón. La textura también llega a la aplicación: el lienzo lleva una trama diagonal muy tenue teñida con el color activo (más marcada en oscuro) y los rellenos de acento (botón primario y enlace activo del menú) llevan un brillo superior.
+
+- **19 temas:** Azul acero, Verde bosque, Violeta, Teja, Grafito, Turquesa, Índigo, Azul cobalto, Azul cielo, Menta, Oliva, Musgo, Mostaza, Ámbar, Coral, Rosa, Ciruela, Vino y Cacao.
+- **`includes/funciones.php`:** `COLORES_ACENTO` reúne clave, nombre y descripción (fuente única para la vista); la validación del endpoint usa ese catálogo.
+- **`src/scss/base/_tema.scss`:** mapa con las 19 parejas claro/oscuro. Comprobadas por script las cuatro combinaciones críticas de cada tema (relleno con texto blanco, texto de acento sobre claro, hover y texto de acento sobre oscuro): **todas superan 4.5:1**. Nuevas variables `--textura-fondo` y `--textura-acento`; la textura se desactiva al imprimir.
+- **`src/scss/layout/_apariencia.scss`:** tarjetas con muestra ancha texturizada; la paleta de muestras se lee del mismo mapa de `_tema.scss` (sin duplicar colores).
+- **`src/scss/layout/_sidebar.scss` y `_botones.scss`:** brillo de textura en el enlace activo y en `.btn--primario`.
+- **`src/js/modulos/tema.js`:** catálogo de colores ampliado.
+- **Pruebas:** `pruebas/probar_ajustes_tema_version.mjs` suma «hay al menos 17 temas de color» → **27/27**.
+
+---
+
+## Ronda — Redactor: panel único de páginas, comentarios y cambios (2026-11-01)
+
+El navegador de páginas y el panel de comentarios eran dos columnas distintas, cada una ocupando ancho y con estilos propios. Ahora son **un solo panel lateral** con tres pestañas —**Páginas · Comentarios · Cambios**— y contadores en vivo. La hoja gana espacio, el panel se puede ocultar y volver a abrir desde la cabecera, y los controles se ven como el resto de Acero 360.
+
+- **`views/admin/redactor/abrir.php`:** el panel lateral agrupa las páginas (miniaturas, agregar, subir/bajar/eliminar), los comentarios y los cambios. Cabecera con pestañas, botón de cerrar y botón «Panel» siempre visible en las acciones de la página; en la barra de Inicio queda otro acceso rápido.
+- **`public/vendor/herramientas/redactor.js`:** `mostrarLateral()` conmuta las tres secciones, actualiza `aria-selected` y recuerda la última pestaña en `localStorage`. `pintarRevision()` refresca los contadores de cada pestaña y `pintarPaginas()` el de páginas. Los comentarios, los cambios y el clic en una marca abren el panel en su pestaña correspondiente.
+- **`src/scss/layout/_herr-redactor.scss`:** panel con cabecera fija, pestañas tipo segmento, miniaturas de página con realce al pasar el ratón y tarjetas de comentario más compactas. Se modernizan la barra de datos (etiquetas pequeñas y controles de 2.4rem), la barra de herramientas y las pestañas de herramientas. En móvil el panel pasa a una sección de ancho completo.
+- **Hoja de papel:** los títulos y el texto de tablas fijan su color dentro de `.rd-hoja`, así el tema oscuro ya no los tiñe de gris claro (eran casi ilegibles). El panel se oculta al imprimir.
+- **Manual:** `includes/manual.php` y `MANUAL_USUARIO.md` describen el panel compartido.
+- **Pruebas:** `pruebas/probar_herramientas.mjs` suma dos comprobaciones del panel único y sus secciones → **23/23**. Verificación en navegador de las tres pestañas, cierre, reapertura y conservación de la pestaña activa, sin errores de consola.
+
+---
+
+## Ronda — Paleta Pantone anclada al botón (2026-11-01)
+
+La paleta Pantone podía aparecer lejos del botón: si no cabía debajo, se colocaba arriba y, cuando tampoco cabía, saltaba al borde superior de la pantalla. Ahora se elige el lado con espacio útil y se limita su altura a ese hueco, de modo que siempre queda pegada al botón y con scroll interno. Además, la paleta sigue al botón cuando la página o un panel interior se desplazan (antes sólo reaccionaba al redimensionar).
+
+- **`public/js/pantone.js`:** `ubicar()` calcula el hueco inferior y superior, abre del lado que quepa con un mínimo de 240 px y ajusta `max-height`; `reagendarUbicacion()` reubica con `requestAnimationFrame` en `scroll` (captura), `resize` y `visualViewport`. Aplica a Redactor, SheetFlow y Editor porque comparten el mismo selector.
+- **Pruebas:** verificación en navegador a 1280×800: la paleta queda justo bajo el botón (antes saltaba a `y=8`), con 296 px de alto y scroll; sin errores de consola.
+
+---
+
+## Ronda — Redactor: iconos, hamburguesa, Insertar depurado e Imprimir (2026-11-01)
+
+- **Iconos de Inicio:** el traductor de Font Awesome a Material Symbols no tenía equivalencias para cortar, pegar sin formato, tachado, subíndice/superíndice, listas, sangrías, justificar y quitar vínculo, así que mostraban el icono genérico «widgets». Se agregaron las 11 equivalencias en `public/js/herramientas.js`; ya no queda ningún icono genérico en la barra.
+- **Panel con hamburguesa:** el panel del documento se muestra/oculta con un botón de menú (☰) pegado al borde del panel, visible siempre aunque esté cerrado, con `aria-expanded`. Se retiró el botón «Panel» de la cabecera y se conserva el acceso desde Inicio.
+- **Insertar:** se quitaron «Bloque de obra» y «Tabla del programa». El manejador de la tabla del programa quedó protegido para no fallar si el botón no existe.
+- **Nueva pestaña Imprimir:** reúne hoja, orientación, márgenes, numeración, encabezado y qué incluir (cambios, comentarios y firmas). «Imprimir ahora» guarda si hace falta, genera el PDF con esos ajustes y abre el diálogo de impresión; «Abrir PDF» lo muestra sin imprimir. La barra de herramientas se oculta en esta pestaña para dejar sólo los ajustes.
+- **Manual y pruebas:** `probar_herramientas.mjs` suma comprobaciones de hamburguesa, ausencia de bloque/tabla del programa y pestaña Imprimir → **26/26**. Manual actualizado.

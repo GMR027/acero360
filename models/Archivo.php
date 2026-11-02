@@ -118,6 +118,28 @@ class Archivo extends ActiveRecord
         return \Classes\ArchivoAlmacen::legible((int) $this->tamano);
     }
 
+    /**
+     * Tipo de vista previa dentro de la aplicación: 'pdf', 'imagen' o null si
+     * el navegador no puede mostrarlo (ofimática, CAD, comprimidos…).
+     */
+    public function vista(): ?string
+    {
+        $ext = $this->extension();
+        if ($ext === 'pdf') {
+            return 'pdf';
+        }
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'], true)) {
+            return 'imagen';
+        }
+        return null;
+    }
+
+    /** ¿Se puede mostrar una miniatura generada en el listado? */
+    public function tieneMiniatura(): bool
+    {
+        return \Classes\ArchivoAlmacen::admiteMiniatura($this->extension());
+    }
+
     /** Nombre sin ruta para mostrar (ya viene limpio de la BD). */
     public function titulo(): string
     {

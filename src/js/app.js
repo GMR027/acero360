@@ -306,6 +306,9 @@ function inicializarAplicacion() {
   // 15. Vista previa de facturas y comprobantes (PDF, XML e imágenes) en el modal.
   inicializarDocumentoPreview();
 
+  // 16. Vista previa de los archivos de la herramienta Archivo (PDF e imágenes).
+  inicializarArchivoPreview();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

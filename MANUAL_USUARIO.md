@@ -488,19 +488,19 @@ El procesador de textos de la plataforma: cartas, oficios, memorias, actas y pro
 
 ### Escribir con formato
 
-1. Las pestañas de arriba son Inicio, Insertar, Diseño, Revisión y Herramientas.
-2. En «Insertar» hay tabla, imagen, figura, dibujo, vínculo, salto de página, índice, nota al pie, leyendas numeradas, referencia cruzada, ecuación, portada y bloques de obra (acta, minuta, bitácora, orden de cambio, lista de asistencia).
+1. Las pestañas de arriba son Inicio, Insertar, Diseño, Revisión, Herramientas e Imprimir.
+2. En «Insertar» hay tabla, imagen, figura, dibujo, vínculo, salto de página, índice, nota al pie, leyendas numeradas, referencia cruzada, ecuación, portada y cuadro de texto.
 3. Guarda con «Guardar»; también se guarda solo cada 30 segundos.
 
 ### Control de cambios y firmas
 
-1. En «Revisión» puedes activar cambios (control de versiones): al final, «Aceptar todos» o «Rechazar todos». Los comentarios tienen su propio panel.
+1. En «Revisión» puedes activar cambios (control de versiones): al final, «Aceptar todos» o «Rechazar todos». Los comentarios, los cambios y las páginas comparten un mismo panel lateral con pestañas y contadores.
 2. «Versiones» guarda una copia automática cada 10 minutos y conserva las últimas 40.
 3. En «Firmas» guardas tu firma manuscrita (hasta 5 por usuario) o firmas electrónicas con contraseña; se insertan en bloques de 1 a 4 firmantes.
 
 ### Descargar
 
-1. Botón «Descargar» → Word (.docx), LibreOffice (.odt), PDF o Imprimir.
+1. Botón «Descargar» → Word (.docx), LibreOffice (.odt), PDF o Imprimir. La pestaña «Imprimir» reúne hoja, orientación, márgenes, numeración, encabezado y qué incluir, y abre el diálogo de impresión del sistema con el documento listo.
 2. Al exportar puedes marcar «Mostrar cambios marcados», «Incluir comentarios al final» e «Incluir firmas electrónicas».
 
 > **Consejos**

@@ -617,25 +617,64 @@ function modoMovil(): string
 const TEMAS_VALIDOS = ['claro', 'oscuro', 'auto'];
 
 /**
- * Tema elegido por quien usa la sesión: cookie del navegador (se aplica sin parpadeo) y, si no hay,
- * la preferencia guardada en su usuario (así lo recuerda en otro equipo). Por defecto «auto».
+ * Colores de acento válidos (Ajustes → Apariencia): nombre visible y descripción.
+ * Se combinan con el tema visual: el mismo color tiene una versión para claro y otra para oscuro,
+ * así que cualquier pareja se ve bien. Para añadir uno hay que llevar su paleta a _tema.scss.
  */
-function temaPreferido(): string
+const COLORES_ACENTO = [
+    'azul'     => ['Azul acero', 'El color de siempre.'],
+    'verde'    => ['Verde bosque', 'Sereno, con aire de campo.'],
+    'violeta'  => ['Violeta', 'Elegante y poco común.'],
+    'teja'     => ['Teja', 'Cálido, con tono de barro.'],
+    'grafito'  => ['Grafito', 'Neutro, sin distracciones.'],
+    'turquesa' => ['Turquesa', 'Fresco y luminoso.'],
+    'indigo'   => ['Índigo', 'Profundo y moderno.'],
+    'cobalto'  => ['Azul cobalto', 'Un azul intenso y clásico.'],
+    'cielo'    => ['Azul cielo', 'Ligero, como una mañana despejada.'],
+    'menta'    => ['Menta', 'Verde fresco y tranquilo.'],
+    'oliva'    => ['Oliva', 'Natural, con tono de campo.'],
+    'musgo'    => ['Musgo', 'Verde profundo y sobrio.'],
+    'mostaza'  => ['Mostaza', 'Cálido y con carácter.'],
+    'ambar'    => ['Ámbar', 'Dorado, cálido y luminoso.'],
+    'coral'    => ['Coral', 'Vivo sin ser estridente.'],
+    'rosa'     => ['Rosa', 'Suave y expresivo.'],
+    'ciruela'  => ['Ciruela', 'Oscuro, con un punto dulce.'],
+    'vino'     => ['Vino', 'Elegante y profundo.'],
+    'cacao'    => ['Cacao', 'Terroso y acogedor.'],
+];
+
+/**
+ * Preferencia guardada por quien usa la sesión: primero la cookie del navegador (se aplica sin
+ * parpadeo) y, si no hay, el valor guardado en su usuario (así se recuerda en otro equipo).
+ */
+function preferenciaDeApariencia(string $cookie, string $clave, array $validos, string $defecto): string
 {
-    $cookie = (string) ($_COOKIE['a360_tema'] ?? '');
-    if (in_array($cookie, TEMAS_VALIDOS, true)) {
-        return $cookie;
+    $delNavegador = (string) ($_COOKIE[$cookie] ?? '');
+    if (in_array($delNavegador, $validos, true)) {
+        return $delNavegador;
     }
     sesionActiva();
     $id = (int) ($_SESSION['id'] ?? 0);
     if ($id > 0) {
-        $guardado = \App\Configuracion::obtener('tema_usuario_' . $id, 'auto');
-        if (in_array($guardado, TEMAS_VALIDOS, true)) {
+        $guardado = \App\Configuracion::obtener($clave . '_usuario_' . $id, $defecto);
+        if (in_array($guardado, $validos, true)) {
             return $guardado;
         }
     }
 
-    return 'auto';
+    return $defecto;
+}
+
+/** Tema visual elegido: «claro», «oscuro» o «auto» (por defecto). */
+function temaPreferido(): string
+{
+    return preferenciaDeApariencia('a360_tema', 'tema', TEMAS_VALIDOS, 'auto');
+}
+
+/** Color de acento elegido: se suma al tema visual (por defecto «azul», el de siempre). */
+function colorPreferido(): string
+{
+    return preferenciaDeApariencia('a360_color', 'color', array_keys(COLORES_ACENTO), 'azul');
 }
 
 /**

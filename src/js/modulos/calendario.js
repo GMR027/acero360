@@ -13,12 +13,14 @@
  *     Se abre con el botón de la cabecera o haciendo clic una SEGUNDA vez
  *     sobre la casilla ya seleccionada.
  *
- *   · VER: el botón con icono de cada día de la Agenda abre el detalle de ese
- *     día (los marcadores del negocio con sus cifras y los recordatorios). Los
- *     datos viajan en el atributo data-agenda-dia de la propia tarjeta.
+ *   · VER: la Agenda es una tabla con una fila por marcador del negocio o
+ *     recordatorio. El botón «Ver» de un recordatorio abre su ficha completa;
+ *     el de un marcador del negocio abre el detalle del día. Los datos de cada
+ *     día viajan UNA vez en los nodos [data-agenda-datos] y cada fila los
+ *     referencia con data-agenda-ref.
  *
  * La Agenda y el calendario se sincronizan solos: al cargar con un día
- * elegido, la página baja hasta su tarjeta de la Agenda.
+ * elegido, la página baja hasta sus filas de la Agenda.
  */
 
 /** Formato largo de una fecha ISO: «viernes 23 de octubre de 2026». */
@@ -338,12 +340,7 @@ function calendarioVerDiaDatos(datos) {
 
 /** Abre el detalle de un día de la Agenda en ventana modal. */
 function calendarioVerDia(tarjeta) {
-  let datos = null;
-  try {
-    datos = JSON.parse(tarjeta.getAttribute('data-agenda-dia'));
-  } catch (error) {
-    datos = null;
-  }
+  const datos = calendarioDatosDia(tarjeta);
   if (!datos) {
     return;
   }
@@ -351,26 +348,54 @@ function calendarioVerDia(tarjeta) {
   calendarioVerDiaDatos(datos);
 }
 
-/** Baja hasta la tarjeta de la Agenda del día elegido y la resalta. */
+/**
+ * Datos del día al que pertenece una fila de la Agenda. Se guardan una sola
+ * vez en [data-agenda-datos] y aquí se resuelven por la fecha de la fila.
+ */
+function calendarioDatosDia(nodo) {
+  const fila = nodo instanceof Element ? nodo.closest('[data-agenda-ref]') : null;
+  if (!fila) {
+    return null;
+  }
+
+  const fecha = fila.getAttribute('data-agenda-ref');
+  const fuente = document.getElementById('agenda-datos-' + fecha);
+  if (!fecha || !fuente) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fuente.getAttribute('data-agenda-dia'));
+  } catch (error) {
+    return null;
+  }
+}
+
+/** Baja hasta las filas de la Agenda del día elegido y las resalta. */
 function calendarioIrAlDia() {
   const casilla = document.querySelector('a.calendario__dia[aria-current="date"][data-fecha]');
   if (!casilla) {
     return;
   }
 
-  const tarjeta = document.getElementById('agenda-' + casilla.getAttribute('data-fecha'));
-  if (!tarjeta) {
+  const fecha = casilla.getAttribute('data-fecha');
+  const filas = document.querySelectorAll('[data-agenda-ref="' + fecha + '"]');
+  if (!filas.length) {
     return;
   }
 
-  tarjeta.classList.add('agenda-dia--rastreado');
-  const esVisible = tarjeta.getBoundingClientRect().top >= 0
-    && tarjeta.getBoundingClientRect().bottom <= window.innerHeight;
+  filas.forEach(function (fila) {
+    fila.classList.add('agenda-fila--rastreado');
+  });
 
-  // Sólo se baja si la tarjeta no se ve completa: así un clic no mueve la
+  const primera = filas[0];
+  const caja = primera.getBoundingClientRect();
+  const esVisible = caja.top >= 0 && caja.bottom <= window.innerHeight;
+
+  // Sólo se baja si la fila no se ve completa: así un clic no mueve la
   // pantalla debajo de los pies del usuario.
   if (!esVisible) {
-    tarjeta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    primera.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
 
@@ -381,13 +406,24 @@ function iniciarCalendario() {
       return;
     }
 
-    // Botón «Ver» de una tarjeta de la Agenda.
+    // «Ver» de un recordatorio: abre la ficha completa del evento.
+    const botonEvento = objetivo.closest('[data-ver-evento]');
+    if (botonEvento) {
+      const datos = calendarioDatosDia(botonEvento);
+      const id = botonEvento.getAttribute('data-ver-evento');
+      const evento = datos && Array.isArray(datos.eventos)
+        ? datos.eventos.find(function (item) { return String(item.id) === String(id); })
+        : null;
+      if (datos && evento) {
+        calendarioVerEvento(datos, evento);
+      }
+      return;
+    }
+
+    // «Ver» de un marcador del negocio: abre el detalle del día.
     const botonVer = objetivo.closest('[data-ver-dia]');
     if (botonVer) {
-      const tarjeta = botonVer.closest('[data-agenda-dia]');
-      if (tarjeta) {
-        calendarioVerDia(tarjeta);
-      }
+      calendarioVerDia(botonVer);
       return;
     }
 

@@ -368,6 +368,88 @@
   }
 }
 
+/* --- Agenda en tabla: una fila por marcador del negocio o recordatorio --- */
+.agenda-tabla {
+  /* La columna de acciones no se parte: «Ver», «Editar» y «Eliminar» en una fila. */
+  th:last-child,
+  td:last-child {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  .herramientas-acciones {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  &__fecha {
+    white-space: nowrap;
+  }
+
+  &__fecha-texto {
+    display: block;
+    font-weight: 600;
+    color: $color-texto;
+  }
+
+  &__dia-semana {
+    display: block;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    text-transform: capitalize;
+  }
+
+  &__icono {
+    width: 3.5rem;
+    text-align: center;
+
+    .agenda-dia__icono,
+    .agenda-detalle__evento-icono {
+      vertical-align: middle;
+    }
+  }
+
+  &__principal {
+    strong {
+      display: block;
+      color: $color-texto;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__meta {
+    display: block;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+
+  &__importe {
+    display: inline-block;
+    margin-top: 0.1rem;
+    font-size: $fuente-xs;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: $color-texto-secundario;
+  }
+}
+
+/* Día de hoy y día elegido en el calendario: se distinguen en la tabla. */
+.agenda-fila {
+  &--hoy .agenda-tabla__fecha-texto {
+    color: $color-primario-texto;
+  }
+
+  &--elegido,
+  &--rastreado {
+    td {
+      background-color: $color-primario-claro;
+    }
+  }
+}
+
 .calendario-agenda {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

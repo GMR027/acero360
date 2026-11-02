@@ -306,6 +306,9 @@ function inicializarAplicacion() {
   // 15. Vista previa de facturas y comprobantes (PDF, XML e imágenes) en el modal.
   inicializarDocumentoPreview();
 
+  // 16. Vista previa de los archivos de la herramienta Archivo (PDF e imágenes).
+  inicializarArchivoPreview();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element
@@ -475,6 +478,165 @@ function prepararAlertasDelServidor() {
       retirarAlerta(alerta);
     }, DURACION_ALERTA);
   });
+}
+
+/**
+ * modulos/archivoPreview.js
+ * ---------------------------------------------------------------------------
+ * Vista previa de los archivos de la herramienta «Archivo» sin salir de la
+ * página: usa la ventana modal única de la aplicación.
+ *
+ *   • PDF      → iframe con el visor del navegador (no se descarga).
+ *   • Imágenes → <img> ampliada.
+ *   • Otros    → aviso de que el navegador no puede mostrarlos, con la descarga.
+ *
+ * Tanto la miniatura del nombre como el botón «Ver» de la tabla llevan el
+ * atributo [data-ver-archivo]. Sin JavaScript el enlace abre el archivo en
+ * una pestaña nueva (o lo descarga si no hay vista previa).
+ *
+ * Reglas del proyecto: createElement en lugar de innerHTML, sin alert.
+ */
+
+/** Endpoint que sirve el archivo inline (solo administradores). */
+const ARCHIVO_VISTA_URL = '/admin/archivo/ver?id=';
+const ARCHIVO_DESCARGA_URL = '/admin/archivo/descargar?id=';
+
+/** Crea un nodo con clase y texto opcionales (nunca innerHTML). */
+function crearNodoArchivo(etiqueta, clase, texto) {
+  const nodo = document.createElement(etiqueta);
+  if (clase) {
+    nodo.className = clase;
+  }
+  if (texto !== undefined && texto !== null) {
+    nodo.textContent = String(texto);
+  }
+  return nodo;
+}
+
+/** Enlace de descarga que se coloca en el pie del modal. */
+function crearDescargaArchivo(id) {
+  const enlace = crearNodoArchivo('a', 'btn btn--primario', 'Descargar');
+  enlace.href = ARCHIVO_DESCARGA_URL + encodeURIComponent(id);
+  return enlace;
+}
+
+/** Cuerpo del modal para un PDF: visor del navegador incrustado. */
+function cuerpoPdfArchivo(url, nombre) {
+  const contenedor = crearNodoArchivo('div', 'documento-preview documento-preview--pdf');
+  const marco = document.createElement('iframe');
+  marco.className = 'documento-preview__marco';
+  marco.title = nombre;
+  marco.src = url + '#view=FitH';
+  contenedor.appendChild(marco);
+
+  // Los navegadores móviles no siempre incrustan PDF: queda la vía directa.
+  const nota = crearNodoArchivo('p', 'texto-xs texto-secundario', '¿No se ve el documento? ');
+  const enlace = crearNodoArchivo('a', null, 'Ábrelo en una pestaña nueva');
+  enlace.href = url;
+  enlace.target = '_blank';
+  enlace.rel = 'noopener';
+  nota.appendChild(enlace);
+  contenedor.appendChild(nota);
+
+  return contenedor;
+}
+
+/** Cuerpo del modal para una imagen. */
+function cuerpoImagenArchivo(url, nombre) {
+  const contenedor = crearNodoArchivo('div', 'documento-preview documento-preview--imagen');
+  const imagen = document.createElement('img');
+  imagen.className = 'documento-preview__imagen';
+  imagen.src = url;
+  imagen.alt = nombre;
+  imagen.addEventListener('error', function () {
+    imagen.replaceWith(crearNodoArchivo('p', 'texto-secundario', 'No fue posible mostrar la imagen.'));
+  });
+  contenedor.appendChild(imagen);
+  return contenedor;
+}
+
+/** Cuerpo del modal para formatos que el navegador no puede previsualizar. */
+function cuerpoSinVistaArchivo(nombre) {
+  const contenedor = crearNodoArchivo('div', 'documento-preview');
+  contenedor.appendChild(crearNodoArchivo(
+    'p',
+    'texto-secundario',
+    '«' + nombre + '» está guardado, pero el navegador no puede mostrarlo aquí. '
+      + 'Descárgalo para abrirlo con su programa.'
+  ));
+  return contenedor;
+}
+
+/** Abre el archivo pulsado en la ventana modal única. */
+function abrirVistaArchivo(boton) {
+  if (typeof abrirModal !== 'function') {
+    return; // Sin modal se conserva la navegación del enlace.
+  }
+
+  const id = boton.getAttribute('data-ver-archivo');
+  if (!id) {
+    return;
+  }
+
+  const nombre = boton.getAttribute('data-archivo-nombre') || 'Archivo';
+  const tipo = boton.getAttribute('data-archivo-tipo') || 'otro';
+  const url = ARCHIVO_VISTA_URL + encodeURIComponent(id);
+
+  let cuerpo;
+  if (tipo === 'pdf') {
+    cuerpo = cuerpoPdfArchivo(url, nombre);
+  } else if (tipo === 'imagen') {
+    cuerpo = cuerpoImagenArchivo(url, nombre);
+  } else {
+    cuerpo = cuerpoSinVistaArchivo(nombre);
+  }
+
+  abrirModal({
+    sobreTitulo: 'Vista previa',
+    titulo: nombre,
+    cuerpo: cuerpo,
+    amplio: true,
+    acciones: [crearDescargaArchivo(id)],
+  });
+}
+
+/** Sustituye una miniatura que no carga por el icono del tipo de archivo. */
+function marcarMiniaturaArchivoRota(imagen) {
+  const enlace = imagen.closest('.ar-miniatura');
+  if (!enlace) {
+    return;
+  }
+
+  const icono = crearNodoArchivo('span', 'material-symbols-outlined ar-ico-tipo');
+  icono.setAttribute('aria-hidden', 'true');
+  icono.textContent = 'draft';
+
+  enlace.classList.add('ar-miniatura--icono');
+  imagen.replaceWith(icono);
+}
+
+/** Delegación de clic para todos los [data-ver-archivo] de la página. */
+function inicializarArchivoPreview() {
+  document.addEventListener('click', function (evento) {
+    const boton = evento.target instanceof Element
+      ? evento.target.closest('[data-ver-archivo]')
+      : null;
+
+    if (!boton) {
+      return;
+    }
+
+    evento.preventDefault();
+    abrirVistaArchivo(boton);
+  });
+
+  // El evento «error» no burbujea: se escucha en captura.
+  document.addEventListener('error', function (evento) {
+    if (evento.target instanceof HTMLImageElement
+      && evento.target.closest('.ar-miniatura')) {
+      marcarMiniaturaArchivoRota(evento.target);
+    }
+  }, true);
 }
 
 /**
@@ -777,12 +939,14 @@ document.addEventListener('DOMContentLoaded', iniciarAyudas);
  *     Se abre con el botón de la cabecera o haciendo clic una SEGUNDA vez
  *     sobre la casilla ya seleccionada.
  *
- *   · VER: el botón con icono de cada día de la Agenda abre el detalle de ese
- *     día (los marcadores del negocio con sus cifras y los recordatorios). Los
- *     datos viajan en el atributo data-agenda-dia de la propia tarjeta.
+ *   · VER: la Agenda es una tabla con una fila por marcador del negocio o
+ *     recordatorio. El botón «Ver» de un recordatorio abre su ficha completa;
+ *     el de un marcador del negocio abre el detalle del día. Los datos de cada
+ *     día viajan UNA vez en los nodos [data-agenda-datos] y cada fila los
+ *     referencia con data-agenda-ref.
  *
  * La Agenda y el calendario se sincronizan solos: al cargar con un día
- * elegido, la página baja hasta su tarjeta de la Agenda.
+ * elegido, la página baja hasta sus filas de la Agenda.
  */
 
 /** Formato largo de una fecha ISO: «viernes 23 de octubre de 2026». */
@@ -1102,12 +1266,7 @@ function calendarioVerDiaDatos(datos) {
 
 /** Abre el detalle de un día de la Agenda en ventana modal. */
 function calendarioVerDia(tarjeta) {
-  let datos = null;
-  try {
-    datos = JSON.parse(tarjeta.getAttribute('data-agenda-dia'));
-  } catch (error) {
-    datos = null;
-  }
+  const datos = calendarioDatosDia(tarjeta);
   if (!datos) {
     return;
   }
@@ -1115,26 +1274,54 @@ function calendarioVerDia(tarjeta) {
   calendarioVerDiaDatos(datos);
 }
 
-/** Baja hasta la tarjeta de la Agenda del día elegido y la resalta. */
+/**
+ * Datos del día al que pertenece una fila de la Agenda. Se guardan una sola
+ * vez en [data-agenda-datos] y aquí se resuelven por la fecha de la fila.
+ */
+function calendarioDatosDia(nodo) {
+  const fila = nodo instanceof Element ? nodo.closest('[data-agenda-ref]') : null;
+  if (!fila) {
+    return null;
+  }
+
+  const fecha = fila.getAttribute('data-agenda-ref');
+  const fuente = document.getElementById('agenda-datos-' + fecha);
+  if (!fecha || !fuente) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fuente.getAttribute('data-agenda-dia'));
+  } catch (error) {
+    return null;
+  }
+}
+
+/** Baja hasta las filas de la Agenda del día elegido y las resalta. */
 function calendarioIrAlDia() {
   const casilla = document.querySelector('a.calendario__dia[aria-current="date"][data-fecha]');
   if (!casilla) {
     return;
   }
 
-  const tarjeta = document.getElementById('agenda-' + casilla.getAttribute('data-fecha'));
-  if (!tarjeta) {
+  const fecha = casilla.getAttribute('data-fecha');
+  const filas = document.querySelectorAll('[data-agenda-ref="' + fecha + '"]');
+  if (!filas.length) {
     return;
   }
 
-  tarjeta.classList.add('agenda-dia--rastreado');
-  const esVisible = tarjeta.getBoundingClientRect().top >= 0
-    && tarjeta.getBoundingClientRect().bottom <= window.innerHeight;
+  filas.forEach(function (fila) {
+    fila.classList.add('agenda-fila--rastreado');
+  });
 
-  // Sólo se baja si la tarjeta no se ve completa: así un clic no mueve la
+  const primera = filas[0];
+  const caja = primera.getBoundingClientRect();
+  const esVisible = caja.top >= 0 && caja.bottom <= window.innerHeight;
+
+  // Sólo se baja si la fila no se ve completa: así un clic no mueve la
   // pantalla debajo de los pies del usuario.
   if (!esVisible) {
-    tarjeta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    primera.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
 
@@ -1145,13 +1332,24 @@ function iniciarCalendario() {
       return;
     }
 
-    // Botón «Ver» de una tarjeta de la Agenda.
+    // «Ver» de un recordatorio: abre la ficha completa del evento.
+    const botonEvento = objetivo.closest('[data-ver-evento]');
+    if (botonEvento) {
+      const datos = calendarioDatosDia(botonEvento);
+      const id = botonEvento.getAttribute('data-ver-evento');
+      const evento = datos && Array.isArray(datos.eventos)
+        ? datos.eventos.find(function (item) { return String(item.id) === String(id); })
+        : null;
+      if (datos && evento) {
+        calendarioVerEvento(datos, evento);
+      }
+      return;
+    }
+
+    // «Ver» de un marcador del negocio: abre el detalle del día.
     const botonVer = objetivo.closest('[data-ver-dia]');
     if (botonVer) {
-      const tarjeta = botonVer.closest('[data-agenda-dia]');
-      if (tarjeta) {
-        calendarioVerDia(tarjeta);
-      }
+      calendarioVerDia(botonVer);
       return;
     }
 
@@ -5909,13 +6107,20 @@ function etiquetarTablas() {
 document.addEventListener('DOMContentLoaded', etiquetarTablas);
 
 /**
- * tema.js — Tema visual: claro, oscuro o automático (sigue al sistema operativo).
+ * tema.js — Apariencia: tema visual (claro, oscuro o automático, que sigue al sistema operativo) y
+ * color de acento (azul, verde, violeta, teja, grafito o turquesa). Los dos se combinan.
  *
- * El servidor pinta <html data-tema="..."> con la preferencia guardada (cookie a360_tema o la del usuario).
- * Aquí se aplica al elegirla en Ajustes → Apariencia, se recuerda en cookie + localStorage y se avisa a
- * quien dibuja gráficas con el evento «tema:cambio» para que adapten su paleta.
+ * El servidor pinta <html data-tema="..." data-color="..."> con las preferencias guardadas (cookies
+ * a360_tema y a360_color o las del usuario). Aquí se aplican al elegirlas en Ajustes → Apariencia, se
+ * recuerdan en cookie + localStorage y se avisa a quien dibuja gráficas con el evento «tema:cambio»
+ * para que adapten su paleta.
  */
 const TEMAS_VALIDOS = ['claro', 'oscuro', 'auto'];
+const COLORES_VALIDOS = [
+  'azul', 'verde', 'violeta', 'teja', 'grafito', 'turquesa', 'indigo', 'cobalto',
+  'cielo', 'menta', 'oliva', 'musgo', 'mostaza', 'ambar', 'coral', 'rosa',
+  'ciruela', 'vino', 'cacao'
+];
 const CONSULTA_OSCURO = '(prefers-color-scheme: dark)';
 
 /** Tema realmente visible ahora: «claro» u «oscuro» (resuelve «auto» con el sistema). */
@@ -5928,15 +6133,34 @@ function temaEfectivo() {
 }
 
 function avisarCambioDeTema() {
-  document.dispatchEvent(new CustomEvent('tema:cambio', { detail: { tema: document.documentElement.getAttribute('data-tema'), efectivo: temaEfectivo() } }));
+  document.dispatchEvent(new CustomEvent('tema:cambio', {
+    detail: {
+      tema: document.documentElement.getAttribute('data-tema'),
+      color: document.documentElement.getAttribute('data-color'),
+      efectivo: temaEfectivo()
+    }
+  }));
 }
 
-function aplicarTema(valor) {
-  const tema = TEMAS_VALIDOS.indexOf(valor) >= 0 ? valor : 'auto';
-  document.documentElement.setAttribute('data-tema', tema);
+function elegido(nombre, validos, defecto) {
+  const opcion = document.querySelector('input[name="' + nombre + '"]:checked');
+  return opcion && validos.indexOf(opcion.value) >= 0 ? opcion.value : defecto;
+}
+
+/** Aplica tema y color a la vez; lo que no venga usa lo que ya está puesto. */
+function aplicarApariencia(tema, color) {
+  const raiz = document.documentElement;
+  if (tema) {
+    raiz.setAttribute('data-tema', TEMAS_VALIDOS.indexOf(tema) >= 0 ? tema : 'auto');
+  }
+  if (color) {
+    raiz.setAttribute('data-color', COLORES_VALIDOS.indexOf(color) >= 0 ? color : 'azul');
+  }
   try {
-    document.cookie = 'a360_tema=' + tema + ';path=/;max-age=31536000;SameSite=Lax';
-    window.localStorage.setItem('a360_tema', tema);
+    document.cookie = 'a360_tema=' + raiz.getAttribute('data-tema') + ';path=/;max-age=31536000;SameSite=Lax';
+    document.cookie = 'a360_color=' + raiz.getAttribute('data-color') + ';path=/;max-age=31536000;SameSite=Lax';
+    window.localStorage.setItem('a360_tema', raiz.getAttribute('data-tema'));
+    window.localStorage.setItem('a360_color', raiz.getAttribute('data-color'));
   } catch (error) {
     // Sin almacenamiento disponible: el cambio sigue valiendo en esta página.
   }
@@ -5949,14 +6173,17 @@ function iniciarSelectorDeTema() {
   const token = selector ? selector.querySelector('input[name="token"]') : null;
 
   if (selector) {
-    selector.querySelectorAll('input[name="tema"]').forEach(function (opcion) {
+    selector.querySelectorAll('input[name="tema"], input[name="color"]').forEach(function (opcion) {
       opcion.addEventListener('change', function () {
-        aplicarTema(opcion.value);
+        const tema = elegido('tema', TEMAS_VALIDOS, 'auto');
+        const color = elegido('color', COLORES_VALIDOS, 'azul');
+        aplicarApariencia(tema, color);
         if (!token) {
           return;
         }
         const datos = new FormData();
-        datos.append('tema', opcion.value);
+        datos.append('tema', tema);
+        datos.append('color', color);
         datos.append('token', token.value);
         const meta = document.querySelector('meta[name="csrf"]');
         fetch('/admin/ajustes/tema', { method: 'POST', body: datos, credentials: 'same-origin', headers: { 'X-CSRF-Token': meta ? meta.content : '' } })
@@ -5964,7 +6191,7 @@ function iniciarSelectorDeTema() {
           .then(function (cuerpo) {
             token.value = cuerpo.token || token.value;
             if (estado) {
-              estado.textContent = cuerpo.ok ? 'Tema guardado.' : (cuerpo.mensaje || 'No se pudo guardar.');
+              estado.textContent = cuerpo.ok ? 'Tema y color guardados.' : (cuerpo.mensaje || 'No se pudo guardar.');
             }
           })
           .catch(function () {

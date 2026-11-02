@@ -129,6 +129,7 @@ if ($accion === 'mover') {
         if ($prueba === null) {
             json_respuesta(['success' => false, 'error' => implode(' · ', ArchivoAlmacen::errores())], 500);
         }
+        ArchivoAlmacen::borrarMiniatura($archivo->archivo);
         $archivo->archivo = $prueba['archivo'];
     }
 

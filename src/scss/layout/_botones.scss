@@ -44,6 +44,7 @@
   /* --- Primario (azul acero) --- */
   &--primario {
     background-color: $color-primario;
+    background-image: var(--textura-acento);
     border-color: $color-primario;
     color: $color-texto-invertido;
     box-shadow: $sombra-1;

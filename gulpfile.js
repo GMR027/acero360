@@ -25,37 +25,45 @@ const rutas = {
 };
 
 /** Compila los archivos SCSS a CSS. */
-export function css(done) {
-  src(rutas.scss)
+export function css() {
+  // Devolver el stream es obligatorio: si se llama a done() antes de que
+  // termine la escritura, Gulp da la tarea por acabada y el proceso puede
+  // salir dejando el CSS anterior (fallo silencioso en el despliegue).
+  return src(rutas.scss)
     .pipe(sass({ outputStyle: 'expanded' }).on('error', sass.logError))
     .pipe(dest(rutas.cssOut));
-  done();
 }
 
 /** Concatena los módulos JS en un único archivo app.js. */
-export function js(done) {
-  src(rutas.js)
+export function js() {
+  return src(rutas.js)
     .pipe(concat('app.js'))
     .pipe(dest(rutas.jsOut));
-  done();
 }
 
 /** Copia Apache ECharts a build/js (solo lo carga la página de estadísticas). */
-export function graficas(done) {
-  src('node_modules/echarts/dist/echarts.min.js', { encoding: false })
+export function graficas() {
+  return src('node_modules/echarts/dist/echarts.min.js', { encoding: false })
     .pipe(dest(rutas.jsOut));
-  done();
 }
 
 /** Copia Leaflet a build/ (solo lo carga el mapa de ventas de estadísticas). */
-export function mapas(done) {
-  src('node_modules/leaflet/dist/leaflet.js', { encoding: false })
+export function mapas() {
+  const js = src('node_modules/leaflet/dist/leaflet.js', { encoding: false })
     .pipe(dest(rutas.jsOut));
-  src('node_modules/leaflet/dist/leaflet.css', { encoding: false })
+  const css = src('node_modules/leaflet/dist/leaflet.css', { encoding: false })
     .pipe(dest(rutas.cssOut));
-  src('node_modules/leaflet/dist/images/*', { encoding: false })
+  const imagenes = src('node_modules/leaflet/dist/images/*', { encoding: false })
     .pipe(dest(rutas.cssOut + '/images'));
-  done();
+  return Promise.all([streamDone(js), streamDone(css), streamDone(imagenes)]);
+}
+
+/** Envuelve un stream en una promesa para poder esperarlo en tareas paralelas. */
+function streamDone(stream) {
+  return new Promise((resolve, reject) => {
+    stream.on('finish', resolve);
+    stream.on('error', reject);
+  });
 }
 
 /** Observa los archivos fuente y recompila ante cambios. */

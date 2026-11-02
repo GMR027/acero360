@@ -286,8 +286,6 @@
             if (e.key === 'Escape' && pop && !pop.hidden) { e.stopPropagation(); cerrar(); }
         });
 
-        window.addEventListener('resize', function () { if (pop && !pop.hidden) ubicar(); });
-
         function familiasDisponibles() {
             var cuenta = {};
             COLORES.forEach(function (c) { cuenta[c.f] = (cuenta[c.f] || 0) + 1; });
@@ -388,15 +386,46 @@
         }
 
         function ubicar() {
-            if (!pop || !asuntoActual) return;
+            if (!pop || !asuntoActual || pop.hidden) return;
             var r = asuntoActual.getBoundingClientRect();
-            pop.style.left = '0px'; pop.style.top = '0px';
-            var pw = pop.offsetWidth, ph = pop.offsetHeight;
-            var izq = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8);
-            var arr = r.bottom + 6;
-            if (arr + ph > window.innerHeight - 8) arr = Math.max(8, r.top - ph - 6);
+            var margen = 8, hueco = 6;
+            var vw = window.innerWidth, vh = window.innerHeight;
+            var pw = pop.offsetWidth;
+            var abajo = vh - r.bottom - hueco - margen;
+            var arriba = r.top - hueco - margen;
+            var MINIMO = 240;
+            // Si cabe debajo con un mínimo útil, se abre ahí; si no, arriba; si
+            // ninguno alcanza, se usa el lado con más espacio y se limita la altura
+            // para que la paleta quede pegada al botón y nunca fuera de la pantalla.
+            var haciaAbajo = abajo >= MINIMO || abajo >= arriba;
+            var disponible = Math.max(MINIMO, haciaAbajo ? abajo : arriba);
+            var alto = Math.min(disponible, vh - margen * 2);
+            pop.style.maxHeight = Math.round(alto) + 'px';
+
+            var ph = pop.offsetHeight;
+            var izq = Math.max(margen, Math.min(r.left, vw - pw - margen));
+            var top = haciaAbajo ? r.bottom + hueco : r.top - ph - hueco;
+            top = Math.max(margen, Math.min(top, vh - ph - margen));
             pop.style.left = Math.round(izq) + 'px';
-            pop.style.top = Math.round(arr) + 'px';
+            pop.style.top = Math.round(top) + 'px';
+        }
+
+        /* La paleta es «fixed»: al desplazar la página o un panel interior el
+           botón se mueve y la paleta debe seguirlo. */
+        var reubicando = false;
+        function reagendarUbicacion() {
+            if (!pop || pop.hidden || reubicando) return;
+            reubicando = true;
+            requestAnimationFrame(function () {
+                reubicando = false;
+                if (pop && !pop.hidden) ubicar();
+            });
+        }
+        document.addEventListener('scroll', reagendarUbicacion, true);
+        window.addEventListener('resize', reagendarUbicacion);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', reagendarUbicacion);
+            window.visualViewport.addEventListener('scroll', reagendarUbicacion);
         }
 
         function refrescarBoton() {

@@ -162,6 +162,8 @@ $router->post('/admin/archivo/eliminar-carpeta',  'views/admin/archivo/accion.ph
 $router->post('/admin/archivo/mover',          'views/admin/archivo/accion.php',    'soloAdmin');
 $router->post('/admin/archivo/eliminar-archivo',  'views/admin/archivo/accion.php', 'soloAdmin');
 $router->get('/admin/archivo/descargar',       'views/admin/archivo/descargar.php', 'soloAdmin');
+$router->get('/admin/archivo/ver',             'views/admin/archivo/ver.php',       'soloAdmin');
+$router->get('/admin/archivo/miniatura',       'views/admin/archivo/miniatura.php', 'soloAdmin');
 
 // CRUD de empresas / negocios (los dos negocios del proyecto).
 $router->get('/admin/empresas',        'views/admin/empresas/index.php',  'soloAdmin');

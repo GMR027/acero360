@@ -40,6 +40,14 @@ try {
     const abrir = await pedir('GET', `/admin/${h}/abrir?id=${id}`);
     const html = await abrir.text();
     verifica(`${h}: abrir 200 sin errores de PHP`, abrir.status === 200 && !/Fatal error|Warning:|Notice:|Deprecated:/.test(html), `status ${abrir.status}`);
+    if (h === 'redactor') {
+      verifica('redactor: un solo panel con pestañas de páginas, comentarios y cambios', /data-lat="paginas"/.test(html) && /id="rd-lat-paginas"/.test(html) && /id="rd-lat-comentarios"/.test(html) && /id="rd-lat-cambios"/.test(html));
+      const lateral = (html.match(/<aside class="rd-lateral"[\s\S]*?<\/aside>/) || [''])[0];
+      verifica('redactor: las páginas viven dentro del panel del documento', /id="rd-pg-lista"/.test(lateral) && /id="rd-pg-nueva"/.test(lateral));
+      verifica('redactor: botón hamburguesa para mostrar u ocultar el panel', /id="rd-panel-toggle"[\s\S]*?menu/.test(html));
+      verifica('redactor: Insertar ya no ofrece bloque de obra ni tabla del programa', !/id="rd-x-bloque"/.test(html) && !/id="rd-x-programa"/.test(html));
+      verifica('redactor: pestaña Imprimir con ajustes generales', /data-pest="imprimir"/.test(html) && /id="rd-p-imprimir"/.test(html) && /id="rd-pr-ahora"/.test(html));
+    }
     const ver = await pedir('GET', `/admin/${h}/ver?id=${id}`);
     const htmlVer = await ver.text();
     verifica(`${h}: ver 200 sin errores de PHP`, ver.status === 200 && !/Fatal error|Warning:|Notice:|Deprecated:/.test(htmlVer), `status ${ver.status}`);

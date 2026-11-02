@@ -64,9 +64,30 @@
   --color-texto-suave: #5b6770;
   --color-sombra: 15, 23, 42;
   --color-tabla-hover: #f2f6fa;
+  /* Textura del lienzo: dos tramas cruzadas teñidas con el acento. Muy tenue, para dar
+     profundidad sin ensuciar la lectura. */
+  --textura-fondo:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-primario) 6%, transparent) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--color-primario) 3%, transparent) 0 1px, transparent 1px 14px);
+  /* Brillo de las superficies rellenas con el acento (botones, menú activo). */
+  --textura-acento: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 62%);
   color-scheme: light;
 }
 
+/* La textura del lienzo se tiñe sola con el acento: al cambiar de color, cambia.
+   Es una imagen de fondo (el color va en background-color), así que no altera
+   el contraste del texto. */
+body {
+  background-image: var(--textura-fondo);
+  background-attachment: fixed;
+}
+
+/* La textura es sólo decorativa: fuera del papel y de las capturas de impresión. */
+@media print {
+  body {
+    background-image: none;
+  }
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema=claro]) {
     --color-primario: #4679a6;
@@ -112,6 +133,13 @@
     --color-texto-suave: #a7aeb9;
     --color-sombra: 0, 0, 0;
     --color-tabla-hover: #222a35;
+    /* Textura del lienzo: dos tramas cruzadas teñidas con el acento. Muy tenue, para dar
+       profundidad sin ensuciar la lectura. */
+    --textura-fondo:
+      repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-primario) 14%, transparent) 0 1px, transparent 1px 14px),
+      repeating-linear-gradient(45deg, color-mix(in srgb, var(--color-primario) 7%, transparent) 0 1px, transparent 1px 14px);
+    /* Brillo de las superficies rellenas con el acento (botones, menú activo). */
+    --textura-acento: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 62%);
     color-scheme: dark;
   }
 }
@@ -159,7 +187,523 @@
   --color-texto-suave: #a7aeb9;
   --color-sombra: 0, 0, 0;
   --color-tabla-hover: #222a35;
+  /* Textura del lienzo: dos tramas cruzadas teñidas con el acento. Muy tenue, para dar
+     profundidad sin ensuciar la lectura. */
+  --textura-fondo:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-primario) 14%, transparent) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--color-primario) 7%, transparent) 0 1px, transparent 1px 14px);
+  /* Brillo de las superficies rellenas con el acento (botones, menú activo). */
+  --textura-acento: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 62%);
   color-scheme: dark;
+}
+
+/* ==========================================================================
+   COLORES DE ACENTO — se combinan con el tema visual.
+
+   <html data-color="azul|verde|violeta|teja|grafito|turquesa|indigo|cobalto|
+     cielo|menta|oliva|musgo|mostaza|ambar|coral|rosa|ciruela|vino|cacao">
+   cambia sólo el acento (primario, su hover, el texto de acento, los fondos
+   suaves, el halo de foco y la textura del lienzo); las superficies y el texto
+   siguen viniendo de la paleta clara u oscura. Cada color trae sus dos
+   versiones ya contrastadas (WCAG AA), así que cualquier pareja se ve legible.
+
+   Regla de orden: las variantes oscuras van AL FINAL para que ganen a la
+   versión clara cuando los dos atributos están puestos.
+   ========================================================================== */
+:root[data-color=azul] {
+  --color-primario: #4679a6;
+  --color-primario-oscuro: #38648c;
+  --color-primario-texto: #3d6d99;
+  --color-primario-claro: #eaf1f8;
+  --color-primario-borde: #c7dcef;
+  --color-foco: rgba(90, 146, 195, 0.25);
+}
+
+:root[data-color=verde] {
+  --color-primario: #2c7a4b;
+  --color-primario-oscuro: #24633d;
+  --color-primario-texto: #1f6b40;
+  --color-primario-claro: #e8f5ec;
+  --color-primario-borde: #bfe3cb;
+  --color-foco: rgba(44, 122, 75, 0.25);
+}
+
+:root[data-color=violeta] {
+  --color-primario: #6b46a8;
+  --color-primario-oscuro: #583a8a;
+  --color-primario-texto: #5b3a91;
+  --color-primario-claro: #f0eafa;
+  --color-primario-borde: #d6c8ef;
+  --color-foco: rgba(107, 70, 168, 0.25);
+}
+
+:root[data-color=teja] {
+  --color-primario: #9a4a20;
+  --color-primario-oscuro: #7f3c19;
+  --color-primario-texto: #8a411c;
+  --color-primario-claro: #fbeee6;
+  --color-primario-borde: #f0cdb6;
+  --color-foco: rgba(154, 74, 32, 0.25);
+}
+
+:root[data-color=grafito] {
+  --color-primario: #475569;
+  --color-primario-oscuro: #374151;
+  --color-primario-texto: #3f4a5c;
+  --color-primario-claro: #eef1f5;
+  --color-primario-borde: #cbd5e1;
+  --color-foco: rgba(71, 85, 105, 0.25);
+}
+
+:root[data-color=turquesa] {
+  --color-primario: #0f6f7a;
+  --color-primario-oscuro: #0c5a63;
+  --color-primario-texto: #0d6069;
+  --color-primario-claro: #e6f4f6;
+  --color-primario-borde: #b8dfe4;
+  --color-foco: rgba(15, 111, 122, 0.25);
+}
+
+:root[data-color=indigo] {
+  --color-primario: #4338ca;
+  --color-primario-oscuro: #3730a3;
+  --color-primario-texto: #312e81;
+  --color-primario-claro: #eef0fb;
+  --color-primario-borde: #c7d2fe;
+  --color-foco: rgba(67, 56, 202, 0.28);
+}
+
+:root[data-color=cobalto] {
+  --color-primario: #1d4ed8;
+  --color-primario-oscuro: #1e40af;
+  --color-primario-texto: #1e3a8a;
+  --color-primario-claro: #e8eefc;
+  --color-primario-borde: #bfdbfe;
+  --color-foco: rgba(29, 78, 216, 0.28);
+}
+
+:root[data-color=cielo] {
+  --color-primario: #0369a1;
+  --color-primario-oscuro: #075985;
+  --color-primario-texto: #075985;
+  --color-primario-claro: #e6f2fa;
+  --color-primario-borde: #bae6fd;
+  --color-foco: rgba(3, 105, 161, 0.28);
+}
+
+:root[data-color=menta] {
+  --color-primario: #0f766e;
+  --color-primario-oscuro: #115e59;
+  --color-primario-texto: #115e59;
+  --color-primario-claro: #e7f4f1;
+  --color-primario-borde: #b2e3dc;
+  --color-foco: rgba(15, 118, 110, 0.28);
+}
+
+:root[data-color=oliva] {
+  --color-primario: #4d7c0f;
+  --color-primario-oscuro: #3f6212;
+  --color-primario-texto: #3f6212;
+  --color-primario-claro: #f0f5e6;
+  --color-primario-borde: #d9e8b8;
+  --color-foco: rgba(77, 124, 15, 0.28);
+}
+
+:root[data-color=musgo] {
+  --color-primario: #3f6212;
+  --color-primario-oscuro: #365314;
+  --color-primario-texto: #365314;
+  --color-primario-claro: #eef3e6;
+  --color-primario-borde: #d5e3bd;
+  --color-foco: rgba(63, 98, 18, 0.28);
+}
+
+:root[data-color=mostaza] {
+  --color-primario: #a16207;
+  --color-primario-oscuro: #854d0e;
+  --color-primario-texto: #854d0e;
+  --color-primario-claro: #f8f1e1;
+  --color-primario-borde: #f0dfa8;
+  --color-foco: rgba(161, 98, 7, 0.28);
+}
+
+:root[data-color=ambar] {
+  --color-primario: #b45309;
+  --color-primario-oscuro: #92400e;
+  --color-primario-texto: #92400e;
+  --color-primario-claro: #fbf0e3;
+  --color-primario-borde: #f2d5b3;
+  --color-foco: rgba(180, 83, 9, 0.28);
+}
+
+:root[data-color=coral] {
+  --color-primario: #c2410c;
+  --color-primario-oscuro: #9a3412;
+  --color-primario-texto: #9a3412;
+  --color-primario-claro: #fbeee8;
+  --color-primario-borde: #f5cbb8;
+  --color-foco: rgba(194, 65, 12, 0.28);
+}
+
+:root[data-color=rosa] {
+  --color-primario: #be185d;
+  --color-primario-oscuro: #9d174d;
+  --color-primario-texto: #9d174d;
+  --color-primario-claro: #fbebf1;
+  --color-primario-borde: #f5c0d3;
+  --color-foco: rgba(190, 24, 93, 0.28);
+}
+
+:root[data-color=ciruela] {
+  --color-primario: #86198f;
+  --color-primario-oscuro: #701a75;
+  --color-primario-texto: #701a75;
+  --color-primario-claro: #f6eaf7;
+  --color-primario-borde: #e9c6ec;
+  --color-foco: rgba(134, 25, 143, 0.28);
+}
+
+:root[data-color=vino] {
+  --color-primario: #9f1239;
+  --color-primario-oscuro: #881337;
+  --color-primario-texto: #881337;
+  --color-primario-claro: #fbe9ee;
+  --color-primario-borde: #f4c2d0;
+  --color-foco: rgba(159, 18, 57, 0.28);
+}
+
+:root[data-color=cacao] {
+  --color-primario: #7c2d12;
+  --color-primario-oscuro: #6c2710;
+  --color-primario-texto: #6c2710;
+  --color-primario-claro: #f7ece7;
+  --color-primario-borde: #eccbbd;
+  --color-foco: rgba(124, 45, 18, 0.28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-color=azul]:not([data-tema=claro]) {
+    --color-primario: #4679a6;
+    --color-primario-oscuro: #3a6a96;
+    --color-primario-texto: #8fbbe6;
+    --color-primario-claro: #1d2d3e;
+    --color-primario-borde: #2f4a66;
+    --color-foco: rgba(143, 187, 230, 0.35);
+  }
+  :root[data-color=verde]:not([data-tema=claro]) {
+    --color-primario: #2c7a4b;
+    --color-primario-oscuro: #24633d;
+    --color-primario-texto: #7dc98a;
+    --color-primario-claro: #16281d;
+    --color-primario-borde: #2d5a3c;
+    --color-foco: rgba(125, 201, 138, 0.35);
+  }
+  :root[data-color=violeta]:not([data-tema=claro]) {
+    --color-primario: #6b46a8;
+    --color-primario-oscuro: #583a8a;
+    --color-primario-texto: #b39ddb;
+    --color-primario-claro: #241d33;
+    --color-primario-borde: #453763;
+    --color-foco: rgba(179, 157, 219, 0.35);
+  }
+  :root[data-color=teja]:not([data-tema=claro]) {
+    --color-primario: #a85627;
+    --color-primario-oscuro: #8a4620;
+    --color-primario-texto: #f0b27d;
+    --color-primario-claro: #33221a;
+    --color-primario-borde: #6b3f26;
+    --color-foco: rgba(240, 178, 125, 0.35);
+  }
+  :root[data-color=grafito]:not([data-tema=claro]) {
+    --color-primario: #64748b;
+    --color-primario-oscuro: #374151;
+    --color-primario-texto: #cbd5e1;
+    --color-primario-claro: #242a33;
+    --color-primario-borde: #3f4a5a;
+    --color-foco: rgba(203, 213, 225, 0.35);
+  }
+  :root[data-color=turquesa]:not([data-tema=claro]) {
+    --color-primario: #0f6f7a;
+    --color-primario-oscuro: #0c5a63;
+    --color-primario-texto: #7dd3e0;
+    --color-primario-claro: #123037;
+    --color-primario-borde: #22606a;
+    --color-foco: rgba(125, 211, 224, 0.35);
+  }
+  :root[data-color=indigo]:not([data-tema=claro]) {
+    --color-primario: #4f46e5;
+    --color-primario-oscuro: #4338ca;
+    --color-primario-texto: #a5b4fc;
+    --color-primario-claro: #1e1b4b;
+    --color-primario-borde: #3b3a86;
+    --color-foco: rgba(165, 180, 252, 0.38);
+  }
+  :root[data-color=cobalto]:not([data-tema=claro]) {
+    --color-primario: #1d4ed8;
+    --color-primario-oscuro: #1e40af;
+    --color-primario-texto: #93c5fd;
+    --color-primario-claro: #16213f;
+    --color-primario-borde: #24417a;
+    --color-foco: rgba(147, 197, 253, 0.38);
+  }
+  :root[data-color=cielo]:not([data-tema=claro]) {
+    --color-primario: #0369a1;
+    --color-primario-oscuro: #075985;
+    --color-primario-texto: #7dd3fc;
+    --color-primario-claro: #0f2430;
+    --color-primario-borde: #1c4a63;
+    --color-foco: rgba(125, 211, 252, 0.38);
+  }
+  :root[data-color=menta]:not([data-tema=claro]) {
+    --color-primario: #0f766e;
+    --color-primario-oscuro: #115e59;
+    --color-primario-texto: #5eead4;
+    --color-primario-claro: #0d2a26;
+    --color-primario-borde: #1f5a50;
+    --color-foco: rgba(94, 234, 212, 0.38);
+  }
+  :root[data-color=oliva]:not([data-tema=claro]) {
+    --color-primario: #4d7c0f;
+    --color-primario-oscuro: #3f6212;
+    --color-primario-texto: #bef264;
+    --color-primario-claro: #1f2c10;
+    --color-primario-borde: #4a6420;
+    --color-foco: rgba(190, 242, 100, 0.38);
+  }
+  :root[data-color=musgo]:not([data-tema=claro]) {
+    --color-primario: #3f6212;
+    --color-primario-oscuro: #365314;
+    --color-primario-texto: #bef264;
+    --color-primario-claro: #1e2a12;
+    --color-primario-borde: #465c22;
+    --color-foco: rgba(190, 242, 100, 0.38);
+  }
+  :root[data-color=mostaza]:not([data-tema=claro]) {
+    --color-primario: #a16207;
+    --color-primario-oscuro: #854d0e;
+    --color-primario-texto: #fcd34d;
+    --color-primario-claro: #302509;
+    --color-primario-borde: #6b5013;
+    --color-foco: rgba(252, 211, 77, 0.38);
+  }
+  :root[data-color=ambar]:not([data-tema=claro]) {
+    --color-primario: #b45309;
+    --color-primario-oscuro: #92400e;
+    --color-primario-texto: #fdba74;
+    --color-primario-claro: #33220f;
+    --color-primario-borde: #6b4317;
+    --color-foco: rgba(253, 186, 116, 0.38);
+  }
+  :root[data-color=coral]:not([data-tema=claro]) {
+    --color-primario: #c2410c;
+    --color-primario-oscuro: #9a3412;
+    --color-primario-texto: #fdba74;
+    --color-primario-claro: #331c12;
+    --color-primario-borde: #6b3319;
+    --color-foco: rgba(253, 186, 116, 0.38);
+  }
+  :root[data-color=rosa]:not([data-tema=claro]) {
+    --color-primario: #be185d;
+    --color-primario-oscuro: #9d174d;
+    --color-primario-texto: #f9a8d4;
+    --color-primario-claro: #331522;
+    --color-primario-borde: #6b2445;
+    --color-foco: rgba(249, 168, 212, 0.38);
+  }
+  :root[data-color=ciruela]:not([data-tema=claro]) {
+    --color-primario: #86198f;
+    --color-primario-oscuro: #701a75;
+    --color-primario-texto: #e879f9;
+    --color-primario-claro: #2e1230;
+    --color-primario-borde: #622a66;
+    --color-foco: rgba(232, 121, 249, 0.38);
+  }
+  :root[data-color=vino]:not([data-tema=claro]) {
+    --color-primario: #9f1239;
+    --color-primario-oscuro: #881337;
+    --color-primario-texto: #fda4af;
+    --color-primario-claro: #33101c;
+    --color-primario-borde: #661c33;
+    --color-foco: rgba(253, 164, 175, 0.38);
+  }
+  :root[data-color=cacao]:not([data-tema=claro]) {
+    --color-primario: #7c2d12;
+    --color-primario-oscuro: #6c2710;
+    --color-primario-texto: #f0b27d;
+    --color-primario-claro: #2f1b12;
+    --color-primario-borde: #5e2a18;
+    --color-foco: rgba(240, 178, 125, 0.38);
+  }
+}
+:root[data-color=azul][data-tema=oscuro] {
+  --color-primario: #4679a6;
+  --color-primario-oscuro: #3a6a96;
+  --color-primario-texto: #8fbbe6;
+  --color-primario-claro: #1d2d3e;
+  --color-primario-borde: #2f4a66;
+  --color-foco: rgba(143, 187, 230, 0.35);
+}
+
+:root[data-color=verde][data-tema=oscuro] {
+  --color-primario: #2c7a4b;
+  --color-primario-oscuro: #24633d;
+  --color-primario-texto: #7dc98a;
+  --color-primario-claro: #16281d;
+  --color-primario-borde: #2d5a3c;
+  --color-foco: rgba(125, 201, 138, 0.35);
+}
+
+:root[data-color=violeta][data-tema=oscuro] {
+  --color-primario: #6b46a8;
+  --color-primario-oscuro: #583a8a;
+  --color-primario-texto: #b39ddb;
+  --color-primario-claro: #241d33;
+  --color-primario-borde: #453763;
+  --color-foco: rgba(179, 157, 219, 0.35);
+}
+
+:root[data-color=teja][data-tema=oscuro] {
+  --color-primario: #a85627;
+  --color-primario-oscuro: #8a4620;
+  --color-primario-texto: #f0b27d;
+  --color-primario-claro: #33221a;
+  --color-primario-borde: #6b3f26;
+  --color-foco: rgba(240, 178, 125, 0.35);
+}
+
+:root[data-color=grafito][data-tema=oscuro] {
+  --color-primario: #64748b;
+  --color-primario-oscuro: #374151;
+  --color-primario-texto: #cbd5e1;
+  --color-primario-claro: #242a33;
+  --color-primario-borde: #3f4a5a;
+  --color-foco: rgba(203, 213, 225, 0.35);
+}
+
+:root[data-color=turquesa][data-tema=oscuro] {
+  --color-primario: #0f6f7a;
+  --color-primario-oscuro: #0c5a63;
+  --color-primario-texto: #7dd3e0;
+  --color-primario-claro: #123037;
+  --color-primario-borde: #22606a;
+  --color-foco: rgba(125, 211, 224, 0.35);
+}
+
+:root[data-color=indigo][data-tema=oscuro] {
+  --color-primario: #4f46e5;
+  --color-primario-oscuro: #4338ca;
+  --color-primario-texto: #a5b4fc;
+  --color-primario-claro: #1e1b4b;
+  --color-primario-borde: #3b3a86;
+  --color-foco: rgba(165, 180, 252, 0.38);
+}
+
+:root[data-color=cobalto][data-tema=oscuro] {
+  --color-primario: #1d4ed8;
+  --color-primario-oscuro: #1e40af;
+  --color-primario-texto: #93c5fd;
+  --color-primario-claro: #16213f;
+  --color-primario-borde: #24417a;
+  --color-foco: rgba(147, 197, 253, 0.38);
+}
+
+:root[data-color=cielo][data-tema=oscuro] {
+  --color-primario: #0369a1;
+  --color-primario-oscuro: #075985;
+  --color-primario-texto: #7dd3fc;
+  --color-primario-claro: #0f2430;
+  --color-primario-borde: #1c4a63;
+  --color-foco: rgba(125, 211, 252, 0.38);
+}
+
+:root[data-color=menta][data-tema=oscuro] {
+  --color-primario: #0f766e;
+  --color-primario-oscuro: #115e59;
+  --color-primario-texto: #5eead4;
+  --color-primario-claro: #0d2a26;
+  --color-primario-borde: #1f5a50;
+  --color-foco: rgba(94, 234, 212, 0.38);
+}
+
+:root[data-color=oliva][data-tema=oscuro] {
+  --color-primario: #4d7c0f;
+  --color-primario-oscuro: #3f6212;
+  --color-primario-texto: #bef264;
+  --color-primario-claro: #1f2c10;
+  --color-primario-borde: #4a6420;
+  --color-foco: rgba(190, 242, 100, 0.38);
+}
+
+:root[data-color=musgo][data-tema=oscuro] {
+  --color-primario: #3f6212;
+  --color-primario-oscuro: #365314;
+  --color-primario-texto: #bef264;
+  --color-primario-claro: #1e2a12;
+  --color-primario-borde: #465c22;
+  --color-foco: rgba(190, 242, 100, 0.38);
+}
+
+:root[data-color=mostaza][data-tema=oscuro] {
+  --color-primario: #a16207;
+  --color-primario-oscuro: #854d0e;
+  --color-primario-texto: #fcd34d;
+  --color-primario-claro: #302509;
+  --color-primario-borde: #6b5013;
+  --color-foco: rgba(252, 211, 77, 0.38);
+}
+
+:root[data-color=ambar][data-tema=oscuro] {
+  --color-primario: #b45309;
+  --color-primario-oscuro: #92400e;
+  --color-primario-texto: #fdba74;
+  --color-primario-claro: #33220f;
+  --color-primario-borde: #6b4317;
+  --color-foco: rgba(253, 186, 116, 0.38);
+}
+
+:root[data-color=coral][data-tema=oscuro] {
+  --color-primario: #c2410c;
+  --color-primario-oscuro: #9a3412;
+  --color-primario-texto: #fdba74;
+  --color-primario-claro: #331c12;
+  --color-primario-borde: #6b3319;
+  --color-foco: rgba(253, 186, 116, 0.38);
+}
+
+:root[data-color=rosa][data-tema=oscuro] {
+  --color-primario: #be185d;
+  --color-primario-oscuro: #9d174d;
+  --color-primario-texto: #f9a8d4;
+  --color-primario-claro: #331522;
+  --color-primario-borde: #6b2445;
+  --color-foco: rgba(249, 168, 212, 0.38);
+}
+
+:root[data-color=ciruela][data-tema=oscuro] {
+  --color-primario: #86198f;
+  --color-primario-oscuro: #701a75;
+  --color-primario-texto: #e879f9;
+  --color-primario-claro: #2e1230;
+  --color-primario-borde: #622a66;
+  --color-foco: rgba(232, 121, 249, 0.38);
+}
+
+:root[data-color=vino][data-tema=oscuro] {
+  --color-primario: #9f1239;
+  --color-primario-oscuro: #881337;
+  --color-primario-texto: #fda4af;
+  --color-primario-claro: #33101c;
+  --color-primario-borde: #661c33;
+  --color-foco: rgba(253, 164, 175, 0.38);
+}
+
+:root[data-color=cacao][data-tema=oscuro] {
+  --color-primario: #7c2d12;
+  --color-primario-oscuro: #6c2710;
+  --color-primario-texto: #f0b27d;
+  --color-primario-claro: #2f1b12;
+  --color-primario-borde: #5e2a18;
+  --color-foco: rgba(240, 178, 125, 0.38);
 }
 
 /* ==========================================================================
@@ -886,6 +1430,7 @@ body {
 }
 .sidebar__enlace--activo {
   background-color: var(--color-primario) !important;
+  background-image: var(--textura-acento);
   color: var(--color-texto-invertido) !important;
   font-weight: 600;
 }
@@ -1128,6 +1673,7 @@ body {
 }
 .btn--primario {
   background-color: var(--color-primario);
+  background-image: var(--textura-acento);
   border-color: var(--color-primario);
   color: var(--color-texto-invertido);
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
@@ -4780,6 +5326,183 @@ input:focus-visible + .selector-tema__tarjeta {
   outline-offset: 2px;
 }
 
+/* Color de acento: se combina con el tema visual. La muestra enseña el color real
+   con una textura (no usa $color-primario, que cambiaría según el color elegido). */
+.selector-color {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 0.5rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  border: 0;
+}
+.selector-color legend {
+  padding: 0;
+  margin-bottom: 0.5rem;
+  grid-column: 1/-1;
+}
+.selector-color__opcion {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+.selector-color__opcion input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+}
+.selector-color__tarjeta {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  justify-items: start;
+  height: 100%;
+  padding: 0.5rem;
+  background-color: var(--color-superficie-baja);
+  border: 2px solid var(--color-borde-fuerte);
+  border-radius: 0.5rem;
+  color: var(--color-texto);
+  overflow: hidden;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.selector-color {
+  /* Muestra texturizada: brillo de tela + dos tramas cruzadas sobre el degradado
+     del acento. Se ve igual en cualquier tema porque usa los tonos propios del color. */
+}
+.selector-color__muestra {
+  display: block;
+  width: 100%;
+  height: 3.5rem;
+  border-radius: 0.25rem;
+  background-color: var(--muestra-1);
+  background-image: radial-gradient(120% 150% at 18% 0%, rgba(255, 255, 255, 0.42), transparent 48%), repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.15) 0 2px, transparent 2px 7px), linear-gradient(135deg, var(--muestra-1), var(--muestra-2));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1), inset 0 -0.75rem 1.25rem rgba(0, 0, 0, 0.18);
+}
+.selector-color__opcion:hover .selector-color__tarjeta {
+  border-color: var(--color-primario);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
+}
+input:checked + .selector-color__tarjeta {
+  border-color: var(--color-primario);
+  background-color: var(--color-primario-claro);
+  box-shadow: 0 0 0 1px var(--color-primario-borde), 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  /* Palomita dibujada sobre la muestra. */
+}
+input:checked + .selector-color__tarjeta::after {
+  content: "";
+  position: absolute;
+  top: 1.05rem;
+  right: 1rem;
+  width: 0.4rem;
+  height: 0.75rem;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(40deg);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+input:focus-visible + .selector-color__tarjeta {
+  outline: 2px solid var(--color-primario);
+  outline-offset: 2px;
+}
+
+.selector-color__muestra[data-color=azul] {
+  --muestra-1: #4679a6;
+  --muestra-2: #38648c;
+}
+
+.selector-color__muestra[data-color=verde] {
+  --muestra-1: #2c7a4b;
+  --muestra-2: #24633d;
+}
+
+.selector-color__muestra[data-color=violeta] {
+  --muestra-1: #6b46a8;
+  --muestra-2: #583a8a;
+}
+
+.selector-color__muestra[data-color=teja] {
+  --muestra-1: #9a4a20;
+  --muestra-2: #7f3c19;
+}
+
+.selector-color__muestra[data-color=grafito] {
+  --muestra-1: #475569;
+  --muestra-2: #374151;
+}
+
+.selector-color__muestra[data-color=turquesa] {
+  --muestra-1: #0f6f7a;
+  --muestra-2: #0c5a63;
+}
+
+.selector-color__muestra[data-color=indigo] {
+  --muestra-1: #4338ca;
+  --muestra-2: #3730a3;
+}
+
+.selector-color__muestra[data-color=cobalto] {
+  --muestra-1: #1d4ed8;
+  --muestra-2: #1e40af;
+}
+
+.selector-color__muestra[data-color=cielo] {
+  --muestra-1: #0369a1;
+  --muestra-2: #075985;
+}
+
+.selector-color__muestra[data-color=menta] {
+  --muestra-1: #0f766e;
+  --muestra-2: #115e59;
+}
+
+.selector-color__muestra[data-color=oliva] {
+  --muestra-1: #4d7c0f;
+  --muestra-2: #3f6212;
+}
+
+.selector-color__muestra[data-color=musgo] {
+  --muestra-1: #3f6212;
+  --muestra-2: #365314;
+}
+
+.selector-color__muestra[data-color=mostaza] {
+  --muestra-1: #a16207;
+  --muestra-2: #854d0e;
+}
+
+.selector-color__muestra[data-color=ambar] {
+  --muestra-1: #b45309;
+  --muestra-2: #92400e;
+}
+
+.selector-color__muestra[data-color=coral] {
+  --muestra-1: #c2410c;
+  --muestra-2: #9a3412;
+}
+
+.selector-color__muestra[data-color=rosa] {
+  --muestra-1: #be185d;
+  --muestra-2: #9d174d;
+}
+
+.selector-color__muestra[data-color=ciruela] {
+  --muestra-1: #86198f;
+  --muestra-2: #701a75;
+}
+
+.selector-color__muestra[data-color=vino] {
+  --muestra-1: #9f1239;
+  --muestra-2: #881337;
+}
+
+.selector-color__muestra[data-color=cacao] {
+  --muestra-1: #7c2d12;
+  --muestra-2: #6c2710;
+}
+
 /* ==========================================================================
    _ajustes.scss — Pantalla de Ajustes: pestañas, tarjetas con cabecera,
    interruptor y ficha de versión.
@@ -6448,11 +7171,66 @@ input:focus-visible ~ .interruptor__pista {
 #archivo {
   /* --- Tabla de archivos --- */
 }
+#archivo .ar-archivo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 14rem;
+}
+#archivo .ar-archivo__textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#archivo {
+  /* Miniatura real (imagen o primera página del PDF). */
+}
+#archivo .ar-miniatura {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.45rem;
+  cursor: zoom-in;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#archivo .ar-miniatura:hover {
+  border-color: var(--color-primario);
+  box-shadow: var(--sombra-1, 0 4px 12px rgba(0, 0, 0, 0.12));
+}
+#archivo .ar-miniatura img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+#archivo .ar-miniatura--icono {
+  cursor: default;
+}
+#archivo .ar-miniatura--icono:hover {
+  border-color: var(--color-borde);
+  box-shadow: none;
+}
 #archivo .ar-ico-tipo {
   font-size: 1.25rem;
   vertical-align: -0.2em;
   margin-right: 0.35rem;
   color: var(--color-primario-texto);
+}
+#archivo {
+  /* Dentro de la miniatura el icono ocupa el centro, sin margen. */
+}
+#archivo .ar-miniatura .ar-ico-tipo {
+  margin-right: 0;
+  font-size: 1.4rem;
 }
 #archivo .ar-select-mover {
   max-width: 10rem;
@@ -6571,7 +7349,7 @@ input:focus-visible ~ .interruptor__pista {
 .herr .rd-datos {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.2rem;
+  gap: 0.75rem 1rem;
   align-items: end;
   margin-bottom: 1rem;
 }
@@ -6579,19 +7357,32 @@ input:focus-visible ~ .interruptor__pista {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  font-size: 1.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  flex: 1 1 18rem;
+  flex: 1 1 14rem;
 }
 .herr .rd-datos input {
-  padding: 0.7rem 1rem;
+  height: 2.4rem;
+  padding: 0 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 0.6rem;
-  background: var(--bg-secondary);
+  border-radius: 0.5rem;
+  background: var(--surface);
   color: var(--text);
-  font-size: 1.4rem;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.herr .rd-datos input:focus {
+  border-color: var(--primary);
+  outline: 2px solid var(--primary-glow);
+  outline-offset: 0;
 }
 .herr .rd-barra [hidden] {
+  display: none !important;
+}
+.herr .rd-barra[hidden] {
   display: none !important;
 }
 .herr .rd-barra {
@@ -6600,9 +7391,9 @@ input:focus-visible ~ .interruptor__pista {
   z-index: 20;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem 1.2rem;
+  gap: 0.5rem 1rem;
   align-items: center;
-  padding: 0.8rem 1rem;
+  padding: 0.55rem 0.8rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0.8rem;
@@ -6611,33 +7402,37 @@ input:focus-visible ~ .interruptor__pista {
 .herr .rd-barra .rd-grupo-b {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.25rem;
   align-items: center;
-  padding-right: 1.2rem;
+  padding-right: 1rem;
   border-right: 1px solid var(--border);
 }
 .herr .rd-barra .rd-grupo-b:last-child {
   border-right: 0;
 }
 .herr .rd-barra select {
-  padding: 0.5rem 0.6rem;
+  padding: 0.38rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   background: var(--bg-secondary);
   color: var(--text);
-  font-size: 1.2rem;
+  font-size: 0.8rem;
   max-width: 12rem;
 }
 .herr .rd-barra .rd-b {
-  min-width: 3.2rem;
-  height: 3.2rem;
-  padding: 0 0.6rem;
+  min-width: 2.3rem;
+  height: 2.3rem;
+  padding: 0 0.5rem;
   border: 1px solid transparent;
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  font-size: 1.3rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.herr .rd-barra .rd-b i {
+  font-size: 0.85rem;
 }
 .herr .rd-barra .rd-b:hover {
   background: var(--surface-hover);
@@ -6652,19 +7447,19 @@ input:focus-visible ~ .interruptor__pista {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  height: 3.2rem;
-  padding: 0 0.6rem;
-  border-radius: 0.5rem;
+  height: 2.3rem;
+  padding: 0 0.5rem;
+  border-radius: 0.45rem;
   cursor: pointer;
   color: var(--text);
-  font-size: 1.3rem;
+  font-size: 0.82rem;
 }
 .herr .rd-barra .rd-color:hover {
   background: var(--surface-hover);
 }
 .herr .rd-barra .rd-color input {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 1.8rem;
+  height: 1.8rem;
   padding: 0;
   border: 1px solid var(--border);
   background: none;
@@ -6821,6 +7616,13 @@ input:focus-visible ~ .interruptor__pista {
   box-shadow: 0 0.4rem 2rem rgba(0, 0, 0, 0.35);
   outline: none;
   overflow-wrap: anywhere;
+  /* La hoja es papel: el tema oscuro no debe teñir sus títulos ni el texto de las tablas. */
+}
+.herr .rd-hoja h1, .herr .rd-hoja h2, .herr .rd-hoja h3, .herr .rd-hoja h4, .herr .rd-hoja h5, .herr .rd-hoja h6, .herr .rd-hoja p, .herr .rd-hoja div, .herr .rd-hoja li, .herr .rd-hoja td, .herr .rd-hoja th, .herr .rd-hoja span, .herr .rd-hoja strong, .herr .rd-hoja em, .herr .rd-hoja small, .herr .rd-hoja blockquote {
+  color: inherit;
+}
+.herr .rd-hoja a {
+  color: #0563c1;
 }
 .herr .rd-hoja p, .herr .rd-hoja div, .herr .rd-hoja li {
   font-size: inherit;
@@ -6992,7 +7794,7 @@ input:focus-visible ~ .interruptor__pista {
   display: block;
 }
 @media print {
-  .herr .rd-barra, .herr .rd-panel, .herr .rd-datos, .herr .rd-estado, .herr .page-header {
+  .herr .rd-barra, .herr .rd-panel, .herr .rd-datos, .herr .rd-estado, .herr .page-header, .herr .rd-lateral {
     display: none !important;
   }
   .herr .rd-fondo {
@@ -7015,30 +7817,76 @@ input:focus-visible ~ .interruptor__pista {
 .herr .rd-area .rd-fondo {
   flex: 1 1 auto;
   min-width: 0;
-  max-height: calc(100vh - 8rem);
+  max-height: calc(100vh - 7rem);
 }
 .herr .rd-lateral {
-  flex: 0 0 32rem;
+  flex: 0 0 31rem;
   position: sticky;
-  top: 6rem;
-  max-height: calc(100vh - 8rem);
-  overflow: auto;
+  top: 5.5rem;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 7rem);
   margin-top: 1rem;
-  padding: 1rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0.8rem;
-  font-size: 1.3rem;
+  border-radius: 0.85rem;
+  box-shadow: 0 0.3rem 1.4rem rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  font-size: 0.85rem;
 }
 .herr .rd-lateral[hidden] {
   display: none;
 }
 .herr .rd-lateral blockquote {
   margin: 0.4rem 0;
-  padding-left: 0.8rem;
+  padding-left: 0.7rem;
   border-left: 3px solid var(--border-accent);
   color: var(--text-muted);
-  font-size: 1.2rem;
+  font-size: 0.78rem;
+}
+.herr .rd-lateral {
+  /* Cabecera fija del panel: pestañas y botón de cerrar. */
+}
+.herr .rd-lateral .rd-lat-cab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.herr .rd-lateral .rd-lat-cerrar {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 0.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.herr .rd-lateral .rd-lat-cerrar .material-symbols-outlined {
+  font-size: 1.15rem;
+}
+.herr .rd-lateral .rd-lat-cerrar:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.herr .rd-lateral .rd-lat-cerrar:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.herr .rd-lateral .rd-lat-seccion {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.85rem;
+}
+.herr .rd-lateral .rd-lat-seccion[hidden] {
+  display: none;
 }
 @media (max-width: 80rem) {
   .herr .rd-area {
@@ -7048,8 +7896,58 @@ input:focus-visible ~ .interruptor__pista {
     flex-basis: auto;
     width: 100%;
     position: static;
-    max-height: none;
+    max-height: 70vh;
   }
+  .herr .rd-pg-lista {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+.herr .rd-lateral .rd-tabs {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.18rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--bg-secondary);
+}
+.herr .rd-lateral .rd-tabs button {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.42rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.herr .rd-lateral .rd-tabs button i {
+  font-size: 0.8rem;
+}
+.herr .rd-lateral .rd-tabs button:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.herr .rd-lateral .rd-tabs button.activo {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.herr .rd-lateral .rd-tabs .rd-contador {
+  min-width: 1.3rem;
+  padding: 0 0.28rem;
+  font-size: 0.66rem;
 }
 .herr .rd-tabs {
   display: flex;
@@ -7058,11 +7956,12 @@ input:focus-visible ~ .interruptor__pista {
 }
 .herr .rd-tabs button {
   flex: 1;
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   background: transparent;
   color: var(--text);
+  font-size: 0.85rem;
   cursor: pointer;
 }
 .herr .rd-tabs button.activo {
@@ -7071,18 +7970,20 @@ input:focus-visible ~ .interruptor__pista {
   color: var(--primary);
 }
 .herr .rd-com-item, .herr .rd-cam-item, .herr .rd-com-form {
-  padding: 0.8rem;
-  margin-bottom: 0.8rem;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.65rem;
   border: 1px solid var(--border);
-  border-radius: 0.6rem;
+  border-radius: 0.65rem;
   background: var(--bg-secondary);
   cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .herr .rd-com-item p, .herr .rd-cam-item p, .herr .rd-com-form p {
   margin: 0.3rem 0;
 }
 .herr .rd-com-item .rd-resp, .herr .rd-cam-item .rd-resp, .herr .rd-com-form .rd-resp {
   color: var(--text-muted);
+  font-size: 0.78rem;
 }
 .herr .rd-com-item.resuelto, .herr .rd-cam-item.resuelto, .herr .rd-com-form.resuelto {
   opacity: 0.6;
@@ -7091,14 +7992,17 @@ input:focus-visible ~ .interruptor__pista {
   border-color: #eab308;
   box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
 }
+.herr .rd-com-item:hover, .herr .rd-cam-item:hover, .herr .rd-com-form:hover {
+  border-color: var(--border-accent);
+}
 .herr .rd-com-item textarea, .herr .rd-com-item .rd-resp-txt, .herr .rd-cam-item textarea, .herr .rd-cam-item .rd-resp-txt, .herr .rd-com-form textarea, .herr .rd-com-form .rd-resp-txt {
   width: 100%;
-  padding: 0.5rem 0.7rem;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   background: var(--surface);
   color: var(--text);
-  font-size: 1.3rem;
+  font-size: 0.8rem;
   box-sizing: border-box;
 }
 .herr .rd-com-acc {
@@ -7307,23 +8211,23 @@ input:focus-visible ~ .interruptor__pista {
 .herr .rd-pestanas {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.25rem;
   margin-top: 1rem;
-  padding: 0 0.4rem;
+  padding: 0 0.35rem;
   border-bottom: 1px solid var(--border);
 }
 .herr .rd-pestanas button {
-  padding: 0.7rem 1.4rem;
+  padding: 0.55rem 1.1rem;
   border: 1px solid transparent;
   border-bottom: 0;
-  border-radius: 0.6rem 0.6rem 0 0;
+  border-radius: 0.55rem 0.55rem 0 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 1.3rem;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 .herr .rd-pestanas button i {
-  margin-right: 0.4rem;
+  margin-right: 0.35rem;
 }
 .herr .rd-pestanas button:hover {
   color: var(--text);
@@ -7345,46 +8249,62 @@ input:focus-visible ~ .interruptor__pista {
 .herr .rd-barra select {
   max-width: 14rem;
 }
-.herr .rd-paginas {
-  flex: 0 0 15rem;
-  position: sticky;
-  top: 6rem;
-  max-height: calc(100vh - 8rem);
-  overflow: auto;
-  margin-top: 1rem;
-  padding: 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
-  font-size: 1.2rem;
-}
 .herr .rd-paginas .rd-paginas-tit {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+  font-size: 0.85rem;
 }
 .herr .rd-paginas p {
-  margin: 1rem 0 0;
+  margin: 0.9rem 0 0;
+}
+.herr .rd-paginas #rd-pg-nueva {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 0.9rem;
+  border: 1px dashed var(--border-accent);
+  background: var(--bg-secondary);
+  color: var(--text);
+}
+.herr .rd-paginas #rd-pg-nueva:hover {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+  color: var(--primary);
 }
 .herr .rd-pg-lista {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.2rem;
+  gap: 0.85rem;
 }
 .herr .rd-pg {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.herr .rd-pg:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
 }
 .herr .rd-pg .rd-pg-vista {
   position: relative;
   overflow: hidden;
   background: #fff;
   border: 1px solid var(--border);
-  box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.3);
+  border-radius: 0.2rem;
+  box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.18);
 }
 .herr .rd-pg:hover .rd-pg-vista {
   border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow), 0 0.15rem 0.5rem rgba(0, 0, 0, 0.18);
 }
 .herr .rd-pg .rd-mini {
   position: absolute;
@@ -7410,8 +8330,8 @@ input:focus-visible ~ .interruptor__pista {
   font-weight: 600;
 }
 .herr .rd-pg .rd-pg-acc button {
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.4rem;
+  height: 2.4rem;
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   background: var(--bg-secondary);
@@ -7420,6 +8340,7 @@ input:focus-visible ~ .interruptor__pista {
 }
 .herr .rd-pg .rd-pg-acc button:hover:not(:disabled) {
   background: var(--surface-hover);
+  border-color: var(--border-accent);
 }
 .herr .rd-pg .rd-pg-acc button:disabled {
   opacity: 0.35;
@@ -7430,16 +8351,14 @@ input:focus-visible ~ .interruptor__pista {
   border-color: #ef4444;
 }
 @media (max-width: 80rem) {
-  .herr .rd-paginas {
-    flex-basis: auto;
-    width: 100%;
-    position: static;
-    max-height: none;
-  }
   .herr .rd-paginas .rd-pg-lista {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+  .herr .rd-paginas .rd-pg {
+    width: auto;
+    flex: 0 0 8.5rem;
   }
 }
 .herr .rd-hoja.rd-modo-coment {
@@ -7494,10 +8413,6 @@ input:focus-visible ~ .interruptor__pista {
 .herr .rd-fig.activo {
   border-color: var(--primary);
   box-shadow: 0 0 0 0.2rem var(--primary);
-}
-.herr #rd-pg-nueva {
-  width: 100%;
-  margin-bottom: 1rem;
 }
 .herr .rd-guias .rd-marca-txt {
   position: absolute;
@@ -7746,6 +8661,90 @@ input:focus-visible ~ .interruptor__pista {
   cursor: crosshair;
   display: block;
   margin: 0 auto;
+}
+.herr {
+  /* Botón hamburguesa para mostrar u ocultar el panel del documento. */
+}
+.herr .rd-panel-boton {
+  position: sticky;
+  top: 5.5rem;
+  align-self: flex-start;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 3.2rem;
+  margin-top: 1rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--surface);
+  color: var(--text-muted);
+  box-shadow: 0 0.15rem 0.7rem rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.herr .rd-panel-boton .material-symbols-outlined {
+  font-size: 1.3rem;
+}
+.herr .rd-panel-boton:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-glow);
+}
+.herr .rd-panel-boton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.herr .rd-panel-boton[aria-expanded=false] {
+  color: var(--primary);
+  border-color: var(--border-accent);
+}
+@media (max-width: 80rem) {
+  .herr .rd-panel-boton {
+    position: static;
+    width: 100%;
+    height: 2.4rem;
+    margin: 0;
+  }
+}
+.herr {
+  /* Pestaña Imprimir: ajustes generales y salida directa al diálogo de impresión. */
+}
+.herr .rd-panel-impresion {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.8rem 1.2rem;
+  align-items: center;
+}
+.herr .rd-panel-impresion .rd-imp-cab {
+  grid-column: 1/-1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.8rem;
+}
+.herr .rd-panel-impresion .rd-imp-rejilla {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1rem;
+}
+.herr .rd-panel-impresion .rd-imp-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+@media (max-width: 80rem) {
+  .herr .rd-panel-impresion {
+    grid-template-columns: 1fr;
+  }
+  .herr .rd-panel-impresion .rd-imp-acciones {
+    justify-content: flex-start;
+  }
 }
 
 /* Portado de ProjectWeb: _sheetflow.scss (ámbito .herr) */
@@ -9697,6 +10696,71 @@ body:has(.ed-pagina) .principal,
   .calendario-agenda__cabecera {
     padding: 1rem 1rem 0;
   }
+}
+
+/* --- Agenda en tabla: una fila por marcador del negocio o recordatorio --- */
+.agenda-tabla {
+  /* La columna de acciones no se parte: «Ver», «Editar» y «Eliminar» en una fila. */
+}
+.agenda-tabla th:last-child,
+.agenda-tabla td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+.agenda-tabla .herramientas-acciones {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.agenda-tabla__fecha {
+  white-space: nowrap;
+}
+.agenda-tabla__fecha-texto {
+  display: block;
+  font-weight: 600;
+  color: var(--color-texto);
+}
+.agenda-tabla__dia-semana {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+  text-transform: capitalize;
+}
+.agenda-tabla__icono {
+  width: 3.5rem;
+  text-align: center;
+}
+.agenda-tabla__icono .agenda-dia__icono,
+.agenda-tabla__icono .agenda-detalle__evento-icono {
+  vertical-align: middle;
+}
+.agenda-tabla__principal strong {
+  display: block;
+  color: var(--color-texto);
+  overflow-wrap: anywhere;
+}
+.agenda-tabla__meta {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+  overflow-wrap: anywhere;
+}
+.agenda-tabla__importe {
+  display: inline-block;
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-texto-secundario);
+}
+
+/* Día de hoy y día elegido en el calendario: se distinguen en la tabla. */
+.agenda-fila--hoy .agenda-tabla__fecha-texto {
+  color: var(--color-primario-texto);
+}
+.agenda-fila--elegido td, .agenda-fila--rastreado td {
+  background-color: var(--color-primario-claro);
 }
 
 .calendario-agenda {

@@ -121,6 +121,7 @@
   /* Estado activo: igual que la maqueta (fondo azul acero y texto blanco). */
   &__enlace--activo {
     background-color: $color-primario !important;
+    background-image: var(--textura-acento);
     color: $color-texto-invertido !important;
     font-weight: 600;
 

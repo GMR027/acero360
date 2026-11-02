@@ -28,6 +28,7 @@ sql(`DELETE FROM usuarios WHERE email='${EMAIL}'`);
 sql(`INSERT INTO usuarios (nombre,email,contrasena,rol) VALUES ('Prueba tema','${EMAIL}','${hash}',1)`);
 const uid = sql(`SELECT id FROM usuarios WHERE email='${EMAIL}'`);
 sql(`DELETE FROM configuracion WHERE clave='tema_usuario_${uid}'`);
+sql(`DELETE FROM configuracion WHERE clave='color_usuario_${uid}'`);
 
 const navegador = await chromium.launch();
 const entrar = async (contexto) => {
@@ -40,6 +41,8 @@ const entrar = async (contexto) => {
 };
 const fondo = (p) => p.evaluate(() => getComputedStyle(document.body).backgroundColor);
 const atributo = (p) => p.evaluate(() => document.documentElement.getAttribute('data-tema'));
+const color = (p) => p.evaluate(() => document.documentElement.getAttribute('data-color'));
+const primario = (p) => p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-primario').trim());
 const luminancia = (rgb) => { const [r, g, b] = rgb.match(/\d+/g).map(Number); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
 
 try {
@@ -47,6 +50,9 @@ try {
   const pagina = await entrar(ctx);
   await pagina.goto(BASE + '/admin/ajustes');
   verifica('por defecto el tema es automático', (await atributo(pagina)) === 'auto');
+  verifica('por defecto el color es azul', (await color(pagina)) === 'azul');
+  const opcionesColor = await pagina.locator('.selector-color__opcion').count();
+  verifica('hay al menos 17 temas de color', opcionesColor >= 17, String(opcionesColor));
   verifica('auto + sistema claro → fondo claro', luminancia(await fondo(pagina)) > 180);
 
   await pagina.emulateMedia({ colorScheme: 'dark' });
@@ -59,8 +65,16 @@ try {
   await pagina.waitForFunction(() => document.querySelector('[data-estado-tema]').textContent.includes('guardado'));
   verifica('se guarda en el usuario', sql(`SELECT valor FROM configuracion WHERE clave='tema_usuario_${uid}'`) === 'oscuro');
 
+  await pagina.locator('.selector-color__opcion:has(input[value="verde"])').click();
+  await pagina.waitForFunction(() => document.documentElement.getAttribute('data-color') === 'verde');
+  verifica('elegir Verde cambia el acento al instante', (await primario(pagina)).toLowerCase() === '#2c7a4b');
+  await pagina.waitForFunction(() => document.querySelector('[data-estado-tema]').textContent.includes('guardado'));
+  verifica('el color se guarda en el usuario', sql(`SELECT valor FROM configuracion WHERE clave='color_usuario_${uid}'`) === 'verde');
+  verifica('el tema oscuro se conserva al cambiar de color', (await atributo(pagina)) === 'oscuro' && luminancia(await fondo(pagina)) < 60);
+
   await pagina.goto(BASE + '/admin/clientes');
   verifica('se conserva al navegar', (await atributo(pagina)) === 'oscuro' && luminancia(await fondo(pagina)) < 60);
+  verifica('el color se conserva al navegar', (await color(pagina)) === 'verde');
   const tarjeta = await pagina.evaluate(() => { const t = document.querySelector('.tarjeta, .tabla'); return t ? getComputedStyle(t).backgroundColor : null; });
   verifica('tarjetas/tablas también oscuras', tarjeta === null || luminancia(tarjeta) < 90, String(tarjeta));
   verifica('el texto principal es claro', luminancia(await pagina.evaluate(() => getComputedStyle(document.body).color)) > 160);
@@ -70,6 +84,7 @@ try {
   const ctx2 = await navegador.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'light' });
   const p2 = await entrar(ctx2);
   verifica('en otro navegador se recuerda por usuario', (await atributo(p2)) === 'oscuro');
+  verifica('en otro navegador se recuerda el color del usuario', (await color(p2)) === 'verde');
   await ctx2.close();
 
   await pagina.goto(BASE + '/admin/ajustes');
@@ -83,6 +98,8 @@ try {
 
   const mal1 = await postCsrf(pagina, BASE + '/admin/ajustes/tema', { form: { tema: 'rojo', token: 'x' } });
   verifica('valor o token inválido → 422', mal1.status() === 422, String(mal1.status()));
+  const mal2 = await postCsrf(pagina, BASE + '/admin/ajustes/tema', { form: { color: 'fucsia', token: 'x' } });
+  verifica('color inválido → 422', mal2.status() === 422, String(mal2.status()));
 
   // Versión
   await pagina.goto(BASE + '/admin/ajustes?seccion=version');
@@ -98,6 +115,7 @@ try {
   await pagina.screenshot({ path: process.env.CAPTURA || '/tmp/claude-1000/ajustes-version-oscuro.png', fullPage: true });
 } finally {
   sql(`DELETE FROM configuracion WHERE clave='tema_usuario_${uid}'`);
+  sql(`DELETE FROM configuracion WHERE clave='color_usuario_${uid}'`);
   sql(`DELETE FROM usuarios WHERE email='${EMAIL}'`);
   await navegador.close();
 }

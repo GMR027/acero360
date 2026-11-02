@@ -756,20 +756,52 @@
     function ahoraIso() { var d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()); }
     function fechaCorta(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }); }
 
-    // ---------- Panel lateral de revisión ----------
-    var lateral = $('rd-lateral'), pestana = 'comentarios';
+    // ---------- Panel lateral del documento (páginas, comentarios y cambios) ----------
+    var lateral = $('rd-lateral'), pestana = 'paginas';
+    try {
+        var pestanaGuardada = localStorage.getItem('rd-panel-tab');
+        if (['paginas', 'comentarios', 'cambios'].indexOf(pestanaGuardada) >= 0) pestana = pestanaGuardada;
+    } catch (e) { /* sin almacenamiento */ }
     function mostrarLateral(v, cual) {
         lateral.hidden = !v; if (cual) pestana = cual;
-        document.querySelectorAll('[data-lat]').forEach(function (b) { b.classList.toggle('activo', b.dataset.lat === pestana); });
-        $('rd-lat-comentarios').hidden = pestana !== 'comentarios'; $('rd-lat-cambios').hidden = pestana !== 'cambios';
-        if (v) pintarRevision();
+        var botonPanel = $('rd-panel-toggle');
+        if (botonPanel) botonPanel.setAttribute('aria-expanded', String(!lateral.hidden));
+        document.querySelectorAll('.rd-lateral [data-lat]').forEach(function (b) {
+            var activo = b.dataset.lat === pestana;
+            b.classList.toggle('activo', activo);
+            b.setAttribute('aria-selected', activo ? 'true' : 'false');
+        });
+        ['paginas', 'comentarios', 'cambios'].forEach(function (k) {
+            var seccion = $('rd-lat-' + k); if (seccion) seccion.hidden = pestana !== k;
+        });
+        if (v) {
+            try { localStorage.setItem('rd-panel-tab', pestana); } catch (e) { /* sin almacenamiento */ }
+            pintarRevision();
+        }
     }
-    $('rd-i-revision').addEventListener('click', function () { mostrarLateral(lateral.hidden); });
+    $('rd-i-revision').addEventListener('click', function () {
+        if (!lateral.hidden && pestana === 'comentarios') { mostrarLateral(false); return; }
+        mostrarLateral(true, 'comentarios');
+    });
+    var btnPanelPaginas = $('rd-i-paginas');
+    if (btnPanelPaginas) {
+        btnPanelPaginas.addEventListener('click', function () {
+            if (!lateral.hidden && pestana === 'paginas') { mostrarLateral(false); return; }
+            mostrarLateral(true, 'paginas');
+        });
+    }
+    var btnCerrarPanel = $('rd-lat-cerrar');
+    if (btnCerrarPanel) { btnCerrarPanel.addEventListener('click', function () { mostrarLateral(false); }); }
+    var btnTogglePanel = $('rd-panel-toggle');
+    if (btnTogglePanel) { btnTogglePanel.addEventListener('click', function () { mostrarLateral(lateral.hidden); }); }
     document.querySelectorAll('[data-lat]').forEach(function (b) { b.addEventListener('click', function () { mostrarLateral(true, b.dataset.lat); }); });
     function pintarRevision() {
         if (!lateral.hidden) { pintarComentarios(); pintarCambios(); }
         var n = hoja.querySelectorAll('ins,del').length ? cambiosAgrupados().length : 0, ab = comentarios.filter(function (c) { return !c.resuelto; }).length, tot = n + ab, b = $('rd-n-revision');
         b.hidden = !tot; b.textContent = tot;
+        var contCom = $('rd-n-comentarios'), contCam = $('rd-n-cambios');
+        if (contCom) { contCom.hidden = !ab; contCom.textContent = ab; }
+        if (contCam) { contCam.hidden = !n; contCam.textContent = n; }
     }
     function planificarRevisionPanel() { clearTimeout(estadoRevisionTimer); estadoRevisionTimer = setTimeout(pintarRevision, 400); }
     hoja.addEventListener('input', planificarRevisionPanel);
@@ -1159,9 +1191,71 @@
 
 
     // ---------- Pestañas de la barra ----------
+    function sincronizarImpresion() {
+        [['rd-pr-papel', 'rd-papel'], ['rd-pr-orient', 'rd-orient'], ['rd-pr-margen', 'rd-margen-pre'],
+         ['rd-pr-numerar', 'rd-numerar'], ['rd-pr-encabezado', 'rd-encabezado']].forEach(function (par) {
+            var p = $(par[0]), o = $(par[1]);
+            if (!p || !o) return;
+            if (p.type === 'checkbox') p.checked = o.checked; else p.value = o.value;
+        });
+    }
+    function aplicarImpresion(par) {
+        var p = $(par[0]), o = $(par[1]);
+        if (!p || !o) return;
+        if (p.type === 'checkbox') o.checked = p.checked; else o.value = p.value;
+        o.dispatchEvent(new Event('input', { bubbles: true }));
+        o.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    [['rd-pr-papel', 'rd-papel'], ['rd-pr-orient', 'rd-orient'], ['rd-pr-margen', 'rd-margen-pre'],
+     ['rd-pr-numerar', 'rd-numerar'], ['rd-pr-encabezado', 'rd-encabezado']].forEach(function (par) {
+        var e = $(par[0]);
+        if (e) e.addEventListener('change', function () { aplicarImpresion(par); sincronizarImpresion(); });
+    });
+    function urlImpresion() {
+        var q = '';
+        if ($('rd-pr-cambios') && $('rd-pr-cambios').checked) q += '&cambios=1';
+        if ($('rd-pr-coment') && $('rd-pr-coment').checked) q += '&comentarios=1';
+        if ($('rd-pr-firmas') && !$('rd-pr-firmas').checked) q += '&firmas=0';
+        return C.descargar + '&formato=pdf&inline=1' + q + '&_=' + Date.now();
+    }
+    function imprimirDocumento(soloAbrir) {
+        var url = urlImpresion();
+        var ventana = window.open('about:blank', '_blank');
+        var nota = $('rd-pr-estado');
+        if (!ventana) {
+            estado('Permite las ventanas emergentes para imprimir', true);
+            if (nota) nota.textContent = 'Permite las ventanas emergentes para imprimir.';
+            return;
+        }
+        var abrir = function () {
+            ventana.location.href = url;
+            if (soloAbrir) {
+                if (nota) nota.textContent = 'PDF abierto en otra pestaña.';
+                return;
+            }
+            if (nota) nota.textContent = 'Preparando la impresión…';
+            setTimeout(function () {
+                try {
+                    ventana.focus();
+                    ventana.print();
+                    if (nota) nota.textContent = 'Documento listo para imprimir.';
+                } catch (e) {
+                    if (nota) nota.textContent = 'El PDF se abrió; usa el botón de imprimir del visor.';
+                }
+            }, 1400);
+        };
+        if (sucio) guardar(false, abrir); else abrir();
+    }
+    var btnImprimirAhora = $('rd-pr-ahora'), btnAbrirPdf = $('rd-pr-abrir');
+    if (btnImprimirAhora) btnImprimirAhora.addEventListener('click', function () { imprimirDocumento(false); });
+    if (btnAbrirPdf) btnAbrirPdf.addEventListener('click', function () { imprimirDocumento(true); });
+
     function mostrarPestana(p) {
         PANELES.forEach(function (id) { var e = $(id); if (e) e.hidden = true; });
         var fl = $('rd-imagen-op'); if (fl) fl.hidden = true;
+        var impresion = $('rd-p-imprimir'); if (impresion) impresion.hidden = p !== 'imprimir';
+        var barra = $('rd-barra'); if (barra) barra.hidden = p === 'imprimir';
+        if (p === 'imprimir') sincronizarImpresion();
         document.querySelectorAll('#rd-pestanas [data-pest]').forEach(function (b) { b.classList.toggle('activo', b.dataset.pest === p); });
         document.querySelectorAll('#rd-barra > .rd-grupo-b[data-pest]').forEach(function (g) { g.classList.toggle('rd-oculto', g.dataset.pest !== p); });
         try { localStorage.setItem('rd-pestana', p); } catch (e) { /* sin almacenamiento */ }
@@ -1291,8 +1385,10 @@
     }
     function pintarPaginas() {
         var cont = $('rd-pg-lista'); if (!medidas || !cont) return;
-        var g = gruposPaginas(), esc1 = 118 / medidas.w, antes = $('rd-paginas').scrollTop;
-        $('rd-pg-n').textContent = g.length;
+        var g = gruposPaginas(), esc1 = 118 / medidas.w, seccionPaginas = $('rd-lat-paginas'), antes = seccionPaginas ? seccionPaginas.scrollTop : 0;
+        var nPag = $('rd-pg-n'), nTab = $('rd-n-paginas');
+        if (nPag) nPag.textContent = g.length;
+        if (nTab) nTab.textContent = g.length;
         cont.innerHTML = '';
         g.forEach(function (els, i) {
             var caja = document.createElement('div'); caja.className = 'rd-pg'; caja.dataset.i = i;
@@ -1315,7 +1411,7 @@
                 + '<button type="button" data-pg-acc="borra" title="Eliminar esta página"' + (vacia ? ' disabled' : '') + '><i class="fa-solid fa-trash-can"></i></button>';
             caja.appendChild(barra); cont.appendChild(caja);
         });
-        $('rd-paginas').scrollTop = antes;
+        if (seccionPaginas) seccionPaginas.scrollTop = antes;
     }
     $('rd-pg-nueva').addEventListener('click', function () {
         hoja.insertAdjacentHTML('beforeend', '<div class="salto-pagina" style="page-break-after:always"></div><p><br></p>');

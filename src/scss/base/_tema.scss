@@ -1,3 +1,6 @@
+@use 'sass:list';
+@use 'sass:map';
+
 /* ==========================================================================
    _tema.scss — Paletas de color: claro, oscuro y automático.
 
@@ -52,6 +55,13 @@
   --color-texto-suave: #a7aeb9;
   --color-sombra: 0, 0, 0;
   --color-tabla-hover: #222a35;
+  /* Textura del lienzo: dos tramas cruzadas teñidas con el acento. Muy tenue, para dar
+     profundidad sin ensuciar la lectura. */
+  --textura-fondo:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-primario) 14%, transparent) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--color-primario) 7%, transparent) 0 1px, transparent 1px 14px);
+  /* Brillo de las superficies rellenas con el acento (botones, menú activo). */
+  --textura-acento: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 62%);
   color-scheme: dark;
 }
 
@@ -99,7 +109,27 @@
   --color-texto-suave: #5b6770;
   --color-sombra: 15, 23, 42;
   --color-tabla-hover: #f2f6fa;
+  /* Textura del lienzo: dos tramas cruzadas teñidas con el acento. Muy tenue, para dar
+     profundidad sin ensuciar la lectura. */
+  --textura-fondo:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-primario) 6%, transparent) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--color-primario) 3%, transparent) 0 1px, transparent 1px 14px);
+  /* Brillo de las superficies rellenas con el acento (botones, menú activo). */
+  --textura-acento: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 62%);
   color-scheme: light;
+}
+
+/* La textura del lienzo se tiñe sola con el acento: al cambiar de color, cambia.
+   Es una imagen de fondo (el color va en background-color), así que no altera
+   el contraste del texto. */
+body {
+  background-image: var(--textura-fondo);
+  background-attachment: fixed;
+}
+
+/* La textura es sólo decorativa: fuera del papel y de las capturas de impresión. */
+@media print {
+  body { background-image: none; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -110,4 +140,125 @@
 
 :root[data-tema="oscuro"] {
   @include paleta-oscura;
+}
+
+/* ==========================================================================
+   COLORES DE ACENTO — se combinan con el tema visual.
+
+   <html data-color="azul|verde|violeta|teja|grafito|turquesa|indigo|cobalto|
+     cielo|menta|oliva|musgo|mostaza|ambar|coral|rosa|ciruela|vino|cacao">
+   cambia sólo el acento (primario, su hover, el texto de acento, los fondos
+   suaves, el halo de foco y la textura del lienzo); las superficies y el texto
+   siguen viniendo de la paleta clara u oscura. Cada color trae sus dos
+   versiones ya contrastadas (WCAG AA), así que cualquier pareja se ve legible.
+
+   Regla de orden: las variantes oscuras van AL FINAL para que ganen a la
+   versión clara cuando los dos atributos están puestos.
+   ========================================================================== */
+$colores-acento: (
+  azul: (
+    claro: (#4679a6, #38648c, #3d6d99, #eaf1f8, #c7dcef, rgba(90, 146, 195, 0.25)),
+    oscuro: (#4679a6, #3a6a96, #8fbbe6, #1d2d3e, #2f4a66, rgba(143, 187, 230, 0.35)),
+  ),
+  verde: (
+    claro: (#2c7a4b, #24633d, #1f6b40, #e8f5ec, #bfe3cb, rgba(44, 122, 75, 0.25)),
+    oscuro: (#2c7a4b, #24633d, #7dc98a, #16281d, #2d5a3c, rgba(125, 201, 138, 0.35)),
+  ),
+  violeta: (
+    claro: (#6b46a8, #583a8a, #5b3a91, #f0eafa, #d6c8ef, rgba(107, 70, 168, 0.25)),
+    oscuro: (#6b46a8, #583a8a, #b39ddb, #241d33, #453763, rgba(179, 157, 219, 0.35)),
+  ),
+  teja: (
+    claro: (#9a4a20, #7f3c19, #8a411c, #fbeee6, #f0cdb6, rgba(154, 74, 32, 0.25)),
+    oscuro: (#a85627, #8a4620, #f0b27d, #33221a, #6b3f26, rgba(240, 178, 125, 0.35)),
+  ),
+  grafito: (
+    claro: (#475569, #374151, #3f4a5c, #eef1f5, #cbd5e1, rgba(71, 85, 105, 0.25)),
+    oscuro: (#64748b, #374151, #cbd5e1, #242a33, #3f4a5a, rgba(203, 213, 225, 0.35)),
+  ),
+  turquesa: (
+    claro: (#0f6f7a, #0c5a63, #0d6069, #e6f4f6, #b8dfe4, rgba(15, 111, 122, 0.25)),
+    oscuro: (#0f6f7a, #0c5a63, #7dd3e0, #123037, #22606a, rgba(125, 211, 224, 0.35)),
+  ),
+  'indigo': (
+    claro: (#4338ca, #3730a3, #312e81, #eef0fb, #c7d2fe, rgba(67, 56, 202, 0.28)),
+    oscuro: (#4f46e5, #4338ca, #a5b4fc, #1e1b4b, #3b3a86, rgba(165, 180, 252, 0.38)),
+  ),
+  cobalto: (
+    claro: (#1d4ed8, #1e40af, #1e3a8a, #e8eefc, #bfdbfe, rgba(29, 78, 216, 0.28)),
+    oscuro: (#1d4ed8, #1e40af, #93c5fd, #16213f, #24417a, rgba(147, 197, 253, 0.38)),
+  ),
+  cielo: (
+    claro: (#0369a1, #075985, #075985, #e6f2fa, #bae6fd, rgba(3, 105, 161, 0.28)),
+    oscuro: (#0369a1, #075985, #7dd3fc, #0f2430, #1c4a63, rgba(125, 211, 252, 0.38)),
+  ),
+  menta: (
+    claro: (#0f766e, #115e59, #115e59, #e7f4f1, #b2e3dc, rgba(15, 118, 110, 0.28)),
+    oscuro: (#0f766e, #115e59, #5eead4, #0d2a26, #1f5a50, rgba(94, 234, 212, 0.38)),
+  ),
+  oliva: (
+    claro: (#4d7c0f, #3f6212, #3f6212, #f0f5e6, #d9e8b8, rgba(77, 124, 15, 0.28)),
+    oscuro: (#4d7c0f, #3f6212, #bef264, #1f2c10, #4a6420, rgba(190, 242, 100, 0.38)),
+  ),
+  musgo: (
+    claro: (#3f6212, #365314, #365314, #eef3e6, #d5e3bd, rgba(63, 98, 18, 0.28)),
+    oscuro: (#3f6212, #365314, #bef264, #1e2a12, #465c22, rgba(190, 242, 100, 0.38)),
+  ),
+  mostaza: (
+    claro: (#a16207, #854d0e, #854d0e, #f8f1e1, #f0dfa8, rgba(161, 98, 7, 0.28)),
+    oscuro: (#a16207, #854d0e, #fcd34d, #302509, #6b5013, rgba(252, 211, 77, 0.38)),
+  ),
+  ambar: (
+    claro: (#b45309, #92400e, #92400e, #fbf0e3, #f2d5b3, rgba(180, 83, 9, 0.28)),
+    oscuro: (#b45309, #92400e, #fdba74, #33220f, #6b4317, rgba(253, 186, 116, 0.38)),
+  ),
+  'coral': (
+    claro: (#c2410c, #9a3412, #9a3412, #fbeee8, #f5cbb8, rgba(194, 65, 12, 0.28)),
+    oscuro: (#c2410c, #9a3412, #fdba74, #331c12, #6b3319, rgba(253, 186, 116, 0.38)),
+  ),
+  rosa: (
+    claro: (#be185d, #9d174d, #9d174d, #fbebf1, #f5c0d3, rgba(190, 24, 93, 0.28)),
+    oscuro: (#be185d, #9d174d, #f9a8d4, #331522, #6b2445, rgba(249, 168, 212, 0.38)),
+  ),
+  ciruela: (
+    claro: (#86198f, #701a75, #701a75, #f6eaf7, #e9c6ec, rgba(134, 25, 143, 0.28)),
+    oscuro: (#86198f, #701a75, #e879f9, #2e1230, #622a66, rgba(232, 121, 249, 0.38)),
+  ),
+  vino: (
+    claro: (#9f1239, #881337, #881337, #fbe9ee, #f4c2d0, rgba(159, 18, 57, 0.28)),
+    oscuro: (#9f1239, #881337, #fda4af, #33101c, #661c33, rgba(253, 164, 175, 0.38)),
+  ),
+  cacao: (
+    claro: (#7c2d12, #6c2710, #6c2710, #f7ece7, #eccbbd, rgba(124, 45, 18, 0.28)),
+    oscuro: (#7c2d12, #6c2710, #f0b27d, #2f1b12, #5e2a18, rgba(240, 178, 125, 0.38)),
+  ),
+);
+
+@mixin paleta-acento($valores) {
+  --color-primario: #{list.nth($valores, 1)};
+  --color-primario-oscuro: #{list.nth($valores, 2)};
+  --color-primario-texto: #{list.nth($valores, 3)};
+  --color-primario-claro: #{list.nth($valores, 4)};
+  --color-primario-borde: #{list.nth($valores, 5)};
+  --color-foco: #{list.nth($valores, 6)};
+}
+
+@each $nombre, $paletas in $colores-acento {
+  :root[data-color="#{$nombre}"] {
+    @include paleta-acento(map.get($paletas, claro));
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  @each $nombre, $paletas in $colores-acento {
+    :root[data-color="#{$nombre}"]:not([data-tema="claro"]) {
+      @include paleta-acento(map.get($paletas, oscuro));
+    }
+  }
+}
+
+@each $nombre, $paletas in $colores-acento {
+  :root[data-color="#{$nombre}"][data-tema="oscuro"] {
+    @include paleta-acento(map.get($paletas, oscuro));
+  }
 }

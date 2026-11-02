@@ -137,12 +137,14 @@ template('header', [
     <button type="button" role="tab" data-pest="diseno"><i class="fa-regular fa-file"></i> Diseño</button>
     <button type="button" role="tab" data-pest="revision"><i class="fa-regular fa-comments"></i> Revisión</button>
     <button type="button" role="tab" data-pest="herramientas"><i class="fa-solid fa-screwdriver-wrench"></i> Herramientas</button>
+    <button type="button" role="tab" data-pest="imprimir"><i class="fa-solid fa-print"></i> Imprimir</button>
 </div>
 <div class="rd-barra" id="rd-barra" role="toolbar" aria-label="Herramientas de redacción">
     <div class="rd-grupo-b" data-pest="inicio">
         <?php echo $btn('undo', 'fa-rotate-left', 'Deshacer (Ctrl+Z)') . $btn('redo', 'fa-rotate-right', 'Rehacer (Ctrl+Y)'); ?>
         <?php echo $btn('cut', 'fa-scissors', 'Cortar') . $btn('copy', 'fa-copy', 'Copiar') . $btn('paste', 'fa-paste', 'Pegar') . $btn('pastetext', 'fa-i-cursor', 'Pegar sin formato'); ?>
         <button type="button" class="rd-b" id="rd-i-buscar" title="Buscar y reemplazar (Ctrl+F)"><i class="fa-solid fa-magnifying-glass"></i></button>
+        <button type="button" class="rd-b" id="rd-i-paginas" title="Panel del documento: páginas, comentarios y cambios"><i class="fa-solid fa-table-columns"></i> Panel</button>
     </div>
     <div class="rd-grupo-b" data-pest="inicio">
         <button type="button" class="rd-b" id="rd-x-brocha" title="Copiar formato: copia el formato del texto donde está el cursor y se aplica a la siguiente selección"><i class="fa-solid fa-paintbrush"></i> Copiar formato</button>
@@ -192,10 +194,6 @@ template('header', [
         <button type="button" class="rd-b" id="rd-x-caja" title="Cuadro de texto a un lado del texto"><i class="fa-regular fa-note-sticky"></i> Cuadro de texto</button>
         <button type="button" class="rd-b" id="rd-x-portada" title="Portada con plantillas"><i class="fa-regular fa-file-image"></i> Portada</button>
     </div>
-    <div class="rd-grupo-b" data-pest="insertar">
-        <select id="rd-x-bloque" title="Bloques predefinidos de obra" aria-label="Bloques de obra"><option value="">Bloque de obra</option><option value="acta">Acta de reunión</option><option value="minuta">Minuta</option><option value="bitacora">Bitácora diaria</option><option value="cambio">Orden de cambio</option><option value="asistencia">Lista de asistencia</option></select>
-        <button type="button" class="rd-b" id="rd-x-programa" title="Tabla con las partidas y actividades del programa de obra"><i class="fa-solid fa-bars-progress"></i> Tabla del programa</button>
-    </div>
 
     <div class="rd-grupo-b" data-pest="diseno">
         <button type="button" class="rd-b" id="rd-i-pagina" title="Página, márgenes e idioma"><i class="fa-regular fa-file"></i> Página y márgenes</button>
@@ -222,7 +220,7 @@ template('header', [
         <button type="button" class="rd-b" data-x-cambios="aceptar" title="Aceptar todos los cambios pendientes"><i class="fa-solid fa-check-double"></i> Aceptar todos</button>
         <button type="button" class="rd-b" data-x-cambios="rechazar" title="Rechazar todos los cambios pendientes"><i class="fa-solid fa-xmark"></i> Rechazar todos</button>
         <button type="button" class="rd-b" id="rd-x-versiones" title="Historial de versiones: ver, comparar y restaurar"><i class="fa-solid fa-clock-rotate-left"></i> Versiones</button>
-        <button type="button" class="rd-b" id="rd-i-revision" title="Panel de comentarios y cambios"><i class="fa-solid fa-table-columns"></i> Panel <span id="rd-n-revision" class="rd-contador" hidden></span></button>
+        <button type="button" class="rd-b" id="rd-i-revision" title="Panel del documento: comentarios y cambios"><i class="fa-solid fa-table-columns"></i> Panel <span id="rd-n-revision" class="rd-contador" hidden></span></button>
     </div>
     <div class="rd-grupo-b" data-pest="revision">
         <button type="button" class="rd-b" id="rd-i-firma" title="Firmas: manuscrita, bloques de firma y firma electrónica"><i class="fa-solid fa-signature"></i> Firmas</button>
@@ -373,6 +371,35 @@ template('header', [
     <label><input type="checkbox" id="rd-numerar"<?php echo $documento->numerar ? ' checked' : ''; ?>> Numerar páginas</label>
     <label><input type="checkbox" id="rd-encabezado"<?php echo $documento->encabezado ? ' checked' : ''; ?>> Encabezado (nombre · departamento · fecha)</label>
     <label>Corrector <select id="rd-idioma"><?php foreach (RedactorDocumento::IDIOMAS as $k => $n): ?><option value="<?php echo s($k); ?>"<?php echo $documento->idioma === $k ? ' selected' : ''; ?>><?php echo s($n); ?></option><?php endforeach; ?></select></label>
+</div>
+
+<div class="rd-panel rd-panel-impresion" id="rd-p-imprimir" hidden>
+    <div class="rd-imp-cab">
+        <strong><i class="fa-solid fa-print" aria-hidden="true"></i> Imprimir documento</strong>
+        <span class="text-sm text-muted">Se genera el PDF con estas opciones y se abre la impresión. La impresora, las copias y el rango los eliges en el diálogo del sistema.</span>
+    </div>
+    <div class="rd-imp-rejilla">
+        <label>Hoja <select id="rd-pr-papel"><?php foreach (RedactorDocumento::PAPELES as $k => $p): ?><option value="<?php echo s($k); ?>"<?php echo $documento->papel === $k ? ' selected' : ''; ?>><?php echo s($p[0]); ?></option><?php endforeach; ?></select></label>
+        <label>Orientación <select id="rd-pr-orient"><option value="vertical">Vertical</option><option value="horizontal"<?php echo $documento->orientacion === 'horizontal' ? ' selected' : ''; ?>>Horizontal</option></select></label>
+        <label>Márgenes <select id="rd-pr-margen">
+            <option value="">Personalizado</option>
+            <option value="2.54,2.54,2.54,2.54">Normal (2.54)</option>
+            <option value="1.27,1.27,1.27,1.27">Estrecho (1.27)</option>
+            <option value="2.54,2.54,3.81,3.81">Amplio (3.81 lados)</option>
+            <option value="2.54,2.54,4.5,2.54">Encuadernado (izq. 4.5)</option>
+        </select></label>
+        <label class="rd-opc"><input type="checkbox" id="rd-pr-numerar"<?php echo $documento->numerar ? ' checked' : ''; ?>> Numerar páginas</label>
+        <label class="rd-opc"><input type="checkbox" id="rd-pr-encabezado"<?php echo $documento->encabezado ? ' checked' : ''; ?>> Encabezado</label>
+        <span class="rd-sep" aria-hidden="true"></span>
+        <label class="rd-opc"><input type="checkbox" id="rd-pr-cambios"> Mostrar cambios marcados</label>
+        <label class="rd-opc"><input type="checkbox" id="rd-pr-coment"> Incluir comentarios al final</label>
+        <label class="rd-opc"><input type="checkbox" id="rd-pr-firmas" checked> Incluir firmas electrónicas</label>
+    </div>
+    <div class="rd-imp-acciones">
+        <button type="button" class="btn btn-sm btn-primary" id="rd-pr-ahora"><i class="fa-solid fa-print"></i> Imprimir ahora</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="rd-pr-abrir"><i class="fa-regular fa-file-pdf"></i> Abrir PDF</button>
+        <span class="text-sm text-muted" role="status" id="rd-pr-estado"></span>
+    </div>
 </div>
 
 <div id="rd-imagen-op" class="rd-panel rd-flota" hidden>
@@ -589,22 +616,35 @@ template('header', [
 </dialog>
 
 <div class="rd-area">
-<aside class="rd-paginas" id="rd-paginas" aria-label="Navegador de páginas">
-    <div class="rd-paginas-tit"><strong><i class="fa-regular fa-copy"></i> Páginas</strong> <span id="rd-pg-n" class="rd-contador">1</span></div>
-    <button type="button" class="btn btn-sm btn-ghost" id="rd-pg-nueva" title="Agregar una página en blanco al final"><i class="fa-solid fa-plus"></i> Agregar página</button>
-    <div id="rd-pg-lista" class="rd-pg-lista"></div>
-    <p class="text-sm text-muted">Mover o eliminar una página afecta a los bloques que empiezan en ella.</p>
-</aside>
 <div class="rd-fondo" id="rd-fondo">
     <div class="rd-pagina" id="rd-pagina">
         <div class="rd-hoja" id="rd-hoja" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido del documento" spellcheck="false"><?php echo $documento->contenido !== '' ? $documento->contenido : '<p><br></p>'; ?></div>
         <div class="rd-guias" id="rd-guias" aria-hidden="true"></div>
     </div>
 </div>
-<aside class="rd-lateral" id="rd-lateral" aria-label="Comentarios y cambios">
-    <div class="rd-tabs"><button type="button" class="activo" data-lat="comentarios">Comentarios</button><button type="button" data-lat="cambios">Cambios</button></div>
-    <div id="rd-lat-comentarios"></div>
-    <div id="rd-lat-cambios" hidden></div>
+<button type="button" class="rd-panel-boton" id="rd-panel-toggle" title="Mostrar u ocultar el panel del documento" aria-controls="rd-lateral" aria-expanded="true">
+    <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+    <span class="solo-lectores">Mostrar u ocultar el panel del documento</span>
+</button>
+<aside class="rd-lateral" id="rd-lateral" aria-label="Panel del documento">
+    <div class="rd-lat-cab">
+        <div class="rd-tabs" role="tablist" aria-label="Panel del documento">
+            <button type="button" class="activo" role="tab" aria-selected="true" data-lat="paginas" title="Páginas del documento"><i class="fa-regular fa-copy" aria-hidden="true"></i> Páginas <span class="rd-contador" id="rd-n-paginas">1</span></button>
+            <button type="button" role="tab" aria-selected="false" data-lat="comentarios" title="Comentarios"><i class="fa-regular fa-comment-dots" aria-hidden="true"></i> Comentarios <span class="rd-contador" id="rd-n-comentarios" hidden>0</span></button>
+            <button type="button" role="tab" aria-selected="false" data-lat="cambios" title="Cambios pendientes"><i class="fa-solid fa-user-pen" aria-hidden="true"></i> Cambios <span class="rd-contador" id="rd-n-cambios" hidden>0</span></button>
+        </div>
+        <button type="button" class="rd-lat-cerrar" id="rd-lat-cerrar" title="Ocultar el panel" aria-label="Ocultar el panel"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    </div>
+    <div class="rd-lat-seccion" id="rd-lat-paginas" role="tabpanel" aria-label="Páginas">
+        <div class="rd-paginas" id="rd-paginas">
+            <div class="rd-paginas-tit"><strong><i class="fa-regular fa-copy" aria-hidden="true"></i> Páginas del documento</strong> <span id="rd-pg-n" class="rd-contador">1</span></div>
+            <button type="button" class="btn btn-sm btn-ghost" id="rd-pg-nueva" title="Agregar una página en blanco al final"><i class="fa-solid fa-plus"></i> Agregar página</button>
+            <div id="rd-pg-lista" class="rd-pg-lista"></div>
+            <p class="text-sm text-muted">Haz clic en una página para ir a ella. Mover o eliminar afecta a los bloques que empiezan en ella.</p>
+        </div>
+    </div>
+    <div class="rd-lat-seccion" id="rd-lat-comentarios" role="tabpanel" aria-label="Comentarios" hidden></div>
+    <div class="rd-lat-seccion" id="rd-lat-cambios" role="tabpanel" aria-label="Cambios" hidden></div>
 </aside>
 </div>
 

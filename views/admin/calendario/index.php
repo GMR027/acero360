@@ -18,8 +18,11 @@
  * casilla ya elegida, o con el botón de la cabecera. El formulario vive oculto
  * al final de la página y el módulo del calendario lo mueve al modal.
  *
- * VER: el botón con icono (ojo) de cada tarjeta de la Agenda abre el detalle
- * de ese día en modal; sus datos viajan en el atributo data-agenda-dia.
+ * VER: la Agenda del mes es una TABLA con una fila por cada elemento listado
+ * (marcador del negocio o recordatorio). El botón «Ver» de cada fila abre su
+ * detalle en modal: el del día para los marcadores del negocio y la ficha del
+ * evento para los recordatorios. Los datos del día viajan en los nodos
+ * [data-agenda-datos] y las filas los referencian con data-agenda-ref.
  *
  * El alta se envía a /admin/calendario/crear (sólo POST); aquí sólo se lee.
  * Ruta protegida por el middleware "soloAdmin".
@@ -159,50 +162,14 @@ $horaAmable = static function ($hora): string {
     return $momento ? $momento->format('g:i A') : $hora;
 };
 
-/**
- * Tarjeta de un recordatorio o evento.
- *
- * @param \App\EventosCalendario $evento
- * @param bool                   $compacta Agenda del mes: oculta la descripción
- */
-$tarjetaEvento = static function (\App\EventosCalendario $evento, bool $compacta) use ($horaAmable): string {
-    $importancia = \App\EventosCalendario::datosImportancia($evento->importancia);
-    $negocio     = trim((string) $evento->negocio);
-    $hora        = $horaAmable($evento->hora);
-
-    $html  = '<article class="evento-tarjeta evento-tarjeta--' . escaparValores($evento->importancia) . '">';
-    $html .= '<header class="evento-tarjeta__cabecera">';
-    $html .= '<span class="badge ' . $importancia['clase'] . '">'
-        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem">' . $importancia['icono'] . '</span>'
-        . ' ' . $importancia['etiqueta'] . '</span>';
-
-    if ($hora !== '') {
-        $html .= '<span class="evento-tarjeta__hora">'
-            . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem">schedule</span>'
-            . ' ' . escaparValores($hora) . '</span>';
-    }
-
-    if ($negocio !== '') {
-        $html .= '<span class="evento-tarjeta__negocio">'
-            . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem">corporate_fare</span>'
-            . ' ' . escaparValores($negocio) . '</span>';
-    }
-
-    $html .= '</header>';
-    $html .= '<h3 class="evento-tarjeta__nombre">' . escaparValores($evento->nombre) . '</h3>';
-
-    if (!$compacta && trim((string) $evento->descripcion) !== '') {
-        $html .= '<p class="evento-tarjeta__descripcion">' . escaparValores($evento->descripcion) . '</p>';
-    }
-
-    $html .= '<footer class="evento-tarjeta__acciones">';
-    $html .= '<a class="btn btn--texto btn--sm" href="/admin/calendario/editar?id=' . (int) $evento->id . '">'
-        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>'
-        . '<span>Editar</span></a>';
-    $html .= '</footer>';
-    $html .= '</article>';
-
-    return $html;
+/** Fecha de una fila de la agenda: "23 octubre 2026" + "viernes". */
+$fechaTablaAgenda = static function (string $fecha) use ($nombresDia, $nombresMeses): array {
+    $momento = new DateTimeImmutable($fecha);
+    return [
+        'texto'     => (int) $momento->format('j') . ' ' . $nombresMeses[(int) $momento->format('n')]
+            . ' ' . $momento->format('Y'),
+        'diaSemana' => ucfirst($nombresDia[(int) $momento->format('w')]),
+    ];
 };
 
 /**
@@ -381,11 +348,14 @@ template('header', [
 
 </div>
 
-<!-- Agenda del mes: día por día, lo que pasó en los negocios y los recordatorios -->
+<!-- Agenda del mes: una fila por cada marcador del negocio o recordatorio -->
 <section class="tarjeta tarjeta--sin-relleno mt-lg" aria-label="Agenda del mes">
     <div class="calendario-agenda__cabecera">
         <h2 class="titulo-4">Agenda de <?= escaparValores(nombreMes($mes)) ?> de <?= $anio ?></h2>
-        <p class="texto-secundario">Cada día con movimiento, en orden. «Ver» abre el detalle del día.</p>
+        <p class="texto-secundario">
+            Cada marcador del negocio y cada recordatorio, en orden de fecha.
+            «Ver» abre el detalle del elemento.
+        </p>
     </div>
 
     <?php
@@ -393,111 +363,183 @@ template('header', [
     // tienen recordatorios, en orden.
     $fechasAgenda = array_unique(array_merge(array_keys($porDia), array_keys($marcadoresPorDia)));
     sort($fechasAgenda);
+
+    // Los datos de cada día (para el modal) se guardan UNA sola vez y las filas
+    // los referencian con data-agenda-ref; así no se repite el JSON por fila.
+    $datosAgenda = [];
+    $filasAgenda = [];
+
+    foreach ($fechasAgenda as $fechaDia) {
+        $eventosDelDia = $porDia[$fechaDia] ?? [];
+        $negocioDelDia = $marcadoresPorDia[$fechaDia] ?? [];
+        $numeroDia     = (int) substr($fechaDia, 8, 2);
+        $esHoy         = $fechaDia === $hoy->format('Y-m-d');
+
+        $filasNegocio = [];
+        foreach (\App\EventosCalendario::TIPOS_NEGOCIO as $tipo => $datos) {
+            if (empty($negocioDelDia[$tipo])) {
+                continue;
+            }
+            $filasNegocio[] = [
+                'tipo'     => $tipo,
+                'etiqueta' => $datos['etiqueta'],
+                'plural'   => $datos['plural'],
+                'icono'    => $datos['icono'],
+                'color'    => $datos['color'],
+                'n'        => (int) $negocioDelDia[$tipo]['n'],
+                'importe'  => $negocioDelDia[$tipo]['importe'],
+            ];
+        }
+
+        $eventosDia = [];
+        foreach ($eventosDelDia as $eventoDia) {
+            $importanciaEvento = \App\EventosCalendario::datosImportancia($eventoDia->importancia);
+            $eventosDia[] = [
+                'id'                  => (int) $eventoDia->id,
+                'nombre'              => (string) $eventoDia->nombre,
+                'hora'                => $horaAmable($eventoDia->hora),
+                'importancia'         => (string) $eventoDia->importancia,
+                'importanciaEtiqueta' => $importanciaEvento['etiqueta'],
+                'importanciaIcono'    => $importanciaEvento['icono'],
+                'importanciaClase'    => $importanciaEvento['clase'],
+                'negocio'             => trim((string) $eventoDia->negocio),
+                'descripcion'         => trim((string) $eventoDia->descripcion),
+                'autor'               => trim((string) $eventoDia->autor),
+                'rutaEditar'          => '/admin/calendario/editar?id=' . (int) $eventoDia->id,
+            ];
+        }
+
+        $datosAgenda[$fechaDia] = json_encode([
+            'fecha'   => $fechaDia,
+            'titulo'  => $fechaAmable($fechaDia, true),
+            'hoy'     => $esHoy,
+            'negocio' => $filasNegocio,
+            'eventos' => $eventosDia,
+            'rutaDia' => '/admin/calendario?anio=' . $anio . '&mes=' . $mes . '&dia=' . $numeroDia,
+        ], JSON_UNESCAPED_UNICODE);
+
+        // Primero lo que pasó en los negocios y después los recordatorios.
+        foreach ($filasNegocio as $filaNegocio) {
+            $filasAgenda[] = [
+                'fecha'       => $fechaDia,
+                'negocio'     => $filaNegocio,
+                'evento'      => null,
+                'importancia' => null,
+            ];
+        }
+        foreach ($eventosDelDia as $eventoDia) {
+            $filasAgenda[] = [
+                'fecha'       => $fechaDia,
+                'negocio'     => null,
+                'evento'      => $eventoDia,
+                'importancia' => \App\EventosCalendario::datosImportancia($eventoDia->importancia),
+            ];
+        }
+    }
     ?>
 
-    <?php if (!$fechasAgenda) : ?>
+    <?php if (!$filasAgenda) : ?>
         <div class="vacio">
             <span class="material-symbols-outlined vacio__icono" aria-hidden="true">calendar_month</span>
             <p class="vacio__titulo">Sin movimiento este mes</p>
             <p>Cuando haya ventas, gastos o recordatorios aparecerán aquí, día por día.</p>
         </div>
     <?php else : ?>
-        <div class="calendario-agenda">
-            <?php foreach ($fechasAgenda as $fechaDia) :
-                $eventosDelDia = $porDia[$fechaDia] ?? [];
-                $negocioDelDia = $marcadoresPorDia[$fechaDia] ?? [];
-                $numeroDia = (int) substr($fechaDia, 8, 2);
-                $esHoy = $fechaDia === $hoy->format('Y-m-d');
-                $esElegido = $fechaDia === $fechaSeleccionada;
+        <div class="tabla-contenedor">
+            <table class="tabla agenda-tabla">
+                <thead>
+                    <tr>
+                        <th scope="col">Fecha</th>
+                        <th scope="col">Icono</th>
+                        <th scope="col">Dato principal</th>
+                        <th scope="col">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($filasAgenda as $fila) :
+                    $eventoFila   = $fila['evento'];
+                    $negocioFila  = $fila['negocio'];
+                    $fechaFila    = $fila['fecha'];
+                    $infoFecha    = $fechaTablaAgenda($fechaFila);
+                    $esHoyFila    = $fechaFila === $hoy->format('Y-m-d');
+                    $esElegidoFila = $fechaFila === $fechaSeleccionada;
 
-                // Lo que muestra el botón «Ver»: se guarda en la propia tarjeta
-                // y el módulo del calendario lo lee al abrir el modal.
-                $filasNegocio = [];
-                foreach (\App\EventosCalendario::TIPOS_NEGOCIO as $tipo => $datos) {
-                    if (empty($negocioDelDia[$tipo])) {
-                        continue;
-                    }
-                    $filasNegocio[] = [
-                        'tipo'     => $tipo,
-                        'etiqueta' => $datos['etiqueta'],
-                        'plural'   => $datos['plural'],
-                        'icono'    => $datos['icono'],
-                        'color'    => $datos['color'],
-                        'n'        => (int) $negocioDelDia[$tipo]['n'],
-                        'importe'  => $negocioDelDia[$tipo]['importe'],
-                    ];
-                }
-                $eventosDia = [];
-                foreach ($eventosDelDia as $eventoDia) {
-                    $importanciaEvento = \App\EventosCalendario::datosImportancia($eventoDia->importancia);
-                    $eventosDia[] = [
-                        'id'                  => (int) $eventoDia->id,
-                        'nombre'              => (string) $eventoDia->nombre,
-                        'hora'                => $horaAmable($eventoDia->hora),
-                        'importancia'         => (string) $eventoDia->importancia,
-                        'importanciaEtiqueta' => $importanciaEvento['etiqueta'],
-                        'importanciaIcono'    => $importanciaEvento['icono'],
-                        'importanciaClase'    => $importanciaEvento['clase'],
-                        'negocio'             => trim((string) $eventoDia->negocio),
-                        'descripcion'         => trim((string) $eventoDia->descripcion),
-                        'autor'               => trim((string) $eventoDia->autor),
-                        'rutaEditar'          => '/admin/calendario/editar?id=' . (int) $eventoDia->id,
-                    ];
-                }
-                $detalleDia = json_encode([
-                    'fecha'      => $fechaDia,
-                    'titulo'     => $fechaAmable($fechaDia, true),
-                    'hoy'        => $esHoy,
-                    'negocio'    => $filasNegocio,
-                    'eventos'    => $eventosDia,
-                    'rutaDia'    => '/admin/calendario?anio=' . $anio . '&mes=' . $mes . '&dia=' . $numeroDia,
-                ], JSON_UNESCAPED_UNICODE);
-                ?>
-                <article class="agenda-dia<?= $esHoy ? ' agenda-dia--hoy' : '' ?><?= $esElegido ? ' agenda-dia--elegido' : '' ?>"
-                         id="agenda-<?= $fechaDia ?>" data-agenda-dia="<?= escaparValores($detalleDia) ?>">
-                    <header class="agenda-dia__cabecera">
-                        <span class="agenda-dia__fecha">
-                            <span class="agenda-dia__numero"><?= $numeroDia ?></span>
-                            <span class="agenda-dia__nombre">
-                                <?= escaparValores($fechaAmable($fechaDia)) ?><?= $esHoy ? ' (hoy)' : '' ?>
+                    $clasesFila  = 'agenda-fila';
+                    $clasesFila .= $esHoyFila ? ' agenda-fila--hoy' : '';
+                    $clasesFila .= $esElegidoFila ? ' agenda-fila--elegido' : '';
+                    ?>
+                    <tr class="<?= $clasesFila ?>" data-agenda-ref="<?= escaparValores($fechaFila) ?>">
+                        <td class="agenda-tabla__fecha">
+                            <span class="agenda-tabla__fecha-texto"><?= escaparValores($infoFecha['texto']) ?></span>
+                            <span class="agenda-tabla__dia-semana">
+                                <?= escaparValores($infoFecha['diaSemana']) ?><?= $esHoyFila ? ' · hoy' : '' ?>
                             </span>
-                        </span>
-                        <button type="button" class="btn btn--secundario btn--sm btn--icono" data-ver-dia
-                                aria-label="Ver el detalle de <?= escaparValores($fechaAmable($fechaDia)) ?>"
-                                title="Ver el detalle del día">
-                            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.25rem">visibility</span>
-                        </button>
-                    </header>
-
-                    <?php if ($filasNegocio !== []) : ?>
-                        <div class="agenda-dia__negocio">
-                            <?php foreach ($filasNegocio as $fila) : ?>
-                                <span class="agenda-dia__marcador" title="<?= escaparValores($fila['n'] . ' ' . ($fila['n'] === 1 ? $fila['etiqueta'] : $fila['plural'])) ?>">
-                                    <span class="material-icons agenda-dia__icono agenda-dia__icono--<?= $fila['color'] ?>"
-                                          aria-hidden="true"><?= $fila['icono'] ?></span>
-                                    <span class="agenda-dia__cifra">
-                                        <strong><?= number_format($fila['n']) ?></strong>
-                                        <?= $fila['n'] === 1 ? $fila['etiqueta'] : $fila['plural'] ?>
-                                        <?php if ($fila['importe'] !== null) : ?>
-                                            <span class="agenda-dia__importe"><?= formatoMoneda($fila['importe']) ?></span>
-                                        <?php endif; ?>
-                                    </span>
+                        </td>
+                        <td class="agenda-tabla__icono">
+                            <?php if ($negocioFila !== null) : ?>
+                                <span class="material-icons agenda-dia__icono agenda-dia__icono--<?= escaparValores($negocioFila['color']) ?>"
+                                      title="<?= escaparValores($negocioFila['n'] . ' ' . ($negocioFila['n'] === 1 ? $negocioFila['etiqueta'] : $negocioFila['plural'])) ?>"
+                                      aria-hidden="true"><?= $negocioFila['icono'] ?></span>
+                            <?php else : ?>
+                                <span class="agenda-detalle__evento-icono agenda-detalle__evento-icono--<?= escaparValores($fila['importancia']['importancia']) ?>"
+                                      title="<?= escaparValores($fila['importancia']['etiqueta']) ?>"
+                                      aria-hidden="true">
+                                    <span class="material-symbols-outlined"><?= $fila['importancia']['icono'] ?></span>
                                 </span>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="agenda-tabla__principal">
+                            <?php if ($negocioFila !== null) : ?>
+                                <strong>
+                                    <?= number_format($negocioFila['n']) ?>
+                                    <?= $negocioFila['n'] === 1 ? $negocioFila['etiqueta'] : $negocioFila['plural'] ?>
+                                </strong>
+                                <?php if ($negocioFila['importe'] !== null) : ?>
+                                    <span class="agenda-tabla__importe"><?= formatoMoneda($negocioFila['importe']) ?></span>
+                                <?php endif; ?>
+                            <?php else : ?>
+                                <strong><?= escaparValores($eventoFila->nombre) ?></strong>
+                                <?php
+                                $metaEvento = array_filter([
+                                    $horaAmable($eventoFila->hora),
+                                    trim((string) $eventoFila->negocio),
+                                ]);
+                                if ($metaEvento !== []) : ?>
+                                    <small class="agenda-tabla__meta"><?= escaparValores(implode(' · ', $metaEvento)) ?></small>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="herramientas-acciones">
+                            <?php if ($eventoFila !== null) : ?>
+                                <button type="button" class="btn btn--secundario btn--sm"
+                                        data-ver-evento="<?= (int) $eventoFila->id ?>"
+                                        aria-label="Ver el detalle de <?= escaparValores($eventoFila->nombre) ?>">
+                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver
+                                </button>
+                                <a class="btn btn--texto btn--sm" href="/admin/calendario/editar?id=<?= (int) $eventoFila->id ?>">
+                                    <span class="material-symbols-outlined" aria-hidden="true">edit</span> Editar
+                                </a>
+                                <?= $botonEliminar($eventoFila) ?>
+                            <?php else : ?>
+                                <button type="button" class="btn btn--secundario btn--sm" data-ver-dia
+                                        aria-label="Ver el detalle de <?= escaparValores($fechaAmable($fechaFila)) ?>"
+                                        title="Ver el detalle del día">
+                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver
+                                </button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 
-                    <?php if ($eventosDelDia !== []) : ?>
-                        <div class="agenda-dia__eventos">
-                            <?php foreach ($eventosDelDia as $eventoAgenda) : ?>
-                                <div class="agenda-dia__item">
-                                    <?= $tarjetaEvento($eventoAgenda, true) ?>
-                                    <?= $botonEliminar($eventoAgenda) ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </article>
+    <?php if ($datosAgenda) : ?>
+        <div hidden data-agenda-datos>
+            <?php foreach ($datosAgenda as $fechaDia => $detalleDia) : ?>
+                <span id="agenda-datos-<?= escaparValores($fechaDia) ?>"
+                      data-agenda-dia="<?= escaparValores($detalleDia) ?>"></span>
             <?php endforeach; ?>
         </div>
     <?php endif; ?>

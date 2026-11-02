@@ -329,7 +329,7 @@
         }).catch(function () { partidasCargadas = false; });
     }
     $('rd-i-tabla').addEventListener('click', function () { if (!$('rd-p-tabla').hidden) cargarPartidas(); });
-    $('rd-x-programa').addEventListener('click', function () { if (!$('rd-p-programa').hidden) cargarPartidas(); });
+    boton('rd-x-programa', function () { if (!$('rd-p-programa').hidden) cargarPartidas(); });
     $('rd-t-origen').addEventListener('change', function () { $('rd-t-medidas').hidden = !!this.value; });
     boton('rd-x-prog-ok', function () {
         R.tablaOrigen($('rd-x-prog-origen').value, '100%', true, !!$('rd-x-prog-sf').checked);

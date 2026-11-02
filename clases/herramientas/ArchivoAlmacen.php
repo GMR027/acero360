@@ -54,6 +54,9 @@ class ArchivoAlmacen
         'mp4' => 'video', 'mov' => 'video', 'avi' => 'video', 'mkv' => 'video',
     ];
 
+    /** Imágenes raster que GD puede decodificar para la miniatura. */
+    private const IMAGENES_GD = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+
     private const MIME = [
         'ofimatica' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'pdf'       => 'application/pdf',
@@ -112,10 +115,36 @@ class ArchivoAlmacen
         return self::FORMATOS[strtolower($ext)] ?? '';
     }
 
+    /**
+     * ¿Se puede generar en el servidor una miniatura fiable para esta extensión?
+     * PDF (primera página), imágenes raster que entiende GD y SVG (se sirve tal cual).
+     */
+    public static function admiteMiniatura(string $ext): bool
+    {
+        $ext = strtolower($ext);
+        return $ext === 'pdf' || $ext === 'svg' || in_array($ext, self::IMAGENES_GD, true);
+    }
+
     /** MIME razonable para una familia. */
     public static function mime(string $familia): string
     {
         return self::MIME[$familia] ?? 'application/octet-stream';
+    }
+
+    /** MIME real de una imagen/PDF al servirla inline (la familia no basta). */
+    public static function mimeInline(string $ext): string
+    {
+        return match (strtolower($ext)) {
+            'pdf'         => 'application/pdf',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png'         => 'image/png',
+            'gif'         => 'image/gif',
+            'webp'        => 'image/webp',
+            'bmp'         => 'image/bmp',
+            'svg'         => 'image/svg+xml',
+            'avif'        => 'image/avif',
+            default       => 'application/octet-stream',
+        };
     }
 
     /** Tamaño en bytes convertido a texto legible (1,4 MB / 312 KB / 98 B). */
@@ -352,9 +381,211 @@ class ArchivoAlmacen
     /** Borra los bytes de un archivo ya registrado. Devuelve true si ya no está. */
     public static function borrar(string $relativa): bool
     {
+        self::borrarMiniatura($relativa);
         $ruta = self::rutaAbsoluta($relativa);
         if ($ruta === null) return true;      // ya no existe: nada que borrar
         return @unlink($ruta);
+    }
+
+    /* --------------------------------------------------------------------
+     * MINIATURAS Y VISTA PREVIA
+     * ------------------------------------------------------------------ */
+
+    /** Carpeta de caché de miniaturas (fuera de public/, junto al almacén). */
+    private static function carpetaMiniaturas(): string
+    {
+        $ruta = self::base() . '/miniaturas';
+        if (!is_dir($ruta)) {
+            @mkdir($ruta, 0750, true);
+        }
+        return $ruta;
+    }
+
+    /** Ruta de la miniatura en caché para un archivo del almacén. */
+    private static function rutaMiniatura(string $relativa): string
+    {
+        return self::carpetaMiniaturas() . '/' . sha1($relativa) . '.jpg';
+    }
+
+    /** Borra la miniatura en caché de un archivo (al moverlo o eliminarlo). */
+    public static function borrarMiniatura(string $relativa): void
+    {
+        $mini = self::rutaMiniatura($relativa);
+        if (is_file($mini)) {
+            @unlink($mini);
+        }
+    }
+
+    /**
+     * Devuelve la ruta absoluta de la miniatura de un archivo, generándola y
+     * guardándola en caché la primera vez. Null si no se puede generar
+     * (formato no soportado, PDF corrupto, GD sin soporte…).
+     */
+    public static function miniatura(string $relativa, string $ext): ?string
+    {
+        $ruta = self::rutaAbsoluta($relativa);
+        if ($ruta === null) return null;
+
+        $ext = strtolower($ext);
+        if (!self::admiteMiniatura($ext) || $ext === 'svg') return null;   // SVG se sirve tal cual
+
+        $destino = self::rutaMiniatura($relativa);
+        if (is_file($destino) && filemtime($destino) >= filemtime($ruta)) {
+            return $destino;
+        }
+
+        $ok = $ext === 'pdf'
+            ? self::miniaturaPdf($ruta, $destino)
+            : self::miniaturaImagen($ruta, $destino);
+
+        return $ok && is_file($destino) ? $destino : null;
+    }
+
+    /** Miniatura de la primera página de un PDF con pdftoppm (poppler-utils). */
+    private static function miniaturaPdf(string $ruta, string $destino): bool
+    {
+        $binario = self::rutaBinario('pdftoppm');
+        if ($binario === null || !function_exists('exec')) return false;
+
+        $base = substr($destino, 0, -4) . '.' . bin2hex(random_bytes(4));
+        $comando = escapeshellarg($binario)
+            . ' -jpeg -f 1 -l 1 -scale-to 400 -singlefile '
+            . escapeshellarg($ruta) . ' ' . escapeshellarg($base) . ' 2>&1';
+
+        $salida = [];
+        $codigo = 1;
+        @exec($comando, $salida, $codigo);
+
+        $generada = $base . '.jpg';
+        if ($codigo !== 0 || !is_file($generada)) {
+            @unlink($generada);
+            return false;
+        }
+        if (!@rename($generada, $destino)) {
+            @unlink($generada);
+            return false;
+        }
+        return true;
+    }
+
+    /** Miniatura de una imagen raster con GD (proporcional, máx. 400 px). */
+    private static function miniaturaImagen(string $ruta, string $destino): bool
+    {
+        if (!function_exists('imagecreatefromstring')) return false;
+
+        // Evita decodificar imágenes enormes que agotarían la memoria.
+        $info = @getimagesize($ruta);
+        if ($info && ((int) $info[0] * (int) $info[1]) > 40000000) return false;
+
+        $datos = @file_get_contents($ruta);
+        if ($datos === false) return false;
+        $origen = @imagecreatefromstring($datos);
+        if (!$origen) return false;
+
+        $ancho = imagesx($origen);
+        $alto  = imagesy($origen);
+        if ($ancho < 1 || $alto < 1) {
+            imagedestroy($origen);
+            return false;
+        }
+
+        $escala     = min(400 / $ancho, 400 / $alto, 1.0);
+        $nuevoAncho = max(1, (int) round($ancho * $escala));
+        $nuevoAlto  = max(1, (int) round($alto * $escala));
+
+        $lienzo = imagecreatetruecolor($nuevoAncho, $nuevoAlto);
+        $blanco = imagecolorallocate($lienzo, 255, 255, 255);
+        imagefill($lienzo, 0, 0, $blanco);
+        imagecopyresampled($lienzo, $origen, 0, 0, 0, 0, $nuevoAncho, $nuevoAlto, $ancho, $alto);
+
+        $temporal = $destino . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        $ok = @imagejpeg($lienzo, $temporal, 82);
+
+        imagedestroy($lienzo);
+        imagedestroy($origen);
+
+        if (!$ok) {
+            @unlink($temporal);
+            return false;
+        }
+        if (!@rename($temporal, $destino)) {
+            @unlink($temporal);
+            return false;
+        }
+        return true;
+    }
+
+    /** Localiza un binario del sistema recorriendo el PATH. */
+    private static function rutaBinario(string $binario): ?string
+    {
+        foreach (explode(PATH_SEPARATOR, (string) getenv('PATH')) as $directorio) {
+            $ruta = rtrim($directorio, '/') . '/' . $binario;
+            if (is_file($ruta) && is_executable($ruta)) {
+                return $ruta;
+            }
+        }
+        return null;
+    }
+
+    /** Envía una miniatura ya generada (JPEG en caché). Termina la petición. */
+    public static function enviarMiniatura(string $ruta): void
+    {
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+
+        header('Content-Type: image/jpeg');
+        header('Content-Length: ' . filesize($ruta));
+        header('X-Content-Type-Options: nosniff');
+        header("Content-Security-Policy: default-src 'none'; sandbox");
+        header('Cache-Control: private, max-age=86400');
+        readfile($ruta);
+        exit;
+    }
+
+    /** Envía un SVG como miniatura (se dibuja sin ejecutar scripts). */
+    public static function enviarMiniaturaSvg(string $ruta): void
+    {
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+
+        header('Content-Type: image/svg+xml');
+        header('Content-Length: ' . filesize($ruta));
+        header('X-Content-Type-Options: nosniff');
+        header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox");
+        header('Cache-Control: private, max-age=86400');
+        readfile($ruta);
+        exit;
+    }
+
+    /**
+     * Envía el archivo para verlo dentro de la aplicación (inline): PDF e
+     * imágenes, nunca como descarga. Termina la petición.
+     */
+    public static function ver(string $ruta, string $mime, string $nombreOriginal, string $vista): void
+    {
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+
+        $limpio = preg_replace('/[^A-Za-z0-9._ -]/u', '', (string) $nombreOriginal) ?: 'archivo';
+        $tipo   = $vista === 'pdf' ? 'application/pdf' : ($mime !== '' ? $mime : 'application/octet-stream');
+
+        header('Content-Type: ' . $tipo);
+        header('Content-Disposition: inline; filename="' . str_replace('"', '', $limpio)
+            . '"; filename*=UTF-8\'\'' . rawurlencode((string) $nombreOriginal));
+        header('Content-Length: ' . filesize($ruta));
+        header('X-Content-Type-Options: nosniff');
+        // Solo la propia aplicación puede incrustarlo; el visor PDF necesita
+        // frame-ancestors y no admite «sandbox».
+        header('X-Frame-Options: SAMEORIGIN');
+        header($vista === 'pdf'
+            ? "Content-Security-Policy: frame-ancestors 'self'"
+            : "Content-Security-Policy: default-src 'none'; sandbox; frame-ancestors 'self'");
+        header('Cache-Control: private, no-store');
+        readfile($ruta);
+        exit;
     }
 
     /** Envía el archivo como descarga con su nombre original. Termina la petición. */

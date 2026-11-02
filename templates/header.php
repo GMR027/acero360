@@ -31,20 +31,21 @@ $mostrarEncabezado = $mostrarEncabezado ?? true;
 $GLOBALS['mostrarSidebar'] = $mostrarSidebar;
 
 $temaActual = temaPreferido();
+$colorActual = colorPreferido();
 
 // Versión del CSS compilado (?v=archivo): una compilación nueva cambia la URL,
 // para que una caché (CDN o navegador) no sirva nunca el build anterior.
 $versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
 ?>
 <!DOCTYPE html>
-<html lang="es" data-tema="<?= escaparValores($temaActual) ?>">
+<html lang="es" data-tema="<?= escaparValores($temaActual) ?>" data-color="<?= escaparValores($colorActual) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="color-scheme" content="light dark">
     <meta name="csrf" content="<?= tokenCsrf() ?>">
     <?php if ($mostrarSidebar) : ?>
-    <script>/* Tema: si no hay cookie (otro navegador), se crea con la preferencia del servidor. Solo con sesión iniciada: en el login aún no se sabe cuál es. */
-        (function(){try{if(document.cookie.indexOf("a360_tema=")<0){document.cookie="a360_tema="+document.documentElement.getAttribute("data-tema")+";path=/;max-age=31536000;SameSite=Lax";}}catch(e){}})();</script>
+    <script>/* Tema y color: si no hay cookie (otro navegador), se crean con la preferencia del servidor. Solo con sesión iniciada: en el login aún no se sabe cuál es. */
+        (function(){try{var d=document.documentElement;if(document.cookie.indexOf("a360_tema=")<0){document.cookie="a360_tema="+d.getAttribute("data-tema")+";path=/;max-age=31536000;SameSite=Lax";}if(document.cookie.indexOf("a360_color=")<0){document.cookie="a360_color="+d.getAttribute("data-color")+";path=/;max-age=31536000;SameSite=Lax";}}catch(e){}})();</script>
     <?php endif; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Acero 360: plataforma comercial, contable y administrativa para cotizar, vender, entregar y controlar inventario e impuestos.">
