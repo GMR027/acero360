@@ -62,6 +62,7 @@ $config = [
     'api'         => [
         'guardar'          => '/admin/redactor/api/guardar',
         'imagen'           => '/admin/redactor/api/imagen',
+        'archivoImagenes'  => '/admin/redactor/api/archivo-imagenes',
         'palabra'          => '/admin/redactor/api/palabra',
         'firma'            => '/admin/redactor/api/firma',
         'firmaBorrar'      => '/admin/redactor/api/firma-borrar',
@@ -323,9 +324,13 @@ template('header', [
 <div class="rd-panel" id="rd-p-imagen" hidden>
     <strong>Insertar imagen</strong>
     <button type="button" class="btn btn-sm btn-ghost" id="rd-img-subir"><i class="fa-solid fa-upload"></i> Subir desde el equipo</button>
-    <input type="file" id="rd-img-archivo" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+    <input type="file" id="rd-img-archivo" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" hidden>
+    <label>Buscar en Archivo <input type="search" id="rd-img-archivo-q" placeholder="Nombre de la imagen…" autocomplete="off"></label>
+    <label>o una imagen del Archivo <select id="rd-img-archivo-sel"><option value="">— ninguna —</option></select></label>
+    <div class="rd-archivo-vista" id="rd-img-archivo-vista" hidden><img alt="Vista previa de la imagen del Archivo"></div>
+    <button type="button" class="btn btn-sm btn-ghost" id="rd-img-archivo-ok" disabled><i class="fa-regular fa-image"></i> Insertar del Archivo</button>
     <label>Elegir una del documento <select id="rd-img-lista"><option value="">— ninguna —</option></select></label>
-    <span class="text-sm text-muted">Para ajustar el texto (a un lado, delante, detrás…) haz clic en la imagen.</span>
+    <span class="text-sm text-muted">Para ajustar el texto (a un lado, delante, detrás…) haz clic en la imagen. Del Archivo se admiten jpg, png, gif, webp, bmp y avif.</span>
     <?php if (!empty($config['simbolos'])): ?>
         <label>o un símbolo de la biblioteca
             <select id="rd-img-simbolo"><option value="">— Elegir —</option><?php $cat = null; foreach ($config['simbolos'] as $sm): if ($sm['cat'] !== $cat): if ($cat !== null) echo '</optgroup>'; $cat = $sm['cat']; echo '<optgroup label="' . s($cat) . '">'; endif; ?><option value="<?php echo s($sm['src']); ?>"><?php echo s($sm['nombre']); ?></option><?php endforeach; if ($cat !== null) echo '</optgroup>'; ?></select>
@@ -520,7 +525,54 @@ template('header', [
         <button type="button" class="btn btn-sm btn-ghost" data-x-marca="COPIA CONTROLADA">COPIA CONTROLADA</button>
         <button type="button" class="btn btn-sm btn-ghost" data-x-marca="">Quitar</button>
     </span>
-    <span class="text-sm text-muted">En el encabezado puedes usar {nombre}, {departamento} y {fecha}. La marca sale en PDF y Word (no en LibreOffice).</span>
+    <hr>
+    <label class="rd-opc"><input type="checkbox" id="rd-x-numerar"<?php echo $documento->numerar ? ' checked' : ''; ?>> Numerar páginas</label>
+    <label>Posición de la numeración
+        <select id="rd-x-num-pos">
+            <?php foreach (RedactorDocumento::POSICIONES_NUM as $k => $n): ?>
+                <option value="<?php echo s($k); ?>"<?php echo $documento->num_posicion === $k ? ' selected' : ''; ?>><?php echo s($n); ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <span class="text-sm text-muted">La numeración se repite en todas las páginas y se exporta a PDF, Word y LibreOffice.</span>
+    <hr>
+    <?php
+    $bloqueMembrete = static function (string $slot, string $etiqueta, string $img, $opacidad, $x, $y, $ancho) {
+        $id = 'rd-x-' . $slot;
+        ?>
+        <div class="rd-membrete-bloque">
+            <strong>Imagen del <?php echo s($etiqueta); ?></strong>
+            <input type="hidden" id="<?php echo $id; ?>-img" value="<?php echo s($img); ?>">
+            <div class="rd-membrete-acciones">
+                <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-subir"><i class="fa-solid fa-upload"></i> Subir</button>
+                <input type="file" id="<?php echo $id; ?>-archivo" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" hidden>
+                <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-quitar"><i class="fa-solid fa-trash-can"></i> Quitar</button>
+            </div>
+            <label>Buscar en Archivo <input type="search" id="<?php echo $id; ?>-q" placeholder="Nombre de la imagen…" autocomplete="off"></label>
+            <label>o una imagen del Archivo <select id="<?php echo $id; ?>-sel"><option value="">— ninguna —</option></select></label>
+            <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-usar" data-slot="<?php echo $slot; ?>"><i class="fa-regular fa-image"></i> Usar del Archivo</button>
+            <div class="rd-archivo-vista" id="<?php echo $id; ?>-vista"<?php echo $img === '' ? ' hidden' : ''; ?>><img alt="Vista previa de la imagen de <?php echo s($etiqueta); ?>"<?php echo $img !== '' ? ' src="/public/uploads/vplan/' . s($img) . '"' : ''; ?>></div>
+            <label>Opacidad <input type="range" id="<?php echo $id; ?>-op" min="0" max="100" step="5" value="<?php echo (int) $opacidad; ?>"> <output id="<?php echo $id; ?>-op-n"><?php echo (int) $opacidad; ?>%</output></label>
+            <label>Ancho (cm) <input type="number" id="<?php echo $id; ?>-ancho" min="0.5" max="100" step="0.1" value="<?php echo (float) $ancho; ?>"></label>
+            <div class="rd-pos-botones" role="group" aria-label="Posición de la imagen">
+                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="enc_izq" data-slot="<?php echo $slot; ?>">Encabezado izq.</button>
+                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="enc_centro" data-slot="<?php echo $slot; ?>">Encabezado centro</button>
+                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="enc_der" data-slot="<?php echo $slot; ?>">Encabezado der.</button>
+                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="pie_izq" data-slot="<?php echo $slot; ?>">Pie izq.</button>
+                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="pie_centro" data-slot="<?php echo $slot; ?>">Pie centro</button>
+                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="pie_der" data-slot="<?php echo $slot; ?>">Pie der.</button>
+            </div>
+            <div class="rd-membrete-coords">
+                <label>X <input type="number" id="<?php echo $id; ?>-x" min="0" max="100" step="0.1" value="<?php echo (float) $x; ?>"> cm</label>
+                <label>Y <input type="number" id="<?php echo $id; ?>-y" min="0" max="100" step="0.1" value="<?php echo (float) $y; ?>"> cm</label>
+            </div>
+        </div>
+        <?php
+    };
+    $bloqueMembrete('enc', 'encabezado', (string) $documento->imagen_encabezado, $documento->imagen_encabezado_opacidad, $documento->imagen_encabezado_x, $documento->imagen_encabezado_y, $documento->imagen_encabezado_ancho);
+    $bloqueMembrete('pie', 'pie', (string) $documento->imagen_pie, $documento->imagen_pie_opacidad, $documento->imagen_pie_x, $documento->imagen_pie_y, $documento->imagen_pie_ancho);
+    ?>
+    <span class="text-sm text-muted">En el encabezado puedes usar {nombre}, {departamento} y {fecha}. Las imágenes se repiten en todas las páginas; si borras el original en Archivo, el documento conserva su copia. La marca sale en PDF y Word (no en LibreOffice).</span>
 </div>
 <div class="rd-panel" id="rd-p-ira" hidden>
     <strong>Ir a</strong>
@@ -618,6 +670,7 @@ template('header', [
 <div class="rd-area">
 <div class="rd-fondo" id="rd-fondo">
     <div class="rd-pagina" id="rd-pagina">
+        <div class="rd-membrete-capa" id="rd-membrete-capa" aria-hidden="true"></div>
         <div class="rd-hoja" id="rd-hoja" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido del documento" spellcheck="false"><?php echo $documento->contenido !== '' ? $documento->contenido : '<p><br></p>'; ?></div>
         <div class="rd-guias" id="rd-guias" aria-hidden="true"></div>
     </div>

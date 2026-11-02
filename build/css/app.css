@@ -7740,6 +7740,86 @@ input:focus-visible ~ .interruptor__pista {
   font-size: 9pt;
   color: #666;
 }
+.herr .rd-membrete-capa {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.herr .rd-membrete-capa img {
+  position: absolute;
+  height: auto;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+}
+.herr .rd-pagina.rd-con-membrete {
+  background: #fff;
+}
+.herr .rd-pagina.rd-con-membrete > .rd-hoja {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+.herr .rd-archivo-vista {
+  display: flex;
+  justify-content: center;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-secondary);
+}
+.herr .rd-archivo-vista[hidden] {
+  display: none;
+}
+.herr .rd-archivo-vista img {
+  max-width: 100%;
+  max-height: 9rem;
+  object-fit: contain;
+}
+.herr .rd-membrete-bloque {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--bg-secondary);
+}
+.herr .rd-membrete-bloque > strong {
+  flex-basis: 100%;
+}
+.herr .rd-membrete-bloque label {
+  margin: 0;
+}
+.herr .rd-membrete-bloque .rd-archivo-vista {
+  flex-basis: 100%;
+}
+.herr .rd-membrete-acciones {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.herr .rd-membrete-coords {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.herr .rd-pos-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-basis: 100%;
+}
+.herr .rd-pos-botones button {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.45rem;
+}
 .herr .rd-estado {
   display: flex;
   flex-wrap: wrap;

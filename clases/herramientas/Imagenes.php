@@ -35,16 +35,28 @@ class Imagenes
     {
         try {
             $mime = mime_content_type($origen);
-            if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) return null;
+            if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/avif'], true)) return null;
             $img = (new ImageManager(new Driver()))->read($origen)->scaleDown(width: $maxAncho);
             if (!is_dir(self::CARPETA_VPLAN)) mkdir(self::CARPETA_VPLAN, 0775, true);
-            $png = $mime === 'image/png' || $mime === 'image/gif';
+            $png = in_array($mime, ['image/png', 'image/gif', 'image/bmp', 'image/avif'], true);
             $nombre = md5(uniqid('', true)) . ($png ? '.png' : '.jpg');
             ($png ? $img->toPng() : $img->toJpeg(88))->save(self::CARPETA_VPLAN . '/' . $nombre);
             return $nombre;
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    /** Copia al almacén del Redactor una imagen guardada en la herramienta Archivo. */
+    public static function copiarDesdeArchivo(int $archivoId, int $maxAncho = 2400): ?string
+    {
+        $archivo = \Model\Archivo::find($archivoId);
+        if (!$archivo) return null;
+        $ext = $archivo->extension();
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif'], true)) return null;
+        $ruta = ArchivoAlmacen::rutaAbsoluta((string) $archivo->archivo);
+        if ($ruta === null) return null;
+        return self::guardarGrande($ruta, $maxAncho);
     }
 
     /** Copia un archivo de vPlan con otro nombre (para que cada lámina sea dueña del suyo); null si no existe */

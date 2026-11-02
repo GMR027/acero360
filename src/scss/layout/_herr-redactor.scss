@@ -65,6 +65,25 @@
   // Separación entre hojas: franja del color del fondo con sombra arriba y abajo
   .rd-corte { position: absolute; left: -2rem; right: -2rem; height: 16px; background: var(--bg-tertiary); box-shadow: inset 0 6px 6px -6px rgba(0, 0, 0, .45), inset 0 -6px 6px -6px rgba(0, 0, 0, .45); span { position: absolute; right: 2.4rem; top: 0; font-size: 1rem; line-height: 16px; color: #64748b; } }
   .rd-num { position: absolute; left: 0; right: 0; text-align: center; font-size: 9pt; color: #666; } }
+
+// Membrete: capa de imágenes detrás del texto, repetida en cada hoja
+.rd-membrete-capa { position: absolute; left: 0; top: 0; width: 100%; height: 0; overflow: hidden; pointer-events: none; z-index: 0;
+  img { position: absolute; height: auto; max-width: none; pointer-events: none; user-select: none; } }
+.rd-pagina.rd-con-membrete { background: #fff; }
+.rd-pagina.rd-con-membrete > .rd-hoja { position: relative; z-index: 1; background: transparent; }
+
+// Selector de imágenes del Archivo y bloques de membrete
+.rd-archivo-vista { display: flex; justify-content: center; padding: .4rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--bg-secondary);
+  &[hidden] { display: none; }
+  img { max-width: 100%; max-height: 9rem; object-fit: contain; } }
+.rd-membrete-bloque { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .7rem; border: 1px solid var(--border); border-radius: .6rem; background: var(--bg-secondary);
+  > strong { flex-basis: 100%; }
+  label { margin: 0; }
+  .rd-archivo-vista { flex-basis: 100%; } }
+.rd-membrete-acciones { display: flex; gap: .4rem; flex-wrap: wrap; }
+.rd-membrete-coords { display: flex; gap: .6rem; flex-wrap: wrap; }
+.rd-pos-botones { display: flex; flex-wrap: wrap; gap: .35rem; flex-basis: 100%;
+  button { font-size: .75rem; padding: .25rem .45rem; } }
 .rd-estado { display: flex; flex-wrap: wrap; gap: 1.6rem; align-items: center; margin-top: .8rem; font-size: 1.2rem; color: var(--text-muted);
   select { padding: .3rem .5rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--bg-secondary); color: var(--text); font-size: 1.2rem; } }
 .rd-menu-ort { position: fixed; z-index: 100; min-width: 18rem; padding: .5rem; background: var(--surface); border: 1px solid var(--border); border-radius: .8rem; box-shadow: 0 1rem 3rem rgba(0, 0, 0, .5); font-size: 1.3rem;

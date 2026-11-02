@@ -113,6 +113,7 @@ $router->post('/admin/redactor/renombrar',      'views/admin/redactor/accion.php
 $router->post('/admin/redactor/plantilla-eliminar', 'views/admin/redactor/plantilla-eliminar.php', 'soloAdmin');
 $router->post('/admin/redactor/api/guardar',    'views/admin/redactor/api/guardar.php',    'soloAdmin');
 $router->post('/admin/redactor/api/imagen',     'views/admin/redactor/api/imagen.php',     'soloAdmin');
+$router->get('/admin/redactor/api/archivo-imagenes', 'views/admin/redactor/api/archivo-imagenes.php', 'soloAdmin');
 $router->post('/admin/redactor/api/palabra',    'views/admin/redactor/api/palabra.php',    'soloAdmin');
 $router->post('/admin/redactor/api/firma',      'views/admin/redactor/api/firma.php',      'soloAdmin');
 $router->post('/admin/redactor/api/firma-borrar', 'views/admin/redactor/api/firma-borrar.php', 'soloAdmin');

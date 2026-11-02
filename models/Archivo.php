@@ -70,6 +70,38 @@ class Archivo extends ActiveRecord
         );
     }
 
+    /**
+     * Imágenes del Archivo que se pueden insertar en el Redactor.
+     * Devuelve arrays con id, nombre y carpeta (para agrupar el selector).
+     */
+    public static function imagenesInsertables(string $busqueda = '', int $limite = 300): array
+    {
+        $busqueda = trim($busqueda);
+        $donde = "LOWER(SUBSTRING_INDEX(a.nombre, '.', -1)) IN ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif')";
+        if ($busqueda !== '') {
+            $q = self::escapar(mb_strtolower($busqueda));
+            $donde .= " AND (LOWER(a.nombre) LIKE '%$q%' OR LOWER(a.descripcion) LIKE '%$q%')";
+        }
+        $limite = max(1, min(500, $limite));
+        $r = self::$db->query(
+            "SELECT a.id, a.nombre, a.carpeta_id, c.nombre AS carpeta
+               FROM archivo_archivos a
+               LEFT JOIN archivo_carpetas c ON c.id = a.carpeta_id
+              WHERE $donde
+              ORDER BY c.nombre ASC, a.nombre ASC
+              LIMIT $limite"
+        );
+        $out = [];
+        while ($r && ($f = $r->fetch_assoc())) {
+            $out[] = [
+                'id' => (int) $f['id'],
+                'nombre' => (string) $f['nombre'],
+                'carpeta' => (string) ($f['carpeta'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
     /** Extensión en minúsculas (sin punto); '' si no la tiene. */
     public function extension(): string
     {

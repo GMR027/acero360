@@ -393,6 +393,95 @@ class Redactor
         return null;
     }
 
+    /** Datos de la imagen de membrete de un documento, o null si no existe. */
+    private static function membreteConfig(RedactorDocumento $d, string $slot): ?array
+    {
+        $nombre = $slot === 'enc' ? (string) $d->imagen_encabezado : (string) $d->imagen_pie;
+        if ($nombre === '' || !preg_match('/^[a-f0-9]{32}\.(?:png|jpg)$/', $nombre)) return null;
+        $ruta = Imagenes::CARPETA_VPLAN . '/' . $nombre;
+        $info = @getimagesize($ruta);
+        if (!is_file($ruta) || !$info) return null;
+        $ancho = (float) ($slot === 'enc' ? $d->imagen_encabezado_ancho : $d->imagen_pie_ancho);
+        return [
+            'ruta' => $ruta,
+            'opacidad' => (int) ($slot === 'enc' ? $d->imagen_encabezado_opacidad : $d->imagen_pie_opacidad),
+            'x' => (float) ($slot === 'enc' ? $d->imagen_encabezado_x : $d->imagen_pie_x),
+            'y' => (float) ($slot === 'enc' ? $d->imagen_encabezado_y : $d->imagen_pie_y),
+            'ancho' => $ancho > 0 ? $ancho : 5,
+            'alto' => $ancho > 0 ? $ancho * $info[1] / max(1, $info[0]) : 2.5,
+        ];
+    }
+
+    /** PNG temporal con la opacidad incorporada (Word/ODT no aplican opacidad a las imágenes). */
+    private static function imagenConOpacidad(string $ruta, int $opacidad): ?string
+    {
+        $opacidad = max(0, min(100, $opacidad));
+        if ($opacidad >= 100) return $ruta;
+        if (!function_exists('imagecreatefromstring')) return null;
+        $datos = @file_get_contents($ruta);
+        $origen = $datos !== false ? @imagecreatefromstring($datos) : null;
+        if (!$origen) return null;
+        if (function_exists('imagepalettetotruecolor')) @imagepalettetotruecolor($origen);
+        $w = imagesx($origen);
+        $h = imagesy($origen);
+        $destino = imagecreatetruecolor($w, $h);
+        if (!$destino) return null;
+        imagealphablending($destino, false);
+        imagesavealpha($destino, true);
+        $op = $opacidad / 100;
+        $alfaBase = 127 * (1 - $op);
+        for ($y = 0; $y < $h; $y++) {
+            for ($x = 0; $x < $w; $x++) {
+                $c = imagecolorat($origen, $x, $y);
+                $a = ($c >> 24) & 0x7F;
+                $r = ($c >> 16) & 0xFF;
+                $g = ($c >> 8) & 0xFF;
+                $b = $c & 0xFF;
+                $na = (int) round($alfaBase + $a * $op);
+                imagesetpixel($destino, $x, $y, imagecolorallocatealpha($destino, $r, $g, $b, $na));
+            }
+        }
+        $base = tempnam(sys_get_temp_dir(), 'rdm');
+        if ($base === false) return null;
+        @unlink($base);
+        $salida = $base . '.png';
+        $ok = imagepng($destino, $salida);
+        imagedestroy($origen);
+        imagedestroy($destino);
+        return $ok ? $salida : null;
+    }
+
+    /** Alineación de la numeración: left, center o right. */
+    private static function alineacionNumero(string $pos): string
+    {
+        return str_ends_with($pos, '_izq') ? 'left' : (str_ends_with($pos, '_der') ? 'right' : 'center');
+    }
+
+    /** Imagen de membrete en el encabezado/pie del DOCX, anclada a la página y detrás del texto. */
+    private static function agregarImagenMembreteDocx($contenedor, array $info, array &$temporales): void
+    {
+        $ruta = self::imagenConOpacidad($info['ruta'], $info['opacidad']);
+        if (!$ruta) return;
+        if ($ruta !== $info['ruta']) $temporales[] = $ruta;
+        $pt = 28.3464567;   // 1 cm en puntos (unidad de los marcos de PhpWord)
+        try {
+            $contenedor->addImage($ruta, [
+                'width' => $info['ancho'] * $pt,
+                'height' => $info['alto'] * $pt,
+                'positioning' => 'absolute',
+                'posHorizontal' => 'absolute',
+                'posVertical' => 'absolute',
+                'posHorizontalRel' => 'page',
+                'posVerticalRel' => 'page',
+                'marginLeft' => $info['x'] * $pt,
+                'marginTop' => $info['y'] * $pt,
+                'wrappingStyle' => 'behind',
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Redactor membrete: ' . $e->getMessage());
+        }
+    }
+
     private static function phpWord(RedactorDocumento $d, string $formato, array $opc, array &$temporales): \PhpOffice\PhpWord\PhpWord
     {
         $pw = new \PhpOffice\PhpWord\PhpWord();
@@ -410,9 +499,16 @@ class Redactor
             'marginLeft' => self::cmATwips((float)$d->margen_izq), 'marginRight' => self::cmATwips((float)$d->margen_der),
             'headerHeight' => 400, 'footerHeight' => 400,
         ]);
-        $cabecera = ($d->encabezado || $d->encabezado_texto !== '') ? $sec->addHeader() : null;
-        if ($cabecera) $cabecera->addText(self::linea($d), ['size' => 9, 'color' => '666666']);
-        if ($d->marca_agua !== '' && $formato === 'docx' && ($png = self::pngMarcaAgua($d->marca_agua))) {
+        $esOdt = $formato === 'odt';
+        $numEnEnc = $d->numerar && str_starts_with((string) $d->num_posicion, 'enc_');
+        $imagenEnc = $esOdt ? null : self::membreteConfig($d, 'enc');
+        $imagenPie = $esOdt ? null : self::membreteConfig($d, 'pie');
+        $cabecera = (!$esOdt && ($d->encabezado || $d->encabezado_texto !== '' || $imagenEnc || $numEnEnc)) ? $sec->addHeader() : null;
+        if ($cabecera) {
+            if ($d->encabezado || $d->encabezado_texto !== '') $cabecera->addText(self::linea($d), ['size' => 9, 'color' => '666666']);
+            if ($d->numerar && $numEnEnc) $cabecera->addPreserveText($d->textoNumeracion(), ['size' => 9, 'color' => '666666'], ['alignment' => self::alineacionNumero($d->num_posicion)]);
+        }
+        if (!$esOdt && $d->marca_agua !== '' && $formato === 'docx' && ($png = self::pngMarcaAgua($d->marca_agua))) {
             $temporales[] = $png;
             try {
                 ($cabecera ?? $sec->addHeader())->addWatermark($png, ['width' => 420, 'height' => 420, 'positioning' => 'absolute', 'posHorizontalRel' => 'margin', 'posVerticalRel' => 'margin', 'posHorizontal' => 'center', 'posVertical' => 'center', 'wrappingStyle' => 'behind']);
@@ -420,10 +516,14 @@ class Redactor
                 error_log('Redactor marca de agua: ' . $e->getMessage());
             }
         }
-        if ($d->numerar || $d->pie_texto !== '') {
-            $pie = $sec->addFooter();
+        $pie = (!$esOdt && ($d->pie_texto !== '' || $imagenPie || ($d->numerar && !$numEnEnc))) ? $sec->addFooter() : null;
+        if ($pie) {
             if ($d->pie_texto !== '') $pie->addText($d->pie_texto, ['size' => 9, 'color' => '666666'], ['alignment' => 'center']);
-            if ($d->numerar) $pie->addPreserveText($formato === 'odt' ? 'Página {PAGE}' : 'Página {PAGE} de {NUMPAGES}', ['size' => 9, 'color' => '666666'], ['alignment' => 'center']);
+            if ($d->numerar && !$numEnEnc) $pie->addPreserveText($d->textoNumeracion(), ['size' => 9, 'color' => '666666'], ['alignment' => self::alineacionNumero($d->num_posicion)]);
+        }
+        if (!$esOdt) {
+            if ($imagenEnc) self::agregarImagenMembreteDocx($cabecera ?? $sec->addHeader(), $imagenEnc, $temporales);
+            if ($imagenPie) self::agregarImagenMembreteDocx($pie ?? $sec->addFooter(), $imagenPie, $temporales);
         }
         $especiales = [];
         foreach (self::piezas(self::contenidoExportable($d, $opc)) as $i => $pz) {
@@ -603,19 +703,65 @@ class Redactor
             if ($nuevo !== $cont) $zip->addFromString('content.xml', $nuevo);
         }
         $xml = (string)$zip->getFromName('styles.xml');
-        $estilo = '<style:style style:name="RdNumPagina" style:family="paragraph"><style:paragraph-properties fo:text-align="center"/><style:text-properties fo:font-size="9pt" fo:color="#666666"/></style:style>';
-        $pie = '<style:footer>' . ($d->pie_texto !== '' ? '<text:p text:style-name="RdNumPagina">' . htmlspecialchars($d->pie_texto, ENT_XML1) . '</text:p>' : '')
-            . ($d->numerar ? '<text:p text:style-name="RdNumPagina">Página <text:page-number text:select-page="current">1</text:page-number> de <text:page-count>1</text:page-count></text:p>' : '') . '</style:footer>';
         if ($xml !== '' && str_contains($xml, 'xmlns:fo=')) {
             foreach (['top' => 'sup', 'bottom' => 'inf', 'left' => 'izq', 'right' => 'der'] as $lado => $campo) {
                 $xml = preg_replace('#(<style:page-layout-properties[^>]*?fo:margin-' . $lado . '=")[^"]*"#', '${1}' . (float)$d->{'margen_' . $campo} . 'cm"', $xml, 1);
             }
-            if ((!$d->numerar && $d->pie_texto === '') || !str_contains($xml, '<style:footer/>')) {
-                $zip->addFromString('styles.xml', $xml);
-                $zip->close();
-                return;
+            $align = self::alineacionNumero((string) $d->num_posicion);
+            $numEnEnc = $d->numerar && str_starts_with((string) $d->num_posicion, 'enc_');
+            $encPartes = $piePartes = [];
+            if ($d->encabezado || $d->encabezado_texto !== '') {
+                $encPartes[] = '<text:p text:style-name="RdEncPie">' . htmlspecialchars(self::linea($d), ENT_XML1) . '</text:p>';
             }
-            $xml = str_replace('<style:footer/>', $pie, $xml);
+            if ($d->numerar && $numEnEnc) {
+                $encPartes[] = '<text:p text:style-name="RdNumPagina">Página <text:page-number text:select-page="current">1</text:page-number> de <text:page-count>1</text:page-count></text:p>';
+            }
+            if ($d->pie_texto !== '') {
+                $piePartes[] = '<text:p text:style-name="RdEncPie">' . htmlspecialchars($d->pie_texto, ENT_XML1) . '</text:p>';
+            }
+            if ($d->numerar && !$numEnEnc) {
+                $piePartes[] = '<text:p text:style-name="RdNumPagina">Página <text:page-number text:select-page="current">1</text:page-number> de <text:page-count>1</text:page-count></text:p>';
+            }
+            $manifest = (string) $zip->getFromName('META-INF/manifest.xml');
+            foreach (['enc' => 'header', 'pie' => 'footer'] as $slot => $zona) {
+                $info = self::membreteConfig($d, $slot);
+                if (!$info) continue;
+                $ruta = self::imagenConOpacidad($info['ruta'], (int) $info['opacidad']);
+                if (!$ruta) continue;
+                $ext = strtolower(pathinfo($ruta, PATHINFO_EXTENSION)) ?: 'png';
+                if (!in_array($ext, ['png', 'jpg', 'jpeg'], true)) $ext = 'png';
+                $destino = 'Pictures/rdmembrete_' . $slot . '.' . $ext;
+                if ($ruta === $info['ruta']) {
+                    $zip->addFile($ruta, $destino);
+                } else {
+                    $zip->addFromString($destino, (string) file_get_contents($ruta));
+                    @unlink($ruta);
+                }
+                $mime = in_array($ext, ['jpg', 'jpeg'], true) ? 'image/jpeg' : 'image/png';
+                if ($manifest !== '' && !str_contains($manifest, 'manifest:full-path="' . $destino . '"')) {
+                    $manifest = str_replace('</manifest:manifest>', '<manifest:file-entry manifest:full-path="' . $destino . '" manifest:media-type="' . $mime . '"/></manifest:manifest>', $manifest);
+                }
+                $frame = '<text:p><draw:frame text:anchor-type="page" svg:x="' . $info['x'] . 'cm" svg:y="' . $info['y'] . 'cm" svg:width="' . $info['ancho'] . 'cm" svg:height="' . $info['alto'] . 'cm" draw:z-index="-1" style:wrap="run-through" style:run-through="background">'
+                    . '<draw:image xlink:href="' . $destino . '" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame></text:p>';
+                if ($zona === 'header') $encPartes[] = $frame; else $piePartes[] = $frame;
+            }
+            if ($manifest !== '' && str_contains($manifest, 'rdmembrete_')) $zip->addFromString('META-INF/manifest.xml', $manifest);
+            $cabecera = $encPartes ? '<style:header>' . implode('', $encPartes) . '</style:header>' : '';
+            $pie = $piePartes ? '<style:footer>' . implode('', $piePartes) . '</style:footer>' : '';
+            $xml = preg_replace('#<style:header\b[^>]*/>#', '', $xml);
+            $xml = preg_replace('#<style:header\b[^>]*>.*?</style:header>#s', '', $xml);
+            $xml = preg_replace('#<style:footer\b[^>]*/>#', '', $xml);
+            $xml = preg_replace('#<style:footer\b[^>]*>.*?</style:footer>#s', '', $xml);
+            if ($cabecera !== '' || $pie !== '') {
+                $hecho = false;
+                $xml = preg_replace_callback('#<style:master-page\b([^>]*)/>#', function ($m) use ($cabecera, $pie, &$hecho) {
+                    $hecho = true;
+                    return '<style:master-page' . $m[1] . '>' . $cabecera . $pie . '</style:master-page>';
+                }, $xml, 1);
+                if (!$hecho) $xml = preg_replace('#</style:master-page>#', $cabecera . $pie . '</style:master-page>', $xml, 1);
+            }
+            $estilo = '<style:style style:name="RdEncPie" style:family="paragraph"><style:paragraph-properties fo:text-align="left"/><style:text-properties fo:font-size="9pt" fo:color="#666666"/></style:style>'
+                . '<style:style style:name="RdNumPagina" style:family="paragraph"><style:paragraph-properties fo:text-align="' . $align . '"/><style:text-properties fo:font-size="9pt" fo:color="#666666"/></style:style>';
             $xml = str_contains($xml, '<office:automatic-styles/>')
                 ? str_replace('<office:automatic-styles/>', '<office:automatic-styles>' . $estilo . '</office:automatic-styles>', $xml)
                 : preg_replace('#</office:automatic-styles>#', $estilo . '</office:automatic-styles>', $xml, 1);
@@ -638,7 +784,15 @@ class Redactor
             . 'h1{font-size:20pt}h2{font-size:16pt}h3{font-size:13pt}table{border-collapse:collapse}td,th{border:1px solid #888;padding:3pt 5pt;vertical-align:top}'
             . 'blockquote{margin:6pt 0 6pt 18pt;padding-left:8pt;border-left:3pt solid #bbb;color:#444}pre{font-family:DejaVu Sans Mono,monospace;font-size:10pt}img{max-width:100%}img.rd-img-izq{float:left;margin:0 8pt 4pt 0}img.rd-img-der{float:right;margin:0 0 4pt 8pt}img.rd-img-bloque{display:block;margin:6pt auto}a{color:#0563c1}.rd-indice p{margin:2pt 0}';
         $marca = $d->marca_agua !== '' ? '<div style="position:fixed;left:0;right:0;top:40%;text-align:center;font-size:96pt;font-weight:bold;color:#cccccc;opacity:0.35;transform:rotate(-45deg);z-index:-1">' . htmlspecialchars($d->marca_agua) . '</div>' : '';
-        $dompdf = Pdf::preparar('<html><head><meta charset="utf-8"><title>' . htmlspecialchars($d->nombre) . '</title><style>' . $css . '</style></head><body>' . $marca . $html . '</body></html>',
+        $membrete = '';
+        foreach (['enc', 'pie'] as $slot) {
+            $info = self::membreteConfig($d, $slot);
+            if (!$info) continue;
+            $membrete .= '<div style="position:fixed;left:' . $info['x'] . 'cm;top:' . $info['y'] . 'cm;width:' . $info['ancho'] . 'cm;opacity:' . ($info['opacidad'] / 100) . ';z-index:-1">'
+                . '<img src="' . htmlspecialchars($info['ruta']) . '" style="display:block;width:100%;height:auto">'
+                . '</div>';
+        }
+        $dompdf = Pdf::preparar('<html><head><meta charset="utf-8"><title>' . htmlspecialchars($d->nombre) . '</title><style>' . $css . '</style></head><body>' . $membrete . $marca . $html . '</body></html>',
             [0, 0, $w / 2.54 * 72, $h / 2.54 * 72], 'portrait',
             ['isRemoteEnabled' => false, 'chroot' => realpath(__DIR__ . '/../../public/uploads') ?: Imagenes::CARPETA_VPLAN, 'defaultFont' => 'serif']);
         $dompdf->render();
@@ -647,14 +801,23 @@ class Redactor
         $pw = $canvas->get_width();
         $ph = $canvas->get_height();
         if ($d->numerar) {
-            $canvas->page_text($pw / 2 - 30, $ph - max(14, $m['inf'] * 28.35 / 2) - 4, 'Página {PAGE_NUM} de {PAGE_COUNT}', $fuente, 9, [0.4, 0.4, 0.4]);
+            $textoNum = 'Página {PAGE_NUM} de {PAGE_COUNT}';
+            $anchoNum = $dompdf->getFontMetrics()->getTextWidth('Página 88 de 88', $fuente, 9);
+            $pos = (string) $d->num_posicion;
+            $xNum = str_ends_with($pos, '_izq')
+                ? $m['izq'] * 28.35
+                : (str_ends_with($pos, '_der') ? $pw - $m['der'] * 28.35 - $anchoNum : $pw / 2 - $anchoNum / 2);
+            $yNum = str_starts_with($pos, 'enc_')
+                ? max(10, $m['sup'] * 28.35 / 2) - 4
+                : $ph - max(14, $m['inf'] * 28.35 / 2) - 4;
+            $canvas->page_text($xNum, $yNum, $textoNum, $fuente, 9, [0.4, 0.4, 0.4]);
         }
         if ($d->encabezado || $d->encabezado_texto !== '') {
             $canvas->page_text($m['izq'] * 28.35, max(10, $m['sup'] * 28.35 / 2) - 4, self::linea($d), $fuente, 9, [0.4, 0.4, 0.4]);
         }
         if ($d->pie_texto !== '') {
             $ancho = $dompdf->getFontMetrics()->getTextWidth($d->pie_texto, $fuente, 9);
-            $canvas->page_text($pw / 2 - $ancho / 2, $ph - max(14, $m['inf'] * 28.35 / 2) - ($d->numerar ? 14 : 4), $d->pie_texto, $fuente, 9, [0.4, 0.4, 0.4]);
+            $canvas->page_text($pw / 2 - $ancho / 2, $ph - max(14, $m['inf'] * 28.35 / 2) - ($d->numerar && !str_starts_with((string) $d->num_posicion, 'enc_') ? 14 : 4), $d->pie_texto, $fuente, 9, [0.4, 0.4, 0.4]);
         }
         return $dompdf->output();
     }

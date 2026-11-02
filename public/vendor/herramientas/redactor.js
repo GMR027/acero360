@@ -4,7 +4,7 @@
     var C = window.RD_CONFIG;
     if (!C) return;
     var $ = function (id) { return document.getElementById(id); };
-    var hoja = $('rd-hoja'), pagina = $('rd-pagina'), guias = $('rd-guias'), fondo = $('rd-fondo');
+    var hoja = $('rd-hoja'), pagina = $('rd-pagina'), guias = $('rd-guias'), fondo = $('rd-fondo'), capaMembrete = $('rd-membrete-capa');
     var CM = 37.7953;   // px por cm (96 dpi)
     var version = C.version, sucio = false, guardando = false, temporizador = null;
 
@@ -196,6 +196,43 @@
         im.onerror = function () { insertarHtml('<img src="' + esc(src) + '" alt="">'); };
         im.src = src;
     }
+
+    /** Imágenes guardadas en la herramienta Archivo que se pueden insertar. */
+    function cargarArchivoImagenes(q, alTerminar) {
+        fetch(C.api.archivoImagenes + '?q=' + encodeURIComponent(q || ''), { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { alTerminar(d && d.success ? (d.imagenes || []) : []); })
+            .catch(function () { alTerminar([]); });
+    }
+    /** Llena un <select> con las imágenes del Archivo agrupadas por carpeta. */
+    function poblarSelectorArchivo(sel, lista, conservar) {
+        if (!sel) return;
+        var actual = conservar ? sel.value : '', grupos = [], mapa = {}, h = '<option value="">— ninguna —</option>';
+        (lista || []).forEach(function (im) {
+            var carpeta = im.carpeta || 'Archivo';
+            if (!mapa[carpeta]) { mapa[carpeta] = []; grupos.push(carpeta); }
+            mapa[carpeta].push(im);
+        });
+        grupos.forEach(function (carpeta) {
+            h += '<optgroup label="' + esc(carpeta) + '">';
+            mapa[carpeta].forEach(function (im) { h += '<option value="' + im.id + '">' + esc(im.nombre) + '</option>'; });
+            h += '</optgroup>';
+        });
+        sel.innerHTML = h;
+        sel.value = actual;
+    }
+    /** Copia al documento una imagen del Archivo y devuelve su src en vplan. */
+    function copiarArchivoImagen(archivoId, alTerminar, alError) {
+        var fd = new FormData(); fd.append('id', C.id); fd.append('archivo_id', archivoId);
+        estado('Preparando la imagen del Archivo…');
+        fetch(C.api.imagen, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) { estado(d.error || 'No se pudo insertar la imagen del Archivo', true); if (alError) alError(d.error); return; }
+                estado(sucio ? 'Cambios sin guardar' : ''); alTerminar(d.src);
+            })
+            .catch(function () { estado('No se pudo insertar la imagen del Archivo', true); if (alError) alError(); });
+    }
     function anchoUtil() { return Math.max(100, hoja.clientWidth - parseFloat(getComputedStyle(hoja).paddingLeft) - parseFloat(getComputedStyle(hoja).paddingRight)); }
     $('rd-img-subir').addEventListener('click', function () { $('rd-img-archivo').click(); });
     $('rd-img-archivo').addEventListener('change', function () {
@@ -218,6 +255,28 @@
     });
     var selEditor = $('rd-img-editor');
     if (selEditor) selEditor.addEventListener('change', function () { var s = this.value; this.value = ''; if (s) { ponerImagen(s); $('rd-p-imagen').hidden = true; } });
+
+    // Insertar una imagen guardada en la herramienta Archivo
+    var selArchivoImg = $('rd-img-archivo-sel'), vistaArchivoImg = $('rd-img-archivo-vista'), btnArchivoImg = $('rd-img-archivo-ok'), tArchivoImg = null;
+    function refrescarArchivoImg() {
+        if (!selArchivoImg) return;
+        cargarArchivoImagenes($('rd-img-archivo-q') ? $('rd-img-archivo-q').value : '', function (lista) {
+            poblarSelectorArchivo(selArchivoImg, lista, true);
+            mostrarVistaArchivoImg();
+        });
+    }
+    function mostrarVistaArchivoImg() {
+        var id = selArchivoImg ? selArchivoImg.value : '', img = vistaArchivoImg ? vistaArchivoImg.querySelector('img') : null;
+        if (!id || !img) { if (vistaArchivoImg) vistaArchivoImg.hidden = true; if (btnArchivoImg) btnArchivoImg.disabled = true; return; }
+        img.src = '/admin/archivo/miniatura?id=' + encodeURIComponent(id);
+        vistaArchivoImg.hidden = false; if (btnArchivoImg) btnArchivoImg.disabled = false;
+    }
+    if (selArchivoImg) selArchivoImg.addEventListener('change', mostrarVistaArchivoImg);
+    if ($('rd-img-archivo-q')) $('rd-img-archivo-q').addEventListener('input', function () { clearTimeout(tArchivoImg); tArchivoImg = setTimeout(refrescarArchivoImg, 250); });
+    if (btnArchivoImg) btnArchivoImg.addEventListener('click', function () {
+        var id = selArchivoImg ? selArchivoImg.value : ''; if (!id) return;
+        copiarArchivoImagen(id, function (src) { ponerImagen(src); $('rd-p-imagen').hidden = true; });
+    });
 
     // Imagen seleccionada: tamaño, alineación y borrado
     var imgSel = null;
@@ -475,7 +534,8 @@
         return {
             papel: $('rd-papel').value, orientacion: $('rd-orient').value,
             sup: num('rd-m-sup'), inf: num('rd-m-inf'), izq: num('rd-m-izq'), der: num('rd-m-der'),
-            numerar: $('rd-numerar').checked, encabezado: $('rd-encabezado').checked, idioma: $('rd-idioma').value
+            numerar: $('rd-numerar').checked, numPosicion: ($('rd-x-num-pos') || {}).value || 'pie_centro',
+            encabezado: $('rd-encabezado').checked, idioma: $('rd-idioma').value
         };
     }
     function num(id) { var v = parseFloat(String($(id).value).replace(',', '.')); return isFinite(v) ? Math.max(0, Math.min(8, v)) : 2.54; }
@@ -499,21 +559,54 @@
             if (libre > 0) sl[i].style.height = libre + 'px';
         }
     }
+    /** Configuración del membrete guardada en el panel de Diseño. */
+    function leerMembrete(slot) {
+        var img = $('rd-x-' + slot + '-img'), op = $('rd-x-' + slot + '-op'), ancho = $('rd-x-' + slot + '-ancho'), x = $('rd-x-' + slot + '-x'), y = $('rd-x-' + slot + '-y');
+        var num = function (e, def, min, max) { var v = e ? parseFloat(String(e.value).replace(',', '.')) : def; return isFinite(v) ? Math.max(min, Math.min(max, v)) : def; };
+        return {
+            src: img && img.value ? '/public/uploads/vplan/' + img.value : '',
+            opacidad: num(op, 100, 0, 100),
+            ancho: num(ancho, 5, 0.5, 100),
+            x: num(x, 0, 0, 100),
+            y: num(y, 0, 0, 100)
+        };
+    }
+    /** Pinta las imágenes del membrete detrás del texto, una vez por página. */
+    function dibujarMembrete(n) {
+        if (!capaMembrete) return;
+        var bloques = [leerMembrete('enc'), leerMembrete('pie')].filter(function (m) { return m.src; }), h = '';
+        bloques.forEach(function (m) {
+            for (var i = 0; i < n; i++) {
+                h += '<img class="rd-membrete-img" src="' + esc(m.src) + '" alt="" style="left:' + (m.x * CM) + 'px;top:' + (i * medidas.h + m.y * CM) + 'px;width:' + (m.ancho * CM) + 'px;opacity:' + (m.opacidad / 100) + '">';
+            }
+        });
+        capaMembrete.innerHTML = h;
+        capaMembrete.style.height = (n * medidas.h) + 'px';
+        pagina.classList.toggle('rd-con-membrete', bloques.length > 0);
+    }
     function dibujarGuias() {
         if (!medidas) return;
         hoja.style.minHeight = medidas.h + 'px';
         ajustarSaltos();
         var alto = hoja.scrollHeight, n = Math.max(1, Math.ceil((alto - 1) / medidas.h));
         hoja.style.minHeight = (n * medidas.h) + 'px';
-        var a = ajustes(), h = '';
+        var a = ajustes(), h = '', posNum = (a.numPosicion || 'pie_centro').replace(/^(pie|enc)_/, ''), enEnc = /^enc_/.test(a.numPosicion || '');
         for (var i = 1; i <= n; i++) {
             if (i < n) h += '<div class="rd-corte" style="top:' + (i * medidas.h - 8) + 'px"><span>Página ' + i + '</span></div>';
-            if (a.numerar) h += '<div class="rd-num" style="top:' + (i * medidas.h - Math.max(14, medidas.inf / 2) - 8) + 'px">Página ' + i + ' de ' + n + '</div>';
+            if (a.numerar) {
+                var yNum = enEnc ? (i * medidas.h + Math.max(12, medidas.sup / 2) - 6) : (i * medidas.h + medidas.h - Math.max(12, medidas.inf / 2) - 6);
+                var estiloNum = 'top:' + yNum + 'px;';
+                if (posNum === 'izq') estiloNum += 'left:' + medidas.izq + 'px;right:' + medidas.der + 'px;text-align:left;';
+                else if (posNum === 'der') estiloNum += 'left:' + medidas.izq + 'px;right:' + medidas.der + 'px;text-align:right;';
+                else estiloNum += 'left:0;right:0;text-align:center;';
+                h += '<div class="rd-num" style="' + estiloNum + '">Página ' + i + ' de ' + n + '</div>';
+            }
         }
         var marca = $('rd-x-marca') ? $('rd-x-marca').value.trim() : '';
         if (marca) for (i = 0; i < n; i++) h += '<div class="rd-marca-txt" style="top:' + (i * medidas.h) + 'px;height:' + medidas.h + 'px"><span>' + esc(marca) + '</span></div>';
         guias.innerHTML = h;
         guias.style.height = (n * medidas.h) + 'px';
+        dibujarMembrete(n);
         $('rd-e-pagina').textContent = n + (n === 1 ? ' página' : ' páginas');
         $('rd-e-palabras').textContent = contarPalabras() + ' palabras';
         planificarMiniaturas();
@@ -524,6 +617,15 @@
     ['rd-papel', 'rd-orient', 'rd-m-sup', 'rd-m-inf', 'rd-m-izq', 'rd-m-der', 'rd-numerar', 'rd-encabezado'].forEach(function (id) {
         $(id).addEventListener('input', function () { if (/^rd-m-/.test(id)) $('rd-margen-pre').value = ''; aplicarPagina(); marcarSucio(); });
     });
+    /** Las tres casillas de numeración (Diseño, Encabezado y Imprimir) son la misma opción. */
+    function sincronizarNumerar(v) {
+        ['rd-numerar', 'rd-x-numerar', 'rd-pr-numerar'].forEach(function (id) { var e = $(id); if (e) e.checked = v; });
+    }
+    ['rd-numerar', 'rd-x-numerar', 'rd-pr-numerar'].forEach(function (id) {
+        var e = $(id);
+        if (e) e.addEventListener('change', function () { sincronizarNumerar(this.checked); aplicarPagina(); marcarSucio(); });
+    });
+    if ($('rd-x-num-pos')) $('rd-x-num-pos').addEventListener('change', function () { dibujarGuias(); marcarSucio(); });
     $('rd-margen-pre').addEventListener('change', function () {
         if (!this.value) return;
         var v = this.value.split(','); ['sup', 'inf', 'izq', 'der'].forEach(function (k, i) { $('rd-m-' + k).value = v[i]; });
@@ -542,7 +644,15 @@
         fd.append('idioma', a.idioma); fd.append('papel', a.papel); fd.append('orientacion', a.orientacion);
         fd.append('margen_sup', a.sup); fd.append('margen_inf', a.inf); fd.append('margen_izq', a.izq); fd.append('margen_der', a.der);
         if (a.numerar) fd.append('numerar', '1'); if (a.encabezado) fd.append('encabezado', '1');
+        fd.append('num_posicion', a.numPosicion || 'pie_centro');
         ['marca', 'enc', 'pie'].forEach(function (k) { var e = $('rd-x-' + k); if (e) fd.append({ marca: 'marca_agua', enc: 'encabezado_texto', pie: 'pie_texto' }[k], e.value); });
+        ['enc', 'pie'].forEach(function (slot) {
+            var base = slot === 'enc' ? 'imagen_encabezado' : 'imagen_pie';
+            [['-img', ''], ['-op', '_opacidad'], ['-x', '_x'], ['-y', '_y'], ['-ancho', '_ancho']].forEach(function (par) {
+                var e = $('rd-x-' + slot + par[0]);
+                if (e) fd.append(base + par[1], e.value);
+            });
+        });
         if (etiquetaVersion) { fd.append('version_etiqueta', etiquetaVersion); etiquetaVersion = ''; }
         if (imgSel) imgSel.classList.remove('rd-sel');
         var copia = hoja.cloneNode(true);
@@ -1090,7 +1200,7 @@
         hoja.querySelectorAll('img').forEach(function (im, i) { var m = CL_IMG.filter(function (c) { return im.classList.contains(c); })[0]; h += '<option value="' + i + '">Imagen ' + (i + 1) + (m ? ' · ' + ({ 'rd-img-bloque': 'arriba y abajo', 'rd-img-izq': 'izquierda', 'rd-img-der': 'derecha', 'rd-img-frente': 'delante', 'rd-img-detras': 'detrás' })[m] : '') + '</option>'; });
         sel.innerHTML = h;
     }
-    $('rd-i-imagen').addEventListener('click', llenarListaImagenes);
+    $('rd-i-imagen').addEventListener('click', function () { llenarListaImagenes(); refrescarArchivoImg(); });
     $('rd-img-lista').addEventListener('change', function () {
         var im = hoja.querySelectorAll('img')[+this.value]; if (!im || this.value === '') return;
         if (imgSel) imgSel.classList.remove('rd-sel');
@@ -1449,7 +1559,8 @@
         exec: exec, insertarHtml: insertarHtml, insertarEnRaiz: insertarEnRaiz, alternar: alternar, paneles: PANELES, bloqueActual: bloqueActual, bloquesDeSeleccion: bloquesDeSeleccion,
         celdaActual: celdaActual, aplicarBloques: aplicarBloques, textoSeleccion: textoSeleccion, dibujarGuias: dibujarGuias, gruposPaginas: gruposPaginas,
         medidas: function () { return medidas; }, zoom: zoomActual, guardar: guardar, sucio: function () { return sucio; }, ponerEtiquetaVersion: function (t) { etiquetaVersion = t; },
-        mostrarPestana: mostrarPestana, subirImagen: subirImagen, ponerImagen: ponerImagen, ahoraIso: ahoraIso
+        mostrarPestana: mostrarPestana, subirImagen: subirImagen, ponerImagen: ponerImagen, ahoraIso: ahoraIso,
+        cargarArchivoImagenes: cargarArchivoImagenes, poblarSelectorArchivo: poblarSelectorArchivo, copiarArchivoImagen: copiarArchivoImagen
     };
     document.dispatchEvent(new Event('rd-listo'));
 

@@ -47,6 +47,11 @@ try {
       verifica('redactor: botón hamburguesa para mostrar u ocultar el panel', /id="rd-panel-toggle"[\s\S]*?menu/.test(html));
       verifica('redactor: Insertar ya no ofrece bloque de obra ni tabla del programa', !/id="rd-x-bloque"/.test(html) && !/id="rd-x-programa"/.test(html));
       verifica('redactor: pestaña Imprimir con ajustes generales', /data-pest="imprimir"/.test(html) && /id="rd-p-imprimir"/.test(html) && /id="rd-pr-ahora"/.test(html));
+      verifica('redactor: insertar imagen desde Archivo', /id="rd-img-archivo-sel"/.test(html) && /id="rd-img-archivo-ok"/.test(html));
+      verifica('redactor: membrete de encabezado y pie con opacidad y posición', /id="rd-x-enc-img"/.test(html) && /id="rd-x-enc-op"/.test(html) && /id="rd-x-pie-img"/.test(html) && /id="rd-x-num-pos"/.test(html));
+      const galeria = await pedir('GET', '/admin/redactor/api/archivo-imagenes');
+      const galeriaDatos = await galeria.json().catch(() => ({}));
+      verifica('redactor: API de imágenes del Archivo responde', galeria.status === 200 && galeriaDatos.success === true && Array.isArray(galeriaDatos.imagenes));
     }
     const ver = await pedir('GET', `/admin/${h}/ver?id=${id}`);
     const htmlVer = await ver.text();

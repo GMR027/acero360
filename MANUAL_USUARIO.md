@@ -490,7 +490,14 @@ El procesador de textos de la plataforma: cartas, oficios, memorias, actas y pro
 
 1. Las pestañas de arriba son Inicio, Insertar, Diseño, Revisión, Herramientas e Imprimir.
 2. En «Insertar» hay tabla, imagen, figura, dibujo, vínculo, salto de página, índice, nota al pie, leyendas numeradas, referencia cruzada, ecuación, portada y cuadro de texto.
-3. Guarda con «Guardar»; también se guarda solo cada 30 segundos.
+3. Al insertar una imagen puedes subirla desde el equipo o elegirla entre las imágenes guardadas en la herramienta Archivo.
+4. Guarda con «Guardar»; también se guarda solo cada 30 segundos.
+
+### Encabezado, pie y membrete
+
+1. En «Diseño» → «Encabezado, pie y marca» puedes escribir el texto del encabezado y del pie, y elegir la posición de la numeración de páginas.
+2. Para hojas membretadas carga una imagen de encabezado y otra de pie desde el equipo o desde Archivo. Cada una tiene opacidad, ancho y posición (X/Y en cm), con botones rápidos para encabezado o pie a la izquierda, centro o derecha.
+3. Las imágenes se repiten en todas las páginas y se conservan si borras el archivo original en Archivo: el documento guarda su propia copia.
 
 ### Control de cambios y firmas
 

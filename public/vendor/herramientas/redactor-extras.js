@@ -496,11 +496,95 @@
     });
 
     // ================= Encabezado, pie y marca de agua =================
-    panel('rd-x-encpie', 'rd-p-encpie');
+    panel('rd-x-encpie', 'rd-p-encpie', function () { SLOTS_MEMBRETE.forEach(cargarArchivoMembrete); });
     ['rd-x-enc', 'rd-x-pie'].forEach(function (id) { $(id).addEventListener('input', R.marcarSucio); });
     $('rd-x-marca').addEventListener('input', function () { R.marcarSucio(); R.dibujarGuias(); });
     document.querySelectorAll('[data-x-marca]').forEach(function (b) {
         b.addEventListener('click', function () { $('rd-x-marca').value = b.dataset.xMarca; R.marcarSucio(); R.dibujarGuias(); });
+    });
+
+    // Imágenes del membrete (encabezado y pie por separado)
+    var SLOTS_MEMBRETE = ['enc', 'pie'], CM_PX = 37.7953;
+    var temporizadoresMembrete = {};
+    function numMembrete(id, def) { var e = $(id); var v = e ? parseFloat(String(e.value).replace(',', '.')) : def; return isFinite(v) ? v : def; }
+    function nombreVplan(src) { var m = /\/public\/uploads\/vplan\/([a-f0-9]{32}\.(?:png|jpg))$/.exec(String(src || '')); return m ? m[1] : ''; }
+    function pintarVistaMembrete(slot) {
+        var img = $('rd-x-' + slot + '-img'), caja = $('rd-x-' + slot + '-vista');
+        if (!caja) return;
+        var foto = caja.querySelector('img');
+        if (!img || !img.value) { caja.hidden = true; if (foto) foto.removeAttribute('src'); return; }
+        if (foto) foto.src = '/public/uploads/vplan/' + img.value;
+        caja.hidden = false;
+    }
+    function fijarImagenMembrete(slot, src) {
+        var img = $('rd-x-' + slot + '-img');
+        if (!img) return;
+        img.value = nombreVplan(src);
+        pintarVistaMembrete(slot);
+        R.marcarSucio(); R.dibujarGuias();
+    }
+    function cargarArchivoMembrete(slot) {
+        var sel = $('rd-x-' + slot + '-sel'); if (!sel) return;
+        R.cargarArchivoImagenes($('rd-x-' + slot + '-q') ? $('rd-x-' + slot + '-q').value : '', function (lista) {
+            R.poblarSelectorArchivo(sel, lista, true);
+        });
+    }
+    function aplicarPosicionMembrete(slot, pos) {
+        var m = R.medidas(); if (!m) return;
+        var paginaAncho = m.w / CM_PX, paginaAlto = m.h / CM_PX;
+        var izq = m.izq / CM_PX, der = m.der / CM_PX, sup = m.sup / CM_PX, inf = m.inf / CM_PX;
+        var ancho = Math.max(0.5, numMembrete('rd-x-' + slot + '-ancho', 5));
+        var foto = $('rd-x-' + slot + '-vista') ? $('rd-x-' + slot + '-vista').querySelector('img') : null;
+        var alto = foto && foto.naturalWidth ? ancho * (foto.naturalHeight / foto.naturalWidth) : ancho * 0.5;
+        var esPie = /^pie_/.test(pos), lado = pos.replace(/^(pie|enc)_/, ''), x, y;
+        if (lado === 'izq') x = izq;
+        else if (lado === 'der') x = paginaAncho - der - ancho;
+        else x = (paginaAncho - ancho) / 2;
+        y = esPie ? (paginaAlto - inf / 2 - alto / 2) : (sup / 2 - alto / 2);
+        $('rd-x-' + slot + '-x').value = Math.max(0, Math.round(x * 10) / 10);
+        $('rd-x-' + slot + '-y').value = Math.max(0, Math.round(y * 10) / 10);
+        R.marcarSucio(); R.dibujarGuias();
+    }
+    SLOTS_MEMBRETE.forEach(function (slot) {
+        var id = 'rd-x-' + slot;
+        var subir = $(id + '-subir'), archivo = $(id + '-archivo');
+        if (subir && archivo) {
+            subir.addEventListener('click', function () { archivo.click(); });
+            archivo.addEventListener('change', function () {
+                var f = this.files[0]; this.value = ''; if (!f) return;
+                R.subirImagen(f, function (src) { fijarImagenMembrete(slot, src); });
+            });
+        }
+        var quitar = $(id + '-quitar');
+        if (quitar) quitar.addEventListener('click', function () {
+            if ($(id + '-img')) $(id + '-img').value = '';
+            if ($(id + '-sel')) $(id + '-sel').value = '';
+            pintarVistaMembrete(slot); R.marcarSucio(); R.dibujarGuias();
+        });
+        var usar = $(id + '-usar');
+        if (usar) usar.addEventListener('click', function () {
+            var sel = $(id + '-sel'), v = sel ? sel.value : '';
+            if (!v) { estado('Elige una imagen del Archivo', true); return; }
+            R.copiarArchivoImagen(v, function (src) { fijarImagenMembrete(slot, src); });
+        });
+        var q = $(id + '-q');
+        if (q) q.addEventListener('input', function () {
+            clearTimeout(temporizadoresMembrete[slot]);
+            temporizadoresMembrete[slot] = setTimeout(function () { cargarArchivoMembrete(slot); }, 250);
+        });
+        var op = $(id + '-op');
+        if (op) op.addEventListener('input', function () {
+            var salida = $(id + '-op-n'); if (salida) salida.textContent = this.value + '%';
+            R.marcarSucio(); R.dibujarGuias();
+        });
+        ['-ancho', '-x', '-y'].forEach(function (sufijo) {
+            var e = $(id + sufijo);
+            if (e) e.addEventListener('input', function () { R.marcarSucio(); R.dibujarGuias(); });
+        });
+        pintarVistaMembrete(slot);
+    });
+    document.querySelectorAll('[data-membrete-pos]').forEach(function (b) {
+        b.addEventListener('click', function () { aplicarPosicionMembrete(b.dataset.slot, b.dataset.membretePos); });
     });
 
     // ================= Ir a… =================

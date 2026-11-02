@@ -48,11 +48,22 @@ $nuevo = new \Model\RedactorDocumento([
     'margen_izq'       => $_POST['margen_izq'] ?? 2.54,
     'margen_der'       => $_POST['margen_der'] ?? 2.54,
     'numerar'          => !empty($_POST['numerar']) ? 1 : 0,
+    'num_posicion'     => $_POST['num_posicion'] ?? $documento->num_posicion,
     'encabezado'       => !empty($_POST['encabezado']) ? 1 : 0,
     'rastrear'         => !empty($_POST['rastrear']) ? 1 : 0,
     'marca_agua'       => $_POST['marca_agua'] ?? $documento->marca_agua,
     'encabezado_texto' => $_POST['encabezado_texto'] ?? $documento->encabezado_texto,
     'pie_texto'        => $_POST['pie_texto'] ?? $documento->pie_texto,
+    'imagen_encabezado' => $_POST['imagen_encabezado'] ?? $documento->imagen_encabezado,
+    'imagen_encabezado_opacidad' => $_POST['imagen_encabezado_opacidad'] ?? $documento->imagen_encabezado_opacidad,
+    'imagen_encabezado_x' => $_POST['imagen_encabezado_x'] ?? $documento->imagen_encabezado_x,
+    'imagen_encabezado_y' => $_POST['imagen_encabezado_y'] ?? $documento->imagen_encabezado_y,
+    'imagen_encabezado_ancho' => $_POST['imagen_encabezado_ancho'] ?? $documento->imagen_encabezado_ancho,
+    'imagen_pie' => $_POST['imagen_pie'] ?? $documento->imagen_pie,
+    'imagen_pie_opacidad' => $_POST['imagen_pie_opacidad'] ?? $documento->imagen_pie_opacidad,
+    'imagen_pie_x' => $_POST['imagen_pie_x'] ?? $documento->imagen_pie_x,
+    'imagen_pie_y' => $_POST['imagen_pie_y'] ?? $documento->imagen_pie_y,
+    'imagen_pie_ancho' => $_POST['imagen_pie_ancho'] ?? $documento->imagen_pie_ancho,
     'contenido'        => Redactor::limpiar($html),
     'comentarios'      => Redactor::limpiarComentarios((string) ($_POST['comentarios'] ?? '[]')),
 ]);
@@ -61,7 +72,7 @@ if ($alertas = $nuevo->validar()) {
     json_respuesta(['success' => false, 'error' => $alertas['error'][0]], 422);
 }
 
-$viejas = \Model\RedactorDocumento::imagenesDe($documento->contenido);
+$viejas = $documento->imagenesTodas();
 
 if (trim((string) $documento->contenido) !== '' && $documento->contenido !== $nuevo->contenido) {
     $ultima = \Model\RedactorDocumento::ultimaVersion((int) $documento->id);
@@ -76,10 +87,9 @@ if (trim((string) ($_POST['version_etiqueta'] ?? '')) !== '') {
     \Model\RedactorDocumento::guardarVersion((int) $documento->id, (string) $nuevo->contenido, (string) ($_SESSION['nombre'] ?? ''), trim((string) $_POST['version_etiqueta']));
 }
 
-$sobran = array_diff($viejas, \Model\RedactorDocumento::imagenesDe($nuevo->contenido));
+$sobran = array_diff($viejas, $nuevo->imagenesTodas());
 if ($sobran) {
-    $documento->contenido = implode(' ', array_map(fn($n) => '/public/uploads/vplan/' . $n, $sobran));
-    $documento->eliminarArchivos();
+    $documento->eliminarArchivos($sobran);
 }
 
 $fresco = \Model\RedactorDocumento::find((int) $documento->id);

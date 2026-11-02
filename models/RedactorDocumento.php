@@ -14,11 +14,24 @@ use Classes\Imagenes;
 class RedactorDocumento extends ActiveRecord
 {
     protected static $tabla = 'redactor_documentos';
-    protected static $columnasDB = ['id', 'nombre', 'fecha', 'departamento', 'idioma', 'papel', 'orientacion', 'margen_sup', 'margen_inf', 'margen_izq', 'margen_der', 'numerar', 'encabezado', 'rastrear', 'marca_agua', 'encabezado_texto', 'pie_texto', 'contenido', 'comentarios', 'creado_por'];
+    protected static $columnasDB = ['id', 'nombre', 'fecha', 'departamento', 'idioma', 'papel', 'orientacion', 'margen_sup', 'margen_inf', 'margen_izq', 'margen_der', 'numerar', 'num_posicion', 'encabezado', 'rastrear', 'marca_agua', 'encabezado_texto', 'pie_texto', 'imagen_encabezado', 'imagen_encabezado_opacidad', 'imagen_encabezado_x', 'imagen_encabezado_y', 'imagen_encabezado_ancho', 'imagen_pie', 'imagen_pie_opacidad', 'imagen_pie_x', 'imagen_pie_y', 'imagen_pie_ancho', 'contenido', 'comentarios', 'creado_por'];
 
     public $id, $nombre, $fecha, $departamento, $idioma, $papel, $orientacion;
-    public $margen_sup, $margen_inf, $margen_izq, $margen_der, $numerar, $encabezado, $rastrear, $marca_agua, $encabezado_texto, $pie_texto, $contenido, $comentarios, $creado_por;
+    public $margen_sup, $margen_inf, $margen_izq, $margen_der, $numerar, $num_posicion, $encabezado, $rastrear, $marca_agua, $encabezado_texto, $pie_texto;
+    public $imagen_encabezado, $imagen_encabezado_opacidad, $imagen_encabezado_x, $imagen_encabezado_y, $imagen_encabezado_ancho;
+    public $imagen_pie, $imagen_pie_opacidad, $imagen_pie_x, $imagen_pie_y, $imagen_pie_ancho;
+    public $contenido, $comentarios, $creado_por;
     public $creado, $actualizado;   // los pone la BD
+
+    /** Posiciones válidas para la numeración de páginas. */
+    public const POSICIONES_NUM = [
+        'pie_izq' => 'Pie · izquierda',
+        'pie_centro' => 'Pie · centro',
+        'pie_der' => 'Pie · derecha',
+        'enc_izq' => 'Encabezado · izquierda',
+        'enc_centro' => 'Encabezado · centro',
+        'enc_der' => 'Encabezado · derecha',
+    ];
 
     /** Papeles [clave => [etiqueta, ancho cm, alto cm]] (vertical) */
     public const PAPELES = [
@@ -42,11 +55,20 @@ class RedactorDocumento extends ActiveRecord
         $this->orientacion = ($args['orientacion'] ?? '') === 'horizontal' ? 'horizontal' : 'vertical';
         foreach (['sup', 'inf', 'izq', 'der'] as $l) $this->{'margen_' . $l} = self::margen($args['margen_' . $l] ?? 2.54);
         $this->numerar = !empty($args['numerar']) || !array_key_exists('numerar', $args) ? 1 : 0;
+        $this->num_posicion = isset(self::POSICIONES_NUM[$args['num_posicion'] ?? '']) ? $args['num_posicion'] : 'pie_centro';
         $this->encabezado = !empty($args['encabezado']) ? 1 : 0;
         $this->rastrear = !empty($args['rastrear']) ? 1 : 0;
         $this->marca_agua = mb_substr(trim(preg_replace('/[<>"\x00-\x1f]/u', '', (string)($args['marca_agua'] ?? ''))), 0, 40);
         $this->encabezado_texto = mb_substr(trim(preg_replace('/[<>"\x00-\x1f]/u', '', (string)($args['encabezado_texto'] ?? ''))), 0, 200);
         $this->pie_texto = mb_substr(trim(preg_replace('/[<>"\x00-\x1f]/u', '', (string)($args['pie_texto'] ?? ''))), 0, 200);
+        foreach (['encabezado', 'pie'] as $slot) {
+            $base = 'imagen_' . $slot;
+            $this->{$base} = self::nombreImagen($args[$base] ?? '');
+            $this->{$base . '_opacidad'} = (int) max(0, min(100, (int) ($args[$base . '_opacidad'] ?? 100)));
+            $this->{$base . '_x'} = self::decimal($args[$base . '_x'] ?? 0, 0, 0, 100);
+            $this->{$base . '_y'} = self::decimal($args[$base . '_y'] ?? 0, 0, 0, 100);
+            $this->{$base . '_ancho'} = self::decimal($args[$base . '_ancho'] ?? 5, 5, 0.5, 100);
+        }
         $this->contenido = $args['contenido'] ?? '';
         $this->comentarios = $args['comentarios'] ?? null;
         $this->creado_por = $args['creado_por'] ?? null;
@@ -57,6 +79,26 @@ class RedactorDocumento extends ActiveRecord
     {
         $n = is_numeric(str_replace(',', '.', (string)$v)) ? (float)str_replace(',', '.', (string)$v) : 2.54;
         return round(max(self::MARGEN_MIN, min(self::MARGEN_MAX, $n)), 2);
+    }
+
+    /** Número decimal acotado (acepta coma decimal). */
+    private static function decimal($v, float $defecto, float $min, float $max): float
+    {
+        $n = is_numeric(str_replace(',', '.', (string) $v)) ? (float) str_replace(',', '.', (string) $v) : $defecto;
+        return round(max($min, min($max, $n)), 2);
+    }
+
+    /** Nombre de una imagen del Redactor (debe ser un archivo generado en vplan). */
+    public static function nombreImagen($v): string
+    {
+        $n = basename(trim((string) $v));
+        return preg_match('/^[a-f0-9]{32}\.(?:png|jpg)$/', $n) ? $n : '';
+    }
+
+    /** Texto que va en la numeración de páginas. */
+    public function textoNumeracion(): string
+    {
+        return 'Página {PAGE} de {NUMPAGES}';
     }
 
     public function validar(): array
@@ -121,26 +163,47 @@ class RedactorDocumento extends ActiveRecord
         return array_values(array_unique($m[1]));
     }
 
-    /** Borra del disco las imágenes que el documento usa y ningún otro documento conserva */
-    public function eliminarArchivos(): void
+    /** Imágenes de encabezado/pie que usa el documento (nombres en vplan). */
+    public function imagenesMembrete(): array
+    {
+        return array_values(array_filter([
+            self::nombreImagen($this->imagen_encabezado),
+            self::nombreImagen($this->imagen_pie),
+        ]));
+    }
+
+    /** Todas las imágenes propias del documento: contenido y membrete. */
+    public function imagenesTodas(): array
+    {
+        return array_values(array_unique(array_merge(self::imagenesDe($this->contenido), $this->imagenesMembrete())));
+    }
+
+    /** Borra del disco las imágenes indicadas (o todas las del documento) que ningún otro documento conserva */
+    public function eliminarArchivos(?array $imagenes = null): void
     {
         $otros = self::imagenesDeOtros((int)$this->id);
-        foreach (array_diff(self::imagenesDe($this->contenido), $otros) as $n) Imagenes::eliminarVplan($n);
+        foreach (array_diff($imagenes ?? $this->imagenesTodas(), $otros) as $n) Imagenes::eliminarVplan($n);
     }
 
     private static function imagenesDeOtros(int $excluir): array
     {
         $out = [];
-        $r = self::$db->query("SELECT contenido FROM redactor_documentos WHERE id <> $excluir");
-        while ($r && ($f = $r->fetch_assoc())) $out = array_merge($out, self::imagenesDe($f['contenido']));
-        return $out;
+        $r = self::$db->query("SELECT contenido, imagen_encabezado, imagen_pie FROM redactor_documentos WHERE id <> $excluir");
+        while ($r && ($f = $r->fetch_assoc())) {
+            $out = array_merge($out, self::imagenesDe($f['contenido']));
+            foreach (['imagen_encabezado', 'imagen_pie'] as $campo) {
+                $n = self::nombreImagen($f[$campo] ?? '');
+                if ($n !== '') $out[] = $n;
+            }
+        }
+        return array_values(array_unique($out));
     }
 
     /** Peso aproximado: el texto más las imágenes que usa */
     public function bytes(): int
     {
         $t = strlen((string)$this->contenido) + strlen((string)$this->comentarios);
-        foreach (self::imagenesDe($this->contenido) as $n) {
+        foreach ($this->imagenesTodas() as $n) {
             $ruta = Imagenes::CARPETA_VPLAN . '/' . $n;
             if (is_file($ruta)) $t += (int)@filesize($ruta);
         }
