@@ -44,6 +44,32 @@ $pdf = Sheetflow::pdf($h2);
 $prueba('PDF válido', str_starts_with($pdf, '%PDF'));
 $prueba('HTML con tabla', str_contains(Sheetflow::html($h2), '<table'));
 
+echo "Datos externos\n";
+$seccion = \App\Inventario::paraPdf()[0] ?? null;
+$prueba('hay inventario para vincular', $seccion !== null);
+if ($seccion) {
+    $producto = $seccion['productos'][0] ?? null;
+    $prueba('el catálogo incluye productos', $producto !== null);
+    $refEmpresa = 'inventario:empresa:' . (int) $seccion['id'] . ':total_con_iva';
+    $d = [
+        'cols' => [['n' => 'Total', 't' => 'moneda'], ['n' => 'Ajuste', 't' => 'moneda'], ['n' => 'Diferencia', 't' => 'moneda']],
+        'rows' => [['Total', 'Ajuste', 'Diferencia'], ['0.00', '1000.00', '=A3-B3']],
+        'refs' => ['1,0' => $refEmpresa],
+    ];
+    $r = Sheetflow::refrescarExternos($d);
+    $prueba('resuelve el total con IVA de la empresa', (float) $r['rows'][1][0] === round((float) $seccion['total_con_iva'], 2), (string) $r['rows'][1][0]);
+    $prueba('conserva el valor manual', $r['rows'][1][1] === '1000.00');
+    $prueba('recalcula la fórmula con el dato externo', abs((float) ($r['calc']->{'1,2'} ?? 0) - ((float) $r['rows'][1][0] - 1000)) < 0.005, (string) ($r['calc']->{'1,2'} ?? ''));
+    $prueba('conserva la referencia al sanear', isset($r['refs']->{'1,0'}) && $r['refs']->{'1,0'} === $refEmpresa);
+    $prueba('las celdas sin referencia no se tocan', $r['rows'][1][1] === '1000.00');
+
+    if ($producto) {
+        $refProducto = 'inventario:producto:' . (int) $seccion['id'] . ':' . (int) $producto['id'] . ':stock';
+        $valores = \Classes\DatosExternos::resolver([$refProducto]);
+        $prueba('resuelve la existencia de un producto', ($valores[$refProducto] ?? null) === (string) (int) $producto['stock'], json_encode($valores));
+    }
+}
+
 echo "Redactor\n";
 $sucio = '<p onclick="x()">Hola <b>mundo</b></p><script>alert(1)</script>';
 $limpio = Redactor::limpiar($sucio);

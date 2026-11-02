@@ -533,8 +533,16 @@ La hoja de cálculo en línea para controles, presupuestos y listados que despu�
 
 ### Fórmulas
 
-1. Escribe «=» para empezar una fórmula. Sirven las operaciones básicas (+ − * / ^) y estas funciones: SUMA, PROMEDIO, MIN, MAX, CONTAR y REDONDEAR.
+1. Escribe «=» para empezar una fórmula. Sirven las operaciones básicas (+ − * / ^), la concatenación (&) y estas funciones: SUMA, PROMEDIO, MIN, MAX, CONTAR y REDONDEAR.
 2. Y estas condicionales: SI, Y, O, NO, SI.ERROR, SUMAR.SI, CONTAR.SI y PROMEDIO.SI.
+3. Mientras escribes la fórmula puedes hacer clic o arrastrar celdas, columnas o renglones para insertar sus referencias, igual que en Excel.
+
+### Datos externos
+
+1. En «Datos» → «Datos externos» → «Insertar dato…» puedes traer totales del inventario por negocio o datos de un producto: precio, existencia, importes sin IVA, IVA y total con IVA.
+2. La celda queda vinculada y se actualiza al abrir la tabla, guardar, exportar o pulsar «Actualizar».
+3. Solo cambia esa celda y las fórmulas que dependen de ella. Lo que escribiste a mano no se toca.
+4. Para poner un valor propio en una celda vinculada, primero usa «Quitar vínculo».
 
 ### Descargar
 

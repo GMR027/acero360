@@ -5,9 +5,13 @@
  *
  * Un solo documento con UNA sección por empresa activa. Cada sección trae:
  *   encabezado  → fecha de exportación, logotipo y nombre de la empresa
- *   tabla       → Código · Producto · Precio de lista · Cantidad en
- *                 inventario · Monto total en inventario
- *   pie         → total de productos y total en importe de ESA empresa
+ *   tabla       → Código · Producto · Precio de lista (sin IVA) · IVA 16 %
+ *                 unitario · Precio con IVA unitario · Cantidad en inventario ·
+ *                 Total sin IVA · Total con IVA
+ *   pie         → cantidad total y totales (sin IVA, IVA y con IVA) de ESA empresa
+ *
+ * La cantidad se muestra en rojo y negrita cuando está en o por debajo de la
+ * cantidad mínima del producto.
  *
  * dompdf sólo entiende un subconjunto de CSS: por eso se usan tablas para
  * maquetar y las imágenes se insertan en base64 (nunca sale a Internet).
@@ -107,40 +111,41 @@ $etiquetaProductos = static function (int $cantidad): string {
 
         table.items { width: 100%; border-collapse: collapse; }
         table.items th {
-            padding: 0.3rem;
+            padding: 0.25rem;
             background-color: #eaf1f8;
             border: 1px solid #c7dcef;
-            font-size: 8.5px;
+            font-size: 7.5px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.03em;
             color: #4679a6;
             text-align: center;
         }
         table.items td {
-            padding: 0.3rem;
+            padding: 0.3rem 0.25rem;
             border: 1px solid #e4e6ea;
-            font-size: 10px;
+            font-size: 9.5px;
             line-height: 1.3;
             vertical-align: middle;
         }
         table.items .num  { text-align: right; }
         table.items .clave {
             font-family: Courier, monospace;
-            font-size: 9.5px;
+            font-size: 9px;
             font-weight: 700;
             color: #4679a6;
             text-align: center;
         }
-        table.items .nombre { font-weight: 700; font-size: 10.5px; }
+        table.items .nombre { font-weight: 700; font-size: 9.5px; }
+        table.items .alerta-minimo { color: #c62828; font-weight: 700; }
 
         table.items tr.total td {
             background-color: #f7f7f8;
             border-top: 2px solid #c7dcef;
-            font-size: 10.5px;
+            font-size: 9.5px;
             font-weight: 700;
             color: #4679a6;
         }
-        table.items tr.total .num { font-size: 12px; }
+        table.items tr.total .num { font-size: 11px; }
 
         .sin-productos {
             padding: 0.5rem;
@@ -210,11 +215,14 @@ $etiquetaProductos = static function (int $cantidad): string {
             <table class="items">
                 <thead>
                     <tr>
-                        <th style="width:12%">Código</th>
-                        <th style="width:40%">Producto</th>
-                        <th style="width:17%">Precio de lista</th>
-                        <th style="width:14%">Cantidad en inventario</th>
-                        <th style="width:17%">Monto total en inventario</th>
+                        <th style="width:8%">Código</th>
+                        <th style="width:24%">Producto</th>
+                        <th style="width:11%">Precio de lista (sin IVA)</th>
+                        <th style="width:9%">IVA 16 % unitario</th>
+                        <th style="width:12%">Precio con IVA unitario</th>
+                        <th style="width:9%">Cantidad en inventario</th>
+                        <th style="width:13%">Total sin IVA</th>
+                        <th style="width:14%">Total con IVA</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -223,20 +231,25 @@ $etiquetaProductos = static function (int $cantidad): string {
                             <td class="clave"><?= escaparValores($producto['sku'] !== '' ? $producto['sku'] : '—') ?></td>
                             <td class="nombre"><?= escaparValores($producto['nombre']) ?></td>
                             <td class="num"><?= formatoMoneda($producto['precio']) ?></td>
-                            <td class="num"><?= number_format($producto['stock']) ?></td>
-                            <td class="num"><?= formatoMoneda($producto['monto']) ?></td>
+                            <td class="num"><?= formatoMoneda($producto['iva_unitario']) ?></td>
+                            <td class="num"><?= formatoMoneda($producto['precio_con_iva']) ?></td>
+                            <td class="num<?= $producto['bajo_minimo'] ? ' alerta-minimo' : '' ?>"><?= number_format($producto['stock']) ?></td>
+                            <td class="num"><?= formatoMoneda($producto['total_sin_iva']) ?></td>
+                            <td class="num"><?= formatoMoneda($producto['total_con_iva']) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
                 <tfoot>
                     <!-- Totales SÓLO de esta empresa. -->
                     <tr class="total">
-                        <td colspan="3">
+                        <td colspan="5">
                             Totales de <?= escaparValores($seccion['nombre']) ?>
-                            (<?= $etiquetaProductos(count($productos)) ?>)
+                            (<?= $etiquetaProductos(count($productos)) ?>) ·
+                            IVA total <?= formatoMoneda($seccion['iva_total']) ?>
                         </td>
                         <td class="num"><?= number_format($seccion['piezas']) ?></td>
-                        <td class="num"><?= formatoMoneda($seccion['importe']) ?></td>
+                        <td class="num"><?= formatoMoneda($seccion['total_sin_iva']) ?></td>
+                        <td class="num"><?= formatoMoneda($seccion['total_con_iva']) ?></td>
                     </tr>
                 </tfoot>
             </table>

@@ -47,6 +47,7 @@
     var temporizador = null;
     var editando = null;
     var posNuevaImagen = null;
+    var ultimoPunto = null;
     var accionEnCurso = false;
     var moverInicio = null;
     var portapapeles = [];
@@ -458,6 +459,10 @@
         if (n.getAttr('esTabla')) {
             n.on('dblclick dbltap', function (e) {
                 e.cancelBubble = true;
+                if (n.getAttr('fuenteTipo')) {
+                    estado('Esta tabla está vinculada. Edita el origen en SheetFlow o pulsa «Desvincular» para cambiarla aquí.', true);
+                    return;
+                }
                 editarCeldaDesdeEvento(n, e);
             });
         }
@@ -1095,6 +1100,244 @@
         return t;
     }
 
+    /** Normaliza una matriz de texto y calcula anchos proporcionales. */
+    function prepararMatriz(filas, anchos) {
+        var matriz = (filas || []).map(function (fila) {
+            return (fila || []).map(function (c) { return c == null ? '' : String(c); });
+        }).filter(function (fila) { return fila.length > 0; });
+        if (!matriz.length) return null;
+
+        var cols = Math.max.apply(null, matriz.map(function (f) { return f.length; }));
+        matriz = matriz.map(function (fila) {
+            while (fila.length < cols) fila.push('');
+            return fila;
+        });
+
+        // Anchos proporcionales si vienen de SheetFlow; si no, todos iguales.
+        var pesos = (anchos || []).slice(0, cols).map(function (v) { var n = parseFloat(v); return n > 0 ? n : 0; });
+        var sumaPesos = pesos.reduce(function (a, b) { return a + b; }, 0);
+        if (!sumaPesos) pesos = new Array(cols).fill(1);
+        else pesos = pesos.map(function (p) { return p > 0 ? p : 1; });
+        sumaPesos = pesos.reduce(function (a, b) { return a + b; }, 0);
+
+        // La tabla ocupa el ancho útil de la lámina, con un mínimo por columna.
+        var anchoUtil = Math.max(240, (C.ancho || 800) - 60);
+        var colW = pesos.map(function (p) { return Math.max(34, Math.round(anchoUtil * p / sumaPesos)); });
+        var total = colW.reduce(function (a, b) { return a + b; }, 0);
+        if (total > anchoUtil) {
+            var factor = anchoUtil / total;
+            colW = colW.map(function (w) { return Math.max(28, Math.round(w * factor)); });
+        }
+
+        return { matriz: matriz, cols: cols, colW: colW, anchoUtil: anchoUtil };
+    }
+
+    /** Inserta una tabla a partir de una matriz de texto (SheetFlow o inventario). */
+    function tablaDesdeMatriz(filas, anchos, meta) {
+        var p = prepararMatriz(filas, anchos);
+        if (!p) return null;
+
+        var filasN = p.matriz.length;
+        var filaH = 28;
+        var alto = Math.max(60, filasN * filaH);
+        var base = ultimoPunto || { x: 30, y: 40 };
+        var x = Math.max(0, Math.min((C.ancho || p.anchoUtil) - p.anchoUtil, base.x - 20));
+        var y = Math.max(0, Math.min((C.alto || alto) - Math.min(alto, 120), base.y - filaH));
+
+        antes();
+        var t = new Konva.Group({
+            x: x, y: y, draggable: true, esTabla: true,
+            filas: filasN, columnas: p.cols,
+            colW: p.colW, rowH: new Array(filasN).fill(filaH),
+            celdas: p.matriz, encabezado: true,
+            hfill: '#dbeafe', textoColor: '#111827', fondo: '#ffffff',
+            borde: '#94a3b8', fontSize: p.cols > 10 ? 9 : p.cols > 6 ? 10 : 12,
+            fuenteTipo: (meta && meta.tipo) || '',
+            fuenteId: (meta && meta.id) || 0,
+            fuenteNombre: (meta && meta.nombre) || '',
+            fuenteHash: (meta && meta.hash) || ''
+        });
+        dibujarTabla(t);
+        if (!agregarObjeto(t)) { t.destroy(); return null; }
+        activar('select');
+        seleccionar([t]);
+        capaContenido.batchDraw();
+        marcar();
+        return p.matriz.length - 1;
+    }
+
+    /** Actualiza una tabla vinculada conservando su posición, estilo y anchos si la estructura no cambió. */
+    function actualizarTablaVinculada(t, filas, anchos) {
+        var p = prepararMatriz(filas, anchos);
+        if (!p) return false;
+        var colsAntes = (t.getAttr('colW') || []).length;
+        var filasAntes = (t.getAttr('rowH') || []).length;
+        var colW = colsAntes === p.cols ? (t.getAttr('colW') || []).slice() : p.colW;
+        var rowH = filasAntes === p.matriz.length ? (t.getAttr('rowH') || []).slice() : new Array(p.matriz.length).fill(28);
+        t.setAttrs({
+            filas: p.matriz.length,
+            columnas: p.cols,
+            celdas: p.matriz,
+            colW: colW,
+            rowH: rowH
+        });
+        dibujarTabla(t);
+        return true;
+    }
+
+    function tablasVinculadas() {
+        return todosObjetos().filter(function (n) {
+            return n.getAttr('esTabla') && n.getAttr('fuenteTipo');
+        });
+    }
+
+    /**
+     * Consulta el origen de cada tabla vinculada y actualiza solo las que
+     * cambiaron. `forzar` refresca aunque la huella coincida.
+     */
+    function refrescarTablaVinculada(t, forzar) {
+        if (!t || !t.getAttr('fuenteTipo') || !C.api || !C.api.tabla) return Promise.resolve(false);
+        var tipo = t.getAttr('fuenteTipo');
+        var cuerpo = new URLSearchParams();
+        cuerpo.set('origen', tipo);
+        cuerpo.set(tipo === 'sheetflow' ? 'id' : 'empresa', t.getAttr('fuenteId') || 0);
+
+        return fetch(C.api.tabla, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body: cuerpo
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d.success) return false;
+            var hash = d.hash || '';
+            if (!forzar && hash && hash === (t.getAttr('fuenteHash') || '')) return false;
+            if (!actualizarTablaVinculada(t, d.filas, d.anchos)) return false;
+            t.setAttr('fuenteHash', hash);
+            if (d.nombre) t.setAttr('fuenteNombre', d.nombre);
+            return true;
+        }).catch(function () { return false; });
+    }
+
+    function refrescarTablasVinculadas(forzar) {
+        var tablas = tablasVinculadas();
+        if (!tablas.length) return Promise.resolve(0);
+
+        return Promise.all(tablas.map(function (t) { return refrescarTablaVinculada(t, forzar); })).then(function (resultados) {
+            var n = resultados.filter(Boolean).length;
+            if (n) {
+                capaContenido.batchDraw();
+                actualizarProps();
+                marcar();
+                estado('Tablas vinculadas actualizadas: ' + n);
+            } else if (forzar) {
+                estado('Las tablas vinculadas ya estaban al día');
+            }
+            return n;
+        });
+    }
+
+    /** Pide al servidor la tabla elegida y la coloca en la lámina. */
+    function insertarTablaOrigen(valor) {
+        if (valor === 'blanco') {
+            activar('tabla');
+            estado('Haz clic en el lienzo para colocar la tabla en blanco');
+            return;
+        }
+        if (!C.api || !C.api.tabla) {
+            estado('No se pudo cargar la tabla: falta la conexión con el servidor', true);
+            return;
+        }
+
+        var partes = String(valor).split(':');
+        var origen = partes[0] === 'sf' ? 'sheetflow' : 'inventario';
+        var id = parseInt(partes[1], 10) || 0;
+        var cuerpo = new URLSearchParams();
+        cuerpo.set('origen', origen);
+        cuerpo.set(origen === 'sheetflow' ? 'id' : 'empresa', id);
+
+        estado('Cargando la tabla…');
+        fetch(C.api.tabla, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body: cuerpo
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) throw new Error(d.error || 'No se pudo leer la tabla');
+                var n = tablaDesdeMatriz(d.filas, d.anchos, {
+                    tipo: d.fuenteTipo || origen,
+                    id: d.fuenteId || id,
+                    nombre: d.nombre || '',
+                    hash: d.hash || ''
+                });
+                if (n === null) throw new Error('La tabla no tiene datos para insertar');
+                estado('Tabla vinculada insertada' + (d.nombre ? ': ' + d.nombre : '') + '. Se actualiza al abrir la lámina.');
+            })
+            .catch(function (e) {
+                estado(e.message || 'Sin conexión: no se pudo leer la tabla', true);
+            });
+    }
+
+    /** Diálogo «Insertar tabla»: en blanco, de SheetFlow o del inventario por negocio. */
+    function abrirInsertarTabla() {
+        var hojas = C.hojasSheetflow || [];
+        var empresas = C.empresas || [];
+
+        if (typeof abrirModal !== 'function') {
+            activar('tabla');
+            return;
+        }
+
+        var cuerpo = document.createElement('div');
+        cuerpo.className = 'columna';
+
+        var etiqueta = document.createElement('label');
+        etiqueta.className = 'campo';
+        etiqueta.textContent = 'Origen de la tabla';
+
+        var sel = document.createElement('select');
+        sel.className = 'control';
+        sel.id = 'ed-t-origen';
+        sel.appendChild(new Option('Tabla en blanco (3 × 3)', 'blanco'));
+
+        if (hojas.length) {
+            var grupoSf = document.createElement('optgroup');
+            grupoSf.label = 'Tablas de SheetFlow';
+            hojas.forEach(function (h) {
+                grupoSf.appendChild(new Option(h.nombre + (h.departamento ? ' · ' + h.departamento : ''), 'sf:' + h.id));
+            });
+            sel.appendChild(grupoSf);
+        }
+
+        if (empresas.length) {
+            var grupoInv = document.createElement('optgroup');
+            grupoInv.label = 'Inventario por empresa';
+            empresas.forEach(function (e) {
+                grupoInv.appendChild(new Option(e.nombre, 'inv:' + e.id));
+            });
+            sel.appendChild(grupoInv);
+        }
+
+        etiqueta.appendChild(sel);
+        cuerpo.appendChild(etiqueta);
+
+        var nota = document.createElement('p');
+        nota.className = 'text-sm text-muted';
+        nota.textContent = hojas.length || empresas.length
+            ? 'La tabla se inserta como copia editable en la lámina. Después puedes cambiar filas, columnas y colores desde el panel Tabla.'
+            : 'Aún no hay tablas de SheetFlow ni negocios con inventario. Puedes insertar una tabla en blanco.';
+        cuerpo.appendChild(nota);
+
+        abrirModal({
+            sobreTitulo: 'Insertar',
+            titulo: 'Insertar tabla',
+            cuerpo: cuerpo,
+            textoConfirmar: 'Insertar',
+            alConfirmar: function () { insertarTablaOrigen(sel.value); }
+        });
+
+        setTimeout(function () { sel.focus(); }, 30);
+    }
+
     function ajustarTabla(t) {
         var filas = Math.max(1, Math.round(t.getAttr('filas') || 1));
         var cols = Math.max(1, Math.round(t.getAttr('columnas') || 1));
@@ -1382,7 +1625,11 @@
 
     document.querySelectorAll('[data-herr]').forEach(function (b) {
         b.addEventListener('click', function () {
-            activar(b.dataset.herr);
+            if (b.dataset.herr === 'tabla') {
+                abrirInsertarTabla();
+            } else {
+                activar(b.dataset.herr);
+            }
             var mas = $('ed-mas');
             if (mas) mas.open = false;
         });
@@ -1505,6 +1752,7 @@
     stage.on('mousemove touchmove', function () {
         var p = stage.getRelativePointerPosition();
         if (!p) return;
+        ultimoPunto = { x: p.x, y: p.y };
 
         if (marquesa && !dibujandoAhora) {
             var x = Math.min(marquesa.x, p.x), y = Math.min(marquesa.y, p.y);
@@ -1613,6 +1861,7 @@
         tabla: $('ed-grupo-tabla'), filas: $('ed-p-filas'), columnas: $('ed-p-columnas'),
         colW: $('ed-p-col-w'), filaH: $('ed-p-fila-h'), encabezado: $('ed-p-encabezado'),
         hfill: $('ed-p-hfill'), textoColor: $('ed-p-texto-color'),
+        fuente: $('ed-tabla-fuente'), fuenteNombre: $('ed-tabla-fuente-nombre'), tablaAyuda: $('ed-tabla-ayuda'),
         pin: $('ed-grupo-pin'), numero: $('ed-p-numero'),
         medida: $('ed-grupo-medida'), unidad: $('ed-p-unidad'), longitud: $('ed-p-longitud'),
         filaCapa: $('ed-fila-capa'), capa: $('ed-p-capa'),
@@ -1667,6 +1916,16 @@
         mostrar(P.apariencia, !multi);
         mostrar(P.texto, !!n && n.getClassName() === 'Text');
         mostrar(P.tabla, !!n && !!n.getAttr('esTabla'));
+        var vinculada = !!n && !!n.getAttr('esTabla') && !!n.getAttr('fuenteTipo');
+        mostrar(P.fuente, vinculada);
+        mostrar(P.tablaAyuda, !vinculada);
+        if (vinculada) {
+            var tipoFuente = n.getAttr('fuenteTipo') === 'sheetflow' ? 'SheetFlow' : 'Inventario';
+            P.fuenteNombre.textContent = tipoFuente + ' · ' + (n.getAttr('fuenteNombre') || 'origen sin nombre');
+        }
+        if (P.filas) {
+            P.filas.disabled = P.columnas.disabled = P.colW.disabled = P.filaH.disabled = P.encabezado.disabled = vinculada;
+        }
         mostrar(P.pin, !!n && !!n.getAttr('esPin'));
         mostrar(P.medida, !!n && !!n.getAttr('esMedida'));
         mostrar(P.alinear, multi);
@@ -1911,6 +2170,39 @@
     });
     P.textoColor.addEventListener('change', function () {
         conTabla(function (t) { t.setAttr('textoColor', P.textoColor.value); });
+    });
+
+    $('ed-tabla-actualizar').addEventListener('click', function () {
+        var t = selNodos[0];
+        if (!t || !t.getAttr('fuenteTipo')) return;
+        estado('Actualizando la tabla…');
+        refrescarTablaVinculada(t, true).then(function (cambio) {
+            capaContenido.batchDraw();
+            actualizarProps();
+            if (cambio) { marcar(); estado('Tabla actualizada desde su origen'); }
+            else { estado('La tabla ya estaba al día'); }
+        });
+    });
+
+    $('ed-tabla-desvincular').addEventListener('click', function () {
+        var t = selNodos[0];
+        if (!t || !t.getAttr('fuenteTipo')) return;
+        confirmarAccion({
+            sobreTitulo: 'Tabla vinculada',
+            titulo: '¿Desvincular esta tabla?',
+            mensaje: 'Dejará de actualizarse desde su origen y podrás editar sus celdas aquí. El contenido actual se conserva.',
+            textoConfirmar: 'Desvincular',
+            alConfirmar: function () {
+                antes();
+                t.setAttr('fuenteTipo', '');
+                t.setAttr('fuenteId', 0);
+                t.setAttr('fuenteNombre', '');
+                t.setAttr('fuenteHash', '');
+                actualizarProps();
+                marcar();
+                estado('Tabla desvinculada: ahora se edita en la lámina');
+            }
+        });
     });
 
     P.numero.addEventListener('change', function () {
@@ -2516,6 +2808,7 @@
             selNodos = [];
             pintarPaginas();
             if (ajusteAuto) ajustar();
+            return refrescarTablasVinculadas(false);
         });
     }
 
@@ -2893,6 +3186,8 @@
         pintarCapas();
         pintarGuias();
         ajustar();
+        return refrescarTablasVinculadas(false);
+    }).then(function () {
         estado('Listo');
     });
 })();

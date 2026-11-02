@@ -33,7 +33,7 @@ if (strlen($crudo) > Sheetflow::MAX_BYTES) {
     json_respuesta(['success' => false, 'error' => 'La tabla es demasiado grande'], 422);
 }
 
-$limpio = Sheetflow::normalizar(json_decode($crudo, true));
+$limpio = Sheetflow::refrescarExternos(json_decode($crudo, true));
 
 $nueva = new \Model\SheetflowHoja([
     'id'           => $hoja->id,

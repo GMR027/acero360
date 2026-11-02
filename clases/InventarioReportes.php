@@ -75,23 +75,80 @@ class InventarioReportes
     }
 
     /**
-     * Encabezados y filas planas del inventario actual.
+     * Importes de un producto. El precio del catálogo es el de lista SIN IVA.
+     *
+     * @return array{precio: float, iva_unitario: float, precio_con_iva: float,
+     *               stock: int, bajo_minimo: bool, total_sin_iva: float,
+     *               iva_total: float, total_con_iva: float}
+     */
+    private static function importesProducto(array $f): array
+    {
+        $precio = (float) $f['precio'];
+        $stock  = (int) $f['stock'];
+        $tasa   = Cotizaciones::IVA / 100;
+        $iva    = round($precio * $tasa, 2);
+        $sinIva = round($precio * $stock, 2);
+        $ivaTot = round($sinIva * $tasa, 2);
+
+        return [
+            'precio'         => $precio,
+            'iva_unitario'   => $iva,
+            'precio_con_iva' => round($precio + $iva, 2),
+            'stock'          => $stock,
+            'bajo_minimo'    => $f['stock_minimo'] !== null && $stock <= (int) $f['stock_minimo'],
+            'total_sin_iva'  => $sinIva,
+            'iva_total'      => $ivaTot,
+            'total_con_iva'  => round($sinIva + $ivaTot, 2),
+        ];
+    }
+
+    /** Encabezados comunes de la exportación del inventario actual. */
+    private static function encabezadosActual(): array
+    {
+        return ['Código', 'Producto', 'Precio de lista (sin IVA)', 'IVA 16 % unitario', 'Precio con IVA unitario',
+            'Cantidad en inventario', 'Total sin IVA', 'Total con IVA'];
+    }
+
+    /**
+     * Encabezados y filas planas del inventario actual (CSV y pruebas).
      *
      * @return array{0: string[], 1: array<int, array<int, scalar|null>>}
      */
     public static function filasActual(array $filas): array
     {
-        $enc = ['SKU', 'Producto', 'Negocios', 'Unidad', 'Existencias', 'Cantidad mínima', 'Alerta', 'Costo actual', 'Precio de lista', 'Valor al costo', 'Valor a precio', 'Activo'];
         $datos = [];
         foreach ($filas as $f) {
-            $bajo = $f['stock_minimo'] !== null && (int) $f['stock'] <= (int) $f['stock_minimo'];
-            $datos[] = [$f['sku'], $f['nombre'], $f['negocios'], $f['unidad'], (int) $f['stock'], $f['stock_minimo'] !== null ? (int) $f['stock_minimo'] : '',
-                (int) $f['stock'] < 0 ? 'Existencia negativa' : ($bajo ? 'Bajo el mínimo' : ''),
-                (float) $f['costo_actual'], (float) $f['precio'],
-                round((int) $f['stock'] * (float) $f['costo_actual'], 2), round((int) $f['stock'] * (float) $f['precio'], 2), (int) $f['activo'] === 1 ? 'Sí' : 'No'];
+            $i = self::importesProducto($f);
+            $datos[] = [$f['sku'], $f['nombre'], $i['precio'], $i['iva_unitario'], $i['precio_con_iva'],
+                $i['stock'], $i['total_sin_iva'], $i['total_con_iva']];
         }
 
-        return [$enc, $datos];
+        return [self::encabezadosActual(), $datos];
+    }
+
+    /**
+     * Mismas filas con formato de Excel: moneda en importes y rojo/negrita
+     * en la cantidad cuando está en o por debajo del mínimo.
+     *
+     * @return array{0: string[], 1: array<int, array<int, mixed>>}
+     */
+    public static function filasActualXlsx(array $filas): array
+    {
+        $datos = [];
+        foreach ($filas as $f) {
+            $i = self::importesProducto($f);
+            $datos[] = [
+                $f['sku'], $f['nombre'],
+                ['v' => $i['precio'], 'f' => 'moneda'],
+                ['v' => $i['iva_unitario'], 'f' => 'moneda'],
+                ['v' => $i['precio_con_iva'], 'f' => 'moneda'],
+                ['v' => $i['stock'], 'f' => $i['bajo_minimo'] ? 'rojoNeg' : 'entero'],
+                ['v' => $i['total_sin_iva'], 'f' => 'moneda'],
+                ['v' => $i['total_con_iva'], 'f' => 'moneda'],
+            ];
+        }
+
+        return [self::encabezadosActual(), $datos];
     }
 
     /* --------------------------------------------------------------------

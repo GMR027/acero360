@@ -51,11 +51,17 @@ Cotizaciones::cambiarEstado($cot, 'vendido', $usuario);
 $prueba('al venderla el inventario baja una sola vez (6 piezas)', (int) $antes - (int) $uno('SELECT SUM(stock) FROM productos') === 6);
 
 echo "Exportación del inventario\n";
-[$enc, $filas] = InventarioReportes::filasActual(InventarioReportes::actual(['estado' => 'todos']));
-$prueba('exporta todos los productos con costo, precio y valor', count($filas) === (int) $uno('SELECT COUNT(*) FROM productos') && count($enc) === 12);
+$datosInventario = InventarioReportes::actual(['estado' => 'todos']);
+[$enc, $filas] = InventarioReportes::filasActual($datosInventario);
+$prueba('exporta todos los productos con precio e IVA', count($filas) === (int) $uno('SELECT COUNT(*) FROM productos') && count($enc) === 8);
 $f36 = array_values(array_filter($filas, fn ($f) => $f[0] === $uno('SELECT sku FROM productos WHERE id = 36')))[0];
-$prueba('producto bajo el mínimo marcado: «Bajo el mínimo»', $f36[6] === 'Bajo el mínimo', json_encode($f36));
-$prueba('valor al costo = existencias × costo', $f36[9] === round($f36[4] * 40, 2));
+$prueba('IVA unitario = precio de lista × 16 %', $f36[3] === round($f36[2] * 0.16, 2));
+$prueba('precio con IVA = precio de lista + IVA', $f36[4] === round($f36[2] + $f36[3], 2));
+$prueba('total sin IVA = precio de lista × existencias', $f36[6] === round($f36[2] * $f36[5], 2));
+$prueba('total con IVA = total sin IVA + IVA', $f36[7] === round($f36[6] + round($f36[6] * 0.16, 2), 2));
+[, $filasExcel] = InventarioReportes::filasActualXlsx($datosInventario);
+$f36Excel = array_values(array_filter($filasExcel, fn ($f) => $f[0] === $uno('SELECT sku FROM productos WHERE id = 36')))[0];
+$prueba('producto en o bajo el mínimo: cantidad en rojo y negrita en Excel', ($f36Excel[5]['f'] ?? '') === 'rojoNeg', json_encode($f36Excel[5]));
 [, $soloMinimo] = InventarioReportes::filasActual(InventarioReportes::actual(['estado' => 'minimo']));
 // La base puede tener otros productos con mínimo definido (datos reales): se
 // compara contra la consulta, no contra un número fijo.
@@ -69,7 +75,7 @@ $prueba('filtro por negocio', count($neg2) === (int) $uno('SELECT COUNT(DISTINCT
 [, $busca] = InventarioReportes::filasActual(InventarioReportes::actual(['q' => 'RA-3']));
 $prueba('filtro por búsqueda', count($busca) >= 1 && count($busca) < count($filas));
 $csv = Exportador::csv($enc, $filas);
-$prueba('CSV con BOM y encabezados', str_starts_with($csv, "\xEF\xBB\xBF") && str_contains($csv, 'Valor al costo'));
+$prueba('CSV con BOM y encabezados', str_starts_with($csv, "\xEF\xBB\xBF") && str_contains($csv, 'Total con IVA'));
 
 echo "Historial de movimientos\n";
 $total = InventarioReportes::contarMovimientos([]);

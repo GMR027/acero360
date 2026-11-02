@@ -137,6 +137,7 @@ $router->post('/admin/editor/eliminar',     'views/admin/editor/accion.php',   '
 $router->post('/admin/editor/api/guardar',  'views/admin/editor/api/guardar.php', 'soloAdmin');
 $router->post('/admin/editor/api/imagen',   'views/admin/editor/api/imagen.php',  'soloAdmin');
 $router->post('/admin/editor/api/pdf',      'views/admin/editor/api/pdf.php',     'soloAdmin');
+$router->post('/admin/editor/api/tabla',    'views/admin/editor/api/tabla.php',   'soloAdmin');
 
 // Herramientas personales — SheetFlow (tablas compartidas).
 $router->get('/admin/sheetflow',            'views/admin/sheetflow/index.php',    'soloAdmin');
@@ -153,6 +154,7 @@ $router->post('/admin/sheetflow/api/guardar', 'views/admin/sheetflow/api/guardar
 $router->post('/admin/sheetflow/api/imagen',  'views/admin/sheetflow/api/imagen.php',  'soloAdmin');
 $router->get('/admin/sheetflow/api/version',  'views/admin/sheetflow/api/version.php', 'soloAdmin');
 $router->get('/admin/sheetflow/api/datos',    'views/admin/sheetflow/api/datos.php',   'soloAdmin');
+$router->post('/admin/sheetflow/api/externo', 'views/admin/sheetflow/api/externo.php', 'soloAdmin');
 
 // Herramientas personales — Archivo (carpetas virtuales con documentos subidos).
 $router->get('/admin/archivo',                 'views/admin/archivo/index.php',     'soloAdmin');

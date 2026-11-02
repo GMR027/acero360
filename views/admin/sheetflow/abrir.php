@@ -22,7 +22,10 @@ $config = [
     'version'  => (string) $hoja->actualizado,
     'datos'    => $hoja->contenido(),
     'max'      => ['cols' => \Classes\Sheetflow::MAX_COLS, 'filas' => \Classes\Sheetflow::MAX_FILAS],
-    'api'      => ['guardar' => '/admin/sheetflow/api/guardar'],
+    'api'      => [
+        'guardar' => '/admin/sheetflow/api/guardar',
+        'externo' => '/admin/sheetflow/api/externo',
+    ],
     'simbolos' => [],
 ];
 
@@ -177,6 +180,18 @@ template('header', [
                 </optgroup>
             </select>
         </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Datos externos</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-ext-insertar" title="Trae un dato del inventario a la celda elegida">
+                <i class="fa-solid fa-link"></i> Insertar dato…
+            </button>
+            <button type="button" class="sf-b sf-b-txt" id="sf-ext-actualizar" title="Consulta otra vez los datos vinculados de esta tabla">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <button type="button" class="sf-b sf-b-txt" id="sf-ext-quitar" title="Quita el vínculo de las celdas elegidas y deja el valor actual">
+                <i class="fa-solid fa-link-slash"></i> Quitar vínculo
+            </button>
+        </div>
     </div>
     <div class="sf-panel" data-panel="vista" hidden>
         <div class="sf-grupo">
@@ -199,14 +214,14 @@ template('header', [
 <div class="sf-formula">
     <span class="sf-ref" id="sf-ref">A2</span>
     <span class="sf-fx">fx</span>
-    <input type="text" id="sf-fx" autocomplete="off" spellcheck="false" placeholder="Contenido de la celda; empieza con = para una fórmula, p. ej. =SUMA(C2:C10) o =C2*D2">
+    <input type="text" id="sf-fx" autocomplete="off" spellcheck="false" placeholder="Contenido; = para fórmula. La fila 1 es el encabezado: los datos empiezan en la 2. Ej.: =A2+B2">
 </div>
 
 <div class="sf-area" id="sf-area" tabindex="0" aria-label="Tabla editable">
     <div class="sf-scroll"><table class="sf-grid" id="sf-grid"></table></div>
 </div>
 <div class="sf-estadistica" id="sf-estadistica" aria-live="polite"></div>
-<p class="text-muted text-sm sf-ayuda">Clic para elegir · arrastra o Mayús+flechas para varias celdas · Enter o doble clic para editar · Supr borra · Ctrl+C / Ctrl+V copian y pegan desde Excel · Fórmulas: <code>+ − * / ^ &amp;</code>, <code>SUMA PROMEDIO MIN MAX CONTAR REDONDEAR</code> y condicionales <code>SI Y O NO SI.ERROR SUMAR.SI CONTAR.SI PROMEDIO.SI</code>. Arrastra el borde de una letra de columna para cambiar su ancho. El encabezado es la fila 1.</p>
+<p class="text-muted text-sm sf-ayuda">Clic para elegir · arrastra o Mayús+flechas para varias celdas · Enter o doble clic para editar · Supr borra · Ctrl+C / Ctrl+V copian y pegan desde Excel · Fórmulas: <code>+ − * / ^ &amp;</code>, <code>SUMA PROMEDIO MIN MAX CONTAR REDONDEAR</code> y condicionales <code>SI Y O NO SI.ERROR SUMAR.SI CONTAR.SI PROMEDIO.SI</code>. Mientras escribes una fórmula puedes <strong>hacer clic o arrastrar celdas, columnas o renglones</strong> para insertar sus referencias, como en Excel. En <em>Datos › Datos externos</em> puedes traer totales del inventario o datos de un producto; esas celdas se actualizan al abrir, guardar o pulsar «Actualizar». Arrastra el borde de una letra de columna para cambiar su ancho. <strong>La fila 1 es el encabezado; la primera celda con datos es A2, B2…</strong></p>
 
     <div class="card sf-usos">
         <h3><span class="material-symbols-outlined" aria-hidden="true">share</span> Usar esta tabla en el Redactor</h3>

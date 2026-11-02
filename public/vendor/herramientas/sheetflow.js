@@ -10,10 +10,12 @@
     var S = C.datos;
     S.calc = S.calc && !Array.isArray(S.calc) ? S.calc : {};
     S.tot = S.tot && !Array.isArray(S.tot) ? S.tot : {};
+    S.refs = S.refs && !Array.isArray(S.refs) ? S.refs : {};
     var grid = $('sf-grid'), area = $('sf-area'), fx = $('sf-fx');
     var version = C.version, sucio = false, guardando = false, temporizador = null;
     var sel = { r0: 0, c0: 0, r1: 0, c1: 0 };   // rango elegido; (r0,c0) es el ancla. r = -1 es el encabezado
     var editor = null;                           // {r,c,input,previo} mientras se edita una celda
+    var pickFormula = null;                      // selección de celdas mientras se escribe una fórmula
     var pasado = [], futuro = [];
     var MAX_C = C.max.cols, MAX_F = C.max.filas;
     var zoom = 100;
@@ -90,6 +92,10 @@
         if (tipo === 'casilla' || tipo === 'semaforo') return valorEspecial(txt, tipo);
         return txt;
     }
+
+    /** Celda vinculada a un dato externo (clave) o null */
+    function refDe(r, c) { return r >= 0 ? (S.refs[r + ',' + c] || null) : null; }
+    function quitarRef(r, c) { if (r >= 0) delete S.refs[r + ',' + c]; }
 
     // ================= Fórmulas =================
     // Errores de valor (#DIV/0!, #VALOR!…) viajan como valor ({e}); los de sintaxis cortan el análisis. Debe dar lo mismo que Classes\SheetflowFormulas.
@@ -354,8 +360,13 @@
         S.rows.forEach(function (fila, r) {
             h += '<tr' + (e.zebra && r % 2 ? ' class="sf-alt"' : '') + '><th class="sf-num" data-fila="' + r + '">' + (r + 2) + '</th>';
             S.cols.forEach(function (col, c) {
-                var v = mostrado(r, c), err = /^#[A-Z/0?!]+$/.test(v), f = sty[r][c];
-                h += '<td data-r="' + r + '" data-c="' + c + '" style="text-align:' + ALIN[col.a] + ';' + cssFmt(f) + '"' + (esFormula(fila[c]) ? ' class="sf-f' + (err ? ' sf-err' : '') + '"' : '') + '>' + imgHtml(f) + esc(v) + '</td>';
+                var v = mostrado(r, c), err = /^#[A-Z/0?!]+$/.test(v), f = sty[r][c], ref = refDe(r, c), clases = [];
+                if (esFormula(fila[c])) clases.push('sf-f' + (err ? ' sf-err' : ''));
+                if (ref) clases.push('sf-ext');
+                h += '<td data-r="' + r + '" data-c="' + c + '" style="text-align:' + ALIN[col.a] + ';' + cssFmt(f) + '"'
+                    + (clases.length ? ' class="' + clases.join(' ') + '"' : '')
+                    + (ref ? ' title="Dato externo vinculado. Se actualiza con «Actualizar datos»."' : '')
+                    + '>' + imgHtml(f) + esc(v) + '</td>';
             });
             h += '</tr>';
         });
@@ -383,7 +394,15 @@
         for (var cc = n.c0; cc <= n.c1; cc++) { var l = grid.querySelector('th.sf-letra[data-letra="' + cc + '"]'); if (l) l.classList.add('sf-letra-sel'); }
         for (var rr = n.r0; rr <= n.r1; rr++) { var f = grid.querySelector('th.sf-num[data-fila="' + rr + '"]'); if (f) f.classList.add('sf-num-sel'); }
         $('sf-ref').textContent = nombreCelda(sel.r0, sel.c0) + (n.r0 !== n.r1 || n.c0 !== n.c1 ? ':' + nombreCelda(n.r1, n.c1) : '');
-        fx.value = sel.r0 < 0 ? S.cols[sel.c0].n : S.rows[sel.r0][sel.c0];
+        if (!pickFormula) {
+            fx.value = sel.r0 < 0 ? S.cols[sel.c0].n : S.rows[sel.r0][sel.c0];
+            var vinculada = sel.r0 >= 0 && !!refDe(sel.r0, sel.c0);
+            fx.disabled = vinculada;
+            fx.title = vinculada ? 'Celda vinculada a un dato externo. Usa «Quitar vínculo» para escribir un valor o fórmula propia.' : '';
+            fx.placeholder = vinculada
+                ? 'Celda vinculada: usa «Quitar vínculo» para escribir aquí'
+                : 'Contenido; = para fórmula. La fila 1 es el encabezado: los datos empiezan en la 2. Ej.: =A2+B2';
+        }
         sincronizarBarra();
         estadistica();
     }
@@ -426,11 +445,11 @@
     }
 
     // ================= Cambios, deshacer y guardado =================
-    function copia() { return JSON.stringify({ cols: S.cols, rows: S.rows, estilo: S.estilo, sty: sty, hsty: hsty }); }
+    function copia() { return JSON.stringify({ cols: S.cols, rows: S.rows, refs: S.refs, estilo: S.estilo, sty: sty, hsty: hsty }); }
     function antes() { pasado.push(copia()); if (pasado.length > 100) pasado.shift(); futuro = []; }
     function cambio() { sucio = true; estado('Cambios sin guardar…'); clearTimeout(temporizador); temporizador = setTimeout(function () { guardar(false); }, 1800); }
     function restaurar(json) {
-        var d = JSON.parse(json); S.cols = d.cols; S.rows = d.rows; S.estilo = d.estilo; sty = d.sty; hsty = d.hsty;
+        var d = JSON.parse(json); S.cols = d.cols; S.rows = d.rows; S.refs = d.refs || {}; S.estilo = d.estilo; sty = d.sty; hsty = d.hsty;
         sel.r0 = Math.min(sel.r0, S.rows.length - 1); sel.r1 = Math.min(sel.r1, S.rows.length - 1); sel.c0 = Math.min(sel.c0, S.cols.length - 1); sel.c1 = Math.min(sel.c1, S.cols.length - 1);
         dibujar(); cambio();
     }
@@ -442,7 +461,7 @@
         var fd = new FormData();
         fd.append('id', C.id); fd.append('proyecto', C.proyecto); fd.append('version', version);
         fd.append('nombre', $('sf-nombre').value); fd.append('fecha', $('sf-fecha').value); fd.append('departamento', $('sf-depto').value); fd.append('descripcion', $('sf-desc').value);
-        fd.append('datos', JSON.stringify({ cols: S.cols, rows: S.rows, calc: S.calc, tot: S.tot, estilo: S.estilo, fmt: fmtMapa() }));
+        fd.append('datos', JSON.stringify({ cols: S.cols, rows: S.rows, refs: S.refs, calc: S.calc, tot: S.tot, estilo: S.estilo, fmt: fmtMapa() }));
         if (forzar) fd.append('forzar', '1');
         return fd;
     }
@@ -490,10 +509,50 @@
     // ================= Edición de celdas =================
     function fijar(r, c, v) {
         if (r < 0) { S.cols[c].n = String(v).replace(/[\r\n]+/g, ' ').slice(0, 60); return; }
+        quitarRef(r, c);
         S.rows[r][c] = normalizar(v, S.cols[c].t).slice(0, 500);
     }
+    /** Si hay una fórmula en edición (en la celda o en la barra fx), devuelve su input. */
+    function formulaEditando() {
+        if (editor && editor.input && document.activeElement === editor.input && /^\s*=/.test(editor.input.value)) {
+            return { input: editor.input, tipo: 'celda', r: editor.r, c: editor.c };
+        }
+        if (document.activeElement === fx && /^\s*=/.test(fx.value)) {
+            return { input: fx, tipo: 'fx', r: sel.r0, c: sel.c0 };
+        }
+        return null;
+    }
+
+    /** Inserta la referencia elegida (A2 o A2:B5) en la fórmula y mantiene la edición. */
+    function finalizarPickFormula() {
+        var p = pickFormula;
+        if (!p) return;
+        pickFormula = null;
+
+        var ref = nombreCelda(p.r0, p.c0) + ((p.r1 !== p.r0 || p.c1 !== p.c0) ? ':' + nombreCelda(p.r1, p.c1) : '');
+        var inp = p.input;
+        var ini = p.pos != null ? p.pos : inp.selectionStart;
+        var fin = inp.selectionEnd;
+        // Como en Excel: si justo antes del cursor hay una referencia, se reemplaza.
+        var previa = /(\$?[A-Za-z]{1,2}\$?\d+(?::\$?[A-Za-z]{1,2}\$?\d+)?)$/.exec(inp.value.slice(0, ini));
+        if (previa) ini -= previa[0].length;
+        var texto = inp.value.slice(0, ini) + ref + inp.value.slice(fin);
+        var pos = ini + ref.length;
+
+        // Vuelve a la celda que se estaba editando y conserva el texto de la fórmula.
+        sel.r0 = sel.r1 = p.editR;
+        sel.c0 = sel.c1 = p.editC;
+        inp.value = texto;
+        pintarSeleccion();
+        // pintarSeleccion() reescribe fx con el valor de la celda; se restaura la fórmula.
+        if (p.tipo === 'fx') { inp.value = texto; fx.value = texto; }
+        else if (editor && editor.input === inp) fx.value = texto;
+        try { inp.focus(); inp.setSelectionRange(pos, pos); } catch (e) { /* sin selección */ }
+    }
+
     function empezarEdicion(r, c, inicial) {
         terminarEdicion(true);
+        if (r >= 0 && refDe(r, c)) { estado('Esta celda es un dato externo. Usa «Quitar vínculo» si quieres escribir un valor propio.', true); return; }
         var el = celdaEl(r, c); if (!el) return;
         var inp = document.createElement('input');
         inp.className = 'sf-input'; inp.type = 'text'; inp.spellcheck = false; inp.autocomplete = 'off';
@@ -533,14 +592,207 @@
         pintarSeleccion(); visible(r, c);
     }
     fx.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); antes(); fijar(sel.r0, sel.c0, fx.value); dibujar(); cambio(); area.focus(); }
-        else if (e.key === 'Escape') { pintarSeleccion(); area.focus(); }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (sel.r0 >= 0 && refDe(sel.r0, sel.c0)) { estado('Esta celda es un dato externo. Usa «Quitar vínculo» si quieres escribir un valor propio.', true); return; }
+            antes(); fijar(sel.r0, sel.c0, fx.value); dibujar(); cambio(); area.focus();
+        } else if (e.key === 'Escape') { pintarSeleccion(); area.focus(); }
     });
     // Insertar una función de la lista en la celda elegida (queda en la barra de fórmulas para ajustar los rangos)
     $('sf-fn').addEventListener('change', function () {
         var f = this.value; this.value = ''; if (!f || sel.r0 < 0) return;
+        quitarRef(sel.r0, sel.c0);
         antes(); S.rows[sel.r0][sel.c0] = f; dibujar(); cambio(); fx.focus(); fx.select();
     });
+
+    // ================= Datos externos =================
+    var CATALOGO = null;
+    function cargarCatalogo() {
+        if (CATALOGO) return Promise.resolve(CATALOGO);
+        var fd = new FormData();
+        fd.append('accion', 'catalogo');
+        return fetch(C.api.externo, { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) throw new Error(d.error || 'No se pudo leer el catálogo de datos');
+                CATALOGO = d;
+                return d;
+            });
+    }
+
+    function opcion(valor, texto) { var o = document.createElement('option'); o.value = valor; o.textContent = texto; return o; }
+
+    function abrirDatosExternos() {
+        var n = rangoNorm();
+        if (sel.r0 < 0 || n.r0 !== n.r1 || n.c0 !== n.c1) {
+            estado('Elige una sola celda para insertar el dato externo', true);
+            return;
+        }
+        if (typeof abrirModal !== 'function') {
+            estado('La ventana de datos aún no está disponible; recarga la página', true);
+            return;
+        }
+        estado('Cargando datos del inventario…');
+        cargarCatalogo().then(function (cat) {
+            estado('');
+            if (!cat.empresas.length) { estado('No hay negocios con inventario para vincular', true); return; }
+
+            var cuerpo = document.createElement('div');
+            cuerpo.className = 'columna';
+
+            var lTipo = document.createElement('label'); lTipo.className = 'campo'; lTipo.textContent = '¿Qué dato quieres traer?';
+            var selTipo = document.createElement('select'); selTipo.className = 'control';
+            selTipo.appendChild(opcion('empresa', 'Totales del negocio'));
+            selTipo.appendChild(opcion('producto', 'Dato de un producto'));
+            lTipo.appendChild(selTipo); cuerpo.appendChild(lTipo);
+
+            var lEmp = document.createElement('label'); lEmp.className = 'campo'; lEmp.textContent = 'Negocio';
+            var selEmp = document.createElement('select'); selEmp.className = 'control';
+            cat.empresas.forEach(function (e) { selEmp.appendChild(opcion(String(e.id), e.nombre)); });
+            lEmp.appendChild(selEmp); cuerpo.appendChild(lEmp);
+
+            var lBuscar = document.createElement('label'); lBuscar.className = 'campo'; lBuscar.textContent = 'Buscar producto';
+            var buscar = document.createElement('input'); buscar.type = 'search'; buscar.className = 'control'; buscar.placeholder = 'Código o nombre…'; buscar.autocomplete = 'off';
+            lBuscar.appendChild(buscar); cuerpo.appendChild(lBuscar);
+
+            var lProd = document.createElement('label'); lProd.className = 'campo'; lProd.textContent = 'Producto';
+            var selProd = document.createElement('select'); selProd.className = 'control';
+            lProd.appendChild(selProd); cuerpo.appendChild(lProd);
+
+            var lCampo = document.createElement('label'); lCampo.className = 'campo'; lCampo.textContent = 'Dato';
+            var selCampo = document.createElement('select'); selCampo.className = 'control';
+            lCampo.appendChild(selCampo); cuerpo.appendChild(lCampo);
+
+            var vista = document.createElement('p'); vista.className = 'text-sm text-muted'; cuerpo.appendChild(vista);
+            var nota = document.createElement('p'); nota.className = 'text-sm text-muted';
+            nota.textContent = 'La celda quedará vinculada y no se podrá escribir a mano. Para un valor propio, usa «Quitar vínculo».';
+            cuerpo.appendChild(nota);
+
+            function empresa() { return cat.empresas.filter(function (e) { return String(e.id) === selEmp.value; })[0] || cat.empresas[0]; }
+            function producto() { return (empresa().productos || []).filter(function (p) { return String(p.id) === selProd.value; })[0] || null; }
+            function campos() { return selTipo.value === 'empresa' ? cat.campos.empresa : cat.campos.producto; }
+            function valorActual() {
+                var campo = selCampo.value;
+                if (selTipo.value === 'empresa') return empresa().totales[campo] ?? '';
+                var p = producto();
+                return p ? (p.valores[campo] ?? '') : '';
+            }
+            function claveActual() {
+                if (selTipo.value === 'empresa') return 'inventario:empresa:' + empresa().id + ':' + selCampo.value;
+                return 'inventario:producto:' + empresa().id + ':' + producto().id + ':' + selCampo.value;
+            }
+            function actualizarVista() {
+                var campo = selCampo.value, def = campos()[campo] || {};
+                var v = valorActual();
+                vista.textContent = v === '' ? 'El dato está vacío actualmente.' : 'Valor actual: ' + formatear(v, def.tipo === 'moneda' ? 'moneda' : 'numero');
+            }
+            function poblarProductos() {
+                var filtro = buscar.value.trim().toLowerCase();
+                var actualP = selProd.value;
+                selProd.innerHTML = '';
+                (empresa().productos || []).forEach(function (p) {
+                    var texto = (p.sku ? p.sku + ' · ' : '') + p.nombre;
+                    if (filtro && texto.toLowerCase().indexOf(filtro) < 0) return;
+                    selProd.appendChild(opcion(String(p.id), texto));
+                });
+                if (actualP && selProd.querySelector('option[value="' + actualP.replace(/"/g, '\\"') + '"]')) selProd.value = actualP;
+                if (!selProd.options.length) selProd.appendChild(opcion('', 'Sin productos que coincidan'));
+            }
+            function poblarCampos() {
+                var defs = campos(), actual = selCampo.value;
+                selCampo.innerHTML = '';
+                Object.keys(defs).forEach(function (k) { selCampo.appendChild(opcion(k, defs[k].etiqueta)); });
+                if (actual && defs[actual]) selCampo.value = actual;
+                actualizarVista();
+            }
+            function modo() {
+                var esProducto = selTipo.value === 'producto';
+                lBuscar.hidden = lProd.hidden = !esProducto;
+                if (esProducto) { poblarProductos(); }
+                poblarCampos();
+            }
+
+            selTipo.addEventListener('change', modo);
+            selEmp.addEventListener('change', function () { poblarProductos(); actualizarVista(); });
+            buscar.addEventListener('input', function () { poblarProductos(); actualizarVista(); });
+            selProd.addEventListener('change', actualizarVista);
+            selCampo.addEventListener('change', actualizarVista);
+
+            modo();
+
+            abrirModal({
+                sobreTitulo: 'SheetFlow',
+                titulo: 'Insertar dato externo',
+                cuerpo: cuerpo,
+                textoConfirmar: 'Insertar',
+                alConfirmar: function () {
+                    if (selTipo.value === 'producto' && !producto()) { estado('Elige un producto', true); return; }
+                    var valor = valorActual();
+                    var clave = claveActual();
+                    var r = sel.r0, c = sel.c0, col = S.cols[c];
+                    var colVacia = S.rows.every(function (fila, i) { return i === r || fila[c] === ''; });
+                    antes();
+                    S.rows[r][c] = valor;
+                    S.refs[r + ',' + c] = clave;
+                    if (colVacia && col.t === 'texto' && selTipo.value === 'empresa') {
+                        col.t = (cat.campos.empresa[selCampo.value] || {}).tipo === 'moneda' ? 'moneda' : 'numero';
+                    } else if (colVacia && col.t === 'texto' && selTipo.value === 'producto') {
+                        col.t = (cat.campos.producto[selCampo.value] || {}).tipo === 'moneda' ? 'moneda' : 'numero';
+                    }
+                    dibujar(); cambio();
+                    estado('Dato externo insertado en ' + nombreCelda(r, c));
+                }
+            });
+        }).catch(function (e) { estado(e.message || 'No se pudieron cargar los datos externos', true); });
+    }
+
+    function actualizarExternos() {
+        var claves = Object.keys(S.refs);
+        if (!claves.length) { estado('Esta tabla no tiene datos externos vinculados', true); return; }
+        estado('Actualizando datos externos…');
+        var fd = new FormData();
+        fd.append('accion', 'valores');
+        fd.append('refs', JSON.stringify(S.refs));
+        fetch(C.api.externo, { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) throw new Error(d.error || 'No se pudieron actualizar los datos');
+                var cambios = [], faltan = 0;
+                claves.forEach(function (k) {
+                    var clave = S.refs[k];
+                    if (!(clave in d.valores)) { faltan++; return; }
+                    var p = k.split(','), r = +p[0], c = +p[1];
+                    var nuevo = String(d.valores[clave]);
+                    if (S.rows[r] && S.rows[r][c] !== nuevo) cambios.push([r, c, nuevo]);
+                });
+                if (cambios.length) {
+                    antes();
+                    cambios.forEach(function (x) { S.rows[x[0]][x[1]] = x[2]; });
+                    dibujar(); cambio();
+                    estado('Datos externos actualizados (' + cambios.length + ')');
+                } else {
+                    estado(faltan ? 'Sin cambios; algunos datos ya no están disponibles' : 'Los datos externos no han cambiado');
+                }
+                if (faltan) setTimeout(function () { estado(faltan + ' dato(s) externo(s) ya no están disponibles; se conserva el último valor', true); }, 2200);
+            })
+            .catch(function (e) { estado(e.message || 'No se pudieron actualizar los datos externos', true); });
+    }
+
+    function quitarVinculo() {
+        var n = rangoNorm();
+        if (n.r0 < 0) return;
+        var habia = false;
+        for (var r = n.r0; r <= n.r1; r++) for (var c = n.c0; c <= n.c1; c++) if (refDe(r, c)) habia = true;
+        if (!habia) { estado('Las celdas elegidas no tienen vínculo externo', true); return; }
+        antes();
+        for (var rr = n.r0; rr <= n.r1; rr++) for (var cc = n.c0; cc <= n.c1; cc++) quitarRef(rr, cc);
+        dibujar(); cambio();
+        estado('Vínculo quitado; el valor actual queda como número normal');
+    }
+
+    $('sf-ext-insertar').addEventListener('click', abrirDatosExternos);
+    $('sf-ext-actualizar').addEventListener('click', actualizarExternos);
+    $('sf-ext-quitar').addEventListener('click', quitarVinculo);
 
     // ================= Selección con el ratón =================
     var arrastrando = false, tirando = null;
@@ -548,6 +800,36 @@
         var tir = e.target.closest('.sf-tirador');
         if (tir) { var c0 = +tir.dataset.tir, th = tir.parentNode; tirando = { c: c0, x: e.clientX, w: th.getBoundingClientRect().width / (zoom / 100), antes: copia() }; e.preventDefault(); return; }
         var t = e.target.closest('td,th'); if (!t || e.target.classList.contains('sf-input')) return;
+
+        // Mientras se escribe una fórmula: el clic elige celdas para insertar su referencia.
+        var enFormula = formulaEditando();
+        if (enFormula) {
+            var pf = null, pc = null, hf = null, hc = null;
+            if (t.dataset.r != null) {
+                pf = +t.dataset.r; pc = +t.dataset.c;
+            } else if (t.classList.contains('sf-letra')) {
+                pf = 0; pc = +t.dataset.letra;
+                hf = Math.max(0, S.rows.length - 1); hc = pc;
+            } else if (t.classList.contains('sf-num') && t.dataset.fila != null && +t.dataset.fila >= 0) {
+                pf = +t.dataset.fila; pc = 0;
+                hf = pf; hc = S.cols.length - 1;
+            }
+            if (pf !== null) {
+                e.preventDefault();
+                e.stopPropagation();
+                pickFormula = {
+                    input: enFormula.input, tipo: enFormula.tipo,
+                    r0: pf, c0: pc, r1: hf !== null ? hf : pf, c1: hc !== null ? hc : pc,
+                    editR: enFormula.r, editC: enFormula.c,
+                    pos: enFormula.input.selectionStart
+                };
+                sel.r0 = pickFormula.r0; sel.c0 = pickFormula.c0;
+                sel.r1 = pickFormula.r1; sel.c1 = pickFormula.c1;
+                pintarSeleccion();
+                return;
+            }
+        }
+
         if (editor) terminarEdicion(true);
         if (t.classList.contains('sf-letra')) {
             var c = +t.dataset.letra;
@@ -561,8 +843,18 @@
         arrastrando = true; pintarSeleccion(); e.preventDefault(); area.focus();
     });
     grid.addEventListener('mouseover', function (e) {
+        var t = e.target.closest('td,th.sf-enc');
+        if (pickFormula) {
+            if (!t || t.dataset.r == null) return;
+            pickFormula.r1 = +t.dataset.r;
+            pickFormula.c1 = +t.dataset.c;
+            sel.r0 = pickFormula.r0; sel.c0 = pickFormula.c0;
+            sel.r1 = pickFormula.r1; sel.c1 = pickFormula.c1;
+            pintarSeleccion();
+            return;
+        }
         if (!arrastrando) return;
-        var t = e.target.closest('td,th.sf-enc'); if (!t || t.dataset.r == null) return;
+        if (!t || t.dataset.r == null) return;
         sel.r1 = +t.dataset.r; sel.c1 = +t.dataset.c; pintarSeleccion();
     });
     document.addEventListener('mousemove', function (e) {
@@ -573,6 +865,7 @@
         tirando.nuevo = w;
     });
     document.addEventListener('mouseup', function () {
+        if (pickFormula) { finalizarPickFormula(); return; }
         arrastrando = false;
         if (tirando && tirando.nuevo) { pasado.push(tirando.antes); futuro = []; S.cols[tirando.c].w = tirando.nuevo; cambio(); dibujar(); }
         tirando = null;
@@ -607,7 +900,7 @@
     });
     function vaciar() {
         var n = rangoNorm(); antes();
-        for (var r = n.r0; r <= n.r1; r++) for (var c = n.c0; c <= n.c1; c++) { if (r >= 0) S.rows[r][c] = ''; }
+        for (var r = n.r0; r <= n.r1; r++) for (var c = n.c0; c <= n.c1; c++) { if (r >= 0) { S.rows[r][c] = ''; quitarRef(r, c); } }
         dibujar(); cambio();
     }
     function textoRango() {
@@ -661,8 +954,21 @@
             });
         });
     }
+    /** Mueve o elimina las claves de `refs` cuando cambia la estructura. */
+    function remapearRefs(eje, mapa) {
+        var out = {};
+        Object.keys(S.refs).forEach(function (k) {
+            var p = k.split(','), r = +p[0], c = +p[1];
+            var nv = mapa(eje === 'r' ? r : c);
+            if (nv < 0) return;
+            if (eje === 'r') r = nv; else c = nv;
+            out[r + ',' + c] = S.refs[k];
+        });
+        S.refs = out;
+    }
     function insertar(eje, en, k) {
         reescribir(eje, function (v) { return v >= en ? v + k : v; });
+        remapearRefs(eje, function (v) { return v >= en ? v + k : v; });
         if (eje === 'r') for (var i = 0; i < k; i++) { S.rows.splice(en, 0, S.cols.map(function () { return ''; })); sty.splice(en, 0, S.cols.map(function () { return null; })); }
         else for (var j = 0; j < k; j++) { S.cols.splice(en, 0, { n: 'Columna ' + (S.cols.length + 1), t: 'texto', a: 'izquierda', tot: '', w: 0 }); hsty.splice(en, 0, null); S.rows.forEach(function (f, r) { f.splice(en, 0, ''); sty[r].splice(en, 0, null); }); }
     }
@@ -673,6 +979,11 @@
             if (v > hasta) return v - k;
             // dentro de lo borrado: un rango se acorta, una celda suelta se pierde
             return modo === 'solo' ? -1 : modo === 'fin' ? (desde - 1 >= 0 ? desde - 1 : -1) : desde;
+        });
+        remapearRefs(eje, function (v) {
+            if (v < desde) return v;
+            if (v > hasta) return v - k;
+            return -1;
         });
         if (eje === 'r') { S.rows.splice(desde, k); sty.splice(desde, k); }
         else { S.cols.splice(desde, k); hsty.splice(desde, k); S.rows.forEach(function (f, r) { f.splice(desde, k); sty[r].splice(desde, k); }); }
@@ -700,6 +1011,7 @@
                 antes(); eliminar('c', n.c0, n.c1); sel.c0 = sel.c1 = Math.min(n.c0, S.cols.length - 1);
             } else if (a === 'orden-asc' || a === 'orden-desc') {
                 if (S.rows.some(function (f) { return f.some(esFormula); })) { estado('No se puede ordenar una tabla con fórmulas (las referencias cambiarían)', true); return; }
+                if (Object.keys(S.refs).length) { estado('No se puede ordenar una tabla con datos externos (los vínculos cambiarían)', true); return; }
                 var col = sel.c0, tipo = S.cols[col].t, dir = a === 'orden-asc' ? 1 : -1;
                 antes();
                 var pares = S.rows.map(function (f, r) { return { f: f, s: sty[r] }; });

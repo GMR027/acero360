@@ -390,6 +390,16 @@ body:has(.ed-pagina) .principal,
     .ed-botones .btn { padding: .2rem .42rem; }
     .ed-botones .material-symbols-outlined { font-size: 1.02rem; }
     .ed-botones--estilo { border: 1px solid var(--color-borde); border-radius: .35rem; padding: .15rem; margin-bottom: .5rem; }
+    .ed-fuente {
+        margin: .1rem 0 .55rem;
+        padding: .5rem .55rem;
+        background: var(--color-superficie-baja);
+        border: 1px solid var(--color-borde);
+        border-radius: .4rem;
+        p { margin: 0 0 .4rem; }
+        .ed-botones { margin-bottom: .35rem; }
+        .text-muted { margin-bottom: 0; }
+    }
     .ed-eliminar { margin-top: .8rem; }
 
     /* Alinear / distribuir */

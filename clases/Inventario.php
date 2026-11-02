@@ -883,17 +883,23 @@ class Inventario
      * conserven existencias: un artículo dado de baja con piezas en almacén
      * sigue siendo parte del inventario.
      *
+     * Los importes se calculan con el IVA de la constante de Cotizaciones
+     * (hoy 16 %). El precio del catálogo es el precio de lista SIN IVA.
+     *
      * @return array<int, array{
      *     id: int, nombre: string, logo: string,
-     *     productos: array<int, array{sku: string, nombre: string, precio: float,
-     *                                 stock: int, monto: float}>,
-     *     piezas: int, importe: float
+     *     productos: array<int, array{id: int, sku: string, nombre: string, precio: float,
+     *                                 iva_unitario: float, precio_con_iva: float,
+     *                                 stock: int, stock_minimo: ?int, bajo_minimo: bool,
+     *                                 total_sin_iva: float, iva_total: float,
+     *                                 total_con_iva: float}>,
+     *     piezas: int, total_sin_iva: float, iva_total: float, total_con_iva: float
      * }>
      */
     public static function paraPdf(): array
     {
         $resultado = self::$db->query(
-            'SELECT p.sku, p.nombre, p.precio, p.stock,
+            'SELECT p.id AS producto_id, p.sku, p.nombre, p.precio, p.stock, p.stock_minimo,
                     e.id AS empresa_id, e.nombre AS empresa_nombre, e.logo AS empresa_logo
                FROM productos p
                JOIN producto_empresa pe ON pe.producto_id = p.id
@@ -912,26 +918,42 @@ class Inventario
                     'id'        => $empresaId,
                     'nombre'    => (string) $fila['empresa_nombre'],
                     'logo'      => (string) ($fila['empresa_logo'] ?? ''),
-                    'productos' => [],
-                    'piezas'    => 0,
-                    'importe'   => 0.0,
+                    'productos'     => [],
+                    'piezas'        => 0,
+                    'total_sin_iva' => 0.0,
+                    'iva_total'     => 0.0,
+                    'total_con_iva' => 0.0,
                 ];
             }
 
-            $stock  = (int) $fila['stock'];
-            $precio = (float) $fila['precio'];
-            $monto  = round($precio * $stock, 2);
+            $stock       = (int) $fila['stock'];
+            $stockMinimo = $fila['stock_minimo'] === null ? null : (int) $fila['stock_minimo'];
+            $precio      = (float) $fila['precio'];
+            $tasa        = Cotizaciones::IVA / 100;
+            $ivaUnitario = round($precio * $tasa, 2);
+            $totalSinIva = round($precio * $stock, 2);
+            $ivaTotal    = round($totalSinIva * $tasa, 2);
+            $totalConIva = round($totalSinIva + $ivaTotal, 2);
 
             $empresas[$empresaId]['productos'][] = [
-                'sku'    => (string) ($fila['sku'] ?? ''),
-                'nombre' => (string) $fila['nombre'],
-                'precio' => $precio,
-                'stock'  => $stock,
-                'monto'  => $monto,
+                'id'             => (int) $fila['producto_id'],
+                'sku'            => (string) ($fila['sku'] ?? ''),
+                'nombre'         => (string) $fila['nombre'],
+                'precio'         => $precio,
+                'iva_unitario'   => $ivaUnitario,
+                'precio_con_iva' => round($precio + $ivaUnitario, 2),
+                'stock'          => $stock,
+                'stock_minimo'   => $stockMinimo,
+                'bajo_minimo'    => $stockMinimo !== null && $stock <= $stockMinimo,
+                'total_sin_iva'  => $totalSinIva,
+                'iva_total'      => $ivaTotal,
+                'total_con_iva'  => $totalConIva,
             ];
 
-            $empresas[$empresaId]['piezas']  += $stock;
-            $empresas[$empresaId]['importe']  = round($empresas[$empresaId]['importe'] + $monto, 2);
+            $empresas[$empresaId]['piezas']        += $stock;
+            $empresas[$empresaId]['total_sin_iva']  = round($empresas[$empresaId]['total_sin_iva'] + $totalSinIva, 2);
+            $empresas[$empresaId]['iva_total']      = round($empresas[$empresaId]['iva_total'] + $ivaTotal, 2);
+            $empresas[$empresaId]['total_con_iva']  = round($empresas[$empresaId]['total_con_iva'] + $totalConIva, 2);
         }
 
         $resultado->free();

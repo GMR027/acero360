@@ -66,7 +66,7 @@ class Exportador
     }
 
     /** Estilos de celda (índice en cellXfs de styles.xml). */
-    private const ESTILOS = ['neg' => 1, 'moneda' => 2, 'entero' => 3, 'pct' => 4, 'titulo' => 5, 'nota' => 6, 'monedaNeg' => 7];
+    private const ESTILOS = ['neg' => 1, 'moneda' => 2, 'entero' => 3, 'pct' => 4, 'titulo' => 5, 'nota' => 6, 'monedaNeg' => 7, 'rojoNeg' => 8];
 
     /** Colores sin «#» para DrawingML. */
     private static function rgb(string $c): string
@@ -76,7 +76,8 @@ class Exportador
 
     /**
      * Libro con varias hojas. Una celda es un escalar o ['v' => valor, 'f' => formato].
-     * Formatos: neg, moneda, entero, pct, titulo, nota. Los textos NUNCA son fórmulas.
+     * Formatos: neg, moneda, entero, pct, titulo, nota, monedaNeg, rojoNeg.
+     * Los textos NUNCA son fórmulas.
      *
      * Cada hoja: ['nombre', 'filas', 'anchos' => [col => ancho], 'grafica' => [
      *   'tipo' => barras|apilado|linea|barras-h, 'titulo', 'formato', 'fila_enc' (1-based), 'fila_ini', 'fila_fin',
@@ -182,19 +183,21 @@ class Exportador
             . '<Relationship Id="rId' . ($total + 1) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
         $zip->addFromString('xl/styles.xml', $cabecera . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             . '<numFmts count="3"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/><numFmt numFmtId="165" formatCode="0.00&quot; %&quot;"/><numFmt numFmtId="166" formatCode="&quot;$&quot;#,##0.00;[Red]\-&quot;$&quot;#,##0.00"/></numFmts>'
-            . '<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font>'
-            . '<font><b/><sz val="14"/><color rgb="FF38648C"/><name val="Calibri"/></font><font><i/><sz val="10"/><color rgb="FF64646A"/><name val="Calibri"/></font></fonts>'
+            . '<fonts count="5"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font>'
+            . '<font><b/><sz val="14"/><color rgb="FF38648C"/><name val="Calibri"/></font><font><i/><sz val="10"/><color rgb="FF64646A"/><name val="Calibri"/></font>'
+            . '<font><b/><sz val="11"/><color rgb="FFC62828"/><name val="Calibri"/></font></fonts>'
             . '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
             . '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
             . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            . '<cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             . '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
             . '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
             . '<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
             . '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
             . '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
             . '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-            . '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>');
+            . '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+            . '<xf numFmtId="3" fontId="4" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/></cellXfs></styleSheet>');
         $zip->close();
 
         $bytes = file_get_contents($temporal);

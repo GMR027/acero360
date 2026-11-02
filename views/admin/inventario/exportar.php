@@ -30,18 +30,24 @@ if ($tipo === 'movimientos') {
     $volver = '/admin/inventario/fotos';
 } else {
     $f = ['q' => trim((string) ($_GET['q'] ?? '')), 'empresa' => (int) ($_GET['empresa'] ?? 0), 'estado' => (string) ($_GET['estado'] ?? 'todos')];
-    [$enc, $filas] = \App\InventarioReportes::filasActual(\App\InventarioReportes::actual($f));
+    $datos = \App\InventarioReportes::actual($f);
+    [$enc, $filas] = \App\InventarioReportes::filasActual($datos);
+    // Para Excel se usan las mismas filas con moneda y la alerta en rojo.
+    [, $filasExcel] = \App\InventarioReportes::filasActualXlsx($datos);
     $titulo = 'Inventario actual';
     $subtitulo = 'Filtros: ' . ($f['q'] !== '' ? "búsqueda «{$f['q']}»; " : '') . ($f['empresa'] ? 'negocio #' . $f['empresa'] . '; ' : '') . 'estado ' . $f['estado'];
     $nombre = 'inventario-' . date('Y-m-d');
     $volver = '/admin/inventario';
 }
 
+$filasExcel = $filasExcel ?? $filas;
+
 if ($formato === 'pdf') {
-    \App\Documentos::descargarTabla($titulo, $subtitulo, $enc, $filas, $nombre, 'Generar este reporte no modifica el inventario.', $volver);
+    // El inventario actual lleva 8 columnas: en carta vertical no caben bien.
+    \App\Documentos::descargarTabla($titulo, $subtitulo, $enc, $filas, $nombre, 'Generar este reporte no modifica el inventario.', $volver, $tipo === 'inventario');
 }
 if ($formato === 'xlsx') {
-    $bytes = \App\Exportador::xlsx(mb_substr($titulo, 0, 30), $enc, $filas);
+    $bytes = \App\Exportador::xlsx(mb_substr($titulo, 0, 30), $enc, $filasExcel);
     if ($bytes === null) {
         redirigir($volver, 'error', 'No fue posible generar el archivo de Excel.');
     }

@@ -41,7 +41,7 @@ class SheetflowHoja extends ActiveRecord
     /** Contenido ya decodificado y completo (siempre con al menos una columna) */
     public function contenido(): array
     {
-        return Sheetflow::limpiar(json_decode((string)$this->datos, true));
+        return Sheetflow::refrescarExternos(json_decode((string)$this->datos, true));
     }
 
     public static function todos(): array
@@ -56,6 +56,24 @@ class SheetflowHoja extends ActiveRecord
         try {
             $r = self::$db->query("SELECT DISTINCT departamento FROM sheetflow_hojas WHERE departamento <> '' ORDER BY departamento");
             while ($r && ($f = $r->fetch_assoc())) $out[] = $f['departamento'];
+        } catch (\Throwable $e) {
+        }
+        return $out;
+    }
+
+    /** Lista ligera (id, nombre, carpeta) para selectores; no decodifica el contenido. */
+    public static function opciones(): array
+    {
+        $out = [];
+        try {
+            $r = self::$db->query("SELECT id, nombre, departamento FROM sheetflow_hojas ORDER BY departamento ASC, nombre ASC");
+            while ($r && ($f = $r->fetch_assoc())) {
+                $out[] = [
+                    'id' => (int) $f['id'],
+                    'nombre' => (string) $f['nombre'],
+                    'departamento' => (string) $f['departamento'],
+                ];
+            }
         } catch (\Throwable $e) {
         }
         return $out;

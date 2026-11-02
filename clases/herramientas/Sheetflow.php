@@ -85,7 +85,16 @@ class Sheetflow
             if (!preg_match('/^(-1|\d+),(\d+)$/', (string)$k, $m) || $m[1] >= $nr || $m[2] >= $nc) continue;
             if ($f = self::limpiarFmt($f)) $fmt[$k] = $f;
         }
-        return ['cols' => $cols, 'rows' => $rows, 'calc' => (object)$calc, 'tot' => (object)$tot, 'estilo' => $estilo, 'fmt' => (object)$fmt];
+        /* Celdas vinculadas a datos externos: "fila,col" => clave del dato. */
+        $refs = [];
+        foreach ((array)($d['refs'] ?? []) as $k => $v) {
+            if (!preg_match('/^(\d+),(\d+)$/', (string)$k, $m)) continue;
+            $r = (int)$m[1]; $c = (int)$m[2];
+            if ($r < 0 || $r >= $nr || $c < 0 || $c >= $nc) continue;
+            $clave = (string)$v;
+            if (DatosExternos::esClave($clave)) $refs[$r . ',' . $c] = $clave;
+        }
+        return ['cols' => $cols, 'rows' => $rows, 'calc' => (object)$calc, 'tot' => (object)$tot, 'estilo' => $estilo, 'fmt' => (object)$fmt, 'refs' => (object)$refs];
     }
 
     public const BORDES = ['bt' => 'top', 'br' => 'right', 'bb' => 'bottom', 'bl' => 'left'];
@@ -264,10 +273,40 @@ class Sheetflow
         return SheetflowFormulas::recalcular(self::limpiar($d));
     }
 
-    /** Guarda el contenido de la hoja (saneado y recalculado). Devuelve la hoja ya con los datos puestos */
+    /**
+     * Actualiza las celdas vinculadas a datos externos y recalcula fórmulas.
+     * Solo toca las celdas de `refs`: los valores manuales y las fórmulas que
+     * no dependen de ellas quedan intactos.
+     */
+    public static function refrescarExternos(array $d): array
+    {
+        $d = self::limpiar($d);
+        $refs = (array)($d['refs'] ?? []);
+        if (!$refs) {
+            return $d;
+        }
+
+        $valores = DatosExternos::resolver(array_values($refs));
+        foreach ($refs as $k => $clave) {
+            if (!array_key_exists($clave, $valores)) {
+                continue;
+            }
+            if (!preg_match('/^(\d+),(\d+)$/', (string)$k, $m)) {
+                continue;
+            }
+            $r = (int)$m[1]; $c = (int)$m[2];
+            if (isset($d['rows'][$r][$c])) {
+                $d['rows'][$r][$c] = (string)$valores[$clave];
+            }
+        }
+
+        return self::normalizar($d);
+    }
+
+    /** Guarda el contenido de la hoja (saneado, con datos externos al día y recalculado). */
     public static function guardarDatos(SheetflowHoja $h, array $d): SheetflowHoja
     {
-        $h->datos = json_encode(self::normalizar($d), JSON_UNESCAPED_UNICODE);
+        $h->datos = json_encode(self::refrescarExternos($d), JSON_UNESCAPED_UNICODE);
         $h->guardar();
         return $h;
     }

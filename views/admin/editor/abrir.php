@@ -29,6 +29,20 @@ if (!$laminas) {
 [$ancho, $alto] = $documento->medidas();
 $configFondo = $documento->configFondo();
 
+/* Tablas que se pueden insertar en una lámina: hojas de SheetFlow e
+ * inventario de cada negocio activo (mismos importes que la exportación). */
+$hojasSheetflow = \Model\SheetflowHoja::opciones();
+$empresasInventario = [];
+try {
+    foreach (\App\Empresas::mostrarTodos(200, 0) as $empresa) {
+        if ((int) $empresa->activa === 1) {
+            $empresasInventario[] = ['id' => (int) $empresa->id, 'nombre' => (string) $empresa->nombre];
+        }
+    }
+} catch (\Throwable $e) {
+    $empresasInventario = [];
+}
+
 $config = [
     'id'           => (int) $documento->id,
     'nombre'       => $documento->nombre,
@@ -40,6 +54,8 @@ $config = [
     'fondo_imagen' => $documento->fondo_imagen ? '/public/uploads/vplan/' . $documento->fondo_imagen : null,
     'fondo_config' => $configFondo,
     'version'      => (string) $documento->actualizado,
+    'hojasSheetflow' => $hojasSheetflow,
+    'empresas'     => $empresasInventario,
     'laminas'      => array_map(fn($l) => [
         'id'     => (int) $l->id,
         'orden'  => (int) $l->orden,
@@ -51,6 +67,7 @@ $config = [
         'guardar' => '/admin/editor/api/guardar',
         'imagen'  => '/admin/editor/api/imagen',
         'pdf'     => '/admin/editor/api/pdf',
+        'tabla'   => '/admin/editor/api/tabla',
     ],
 ];
 
@@ -236,7 +253,7 @@ $formas = [
             <button type="button" class="ed-herr" data-herr="texto" title="Texto (T)" aria-label="Texto">
                 <span class="material-symbols-outlined">text_fields</span>
             </button>
-            <button type="button" class="ed-herr" data-herr="tabla" title="Tabla: arrastra para dibujarla; doble clic en una celda para escribir" aria-label="Tabla">
+            <button type="button" class="ed-herr" data-herr="tabla" title="Insertar tabla: en blanco, de SheetFlow o del inventario por empresa" aria-label="Insertar tabla">
                 <span class="material-symbols-outlined">table_chart</span>
             </button>
             <button type="button" class="ed-herr" data-herr="pin" title="Círculo numerado" aria-label="Círculo numerado">
@@ -418,7 +435,19 @@ $formas = [
                             <label class="ed-campo">Fondo del encabezado <input type="color" id="ed-p-hfill"></label>
                             <label class="ed-campo">Color del texto <input type="color" id="ed-p-texto-color"></label>
                         </div>
-                        <p class="text-sm text-muted">Doble clic en una celda para escribir; Tab pasa a la siguiente.</p>
+                        <div id="ed-tabla-fuente" class="ed-fuente" hidden>
+                            <p class="text-sm"><strong>Vinculada a</strong> <span id="ed-tabla-fuente-nombre">—</span></p>
+                            <div class="ed-botones">
+                                <button type="button" class="btn btn--texto btn--sm" id="ed-tabla-actualizar">
+                                    <span class="material-symbols-outlined">refresh</span> Actualizar ahora
+                                </button>
+                                <button type="button" class="btn btn--texto btn--sm" id="ed-tabla-desvincular">
+                                    <span class="material-symbols-outlined">link_off</span> Desvincular
+                                </button>
+                            </div>
+                            <p class="text-sm text-muted">Se actualiza al abrir la lámina. Las celdas se editan en el origen o al desvincular.</p>
+                        </div>
+                        <p id="ed-tabla-ayuda" class="text-sm text-muted">Doble clic en una celda para escribir; Tab pasa a la siguiente.</p>
                     </div>
 
                     <div id="ed-grupo-pin" class="ed-prop-grupo" hidden>
