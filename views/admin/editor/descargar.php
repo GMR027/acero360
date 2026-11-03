@@ -1,9 +1,12 @@
 <?php
 /**
- * views/admin/editor/descargar.php — PDF a partir de las miniaturas guardadas.
+ * views/admin/editor/descargar.php — PDF a partir de la imagen de alta
+ * resolución de cada lámina (`marcas_full`).
  *
- * Si alguna lámina no tiene PNG (nunca se exportó), se manda al editor para
- * generarlo desde el lienzo.
+ * `marcas_png` es solo la miniatura del listado (0.3×); usarla aquí estiraba
+ * una imagen de ~244 px a toda la hoja y el PDF salía pixelado. Si una lámina
+ * nunca se exportó (o solo tiene la miniatura), se manda al editor para
+ * generarla desde el lienzo.
  */
 
 soloAdmin();
@@ -21,13 +24,21 @@ if (!$laminas) {
     redirigir('/admin/editor/abrir?id=' . (int) $documento->id, 'error', 'El documento aún no tiene láminas.');
 }
 
+[$anchoPx, $altoPx] = $documento->medidas();
+
+/* Elige la imagen de exportación y comprueba que tenga resolución suficiente:
+   al menos el tamaño del lienzo a 96 dpi (las miniaturas son 0.3×). */
+$archivos = [];
 foreach ($laminas as $l) {
-    if (empty($l->marcas_png) || !is_file(Imagenes::CARPETA_VPLAN . '/' . $l->marcas_png)) {
-        redirigir('/admin/editor/abrir?id=' . (int) $documento->id, 'advertencia', 'Exporta el PDF desde el editor para generar la vista de las láminas.');
+    $archivo = !empty($l->marcas_full) ? $l->marcas_full : (!empty($l->marcas_png) ? $l->marcas_png : null);
+    $ruta = $archivo ? Imagenes::CARPETA_VPLAN . '/' . $archivo : null;
+    $info = ($ruta && is_file($ruta)) ? @getimagesize($ruta) : null;
+    if (!$info || $info[0] < (int) round($anchoPx * 0.9)) {
+        redirigir('/admin/editor/abrir?id=' . (int) $documento->id, 'advertencia', 'Exporta el PDF desde el editor una vez para generar las imágenes de alta resolución de las láminas.');
     }
+    $archivos[] = $archivo;
 }
 
-[$anchoPx, $altoPx] = $documento->medidas();
 $anchoPt = round($anchoPx * 0.75, 2);
 $altoPt = round($altoPx * 0.75, 2);
 
@@ -39,9 +50,9 @@ $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
     . 'img { display: block; width: 100%; height: 100%; }'
     . '</style></head><body>';
 
-foreach ($laminas as $l) {
+foreach ($archivos as $archivo) {
     $html .= '<div class="pagina"><img src="'
-        . htmlspecialchars(Imagenes::CARPETA_VPLAN . '/' . $l->marcas_png, ENT_QUOTES, 'UTF-8')
+        . htmlspecialchars(Imagenes::CARPETA_VPLAN . '/' . $archivo, ENT_QUOTES, 'UTF-8')
         . '"></div>';
 }
 $html .= '</body></html>';

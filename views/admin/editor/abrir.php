@@ -267,15 +267,6 @@ $formas = [
                 <span class="material-symbols-outlined">image</span>
             </button>
         </div>
-
-        <div class="ed-grupo ed-grupo--vista" role="group" aria-label="Vista">
-            <label class="ed-chk" title="Muestra una cuadrícula de referencia"><input type="checkbox" id="ed-cuadricula" checked> Cuadrícula</label>
-            <label class="ed-chk" title="Al mover un objeto lo ajusta a la cuadrícula"><input type="checkbox" id="ed-snap" checked> Imán a cuadrícula</label>
-            <label class="ed-chk" title="Reglas y guías"><input type="checkbox" id="ed-reglas-on" checked> Reglas</label>
-            <label class="ed-chk" title="Muestra u oculta las guías"><input type="checkbox" id="ed-guias-on" checked> Guías</label>
-            <label class="ed-chk" title="Al mover un objeto lo ajusta a las guías"><input type="checkbox" id="ed-guias-snap" checked> Imán a guías</label>
-            <label class="ed-chk" title="Líneas, flechas y polilíneas sólo en horizontal o vertical (F8)"><input type="checkbox" id="ed-orto"> Ortogonal <kbd>F8</kbd></label>
-        </div>
     </div>
 
     <div class="ed-app" id="ed-app">
@@ -291,16 +282,17 @@ $formas = [
             </div>
         </div>
 
-        <aside class="ed-lateral" id="ed-lateral" aria-label="Propiedades y capas">
+        <aside class="ed-lateral" id="ed-lateral" aria-label="Propiedades, modificar y capas">
             <div class="ed-tabs" role="tablist" aria-label="Paneles del editor">
                 <button type="button" role="tab" class="activa" data-tab="props" aria-selected="true">Propiedades</button>
+                <button type="button" role="tab" data-tab="modificar" aria-selected="false">Modificar</button>
                 <button type="button" role="tab" data-tab="capas" aria-selected="false">Capas y guías</button>
             </div>
 
             <div class="ed-panel" data-panel="props">
                 <div id="ed-sin-seleccion" class="ed-props__vacio">
-                    <strong>Sin selección</strong>
-                    <p class="text-sm text-muted">Elige una herramienta y dibuja sobre la hoja. Haz clic en un objeto para editarlo; arrastra en vacío para seleccionar varios.</p>
+                    <strong>Documento</strong>
+                    <p class="text-sm text-muted">Fondo del papel, trama y atajos del editor. Para editar un objeto, selecciónalo en el lienzo y usa la pestaña «Modificar».</p>
 
                     <div class="ed-prop-grupo">
                         <h4>Fondo del documento</h4>
@@ -325,6 +317,18 @@ $formas = [
                     </div>
 
                     <div class="ed-prop-grupo">
+                        <h4>Vista del lienzo</h4>
+                        <div class="ed-vista-grupo" role="group" aria-label="Vista">
+                            <label class="ed-chk" title="Muestra una cuadrícula de referencia"><input type="checkbox" id="ed-cuadricula" checked> Cuadrícula</label>
+                            <label class="ed-chk" title="Al mover un objeto lo ajusta a la cuadrícula"><input type="checkbox" id="ed-snap" checked> Imán a cuadrícula</label>
+                            <label class="ed-chk" title="Reglas y guías"><input type="checkbox" id="ed-reglas-on" checked> Reglas</label>
+                            <label class="ed-chk" title="Muestra u oculta las guías"><input type="checkbox" id="ed-guias-on" checked> Guías</label>
+                            <label class="ed-chk" title="Al mover un objeto lo ajusta a las guías"><input type="checkbox" id="ed-guias-snap" checked> Imán a guías</label>
+                            <label class="ed-chk" title="Líneas, flechas y polilíneas sólo en horizontal o vertical (F8)"><input type="checkbox" id="ed-orto"> Ortogonal <kbd>F8</kbd></label>
+                        </div>
+                    </div>
+
+                    <div class="ed-prop-grupo">
                         <h4>Atajos</h4>
                         <p class="text-sm text-muted ed-atajos">
                             V seleccionar · H mover lienzo · T texto · R rectángulo · O elipse · L línea · F flecha · P lápiz · I imagen<br>
@@ -336,6 +340,10 @@ $formas = [
                     </div>
                 </div>
 
+            </div>
+
+            <div class="ed-panel" data-panel="modificar" hidden>
+                <p id="ed-mod-vacio" class="text-sm text-muted">Selecciona un objeto en el lienzo para editar sus propiedades.</p>
                 <div id="ed-con-seleccion" hidden>
                     <div class="ed-sel-cab">
                         <strong id="ed-sel-titulo">Objeto</strong>

@@ -784,6 +784,22 @@
     // ------------------------------------------------------------------
     // Render fuera de pantalla (miniaturas y exportación)
     // ------------------------------------------------------------------
+    /**
+     * Escala de render para exportar: ~300 dpi (3.125× a 96 dpi), limitada
+     * para no pasarse del tamaño máximo de canvas de los navegadores.
+     */
+    function ratioExporte() {
+        var objetivo = 300 / 96;
+        var lado = 8192;
+        var area = 64e6;
+        var r = Math.min(
+            objetivo,
+            lado / Math.max(C.ancho || 1, C.alto || 1),
+            Math.sqrt(area / ((C.ancho || 1) * (C.alto || 1)))
+        );
+        return Math.max(1, r);
+    }
+
     function renderUrl(json, ratio) {
         return new Promise(function (resolve) {
             var div = document.createElement('div');
@@ -843,7 +859,7 @@
         }
         capaUI.batchDraw();
         actualizarProps();
-        if (final.length) irATab('props');
+        if (final.length) irATab('modificar');
     }
 
     function deseleccionar() { seleccionar([], false); }
@@ -1850,7 +1866,10 @@
             var c = capaDe(n);
             n.draggable((herramienta === 'select' || herramienta === 'multi') && c && !c.getAttr('locked'));
         });
-        if (herramienta !== 'select' && herramienta !== 'multi' && !esPaneo) deseleccionar();
+        if (herramienta !== 'select' && herramienta !== 'multi' && !esPaneo) {
+            deseleccionar();
+            irATab('modificar');
+        }
     }
 
     document.querySelectorAll('[data-herr]').forEach(function (b) {
@@ -2073,7 +2092,7 @@
     // Propiedades
     // ------------------------------------------------------------------
     var P = {
-        vacio: $('ed-sin-seleccion'), con: $('ed-con-seleccion'),
+        vacio: $('ed-sin-seleccion'), con: $('ed-con-seleccion'), modVacio: $('ed-mod-vacio'),
         titulo: $('ed-sel-titulo'), info: $('ed-sel-info'),
         geo: $('ed-grupo-geometria'), apariencia: $('ed-grupo-apariencia'),
         x: $('ed-p-x'), y: $('ed-p-y'), w: $('ed-p-w'), h: $('ed-p-h'),
@@ -2128,12 +2147,12 @@
     function actualizarProps() {
         selNodos = selNodos.filter(function (n) { return n.getStage(); });
         if (!selNodos.length) {
-            P.vacio.hidden = false;
+            if (P.modVacio) P.modVacio.hidden = false;
             P.con.hidden = true;
             tr.nodes([]);
             return;
         }
-        P.vacio.hidden = true;
+        if (P.modVacio) P.modVacio.hidden = true;
         P.con.hidden = false;
 
         var n = selNodos.length === 1 ? selNodos[0] : null;
@@ -2191,6 +2210,7 @@
 
         var conRelleno = esRect || esElipse || esForma || esTexto;
         var conTrazo = !esTexto && !esImagen && !esTabla && !esPin && !esMedida;
+        mostrar(P.apariencia, conRelleno || conTrazo);
         mostrar(P.filaRelleno, conRelleno);
         mostrar(P.sinRelleno, conRelleno && !esTexto);
         mostrar(P.filaGrosor, conTrazo);
@@ -3326,7 +3346,15 @@
         estado('Generando PDF…');
         var ventana = imprimir ? window.open('', '_blank') : null;
         guardar(false).then(function () {
-            return Promise.all(paginas.map(function (p) { return renderUrl(p.json, 2); })).then(function (urls) {
+            var ratio = ratioExporte();
+            return Promise.all(paginas.map(function (p) { return renderUrl(p.json, ratio); })).then(function (urls) {
+                // Si el navegador no pudo con esa escala, se reintenta a tamaño real.
+                if (urls.some(function (u) { return !u; })) {
+                    return Promise.all(paginas.map(function (p) { return renderUrl(p.json, 1); }));
+                }
+                return urls;
+            }).then(function (urls) {
+                if (urls.some(function (u) { return !u; })) throw new Error('png');
                 var fd = new FormData();
                 fd.append('id', C.id);
                 fd.append('version', version);
@@ -3360,7 +3388,10 @@
             else if (tipo === 'png') {
                 guardarPaginaActual();
                 estado('Generando PNG…');
-                renderUrl(paginas[actual].json, 2).then(function (url) {
+                renderUrl(paginas[actual].json, ratioExporte()).then(function (url) {
+                    return url || renderUrl(paginas[actual].json, 1);
+                }).then(function (url) {
+                    if (!url) { estado('No se pudo generar el PNG', true); return; }
                     var a = document.createElement('a');
                     a.href = url;
                     a.download = nombreArchivo('png');

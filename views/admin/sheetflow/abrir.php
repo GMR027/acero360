@@ -92,6 +92,7 @@ template('header', [
     <button type="button" role="tab" data-pest="insertar"><i class="fa-solid fa-plus"></i> Insertar</button>
     <button type="button" role="tab" data-pest="datos"><i class="fa-solid fa-table-list"></i> Datos</button>
     <button type="button" role="tab" data-pest="vista"><i class="fa-regular fa-eye"></i> Vista</button>
+    <button type="button" role="tab" data-pest="modificar"><i class="fa-solid fa-pen-to-square"></i> Modificar</button>
 </div>
 <div class="sf-barra" id="sf-barra" role="toolbar" aria-label="Herramientas de la tabla">
     <div class="sf-panel" data-panel="inicio">
@@ -99,6 +100,25 @@ template('header', [
             <button type="button" class="sf-b" id="sf-deshacer" title="Deshacer (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
             <button type="button" class="sf-b" id="sf-rehacer" title="Rehacer (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
         </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Celda</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-bar-poner" title="Dibuja una barra de progreso con el valor de la celda (0 a 100)"><i class="fa-solid fa-bars-progress"></i> Barra</button>
+            <button type="button" class="sf-b" id="sf-bar-quitar" title="Quita la barra de progreso"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="sf-b sf-b-txt" id="sf-spark-poner" title="Dibuja una minigráfica con los valores de un rango o una lista"><i class="fa-solid fa-chart-line"></i> Minigráfica…</button>
+            <button type="button" class="sf-b" id="sf-spark-quitar" title="Quita la minigráfica"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="sf-b" id="sf-nota-poner" title="Añade una nota a la celda elegida"><i class="fa-regular fa-comment-dots"></i></button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Reglas</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-regla" title="Colorea las celdas del rango elegido según su valor"><i class="fa-solid fa-wand-magic-sparkles"></i> Condicional…</button>
+            <button type="button" class="sf-b" id="sf-regla-quitar" title="Quita las reglas que tocan el rango elegido"><i class="fa-solid fa-eraser"></i></button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Análisis</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-grafica-poner" title="Crea una gráfica de barras, líneas o pastel a partir de un rango"><i class="fa-solid fa-chart-column"></i> Gráfica…</button>
+        </div>
+    </div>
+    <div class="sf-panel" data-panel="modificar" hidden>
         <div class="sf-grupo">
             <span class="sf-etq">Fuente</span>
             <button type="button" class="sf-b" id="sf-fs-menos" title="Reducir tamaño de letra"><i class="fa-solid fa-minus"></i></button>
@@ -118,21 +138,15 @@ template('header', [
             <button type="button" class="sf-b" data-alin="derecha" title="Alinear a la derecha"><i class="fa-solid fa-align-right"></i></button>
         </div>
         <div class="sf-grupo">
-            <span class="sf-etq">Celda</span>
-            <button type="button" class="sf-b sf-b-txt" id="sf-bar-poner" title="Dibuja una barra de progreso con el valor de la celda (0 a 100)"><i class="fa-solid fa-bars-progress"></i> Barra</button>
-            <button type="button" class="sf-b" id="sf-bar-quitar" title="Quita la barra de progreso"><i class="fa-solid fa-xmark"></i></button>
-            <button type="button" class="sf-b sf-b-txt" id="sf-spark-poner" title="Dibuja una minigráfica con los valores de un rango o una lista"><i class="fa-solid fa-chart-line"></i> Minigráfica…</button>
-            <button type="button" class="sf-b" id="sf-spark-quitar" title="Quita la minigráfica"><i class="fa-solid fa-xmark"></i></button>
-            <button type="button" class="sf-b" id="sf-nota-poner" title="Añade una nota a la celda elegida"><i class="fa-regular fa-comment-dots"></i></button>
-        </div>
-        <div class="sf-grupo">
-            <span class="sf-etq">Reglas</span>
-            <button type="button" class="sf-b sf-b-txt" id="sf-regla" title="Colorea las celdas del rango elegido según su valor"><i class="fa-solid fa-wand-magic-sparkles"></i> Condicional…</button>
-            <button type="button" class="sf-b" id="sf-regla-quitar" title="Quita las reglas que tocan el rango elegido"><i class="fa-solid fa-eraser"></i></button>
-        </div>
-        <div class="sf-grupo">
-            <span class="sf-etq">Análisis</span>
-            <button type="button" class="sf-b sf-b-txt" id="sf-grafica-poner" title="Crea una gráfica de barras, líneas o pastel a partir de un rango"><i class="fa-solid fa-chart-column"></i> Gráfica…</button>
+            <span class="sf-etq">Columna</span>
+            <select id="sf-tipo" title="Tipo de dato de la columna">
+                <?php foreach (Sheetflow::TIPOS as $k => $n): ?><option value="<?php echo s($k); ?>"><?php echo s($n); ?></option><?php endforeach; ?>
+            </select>
+            <input type="text" id="sf-opciones" class="sf-b" hidden placeholder="Opciones: una, dos, tres" title="Opciones de la lista desplegable, separadas por comas (máx. 20)">
+            <select id="sf-total" title="Total al pie de la columna (solo columnas numéricas; «Cuenta» en cualquiera)">
+                <?php foreach (Sheetflow::TOTALES as $k => $n): ?><option value="<?php echo s($k); ?>"><?php echo s($k === '' ? 'Sin total' : 'Total: ' . mb_strtolower($n)); ?></option><?php endforeach; ?>
+            </select>
+            <button type="button" class="sf-b sf-b-txt" id="sf-ancho-auto" title="Vuelve al ancho automático de las celdas elegidas"><i class="fa-solid fa-arrows-left-right"></i> Ancho auto</button>
         </div>
         <div class="sf-grupo">
             <span class="sf-etq">Bordes</span>
@@ -186,17 +200,6 @@ template('header', [
         </div>
     </div>
     <div class="sf-panel" data-panel="datos" hidden>
-        <div class="sf-grupo">
-            <span class="sf-etq">Columna</span>
-            <select id="sf-tipo" title="Tipo de dato de la columna">
-                <?php foreach (Sheetflow::TIPOS as $k => $n): ?><option value="<?php echo s($k); ?>"><?php echo s($n); ?></option><?php endforeach; ?>
-            </select>
-            <input type="text" id="sf-opciones" class="sf-b" hidden placeholder="Opciones: una, dos, tres" title="Opciones de la lista desplegable, separadas por comas (máx. 20)">
-            <select id="sf-total" title="Total al pie de la columna (solo columnas numéricas; «Cuenta» en cualquiera)">
-                <?php foreach (Sheetflow::TOTALES as $k => $n): ?><option value="<?php echo s($k); ?>"><?php echo s($k === '' ? 'Sin total' : 'Total: ' . mb_strtolower($n)); ?></option><?php endforeach; ?>
-            </select>
-            <button type="button" class="sf-b sf-b-txt" id="sf-ancho-auto" title="Vuelve al ancho automático de las columnas elegidas"><i class="fa-solid fa-arrows-left-right"></i> Ancho auto</button>
-        </div>
         <div class="sf-grupo">
             <span class="sf-etq">Ordenar</span>
             <button type="button" class="sf-b sf-b-txt" data-acc="orden-asc" title="Ordenar A→Z / menor a mayor"><i class="fa-solid fa-arrow-down-a-z"></i> A→Z</button>
@@ -286,7 +289,7 @@ template('header', [
 </div>
 <div class="sf-estadistica" id="sf-estadistica" aria-live="polite"></div>
 <div class="sf-graficas" id="sf-graficas"></div>
-<p class="text-muted text-sm sf-ayuda">Clic para elegir · arrastra o Mayús+flechas para varias celdas · Enter o doble clic para editar (en fecha abre calendario; en casilla y semáforo cambia el valor) · Supr borra · Ctrl+C / Ctrl+V copian y pegan desde Excel · Fórmulas <code>+ − * / ^ &amp;</code>, <code>SUMA PROMEDIO MIN MAX CONTAR REDONDEAR</code> y condicionales <code>SI Y O NO SI.ERROR SUMAR.SI CONTAR.SI PROMEDIO.SI</code>. En <em>Inicio</em> tienes formato condicional, barras, minigráficas, gráficas, notas y bordes; en <em>Insertar</em>, enlaces, códigos QR y de barras, imágenes, combinación de celdas y filas/columnas; en <em>Datos</em>, tipos de columna, filtros, subtotales, tabla dinámica y datos externos de inventario, clientes, ventas, compras, gastos, cotizaciones, entregas y fiscal. Arriba, <em>Versiones</em> guarda el historial y <em>Compartir</em> crea un enlace de solo lectura. <strong>La fila 1 es el encabezado; la primera celda con datos es A2, B2…</strong></p>
+<p class="text-muted text-sm sf-ayuda">Clic para elegir · arrastra o Mayús+flechas para varias celdas · Enter o doble clic para editar (en fecha abre calendario; en casilla y semáforo cambia el valor) · Supr borra · Ctrl+C / Ctrl+V copian y pegan desde Excel · Fórmulas <code>+ − * / ^ &amp;</code>, <code>SUMA PROMEDIO MIN MAX CONTAR REDONDEAR</code> y condicionales <code>SI Y O NO SI.ERROR SUMAR.SI CONTAR.SI PROMEDIO.SI</code>. En <em>Modificar</em> tienes las propiedades de la celda, el rango o la columna (fuente, colores, alineación, tipo, total y bordes); en <em>Inicio</em>, formato condicional, barras, minigráficas, gráficas y notas; en <em>Insertar</em>, enlaces, códigos QR y de barras, imágenes, combinación de celdas y filas/columnas; en <em>Datos</em>, ordenar, filtros, subtotales, tabla dinámica, fórmulas y datos externos de inventario, clientes, ventas, compras, gastos, cotizaciones, entregas y fiscal. Arriba, <em>Versiones</em> guarda el historial y <em>Compartir</em> crea un enlace de solo lectura. <strong>La fila 1 es el encabezado; la primera celda con datos es A2, B2…</strong></p>
 
     <div class="card sf-usos">
         <h3><span class="material-symbols-outlined" aria-hidden="true">share</span> Usar esta tabla en el Redactor</h3>

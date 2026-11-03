@@ -58,12 +58,12 @@ template('header', [
     </div>
 
     <div class="ed-ver">
-        <?php foreach ($laminas as $i => $l) : ?>
+        <?php foreach ($laminas as $i => $l) : $imgLamina = $l->marcas_full ?: $l->marcas_png; ?>
             <div class="ed-ver-hoja"
-                 <?php if (empty($l->marcas_png)) : ?>data-json="<?= s((string) $l->marcas_json) ?>"<?php endif; ?>
+                 <?php if (empty($imgLamina)) : ?>data-json="<?= s((string) $l->marcas_json) ?>"<?php endif; ?>
                  style="aspect-ratio: <?= (int) $ancho ?> / <?= (int) $alto ?>">
-                <?php if (!empty($l->marcas_png)) : ?>
-                    <img src="/public/uploads/vplan/<?= s($l->marcas_png) ?>" alt="Lámina <?= $i + 1 ?>" loading="lazy">
+                <?php if (!empty($imgLamina)) : ?>
+                    <img src="/public/uploads/vplan/<?= s($imgLamina) ?>" alt="Lámina <?= $i + 1 ?>" loading="lazy">
                 <?php else : ?>
                     <span class="text-muted text-sm">Dibujando lámina…</span>
                 <?php endif; ?>

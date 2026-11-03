@@ -546,9 +546,10 @@ La hoja de cálculo en línea para controles, presupuestos y listados que despu�
 
 ### Análisis y presentación
 
-1. En «Inicio»: formato condicional (mayor/menor/entre/contiene, escala de color y barras de datos), barras de progreso, minigráficas, notas, bordes y gráficas de barras, líneas o pastel.
-2. En «Insertar»: enlaces, códigos QR y de barras (se guardan como imagen), imágenes, combinación de celdas y filas o columnas.
-3. En «Datos»: filtro de renglones, subtotales por grupo y tabla dinámica; la tabla dinámica crea una hoja nueva para no tocar la original.
+1. En «Modificar» están las propiedades de la celda, el rango o la columna elegida: fuente, tamaño, negrita/cursiva/subrayado, colores, alineación, tipo de columna, total, ancho automático y bordes. La barra mantiene siempre el mismo alto, así que la tabla no salta al cambiar de pestaña.
+2. En «Inicio»: deshacer/rehacer, formato condicional (mayor/menor/entre/contiene, escala de color y barras de datos), barras de progreso, minigráficas, notas y gráficas de barras, líneas o pastel.
+3. En «Insertar»: enlaces, códigos QR y de barras (se guardan como imagen), imágenes, combinación de celdas y filas o columnas.
+4. En «Datos»: ordenar, filtro de renglones, subtotales por grupo, tabla dinámica, fórmulas y datos externos; la tabla dinámica crea una hoja nueva para no tocar la original.
 
 ### Compartir y versiones
 
@@ -579,9 +580,9 @@ El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas 
 ### Dibujar
 
 1. Las herramientas son: Seleccionar (V), Mover lienzo (H), Medir, Líneas (continua, discontinua, trazo y punto, punteada), Polilínea, Lápiz (P), Flecha (F), Rectángulo (R), rectángulo redondeado, Elipse (O), triángolo, rombo, zona translúcida, más formas (26 iconos), Texto (T), Tabla, círculo numerado, rombo de restricción e Imagen (I).
-2. Abajo a la izquierda están las casillas Cuadrícula, Imán a cuadrícula, Reglas, Guías, Imán a guías y Ortogonal (F8). Los dos imanes se pueden activar juntos o por separado.
+2. En la pestaña «Propiedades» están las casillas Cuadrícula, Imán a cuadrícula, Reglas, Guías, Imán a guías y Ortogonal (F8). Los dos imanes se pueden activar juntos o por separado.
 3. Al insertar una imagen se abre un diálogo para elegir una de las carpetas de Archivo o subir una desde el equipo.
-4. El panel de la derecha cambia el color, el negrita/cursiva/subrayado/tachado, la alineación y las capas; ahí también puedes agrupar, desagrupar, alinear y distribuir.
+4. El panel de la derecha tiene tres pestañas: «Propiedades» (fondo, trama, vista del lienzo y atajos), «Modificar» (color, negrita/cursiva/subrayado/tachado, alineación, tamaño, tabla y capas del objeto elegido) y «Capas y guías». Al seleccionar un objeto o una herramienta se abre «Modificar» automáticamente; ahí también puedes agrupar, desagrupar, alinear y distribuir.
 
 ### Páginas y descarga
 

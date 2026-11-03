@@ -35,12 +35,16 @@
   --color-borde: #e4e6ea;
   --color-borde-fuerte: #8a909b;
   --color-exito: #16a34a;
+  --color-exito-solido: #15803d;
+  --color-exito-solido-hover: #166534;
   --color-exito-claro: #dcfce7;
   --color-exito-texto: #166534;
   --color-advertencia: #d97706;
   --color-advertencia-claro: #fef3c7;
   --color-advertencia-texto: #92400e;
   --color-error: #e11d48;
+  --color-error-solido: #be123c;
+  --color-error-solido-hover: #9f1239;
   --color-error-claro: #fff1f2;
   --color-error-texto: #9f1239;
   --color-error-borde: #fecdd3;
@@ -104,6 +108,8 @@ body {
     --color-borde: #2b313b;
     --color-borde-fuerte: #6f7b8c;
     --color-exito: #34d399;
+    --color-exito-solido: #15803d;
+    --color-exito-solido-hover: #166534;
     --color-exito-claro: #10281f;
     --color-exito-texto: #86efac;
     --color-exito-borde: #1f5a40;
@@ -112,6 +118,8 @@ body {
     --color-advertencia-texto: #fcd34d;
     --color-advertencia-borde: #6b4f12;
     --color-error: #fb7185;
+    --color-error-solido: #be123c;
+    --color-error-solido-hover: #9f1239;
     --color-error-claro: #34161e;
     --color-error-texto: #fda4af;
     --color-error-borde: #6b2433;
@@ -158,6 +166,8 @@ body {
   --color-borde: #2b313b;
   --color-borde-fuerte: #6f7b8c;
   --color-exito: #34d399;
+  --color-exito-solido: #15803d;
+  --color-exito-solido-hover: #166534;
   --color-exito-claro: #10281f;
   --color-exito-texto: #86efac;
   --color-exito-borde: #1f5a40;
@@ -166,6 +176,8 @@ body {
   --color-advertencia-texto: #fcd34d;
   --color-advertencia-borde: #6b4f12;
   --color-error: #fb7185;
+  --color-error-solido: #be123c;
+  --color-error-solido-hover: #9f1239;
   --color-error-claro: #34161e;
   --color-error-texto: #fda4af;
   --color-error-borde: #6b2433;
@@ -1053,6 +1065,25 @@ body {
   margin-left: auto;
   flex-shrink: 0;
 }
+.topbar {
+  /* En móvil no hay barra lateral visible: una marca breve da contexto a la
+     barra superior sin repetir el título de la página. */
+}
+.topbar__marca-movil {
+  display: none;
+  color: var(--color-texto);
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+@media (max-width: 767px) {
+  .topbar__marca-movil {
+    display: inline-flex;
+    align-items: center;
+  }
+}
 
 /* --- Contenido principal -------------------------------------------------- */
 .principal {
@@ -1243,7 +1274,7 @@ body {
     left: 0.5rem;
     right: 0.5rem;
     top: calc(4rem + 0.25rem);
-    bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+    bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
     width: auto;
     max-height: none;
     padding: 1rem;
@@ -1711,14 +1742,14 @@ body {
   /* --- Éxito: marcar como pagado, confirmar una acción positiva --- */
 }
 .btn--exito {
-  background-color: var(--color-exito);
-  border-color: var(--color-exito);
+  background-color: var(--color-exito-solido);
+  border-color: var(--color-exito-solido);
   color: var(--color-texto-invertido);
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
 }
 .btn--exito:hover:not(:disabled) {
-  background-color: var(--color-exito-texto);
-  border-color: var(--color-exito-texto);
+  background-color: var(--color-exito-solido-hover);
+  border-color: var(--color-exito-solido-hover);
   color: var(--color-texto-invertido);
 }
 .btn {
@@ -1726,14 +1757,14 @@ body {
          compra inteligente», en rojo frente al verde de la venta) --- */
 }
 .btn--rojo {
-  background-color: var(--color-error);
-  border-color: var(--color-error);
+  background-color: var(--color-error-solido);
+  border-color: var(--color-error-solido);
   color: var(--color-texto-invertido);
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
 }
 .btn--rojo:hover:not(:disabled) {
-  background-color: var(--color-error-texto);
-  border-color: var(--color-error-texto);
+  background-color: var(--color-error-solido-hover);
+  border-color: var(--color-error-solido-hover);
   color: var(--color-texto-invertido);
 }
 .btn {
@@ -1824,28 +1855,30 @@ body {
   box-shadow: 0 0 0 2px var(--color-foco);
 }
 .campo {
-  /* Campo obligatorio que todavía está vacío (desde que se abre el formulario). */
+  /* Campo obligatorio que todavía está vacío (desde que se abre el formulario).
+     Ámbar, no rojo: es una guía de captura, no un error. El rojo se reserva
+     para .campo--con-error después de intentar enviar. */
 }
 .campo--pendiente .control,
 .campo--pendiente .selector-busqueda > .control {
-  border-color: var(--color-error);
+  border-color: var(--color-advertencia);
 }
 .campo--pendiente .control:focus,
 .campo--pendiente .selector-busqueda > .control:focus {
-  outline-color: var(--color-error);
+  outline-color: var(--color-advertencia);
   box-shadow: 0 0 0 2px var(--color-foco);
 }
 .campo {
-  /* Campo recomendado (no obligatorio) que todavía está vacío. Mismo rojo, punteado. */
+  /* Campo recomendado (no obligatorio) que todavía está vacío. Mismo ámbar, punteado. */
 }
 .campo--sugerido .control,
 .campo--sugerido .selector-busqueda > .control {
-  border-color: var(--color-error);
+  border-color: var(--color-advertencia);
   border-style: dashed;
 }
 .campo--sugerido .control:focus,
 .campo--sugerido .selector-busqueda > .control:focus {
-  outline-color: var(--color-error);
+  outline-color: var(--color-advertencia);
   box-shadow: 0 0 0 2px var(--color-foco);
 }
 .campo {
@@ -2545,7 +2578,7 @@ button.badge {
   box-shadow: 0 0 0 1px var(--color-primario);
 }
 .stat--alerta .stat__valor {
-  color: var(--color-primario);
+  color: var(--color-primario-texto);
 }
 .stat--sin-existencias .stat__valor {
   color: var(--color-error);
@@ -2961,6 +2994,16 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   vertical-align: middle;
   color: var(--color-texto);
 }
+.tabla tbody {
+  /* Enlaces sueltos dentro de celdas: 24 px de alto mínimo para que se
+     puedan tocar con el dedo (WCAG 2.5.8). */
+}
+.tabla tbody td a:not(.btn):not(.tabla__ficha) {
+  display: inline-block;
+  min-height: 1.5rem;
+  line-height: 1.5;
+  padding-block: 0.125rem;
+}
 .tabla {
   /* Columnas numéricas: alineación a la derecha y cifras tabulares. */
 }
@@ -3001,6 +3044,18 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   align-items: center;
   gap: 0.5rem;
   min-width: 14rem;
+}
+.tabla {
+  /* Ficha enlazada (nombre del cliente, producto, etc.): toda la celda abre
+     el detalle y en móvil ofrece un objetivo táctil grande. */
+}
+.tabla__ficha {
+  color: inherit;
+  text-decoration: none;
+}
+.tabla__ficha:hover strong, .tabla__ficha:focus-visible strong {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .tabla__producto-textos {
   display: flex;
@@ -3922,8 +3977,8 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
     display: flex;
     align-items: stretch;
     /* Altura de la barra + respeto al área segura de iPhone.
-       Compacta: el menú inferior no debe comerse la pantalla. */
-    min-height: 3.25rem;
+       Las etiquetas cortas hacen que los destinos se reconozcan sin adivinar. */
+    min-height: 3.6rem;
     padding: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background-color: var(--color-superficie);
@@ -3941,11 +3996,13 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   .bottomnav__item {
     display: flex;
     flex: 1 1 0;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0.12rem;
     min-width: 0;
     min-height: 2.75rem;
-    padding: 0;
+    padding: 0.2rem 0 0.15rem;
     background-color: transparent;
     border: none;
     border-radius: 0.5rem;
@@ -3967,6 +4024,17 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
     font-size: 1.375rem;
     line-height: 1;
   }
+  .bottomnav__texto {
+    max-width: 100%;
+    overflow: hidden;
+    color: currentColor;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   /* Sección actual: color primario y fondo suave. */
   .bottomnav__item--activo {
     background-color: var(--color-primario-claro);
@@ -3986,7 +4054,7 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   }
   /* El contenido deja espacio para que la barra no tape nada. */
   .pie {
-    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   }
 }
 /* Hoja del botón central: elegir entre nueva cotización o nueva venta. */
@@ -4009,7 +4077,7 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
     position: fixed;
     left: 1rem;
     right: 1rem;
-    bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+    bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
     z-index: 67;
     padding: 0.5rem;
     background-color: var(--color-superficie);
@@ -6198,10 +6266,8 @@ input:focus-visible ~ .interruptor__pista {
    ========================================================================== */
 @media (max-width: 767px) {
   body[data-movil=info] #contenido-principal {
-    /* Filtros y búsquedas */
+    /* Filtros: se conservan siempre para poder encontrar registros en el celular. */
   }
-  body[data-movil=info] #contenido-principal form[method=get i],
-  body[data-movil=info] #contenido-principal .buscador,
   body[data-movil=info] #contenido-principal .chip-grupo:not(.entregas-tabs),
   body[data-movil=info] #contenido-principal .estadisticas-periodos,
   body[data-movil=info] #contenido-principal form[method=post i],
@@ -6234,10 +6300,23 @@ input:focus-visible ~ .interruptor__pista {
     align-items: flex-start;
     text-align: left;
   }
-  /* Las tarjetas fuerzan display:flex en cada celda; aquí se vuelven a ocultar las que no van en celular:
-     solo quedan imagen y nombre (1.ª celda) y contacto (3.ª). */
-  .tabla-contenedor > .tabla.tabla--clientes tbody td:not(:first-child):not(:nth-child(3)) {
+  /* Las tarjetas fuerzan display:flex en cada celda; aquí se ocultan las
+     columnas secundarias, pero se conserva la última (acciones) para poder
+     abrir la ficha del cliente desde el celular. */
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:not(:first-child):not(:nth-child(3)):not(:last-child) {
     display: none;
+  }
+  /* Si no hay teléfono ni correo, no se muestra una fila «CONTACTO —». */
+  .tabla-contenedor > .tabla.tabla--clientes tbody td.tabla--vacia {
+    display: none;
+  }
+  /* La fila de acciones no necesita el rótulo «ACCIONES»: el icono ya lo dice. */
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:last-child::before {
+    content: none;
+  }
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:last-child {
+    justify-content: flex-end;
+    padding-top: 0;
   }
 }
 /* ==========================================================================
@@ -8865,9 +8944,26 @@ input:focus-visible ~ .interruptor__pista {
   gap: 0.6rem 1.2rem;
   align-items: center;
   width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  align-content: flex-start;
 }
 .herr .sf-barra .sf-panel[hidden] {
   display: none;
+}
+.herr .sf-barra .sf-panel::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+.herr .sf-barra .sf-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.herr .sf-barra .sf-panel::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
 }
 .herr .sf-barra {
   margin-top: 0 !important;
@@ -8875,9 +8971,11 @@ input:focus-visible ~ .interruptor__pista {
 }
 .herr .sf-barra {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.6rem 1.2rem;
   align-items: center;
+  height: 12.8rem;
+  overflow: hidden;
   margin: 1rem 0 0.8rem;
   padding: 0.8rem 1rem;
   background: var(--surface);
@@ -8887,7 +8985,8 @@ input:focus-visible ~ .interruptor__pista {
 }
 .herr .sf-barra .sf-grupo {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
   gap: 0.3rem;
   align-items: center;
   padding-right: 1.2rem;
@@ -9925,19 +10024,22 @@ body:has(.ed-pagina) .principal,
 }
 .herr.ed-pagina .ed-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   flex: 0 0 auto;
   border-bottom: 1px solid var(--color-borde);
   background: var(--color-superficie-baja);
 }
 .herr.ed-pagina .ed-tabs button {
-  padding: 0.58rem 0.4rem;
+  padding: 0.55rem 0.25rem;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--color-texto-secundario);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 .herr.ed-pagina .ed-tabs button:hover {
@@ -9961,6 +10063,11 @@ body:has(.ed-pagina) .principal,
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+.herr.ed-pagina .ed-vista-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 .herr.ed-pagina .ed-sel-cab {
   display: flex;
@@ -10505,14 +10612,6 @@ body:has(.ed-pagina) .principal,
     flex-wrap: wrap;
     overflow: visible;
   }
-  .herr.ed-pagina .ed-grupo--vista {
-    flex: 1 1 100%;
-    margin-left: 0;
-    padding-top: 0.3rem;
-    border-left: 0;
-    border-top: 1px solid var(--color-borde);
-    justify-content: flex-end;
-  }
   .herr.ed-pagina .ed-app {
     height: calc(100dvh - 20rem);
     min-height: 20rem;
@@ -10530,9 +10629,6 @@ body:has(.ed-pagina) .principal,
   .herr.ed-pagina .ed-app {
     grid-template-columns: minmax(0, 1fr) 18rem;
   }
-  .herr.ed-pagina .ed-grupo--vista {
-    gap: 0.35rem;
-  }
   .herr.ed-pagina .ed-chk {
     font-size: 0.68rem;
   }
@@ -10547,13 +10643,42 @@ body:has(.ed-pagina) .principal,
     min-height: 60vh;
   }
   .herr.ed-pagina .ed-lateral {
-    max-height: 26rem;
+    height: 26rem;
+    max-height: 55vh;
   }
   .herr.ed-pagina.ed-pagina--amplio .ed-app {
     height: auto;
   }
   .herr.ed-pagina.ed-pagina--amplio .ed-lienzo {
     min-height: 82vh;
+  }
+  .herr.ed-pagina {
+    /* Barra compacta: reduce iconos y espacios para que «Insertar» quepa
+       en la misma fila el mayor tiempo posible. */
+  }
+  .herr.ed-pagina .ed-opciones {
+    gap: 0;
+  }
+  .herr.ed-pagina .ed-grupo {
+    gap: 0.08rem;
+    padding: 0.1rem 0.24rem;
+  }
+  .herr.ed-pagina .ed-grupo--rotulo {
+    padding-top: 0.95rem;
+  }
+  .herr.ed-pagina .ed-grupo__rotulo {
+    left: 0.3rem;
+    font-size: 0.54rem;
+  }
+  .herr.ed-pagina .ed-herr {
+    width: 1.82rem;
+    height: 1.82rem;
+  }
+  .herr.ed-pagina .ed-herr .material-symbols-outlined {
+    font-size: 1.08rem;
+  }
+  .herr.ed-pagina .ed-sep-v {
+    margin: 0 0.08rem;
   }
 }
 @media (max-width: 48rem) {

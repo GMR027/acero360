@@ -737,17 +737,16 @@
     });
 
     // ================= Pestañas de la barra =================
+    function irAPestana(p) {
+        document.querySelectorAll('#sf-pestanas [data-pest]').forEach(function (b) { b.classList.toggle('activo', b.dataset.pest === p); });
+        document.querySelectorAll('.sf-barra [data-panel]').forEach(function (x) { x.hidden = x.dataset.panel !== p; });
+        try { localStorage.setItem('sf-pestana', p); } catch (e) { /* sin almacenamiento */ }
+    }
     (function () {
-        var ls = 'sf-pestana';
-        function mostrar(p) {
-            document.querySelectorAll('#sf-pestanas [data-pest]').forEach(function (b) { b.classList.toggle('activo', b.dataset.pest === p); });
-            document.querySelectorAll('.sf-barra [data-panel]').forEach(function (x) { x.hidden = x.dataset.panel !== p; });
-            try { localStorage.setItem(ls, p); } catch (e) { /* sin almacenamiento */ }
-        }
-        document.querySelectorAll('#sf-pestanas [data-pest]').forEach(function (b) { b.addEventListener('click', function () { mostrar(b.dataset.pest); }); });
-        var g = 'inicio'; try { g = localStorage.getItem(ls) || 'inicio'; } catch (e) { /* idem */ }
+        document.querySelectorAll('#sf-pestanas [data-pest]').forEach(function (b) { b.addEventListener('click', function () { irAPestana(b.dataset.pest); }); });
+        var g = 'inicio'; try { g = localStorage.getItem('sf-pestana') || 'inicio'; } catch (e) { /* idem */ }
         if (!document.querySelector('.sf-barra [data-panel="' + g + '"]')) g = 'inicio';
-        mostrar(g);
+        irAPestana(g);
     })();
 
     // ================= Edición de celdas =================
@@ -861,11 +860,98 @@
             antes(); fijar(sel.r0, sel.c0, fx.value); dibujar(); cambio(); area.focus();
         } else if (e.key === 'Escape') { pintarSeleccion(); area.focus(); }
     });
+    var FUNCIONES_RANGO = ['SUMA', 'SUM', 'PROMEDIO', 'AVERAGE', 'PROM', 'MIN', 'MAX', 'CONTAR', 'COUNT'];
+
+    /** Bloque de celdas numéricas (o fórmulas) contiguo hacia arriba o a la izquierda de (r,c). */
+    function bloqueAutosuma(r, c, eje) {
+        var dr = eje === 'r' ? -1 : 0, dc = eje === 'c' ? -1 : 0;
+        var rr = r + dr, cc = c + dc, celdas = [];
+        while (rr >= 0 && cc >= 0 && rr < S.rows.length && cc < S.cols.length) {
+            var t = S.rows[rr][cc];
+            if (t === '') break;
+            if (!esFormula(t) && numero(t) === null) break;
+            celdas.push({ r: rr, c: cc });
+            rr += dr; cc += dc;
+        }
+        if (!celdas.length) return null;
+        var a = celdas[celdas.length - 1], b = celdas[0];
+        return { r0: Math.min(a.r, b.r), r1: Math.max(a.r, b.r), c0: Math.min(a.c, b.c), c1: Math.max(a.c, b.c) };
+    }
+
+    /** Si el destino cae dentro de un rango de la fórmula, lo mueve debajo del rango (nunca #CICLO! al insertar). */
+    function evitarCiclo(f, r, c) {
+        var re = /\$?([A-Za-z]{1,2})\$?(\d+)(?::\$?([A-Za-z]{1,2})\$?(\d+))?/g, m, maxR = -1, dentro = false;
+        while ((m = re.exec(f))) {
+            var c0 = indiceLetra(m[1].toUpperCase()), r0 = parseInt(m[2], 10) - 2;
+            var c1 = m[3] ? indiceLetra(m[3].toUpperCase()) : c0, r1 = m[4] ? parseInt(m[4], 10) - 2 : r0;
+            if (r >= Math.min(r0, r1) && r <= Math.max(r0, r1) && c >= Math.min(c0, c1) && c <= Math.max(c0, c1)) dentro = true;
+            maxR = Math.max(maxR, Math.max(r0, r1));
+        }
+        return dentro ? Math.max(r, maxR + 1) : r;
+    }
+
+    /** Deja el cursor al final del primer argumento: al hacer clic en celdas se reemplaza ese rango. */
+    function enfocarParteFormula(inp, texto) {
+        inp.focus();
+        var ini = texto.indexOf('('), pos = texto.length;
+        if (ini >= 0) {
+            var prof = 0;
+            for (var i = ini + 1; i < texto.length; i++) {
+                var ch = texto[i];
+                if (ch === '(') prof++;
+                else if (ch === ')') { if (prof === 0) { pos = i; break; } prof--; }
+                else if ((ch === ';' || ch === ',') && prof === 0) { pos = i; break; }
+            }
+        }
+        try { inp.setSelectionRange(pos, pos); } catch (e) { /* sin selección */ }
+    }
+
+    /** Inserta la función elegida sumando la selección (o el bloque contiguo), como el autosuma de LibreOffice. */
+    function insertarFuncion(f) {
+        if (!f || sel.r0 < 0) return;
+        var n = rangoNorm();
+        var m = /^=\s*([A-Za-zÁÉÍÓÚ.]+)\s*\(/.exec(f);
+        var fn = m ? m[1].toUpperCase() : '';
+        var multi = n.r0 !== n.r1 || n.c0 !== n.c1;
+        var destinoR = sel.r0, destinoC = sel.c0;
+        var rango = null;
+
+        if (FUNCIONES_RANGO.indexOf(fn) >= 0) {
+            if (multi) {
+                rango = n;
+                // Coloca el resultado fuera de la selección: debajo si es vertical, a la derecha si es horizontal.
+                if (n.r0 === n.r1) { destinoR = n.r0; destinoC = n.c1 + 1; }
+                else { destinoR = n.r1 + 1; destinoC = n.c0; }
+            } else {
+                rango = bloqueAutosuma(destinoR, destinoC, 'r') || bloqueAutosuma(destinoR, destinoC, 'c');
+                // Sin números alrededor: deja la función vacía para que no se apunte a sí misma.
+                if (!rango) f = '=' + fn + '()';
+            }
+            if (rango) f = '=' + fn + '(' + nombreCelda(rango.r0, rango.c0) + ':' + nombreCelda(rango.r1, rango.c1) + ')';
+        } else {
+            // Plantillas con ejemplo (SUMAR.SI, SI…): si el destino está dentro, bajarlo fuera del rango.
+            destinoR = evitarCiclo(f, destinoR, destinoC);
+        }
+
+        var filasNuevas = Math.max(0, destinoR - S.rows.length + 1);
+        var colsNuevas = Math.max(0, destinoC - S.cols.length + 1);
+        if (S.rows.length + filasNuevas > MAX_F) { estado('Máximo ' + MAX_F + ' renglones', true); return; }
+        if (S.cols.length + colsNuevas > MAX_C) { estado('Máximo ' + MAX_C + ' columnas', true); return; }
+
+        antes();
+        if (filasNuevas) insertar('r', S.rows.length, filasNuevas);
+        if (colsNuevas) insertar('c', S.cols.length, colsNuevas);
+        quitarRef(destinoR, destinoC);
+        S.rows[destinoR][destinoC] = f;
+        sel.r0 = sel.r1 = destinoR; sel.c0 = sel.c1 = destinoC;
+        dibujar(); visible(destinoR, destinoC); cambio(); enfocarParteFormula(fx, f);
+        estado('Fórmula insertada en ' + nombreCelda(destinoR, destinoC) + '. Haz clic en celdas para ajustar el rango.');
+    }
+
     // Insertar una función de la lista en la celda elegida (queda en la barra de fórmulas para ajustar los rangos)
     $('sf-fn').addEventListener('change', function () {
-        var f = this.value; this.value = ''; if (!f || sel.r0 < 0) return;
-        quitarRef(sel.r0, sel.c0);
-        antes(); S.rows[sel.r0][sel.c0] = f; dibujar(); cambio(); fx.focus(); fx.select();
+        var f = this.value; this.value = '';
+        insertarFuncion(f);
     });
 
     // ================= Datos externos =================
@@ -1737,6 +1823,7 @@
     // ================= Propiedades de columna y estilo de la tabla =================
     function columnasElegidas() { var n = rangoNorm(), o = []; for (var c = n.c0; c <= n.c1; c++) o.push(c); return o; }
     $('sf-tipo').addEventListener('change', function () {
+        irAPestana('modificar');
         antes(); var t = this.value;
         columnasElegidas().forEach(function (c) {
             var col = S.cols[c]; col.t = t; col.a = NUM.indexOf(t) >= 0 ? 'derecha' : (t === 'fecha' || t === 'casilla' || t === 'semaforo' ? 'centro' : 'izquierda');
@@ -1753,13 +1840,14 @@
         cambio();
     });
     $('sf-total').addEventListener('change', function () {
+        irAPestana('modificar');
         var v = this.value;
         antes();
         columnasElegidas().forEach(function (c) { var col = S.cols[c]; col.tot = v === '' || v === 'cuenta' || NUM.indexOf(col.t) >= 0 ? v : ''; });
         if (v && v !== 'cuenta' && columnasElegidas().some(function (c) { return NUM.indexOf(S.cols[c].t) < 0; })) estado('El total solo se aplica a columnas de tipo número, moneda o porcentaje (o «Cuenta»)', true);
         dibujar(); cambio();
     });
-    $('sf-ancho-auto').addEventListener('click', function () { antes(); columnasElegidas().forEach(function (c) { S.cols[c].w = 0; }); dibujar(); cambio(); });
+    $('sf-ancho-auto').addEventListener('click', function () { irAPestana('modificar'); antes(); columnasElegidas().forEach(function (c) { S.cols[c].w = 0; }); dibujar(); cambio(); });
     $('sf-c-enc').addEventListener('input', function () { S.estilo.enc = this.value; dibujar(); cambio(); });
     $('sf-c-txt').addEventListener('input', function () { S.estilo.encTxt = this.value; dibujar(); cambio(); });
     $('sf-zebra').addEventListener('change', function () { S.estilo.zebra = this.checked; dibujar(); cambio(); });
@@ -1779,12 +1867,14 @@
         dibujar(); cambio(); area.focus();
     }
     function alternar(k) {
+        irAPestana('modificar');
         var ancla = getSt(sel.r0, sel.c0) || {}, on = !ancla[k];
         aplicar(function (f) { if (on) f[k] = 1; else delete f[k]; });
     }
     document.querySelectorAll('[data-fmt]').forEach(function (b) { b.addEventListener('click', function () { alternar(b.dataset.fmt); }); });
     document.querySelectorAll('[data-alin]').forEach(function (b) {
         b.addEventListener('click', function () {
+            irAPestana('modificar');
             var v = b.dataset.alin;
             antes();
             columnasElegidas().forEach(function (c) { S.cols[c].a = v; });   // la alineación de la columna
@@ -1792,16 +1882,17 @@
         });
     });
     function cambiarTamano(delta, valor) {
+        irAPestana('modificar');
         aplicar(function (f) { f.fs = valor != null ? valor : Math.max(6, Math.min(72, (f.fs || 13) + delta)); });
     }
     $('sf-fs-menos').addEventListener('click', function () { cambiarTamano(-1); });
     $('sf-fs-mas').addEventListener('click', function () { cambiarTamano(1); });
     $('sf-fs').addEventListener('change', function () { var v = parseInt(this.value, 10); if (v >= 6 && v <= 72) cambiarTamano(0, v); });
     $('sf-fs').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') { this.dispatchEvent(new Event('change')); } });
-    $('sf-c-letra').addEventListener('input', function () { var v = this.value; aplicar(function (f) { f.tc = v; }); });
-    $('sf-c-fondo').addEventListener('input', function () { var v = this.value; aplicar(function (f) { f.bg = v; }); });
-    $('sf-sin-relleno').addEventListener('click', function () { aplicar(function (f) { delete f.bg; }); });
-    $('sf-limpiar-fmt').addEventListener('click', function () { aplicar(function (f) { Object.keys(f).forEach(function (k) { if (k !== 'im') delete f[k]; }); }); });
+    $('sf-c-letra').addEventListener('input', function () { irAPestana('modificar'); var v = this.value; aplicar(function (f) { f.tc = v; }); });
+    $('sf-c-fondo').addEventListener('input', function () { irAPestana('modificar'); var v = this.value; aplicar(function (f) { f.bg = v; }); });
+    $('sf-sin-relleno').addEventListener('click', function () { irAPestana('modificar'); aplicar(function (f) { delete f.bg; }); });
+    $('sf-limpiar-fmt').addEventListener('click', function () { irAPestana('modificar'); aplicar(function (f) { Object.keys(f).forEach(function (k) { if (k !== 'im') delete f[k]; }); }); });
 
     /** Borde de un lado de la celda (r,c); también el lado contiguo de la vecina para que no choquen al fundirse las líneas */
     function ponerBorde(r, c, lado, valor) {
@@ -1812,6 +1903,7 @@
         if (rr >= -1 && rr < S.rows.length && cc >= 0 && cc < S.cols.length) { var g = Object.assign({}, getSt(rr, cc) || {}); g[op] = valor; setSt(rr, cc, g); }
     }
     $('sf-b-aplicar').addEventListener('click', function () {
+        irAPestana('modificar');
         var lado = $('sf-b-lado').value, n = rangoNorm();
         var val = lado === 'ninguno' ? 'n' : $('sf-b-grosor').value + '|' + $('sf-b-estilo').value + '|' + $('sf-b-color').value;
         antes();

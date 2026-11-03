@@ -112,12 +112,18 @@ function actualizarCampoPendiente(campo) {
   campo.classList.toggle('campo--pendiente', pendiente);
   campo.classList.toggle('campo--sugerido', !pendiente && sugerido);
 
-  // El color no basta: los lectores de pantalla también deben saber que falta.
+  // «Pendiente» no es «inválido»: el rojo y aria-invalid se reservan para la
+  // validación real (ver validacion.js). Aquí solo se marca visualmente.
   campo.querySelectorAll('.control').forEach(function (control) {
-    if (pendiente) {
-      control.setAttribute('aria-invalid', 'true');
+    if (pendiente || sugerido) {
+      control.setAttribute('data-pendiente', 'true');
     } else {
-      control.removeAttribute('aria-invalid');
+      control.removeAttribute('data-pendiente');
+      // Si ya no está pendiente y no hay un error de validación visible,
+      // deja de anunciarse como inválido.
+      if (!campo.querySelector('.campo__error')) {
+        control.removeAttribute('aria-invalid');
+      }
     }
   });
 }

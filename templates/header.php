@@ -86,11 +86,7 @@ $versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
 
     <div class="app__panel">
         <header class="topbar">
-            <div class="topbar__titulo">
-                <span class="texto-etiqueta movil-oculto">Panel de administración</span>
-                <strong class="titulo-5 texto-una-linea"><?= escaparValores($titulo) ?></strong>
-            </div>
-
+            <a class="topbar__marca-movil" href="/admin" aria-label="Acero 360 · ir al panel principal">Acero 360</a>
             <div class="topbar__acciones">
                 <?php $noLeidas = \App\Seguimiento::contarNoLeidas((int) ($_SESSION['id'] ?? 0)); ?>
                 <div class="campana-caja" data-campana>

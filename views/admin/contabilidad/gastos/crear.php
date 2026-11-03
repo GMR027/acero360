@@ -329,7 +329,7 @@ if (($gasto['beneficiario_tipo'] ?? '') === 'proveedor' && (int) ($gasto['provee
         <div hidden
              data-coincidencias="<?= escaparValores(json_encode($propuesta['duplicados'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"
              data-ruta="/admin/contabilidad/gastos/crear?lectura=<?= (int) $lecturaId ?>"
-             data-origen="Registro compra inteligente"></div>
+             data-origen="Registro Compra Inteligente"></div>
     <?php endif; ?>
     <?php if ($propuesta) : ?>
         <?php template('avisoLectura', [

@@ -2,9 +2,10 @@
 /**
  * views/admin/editor/api/pdf.php — Genera el PDF a partir de las láminas.
  *
- * Recibe `paginas`: un arreglo JSON con un PNG en dataURL por lámina (2×).
- * Guarda esos PNG como vista previa de cada lámina y compone el PDF con
- * Dompdf al tamaño exacto de la página (px a 96 dpi → puntos).
+ * Recibe `paginas`: un arreglo JSON con un PNG en dataURL por lámina (3×).
+ * Guarda esos PNG en `marcas_full` (imagen de alta resolución para las
+ * descargas) y compone el PDF con Dompdf al tamaño exacto de la página
+ * (px a 96 dpi → puntos). La miniatura `marcas_png` no se toca aquí.
  */
 
 soloAdmin();
@@ -52,8 +53,8 @@ foreach ($paginas as $i => $data) {
     }
 
     $lamina = $laminas[$i];
-    $viejo = $lamina->marcas_png;
-    $lamina->marcas_png = $archivo;
+    $viejo = $lamina->marcas_full;
+    $lamina->marcas_full = $archivo;
     $lamina->guardar();
     if ($viejo && $viejo !== $archivo) {
         Imagenes::eliminarVplan($viejo);

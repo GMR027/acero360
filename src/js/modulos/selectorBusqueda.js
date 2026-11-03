@@ -148,6 +148,13 @@ function crearSelectorBusqueda(select) {
    * que es el que se ve en ese caso). */
   const etiqueta = document.querySelector('label[for="' + select.id + '"]');
   if (etiqueta) {
+    const nombreCampo = etiqueta.textContent.replace('*', '').trim();
+    if (nombreCampo !== '') {
+      // El <select> original queda oculto; se le deja un nombre accesible y el
+      // input visible hereda el mismo nombre además del <label for>.
+      select.setAttribute('aria-label', nombreCampo);
+      entrada.setAttribute('aria-label', nombreCampo);
+    }
     etiqueta.setAttribute('for', idEntrada);
   }
 

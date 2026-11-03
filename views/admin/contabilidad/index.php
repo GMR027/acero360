@@ -103,7 +103,7 @@ template('resumenReporte', [
         ],
         [
             'destino' => 'gasto',
-            'texto'   => 'Registro compra inteligente',
+            'texto'   => 'Registro Compra Inteligente',
             'icono'   => 'shopping_cart',
             'clase'   => 'btn--rojo',
             'ayuda'   => 'Sube la factura (XML, PDF o foto) que te dieron y el formulario de gasto se llena solo con el proveedor, el total, el folio fiscal y los renglones',

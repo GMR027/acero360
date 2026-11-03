@@ -37,6 +37,10 @@ function limpiarErrores(formulario) {
   camposConError.forEach(function (campo) {
     campo.classList.remove('campo--con-error');
   });
+
+  formulario.querySelectorAll('[aria-invalid="true"]').forEach(function (control) {
+    control.removeAttribute('aria-invalid');
+  });
 }
 
 /**
@@ -52,6 +56,7 @@ function mostrarErrorCampo(control, mensaje) {
   }
 
   campo.classList.add('campo--con-error');
+  control.setAttribute('aria-invalid', 'true');
 
   const nodoError = document.createElement('p');
   nodoError.className = 'campo__error';

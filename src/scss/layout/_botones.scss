@@ -82,14 +82,14 @@
 
   /* --- Éxito: marcar como pagado, confirmar una acción positiva --- */
   &--exito {
-    background-color: $color-exito;
-    border-color: $color-exito;
+    background-color: $color-exito-solido;
+    border-color: $color-exito-solido;
     color: $color-texto-invertido;
     box-shadow: $sombra-1;
 
     &:hover:not(:disabled) {
-      background-color: $color-exito-texto;
-      border-color: $color-exito-texto;
+      background-color: $color-exito-solido-hover;
+      border-color: $color-exito-solido-hover;
       color: $color-texto-invertido;
     }
   }
@@ -97,14 +97,14 @@
   /* --- Rojo sólido: acción visible sin ser «eliminar» (lo usa «Registro
          compra inteligente», en rojo frente al verde de la venta) --- */
   &--rojo {
-    background-color: $color-error;
-    border-color: $color-error;
+    background-color: $color-error-solido;
+    border-color: $color-error-solido;
     color: $color-texto-invertido;
     box-shadow: $sombra-1;
 
     &:hover:not(:disabled) {
-      background-color: $color-error-texto;
-      border-color: $color-error-texto;
+      background-color: $color-error-solido-hover;
+      border-color: $color-error-solido-hover;
       color: $color-texto-invertido;
     }
   }

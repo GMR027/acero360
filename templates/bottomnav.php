@@ -68,11 +68,13 @@ $ariaActivo = static function (bool $activo): string {
     <a class="bottomnav__item<?= $claseActivo($activoInicio) ?>"<?= $ariaActivo($activoInicio) ?>
        href="/admin" aria-label="Inicio" title="Inicio">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">home</span>
+        <span class="bottomnav__texto" aria-hidden="true">Inicio</span>
     </a>
 
     <a class="bottomnav__item<?= $claseActivo($activoEntregas) ?>"<?= $ariaActivo($activoEntregas) ?>
        href="/admin/entregas" aria-label="Operación Comercial" title="Operación Comercial">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">package_2</span>
+        <span class="bottomnav__texto" aria-hidden="true">Entregas</span>
     </a>
 
     <!-- Botón central: pregunta si lo nuevo es una venta o una cotización. -->
@@ -80,22 +82,26 @@ $ariaActivo = static function (bool $activo): string {
             id="boton-nuevo" aria-label="Crear nuevo" title="Crear nuevo"
             aria-haspopup="true" aria-expanded="false" aria-controls="hoja-nuevo">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">add_circle</span>
+        <span class="bottomnav__texto" aria-hidden="true">Crear</span>
     </button>
 
     <a class="bottomnav__item<?= $claseActivo($activoInventario) ?>"<?= $ariaActivo($activoInventario) ?>
        href="/admin/inventario" aria-label="Inventario" title="Inventario">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">warehouse</span>
+        <span class="bottomnav__texto" aria-hidden="true">Inventario</span>
     </a>
 
     <a class="bottomnav__item<?= $claseActivo($activoImpuestos) ?>"<?= $ariaActivo($activoImpuestos) ?>
        href="/admin/fiscal" aria-label="Impuestos" title="Impuestos">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">request_quote</span>
+        <span class="bottomnav__texto" aria-hidden="true">Impuestos</span>
     </a>
 
     <button type="button" class="bottomnav__item<?= $claseActivo($activoMas) ?>"<?= $ariaActivo($activoMas) ?>
             id="boton-menu" aria-label="Más secciones" title="Más secciones"
             aria-controls="sidebar" aria-expanded="false">
         <span class="material-symbols-outlined bottomnav__icono" aria-hidden="true">menu</span>
+        <span class="bottomnav__texto" aria-hidden="true">Más</span>
     </button>
 </nav>
 

@@ -26,7 +26,7 @@ $numEmpresas = max(1, count($empresas));
 <?php endif; ?>
 
 <p class="texto-xs texto-secundario mb-md" data-leyenda-pendientes hidden>
-    Los campos con <strong>borde rojo</strong> están por llenar; los de <strong>borde punteado</strong> son recomendados.
+    Los campos con <strong>borde ámbar</strong> están por llenar; los de <strong>borde punteado</strong> son recomendados.
 </p>
 
 <div class="formulario__rejilla">
@@ -50,7 +50,8 @@ $numEmpresas = max(1, count($empresas));
                  aquí con el gasto precargado. Lo maneja gastoProveedor.js.
                  Va ENCIMA del campo: la lista desplegable del buscador se abre hacia
                  abajo y taparía el botón. -->
-            <button class="btn btn--secundario btn--sm mt-sm mb-sm" type="button" data-registrar-proveedor hidden></button>
+            <button class="btn btn--secundario btn--sm mt-sm mb-sm" type="button"
+                    data-registrar-proveedor aria-label="Registrar el proveedor escrito" hidden></button>
         <?php endif; ?>
         <!-- data-buscador: src/js/modulos/selectorBusqueda.js convierte este <select> en
              un campo de búsqueda con lista filtrada por NOMBRE y RFC (los dos datos que

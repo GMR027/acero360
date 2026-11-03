@@ -84,6 +84,21 @@ $nIncidencias       = \App\Panel::contarIncidenciasAbiertas();
 $ultimasCotizaciones = \App\Panel::ultimasCotizaciones(5);
 $ultimasVentas       = \App\Panel::ultimasVentas(5);
 
+/* ¿Es una cuenta recién creada? Si no hay ventas, cotizaciones, pendientes
+ * ni movimientos, el panel muestra una guía de primeros pasos en lugar de
+ * dejar solo tarjetas con ceros. */
+$ventasPeriodo = 0.0;
+foreach ($negociosResumen as $resumenNegocio) {
+    $ventasPeriodo += (float) $resumenNegocio['ventas_n'];
+}
+$sinActividad = $ventasPeriodo === 0.0
+    && !$ultimasCotizaciones
+    && !$ultimasVentas
+    && $nVentasPendientes === 0
+    && !$gastosPendientes
+    && !$entregasPendientes
+    && $nIncidencias === 0;
+
 /* ---------------------------------------------------------------------------
  * IMPUESTOS (PRELIMINAR)
  *
@@ -230,6 +245,41 @@ template('header', [
     </form>
     </div>
 </section>
+
+<?php if ($sinActividad) : ?>
+<section class="tarjeta mb-lg" aria-labelledby="titulo-primeros-pasos">
+    <div class="tarjeta__cabecera">
+        <h2 class="titulo-4" id="titulo-primeros-pasos">Primeros pasos</h2>
+        <span class="badge badge--neutro badge--sin-punto">Sin actividad todavía</span>
+    </div>
+    <p class="texto-secundario mb-md">
+        Empieza por lo básico: registra tu empresa, da de alta un cliente y un producto, y crea tu primera cotización.
+        En cuanto haya movimiento, este panel se llenará con tus cifras.
+    </p>
+    <div class="encabezado-pagina__acciones">
+        <?php if (!$negocios) : ?>
+            <a class="btn btn--primario" href="/admin/empresas/crear">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">domain_add</span>
+                <span>Crear empresa</span>
+            </a>
+        <?php endif; ?>
+        <a class="btn btn--secundario" href="/admin/clientes/crear">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">person_add</span>
+            <span>Nuevo cliente</span>
+        </a>
+        <a class="btn btn--secundario" href="/admin/productos/crear">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_box</span>
+            <span>Nuevo producto</span>
+        </a>
+        <?php if ($negocios) : ?>
+            <a class="btn btn--primario" href="/admin/cotizaciones/crear">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">note_add</span>
+                <span>Nueva cotización</span>
+            </a>
+        <?php endif; ?>
+    </div>
+</section>
+<?php endif; ?>
 
 <!-- 1. Ventas por negocio -->
 <section class="mb-lg" aria-labelledby="titulo-negocios">

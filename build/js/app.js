@@ -1487,12 +1487,18 @@ function actualizarCampoPendiente(campo) {
   campo.classList.toggle('campo--pendiente', pendiente);
   campo.classList.toggle('campo--sugerido', !pendiente && sugerido);
 
-  // El color no basta: los lectores de pantalla también deben saber que falta.
+  // «Pendiente» no es «inválido»: el rojo y aria-invalid se reservan para la
+  // validación real (ver validacion.js). Aquí solo se marca visualmente.
   campo.querySelectorAll('.control').forEach(function (control) {
-    if (pendiente) {
-      control.setAttribute('aria-invalid', 'true');
+    if (pendiente || sugerido) {
+      control.setAttribute('data-pendiente', 'true');
     } else {
-      control.removeAttribute('aria-invalid');
+      control.removeAttribute('data-pendiente');
+      // Si ya no está pendiente y no hay un error de validación visible,
+      // deja de anunciarse como inválido.
+      if (!campo.querySelector('.campo__error')) {
+        control.removeAttribute('aria-invalid');
+      }
     }
   });
 }
@@ -4182,7 +4188,7 @@ let inteligenteTextos = {
     ayuda: 'Sube el XML del CFDI (trae los datos exactos), el PDF o una foto de la factura. El formulario de venta se llena con el cliente, la fecha y los renglones que se reconozcan; lo demás lo completas tú.',
   },
   gasto: {
-    titulo: 'Registro compra inteligente',
+    titulo: 'Registro Compra Inteligente',
     sobreTitulo: 'Factura que me dieron',
     ayuda: 'Sube el XML del CFDI (trae los datos exactos), el PDF o una foto de la factura. El formulario de gasto se llena con el proveedor, el total, el folio fiscal y los renglones que se reconozcan; lo demás lo completas tú.',
   },
@@ -4873,6 +4879,49 @@ let elementoFocoAnterior = null;
 /** Función pendiente de ejecutar cuando el usuario confirma. */
 let accionConfirmada = null;
 
+/** La trampa de foco se instala una sola vez sobre el modal compartido. */
+let trampaFocoInstalada = false;
+
+/** Selector de controles que pueden recibir foco dentro del diálogo. */
+const SELECTOR_ENFOCABLE =
+  'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), ' +
+  'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Controles visibles del modal, en orden de tabulación. */
+function controlesEnfocables(modal) {
+  return Array.from(modal.querySelectorAll(SELECTOR_ENFOCABLE)).filter(function (el) {
+    return el.offsetParent !== null || el === document.activeElement;
+  });
+}
+
+/** Mantiene Tab y Shift+Tab dentro del diálogo abierto. */
+function instalarTrampaFoco(modal) {
+  if (trampaFocoInstalada) {
+    return;
+  }
+  trampaFocoInstalada = true;
+  modal.addEventListener('keydown', function (evento) {
+    if (evento.key !== 'Tab') {
+      return;
+    }
+    const controles = controlesEnfocables(modal);
+    if (!controles.length) {
+      evento.preventDefault();
+      return;
+    }
+    const primero = controles[0];
+    const ultimo = controles[controles.length - 1];
+    const dentro = modal.contains(document.activeElement);
+    if (evento.shiftKey && (!dentro || document.activeElement === primero)) {
+      evento.preventDefault();
+      ultimo.focus();
+    } else if (!evento.shiftKey && (!dentro || document.activeElement === ultimo)) {
+      evento.preventDefault();
+      primero.focus();
+    }
+  });
+}
+
 /**
  * Acción pendiente al cerrar el modal (diálogos con valor: pedirTexto).
  * Se invoca SIEMPRE que el modal se cierra, de la forma que sea, y sólo una
@@ -4974,12 +5023,31 @@ function abrirModal(opciones) {
   modal.classList.toggle('modal--amplio', amplio);
   modal.hidden = false;
   document.body.style.overflow = 'hidden';
+  instalarTrampaFoco(modal);
 
-  // Coloca el foco en el primer control interactivo del diálogo (los inputs
-  // ocultos no reciben foco: se ignoran para que el foco no quede perdido).
-  const primerControl = modal.querySelector('button, [href], input:not([type="hidden"]), select, textarea');
-  if (primerControl) {
-    primerControl.focus();
+  // Mientras el diálogo está abierto, el resto de la aplicación no debe
+  // recibir foco ni ser leído por tecnologías de asistencia.
+  const app = document.querySelector('.app');
+  if (app) {
+    app.setAttribute('inert', '');
+  }
+
+  // Foco inicial útil: el primer campo del formulario; en confirmaciones,
+  // «Cancelar» para no confirmar por accidente con Enter.
+  let foco = null;
+  if (confirmacion) {
+    // Cancelar del pie, no la «X» de la cabecera.
+    foco = modal.querySelector('#modal-pie [data-cerrar-modal]') || modal.querySelector('[data-cerrar-modal]');
+  } else {
+    foco = modal.querySelector(
+      '#modal-cuerpo input:not([type="hidden"]), #modal-cuerpo select, #modal-cuerpo textarea'
+    ) || modal.querySelector('[data-confirmar-modal]');
+  }
+  if (!foco) {
+    foco = modal.querySelector('button, [href], input:not([type="hidden"]), select, textarea');
+  }
+  if (foco) {
+    foco.focus();
   }
 }
 
@@ -4993,6 +5061,11 @@ function cerrarModal() {
   modal.hidden = true;
   document.body.style.overflow = '';
   accionConfirmada = null;
+
+  const app = document.querySelector('.app');
+  if (app) {
+    app.removeAttribute('inert');
+  }
 
   if (elementoFocoAnterior && typeof elementoFocoAnterior.focus === 'function') {
     elementoFocoAnterior.focus();
@@ -5833,6 +5906,13 @@ function crearSelectorBusqueda(select) {
    * que es el que se ve en ese caso). */
   const etiqueta = document.querySelector('label[for="' + select.id + '"]');
   if (etiqueta) {
+    const nombreCampo = etiqueta.textContent.replace('*', '').trim();
+    if (nombreCampo !== '') {
+      // El <select> original queda oculto; se le deja un nombre accesible y el
+      // input visible hereda el mismo nombre además del <label for>.
+      select.setAttribute('aria-label', nombreCampo);
+      entrada.setAttribute('aria-label', nombreCampo);
+    }
     etiqueta.setAttribute('for', idEntrada);
   }
 
@@ -6256,6 +6336,10 @@ function limpiarErrores(formulario) {
   camposConError.forEach(function (campo) {
     campo.classList.remove('campo--con-error');
   });
+
+  formulario.querySelectorAll('[aria-invalid="true"]').forEach(function (control) {
+    control.removeAttribute('aria-invalid');
+  });
 }
 
 /**
@@ -6271,6 +6355,7 @@ function mostrarErrorCampo(control, mensaje) {
   }
 
   campo.classList.add('campo--con-error');
+  control.setAttribute('aria-invalid', 'true');
 
   const nodoError = document.createElement('p');
   nodoError.className = 'campo__error';

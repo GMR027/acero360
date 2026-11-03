@@ -157,7 +157,7 @@ template('header', [
                             <td class="tabla__col-secundaria texto-sm"><?= escaparValores(\App\ProveedorEntradas::nombreCategoria((int) $entrada->categoria)) ?></td>
                             <td class="cifra"><?= formatoMoneda($entrada->monto) ?></td>
                             <td class="tabla__col-secundaria tabla--centro">
-                                <?php if ($entrada->foto !== '') : ?>
+                                <?php if ($entrada->foto !== '' && is_file(\App\Imagenes::CARPETA . '/' . basename($entrada->foto))) : ?>
                                     <img class="tabla__miniatura"
                                          src="<?= escaparValores(\App\Imagenes::url($entrada->foto)) ?>"
                                          alt="">

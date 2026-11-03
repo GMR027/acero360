@@ -182,10 +182,13 @@ class EditorDocumento extends ActiveRecord
 
         $db = self::conexion();
         $id = (int) $this->id;
-        $r = $db->query("SELECT marcas_png FROM editor_laminas WHERE documento_id = $id");
+        $r = $db->query("SELECT marcas_png, marcas_full FROM editor_laminas WHERE documento_id = $id");
         while ($r && ($f = $r->fetch_assoc())) {
             if (!empty($f['marcas_png'])) {
                 Imagenes::eliminarVplan($f['marcas_png']);
+            }
+            if (!empty($f['marcas_full'])) {
+                Imagenes::eliminarVplan($f['marcas_full']);
             }
         }
 

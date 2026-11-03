@@ -21,7 +21,7 @@ let inteligenteTextos = {
     ayuda: 'Sube el XML del CFDI (trae los datos exactos), el PDF o una foto de la factura. El formulario de venta se llena con el cliente, la fecha y los renglones que se reconozcan; lo demás lo completas tú.',
   },
   gasto: {
-    titulo: 'Registro compra inteligente',
+    titulo: 'Registro Compra Inteligente',
     sobreTitulo: 'Factura que me dieron',
     ayuda: 'Sube el XML del CFDI (trae los datos exactos), el PDF o una foto de la factura. El formulario de gasto se llena con el proveedor, el total, el folio fiscal y los renglones que se reconozcan; lo demás lo completas tú.',
   },

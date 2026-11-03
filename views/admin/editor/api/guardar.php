@@ -141,6 +141,9 @@ foreach ($existentes as $id => $l) {
         if (!empty($l->marcas_png)) {
             Imagenes::eliminarVplan($l->marcas_png);
         }
+        if (!empty($l->marcas_full)) {
+            Imagenes::eliminarVplan($l->marcas_full);
+        }
     }
 }
 

@@ -95,7 +95,9 @@ template('header', [
                     <?php foreach ($clientes as $cliente) : ?>
                         <tr>
                             <td>
-                                <div class="tabla__producto">
+                                <a class="tabla__producto tabla__ficha"
+                                   href="/admin/clientes/detalle?id=<?= (int) $cliente->id ?>"
+                                   aria-label="Abrir la ficha de <?= escaparValores($cliente->nombre) ?>">
                                     <img class="retrato retrato--sm"
                                          src="<?= escaparValores(\App\Imagenes::retrato($cliente->foto)) ?>"
                                          alt="">
@@ -105,10 +107,10 @@ template('header', [
                                             <?= escaparValores($cliente->nombre_empresa ?: $cliente->alias ?: '—') ?>
                                         </span>
                                     </div>
-                                </div>
+                                </a>
                             </td>
                             <td class="tabla__col-secundaria cifra"><?= escaparValores($cliente->rfc ?: '—') ?></td>
-                            <td class="tabla__col-secundaria">
+                            <td class="tabla__col-secundaria<?= (trim((string) $cliente->telefono) === '' && trim((string) $cliente->email) === '') ? ' tabla--vacia' : '' ?>">
                                 <div class="tabla__producto-textos">
                                     <span class="texto-sm"><?= escaparValores($cliente->telefono ?: '—') ?></span>
                                     <span class="texto-xs texto-secundario texto-una-linea"><?= escaparValores($cliente->email ?: '') ?></span>

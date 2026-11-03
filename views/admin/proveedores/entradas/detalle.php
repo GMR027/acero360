@@ -15,7 +15,8 @@ if (!$entrada) {
     paginaNoEncontrada(); // La vista 404 ya genera su propia cabecera y pie.
 }
 
-$hayFoto = trim((string) $entrada->foto) !== '';
+$hayFoto = trim((string) $entrada->foto) !== ''
+    && is_file(\App\Imagenes::CARPETA . '/' . basename($entrada->foto));
 
 template('header', [
     'titulo'     => 'Entrada de material',

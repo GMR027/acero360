@@ -51,28 +51,30 @@
     }
   }
 
-  /* Campo obligatorio que todavía está vacío (desde que se abre el formulario). */
+  /* Campo obligatorio que todavía está vacío (desde que se abre el formulario).
+     Ámbar, no rojo: es una guía de captura, no un error. El rojo se reserva
+     para .campo--con-error después de intentar enviar. */
   &--pendiente {
     .control,
     .selector-busqueda > .control {
-      border-color: $color-error;
+      border-color: $color-advertencia;
 
       &:focus {
-        outline-color: $color-error;
+        outline-color: $color-advertencia;
         box-shadow: 0 0 0 2px $color-foco;
       }
     }
   }
 
-  /* Campo recomendado (no obligatorio) que todavía está vacío. Mismo rojo, punteado. */
+  /* Campo recomendado (no obligatorio) que todavía está vacío. Mismo ámbar, punteado. */
   &--sugerido {
     .control,
     .selector-busqueda > .control {
-      border-color: $color-error;
+      border-color: $color-advertencia;
       border-style: dashed;
 
       &:focus {
-        outline-color: $color-error;
+        outline-color: $color-advertencia;
         box-shadow: 0 0 0 2px $color-foco;
       }
     }

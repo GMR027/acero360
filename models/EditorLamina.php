@@ -6,7 +6,7 @@ namespace Model;
 class EditorLamina extends ActiveRecord
 {
     protected static $tabla = 'editor_laminas';
-    protected static $columnasDB = ['documento_id', 'orden', 'nombre', 'marcas_json', 'marcas_png'];
+    protected static $columnasDB = ['documento_id', 'orden', 'nombre', 'marcas_json', 'marcas_png', 'marcas_full'];
 
     public $id;
     public $documento_id;
@@ -14,6 +14,7 @@ class EditorLamina extends ActiveRecord
     public $nombre;
     public $marcas_json;
     public $marcas_png;
+    public $marcas_full;
     public $creado;
     public $actualizado;
 
@@ -24,6 +25,7 @@ class EditorLamina extends ActiveRecord
         $this->nombre = '';
         $this->marcas_json = null;
         $this->marcas_png = null;
+        $this->marcas_full = null;
 
         foreach ($args as $k => $v) {
             if (property_exists($this, $k) && $v !== null) {

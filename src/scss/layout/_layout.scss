@@ -61,6 +61,23 @@
     margin-left: auto;
     flex-shrink: 0;
   }
+
+  /* En móvil no hay barra lateral visible: una marca breve da contexto a la
+     barra superior sin repetir el título de la página. */
+  &__marca-movil {
+    display: none;
+    color: $color-texto;
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+
+    @include hasta-movil {
+      display: inline-flex;
+      align-items: center;
+    }
+  }
 }
 
 /* --- Contenido principal -------------------------------------------------- */
@@ -232,7 +249,7 @@
     left: 0.5rem;
     right: 0.5rem;
     top: calc(#{$alto-topbar} + 0.25rem);
-    bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+    bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
     width: auto;
     max-height: none;
     padding: $espacio-md;

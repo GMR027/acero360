@@ -623,9 +623,7 @@
    ========================================================================== */
 @include hasta-movil {
   body[data-movil='info'] #contenido-principal {
-    /* Filtros y búsquedas */
-    form[method='get' i],
-    .buscador,
+    /* Filtros: se conservan siempre para poder encontrar registros en el celular. */
     .chip-grupo:not(.entregas-tabs),
     .estadisticas-periodos,
     /* Altas, ediciones y bajas */
@@ -663,9 +661,25 @@
     }
   }
 
-  /* Las tarjetas fuerzan display:flex en cada celda; aquí se vuelven a ocultar las que no van en celular:
-     solo quedan imagen y nombre (1.ª celda) y contacto (3.ª). */
-  .tabla-contenedor > .tabla.tabla--clientes tbody td:not(:first-child):not(:nth-child(3)) {
+  /* Las tarjetas fuerzan display:flex en cada celda; aquí se ocultan las
+     columnas secundarias, pero se conserva la última (acciones) para poder
+     abrir la ficha del cliente desde el celular. */
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:not(:first-child):not(:nth-child(3)):not(:last-child) {
     display: none;
+  }
+
+  /* Si no hay teléfono ni correo, no se muestra una fila «CONTACTO —». */
+  .tabla-contenedor > .tabla.tabla--clientes tbody td.tabla--vacia {
+    display: none;
+  }
+
+  /* La fila de acciones no necesita el rótulo «ACCIONES»: el icono ya lo dice. */
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:last-child::before {
+    content: none;
+  }
+
+  .tabla-contenedor > .tabla.tabla--clientes tbody td:last-child {
+    justify-content: flex-end;
+    padding-top: 0;
   }
 }

@@ -315,18 +315,21 @@ body:has(.ed-pagina) .principal,
     }
     .ed-tabs {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         flex: 0 0 auto;
         border-bottom: 1px solid var(--color-borde);
         background: var(--color-superficie-baja);
         button {
-            padding: .58rem .4rem;
+            padding: .55rem .25rem;
             border: 0;
             border-bottom: 2px solid transparent;
             background: transparent;
             color: var(--color-texto-secundario);
-            font-size: .78rem;
+            font-size: .72rem;
             font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             cursor: pointer;
             &:hover { color: var(--color-texto); background: var(--color-superficie); }
             &.activa { color: var(--color-primario-texto); border-bottom-color: var(--color-primario); background: var(--color-superficie); }
@@ -341,6 +344,7 @@ body:has(.ed-pagina) .principal,
         scrollbar-width: thin;
     }
     .ed-props__vacio { display: flex; flex-direction: column; gap: .6rem; }
+    .ed-vista-grupo { display: flex; flex-direction: column; gap: .35rem; }
     .ed-sel-cab {
         display: flex;
         align-items: baseline;
@@ -713,14 +717,6 @@ body:has(.ed-pagina) .principal,
 
     @media (max-width: 96rem) {
         .ed-opciones { flex-wrap: wrap; overflow: visible; }
-        .ed-grupo--vista {
-            flex: 1 1 100%;
-            margin-left: 0;
-            padding-top: .3rem;
-            border-left: 0;
-            border-top: 1px solid var(--color-borde);
-            justify-content: flex-end;
-        }
         .ed-app { height: calc(100dvh - 20rem); min-height: 20rem; }
         &.ed-pagina--amplio .ed-app { height: calc(100dvh - 14.3rem); }
     }
@@ -729,15 +725,24 @@ body:has(.ed-pagina) .principal,
     }
     @media (max-width: 78rem) {
         .ed-app { grid-template-columns: minmax(0, 1fr) 18rem; }
-        .ed-grupo--vista { gap: .35rem; }
         .ed-chk { font-size: .68rem; }
     }
     @media (max-width: 62rem) {
         .ed-app { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; }
         .ed-lienzo { min-height: 60vh; }
-        .ed-lateral { max-height: 26rem; }
+        .ed-lateral { height: 26rem; max-height: 55vh; }
         &.ed-pagina--amplio .ed-app { height: auto; }
         &.ed-pagina--amplio .ed-lienzo { min-height: 82vh; }
+
+        /* Barra compacta: reduce iconos y espacios para que «Insertar» quepa
+           en la misma fila el mayor tiempo posible. */
+        .ed-opciones { gap: 0; }
+        .ed-grupo { gap: 0.08rem; padding: 0.1rem 0.24rem; }
+        .ed-grupo--rotulo { padding-top: 0.95rem; }
+        .ed-grupo__rotulo { left: 0.3rem; font-size: 0.54rem; }
+        .ed-herr { width: 1.82rem; height: 1.82rem; }
+        .ed-herr .material-symbols-outlined { font-size: 1.08rem; }
+        .ed-sep-v { margin: 0 0.08rem; }
     }
     @media (max-width: 48rem) {
         .ed-nombre { width: 100%; }
