@@ -44,6 +44,7 @@ $router->get('/',           'views/inicio.php');
 $router->get('/login',      'views/login.php');
 $router->post('/login',     'views/login.php');
 $router->get('/logout',     'views/logout.php');
+$router->get('/s',          'views/publico/sheetflow.php');
 
 // Registro de nuevos administradores. Cerrado por defecto:
 // requiere la variable de entorno REGISTRO_ABIERTO=1.
@@ -138,6 +139,7 @@ $router->post('/admin/editor/api/guardar',  'views/admin/editor/api/guardar.php'
 $router->post('/admin/editor/api/imagen',   'views/admin/editor/api/imagen.php',  'soloAdmin');
 $router->post('/admin/editor/api/pdf',      'views/admin/editor/api/pdf.php',     'soloAdmin');
 $router->post('/admin/editor/api/tabla',    'views/admin/editor/api/tabla.php',   'soloAdmin');
+$router->get('/admin/editor/api/archivo-imagenes', 'views/admin/editor/api/archivo-imagenes.php', 'soloAdmin');
 
 // Herramientas personales — SheetFlow (tablas compartidas).
 $router->get('/admin/sheetflow',            'views/admin/sheetflow/index.php',    'soloAdmin');
@@ -155,6 +157,9 @@ $router->post('/admin/sheetflow/api/imagen',  'views/admin/sheetflow/api/imagen.
 $router->get('/admin/sheetflow/api/version',  'views/admin/sheetflow/api/version.php', 'soloAdmin');
 $router->get('/admin/sheetflow/api/datos',    'views/admin/sheetflow/api/datos.php',   'soloAdmin');
 $router->post('/admin/sheetflow/api/externo', 'views/admin/sheetflow/api/externo.php', 'soloAdmin');
+$router->post('/admin/sheetflow/api/pivote',  'views/admin/sheetflow/api/pivote.php',  'soloAdmin');
+$router->post('/admin/sheetflow/api/versiones', 'views/admin/sheetflow/api/versiones.php', 'soloAdmin');
+$router->post('/admin/sheetflow/api/compartir', 'views/admin/sheetflow/api/compartir.php', 'soloAdmin');
 
 // Herramientas personales — Archivo (carpetas virtuales con documentos subidos).
 $router->get('/admin/archivo',                 'views/admin/archivo/index.php',     'soloAdmin');

@@ -64,7 +64,7 @@ ejecutar "php descuentos en PDF" php pruebas/probar_descuento_pdf.php
 ejecutar "php mapa de ventas" php pruebas/php/mapa_ventas.php
 
 echo "==> Navegador (flujos completos)"
-for t in probar_etapa2 probar_etapa3 probar_etapa4 probar_etapa5 probar_etapa7 probar_etapa9 probar_etapa10 probar_etapa12 probar_campana probar_devoluciones probar_operacion probar_etapa13 probar_compras probar_catalogo probar_compra_catalogo probar_catalogo_proveedor probar_reportes probar_ronda probar_ronda2 probar_categorias probar_herramientas probar_permisos probar_categorias_gasto probar_proveedor_gasto probar_duplicados probar_gastos_masivos probar_calendario probar_ver_contrasena probar_csrf probar_mapa_ventas; do
+for t in probar_etapa2 probar_etapa3 probar_etapa4 probar_etapa5 probar_etapa7 probar_etapa9 probar_etapa10 probar_etapa12 probar_campana probar_devoluciones probar_operacion probar_etapa13 probar_compras probar_catalogo probar_compra_catalogo probar_catalogo_proveedor probar_reportes probar_ronda probar_ronda2 probar_categorias probar_herramientas probar_sheetflow_celdas probar_permisos probar_categorias_gasto probar_proveedor_gasto probar_duplicados probar_gastos_masivos probar_calendario probar_ver_contrasena probar_csrf probar_mapa_ventas; do
     ejecutar "$t" node pruebas/$t.mjs
 done
 

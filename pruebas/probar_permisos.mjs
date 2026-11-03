@@ -23,7 +23,7 @@ const verifica = (n, c, d = '') => { c ? ok++ : mal++; if (!c) console.log('  âœ
 
 const fuente = readFileSync(join(RAIZ, 'index.php'), 'utf8');
 const rutas = [...fuente.matchAll(/\$router->(get|post)\('([^']+)'/g)].map((m) => ({ metodo: m[1].toUpperCase(), ruta: m[2] }));
-const publicas = new Set(['/', '/login', '/registro', '/logout']);
+const publicas = new Set(['/', '/login', '/registro', '/logout', '/s']);
 const protegidas = rutas.filter((r) => !publicas.has(r.ruta));
 console.log(`Rutas declaradas: ${rutas.length} (${protegidas.length} protegidas)`);
 

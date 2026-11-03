@@ -34,6 +34,33 @@ if (strlen($crudo) > Sheetflow::MAX_BYTES) {
 }
 
 $limpio = Sheetflow::refrescarExternos(json_decode($crudo, true));
+$jsonNuevo = json_encode($limpio, JSON_UNESCAPED_UNICODE);
+
+// Guarda una versión de la tabla anterior (máx. 20 por hoja, sin duplicados).
+$previo = (string) $hoja->datos;
+if ($previo !== '' && $previo !== $jsonNuevo) {
+    try {
+        $db = \Model\SheetflowHoja::conexion();
+        $hash = md5($previo);
+        $existe = $db->prepare('SELECT id FROM sheetflow_versiones WHERE hoja_id = ? AND MD5(datos) = ? LIMIT 1');
+        $idHoja = (int) $hoja->id;
+        $existe->bind_param('is', $idHoja, $hash);
+        $existe->execute();
+        $yaEsta = (bool) $existe->get_result()->fetch_row();
+        $existe->close();
+        if (!$yaEsta) {
+            $ins = $db->prepare('INSERT INTO sheetflow_versiones (hoja_id, nombre, datos, creado_por) VALUES (?, ?, ?, ?)');
+            $nombreVersion = (string) $hoja->nombre;
+            $usuarioId = (int) ($_SESSION['id'] ?? 0);
+            $ins->bind_param('issi', $idHoja, $nombreVersion, $previo, $usuarioId);
+            $ins->execute();
+            $ins->close();
+            $db->query("DELETE FROM sheetflow_versiones WHERE hoja_id = $idHoja AND id NOT IN (SELECT id FROM (SELECT id FROM sheetflow_versiones WHERE hoja_id = $idHoja ORDER BY id DESC LIMIT 20) t)");
+        }
+    } catch (\Throwable $e) {
+        // Si la migración de versiones no está aplicada, guardar la tabla sigue funcionando.
+    }
+}
 
 $nueva = new \Model\SheetflowHoja([
     'id'           => $hoja->id,
@@ -42,7 +69,7 @@ $nueva = new \Model\SheetflowHoja([
     'nombre'       => $_POST['nombre'] ?? $hoja->nombre,
     'fecha'        => $_POST['fecha'] ?? $hoja->fecha,
     'departamento' => $_POST['departamento'] ?? $hoja->departamento,
-    'datos'        => json_encode($limpio, JSON_UNESCAPED_UNICODE),
+    'datos'        => $jsonNuevo,
 ]);
 
 if ($alertas = $nueva->validar()) {

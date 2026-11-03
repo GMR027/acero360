@@ -59,6 +59,7 @@
     var GRID_PASO = 20;
     var CUADRICULA = true;
     var SNAP = true;
+    var GUIAS_SNAP = true;
 
     var FONDO = {
         color: C.fondo_color || '#ffffff',
@@ -481,7 +482,7 @@
             mundo.x = Math.round(mundo.x / GRID_PASO) * GRID_PASO;
             mundo.y = Math.round(mundo.y / GRID_PASO) * GRID_PASO;
         }
-        if (SNAP && guiasOn() && guias.length) {
+        if (GUIAS_SNAP && guiasOn() && guias.length) {
             var b = caja(n);
             var tol = 7 / k;
             var mejorX = null, distX = tol, mejorY = null, distY = tol;
@@ -1032,6 +1033,126 @@
         return { cw: cw, rh: rh, W: suma(cw), H: suma(rh) };
     }
 
+    // --- Formato de tabla: helpers compartidos por el render del Editor ---
+    function fmtDeCelda(t, r, c) {
+        var m = t.getAttr('celdasFmt') || {};
+        return m[r + ',' + c] || null;
+    }
+    function mergeDeEditor(t, r, c) {
+        var ms = t.getAttr('merges') || [];
+        for (var i = 0; i < ms.length; i++) {
+            var m = ms[i];
+            if (r >= m.r0 && r <= m.r1 && c >= m.c0 && c <= m.c1) return m;
+        }
+        return null;
+    }
+
+    function alinearKonva(v) {
+        return v === 'derecha' ? 'right' : v === 'centro' ? 'center' : 'left';
+    }
+
+    /** Texto legible (negro o blanco) sobre un color de fondo. */
+    function contrasteTexto(hex) {
+        var m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+        if (!m) return '#111827';
+        var n = parseInt(m[1], 16);
+        var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+        return (r * 0.299 + g * 0.587 + b * 0.114) > 160 ? '#111827' : '#ffffff';
+    }
+
+    function parseBorde(valor) {
+        if (!valor || valor === 'n') return null;
+        var p = String(valor).split('|');
+        return {
+            ancho: Math.max(0.5, parseFloat(p[0]) || 1),
+            estilo: p[1] || 'solid',
+            color: p[2] || '#94a3b8'
+        };
+    }
+
+    function lineaBorde(t, x1, y1, x2, y2, b) {
+        if (!b) return;
+        var dash = b.estilo === 'dashed' ? [4, 3] : b.estilo === 'dotted' ? [1, 2] : null;
+        if (b.estilo === 'double') {
+            var dx = x1 === x2 ? 1.2 : 0, dy = y1 === y2 ? 1.2 : 0;
+            t.add(new Konva.Line({ points: [x1 - dx, y1 - dy, x2 - dx, y2 - dy], stroke: b.color, strokeWidth: 1, listening: false }));
+            t.add(new Konva.Line({ points: [x1 + dx, y1 + dy, x2 + dx, y2 + dy], stroke: b.color, strokeWidth: 1, listening: false }));
+            return;
+        }
+        t.add(new Konva.Line({
+            points: [x1, y1, x2, y2], stroke: b.color, strokeWidth: b.ancho,
+            dash: dash || undefined, lineCap: b.estilo === 'dotted' ? 'round' : 'butt',
+            listening: false
+        }));
+    }
+
+    function valoresSparkEditor(expr, celdas) {
+        var vals = [], m;
+        expr = String(expr || '').trim();
+        if ((m = /^([A-Za-z]{1,2})(\d+)(?::([A-Za-z]{1,2})(\d+))?$/.exec(expr))) {
+            var c0 = indiceColEditor(m[1]), r0 = Math.max(0, parseInt(m[2], 10) - 2);
+            var c1 = m[3] ? indiceColEditor(m[3]) : c0, r1 = m[4] ? Math.max(0, parseInt(m[4], 10) - 2) : r0;
+            for (var r = Math.min(r0, r1); r <= Math.max(r0, r1); r++) {
+                for (var c = Math.min(c0, c1); c <= Math.max(c0, c1); c++) {
+                    var v = celdas[r] ? celdas[r][c] : '';
+                    var n = parseFloat(String(v).replace(/[,$%\s]/g, ''));
+                    if (isFinite(n)) vals.push(n);
+                }
+            }
+        } else {
+            expr.split(/[\s,;]+/).forEach(function (x) {
+                var n = parseFloat(String(x).replace(/[,$%\s]/g, ''));
+                if (isFinite(n)) vals.push(n);
+            });
+        }
+        return vals;
+    }
+    function indiceColEditor(letras) {
+        var n = 0;
+        letras = String(letras).toUpperCase();
+        for (var i = 0; i < letras.length; i++) n = n * 26 + letras.charCodeAt(i) - 64;
+        return Math.max(0, n - 1);
+    }
+    function dibujarSpark(t, f, left, top, ancho, alto, valor, celdas) {
+        var vals = valoresSparkEditor(f.spark, celdas);
+        if (!vals.length) return;
+        var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals), rango = max - min || 1;
+        var pad = 3, w = Math.max(1, ancho - pad * 2), h = Math.max(1, alto - pad * 2);
+        var color = /^#[0-9a-f]{6}$/i.test(f.sparkColor || '') ? f.sparkColor : '#2563eb';
+        t.add(new Konva.Line({ points: [left + pad, top + alto - pad, left + ancho - pad, top + alto - pad], stroke: '#e2e8f0', strokeWidth: 1, listening: false }));
+        if (f.sparkTipo === 'barras') {
+            var bw = Math.max(1, w / vals.length * 0.8);
+            vals.forEach(function (v, i) {
+                var bh = (v - min) / rango * h;
+                t.add(new Konva.Rect({
+                    x: left + pad + w / vals.length * i + (w / vals.length - bw) / 2,
+                    y: top + alto - pad - bh, width: bw, height: Math.max(1, bh),
+                    fill: color, listening: false
+                }));
+            });
+        } else {
+            var pts = [];
+            vals.forEach(function (v, i) {
+                var x = left + pad + (vals.length === 1 ? w / 2 : w * i / (vals.length - 1));
+                var y = top + alto - pad - (v - min) / rango * h;
+                pts.push(x, y);
+            });
+            t.add(new Konva.Line({ points: pts, stroke: color, strokeWidth: 2, lineJoin: 'round', lineCap: 'round', listening: false }));
+        }
+    }
+    function dibujarBarra(t, f, left, top, ancho, alto, valor) {
+        var n = parseFloat(String(valor).replace(/[,$%\s]/g, ''));
+        var pct = isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+        var color = /^#[0-9a-f]{6}$/i.test(f.barColor || '') ? f.barColor : '#2563eb';
+        var pad = 5, w = Math.max(4, ancho - pad * 2), h = Math.max(4, Math.min(8, alto - 8));
+        t.add(new Konva.Rect({ x: left + pad, y: top + (alto - h) / 2, width: w, height: h, fill: '#e2e8f0', cornerRadius: h / 2, listening: false }));
+        if (pct > 0) t.add(new Konva.Rect({ x: left + pad, y: top + (alto - h) / 2, width: w * pct / 100, height: h, fill: color, cornerRadius: h / 2, listening: false }));
+        t.add(new Konva.Text({
+            x: left + pad, y: top, width: Math.max(4, ancho - pad * 2), height: alto,
+            text: String(valor), fontSize: 9, fontFamily: 'Arial', fill: '#334155',
+            align: 'center', verticalAlign: 'bottom', listening: false
+        }));
+    }
     function dibujarTabla(t) {
         var filas = t.getAttr('filas') || 3;
         var cols = t.getAttr('columnas') || 3;
@@ -1045,36 +1166,116 @@
         t.width(W); t.height(H);
         t.destroyChildren();
 
-        t.add(new Konva.Rect({ x: 0, y: 0, width: W, height: H, fill: t.getAttr('fondo') || '#ffffff', listening: true }));
-        if (t.getAttr('encabezado')) {
-            t.add(new Konva.Rect({ x: 0, y: 0, width: W, height: rh[0], fill: t.getAttr('hfill') || '#dbeafe', listening: false }));
-        }
-        var x = 0, y = 0, i, j;
-        for (i = 0; i <= cols; i++) {
-            var linea = new Konva.Line({ points: [x, 0, x, H], stroke: t.getAttr('borde') || '#94a3b8', strokeWidth: 1, listening: false });
-            t.add(linea);
-            x += cw[i] || 0;
-        }
-        for (j = 0; j <= filas; j++) {
-            t.add(new Konva.Line({ points: [0, y, W, y], stroke: t.getAttr('borde') || '#94a3b8', strokeWidth: 1, listening: false }));
-            y += rh[j] || 0;
-        }
         var celdas = t.getAttr('celdas') || [];
-        var fs = t.getAttr('fontSize') || 14;
-        var tc = t.getAttr('textoColor') || '#111827';
+        var alinear = t.getAttr('alinear') || [];
+        var encabezado = !!t.getAttr('encabezado');
+        var fondo = t.getAttr('fondo') || '#ffffff';
+        var hfill = t.getAttr('hfill') || '#dbeafe';
+        var htexto = t.getAttr('htexto') || '#ffffff';
+        var textoBase = t.getAttr('textoColor') || '#111827';
+        var fsBase = t.getAttr('fontSize') || 14;
+        var colorBorde = t.getAttr('borde') || '#94a3b8';
+        var conCuadricula = t.getAttr('bordes') !== false;
+        var zebra = !!t.getAttr('zebra');
+        var i, j;
+
+        // Fondo general de la tabla.
+        t.add(new Konva.Rect({ x: 0, y: 0, width: W, height: H, fill: fondo, listening: true }));
+
+        // 1) Fondos de celda (debajo de la cuadrícula).
         var top = 0;
         for (j = 0; j < filas; j++) {
             var left = 0;
             for (i = 0; i < cols; i++) {
-                var valor = (celdas[j] && celdas[j][i] != null) ? celdas[j][i] : '';
-                t.add(new Konva.Text({
-                    x: left + 6, y: top + (rh[j] - fs * 1.2) / 2,
-                    width: Math.max(4, cw[i] - 12), height: fs * 1.4,
-                    text: valor, fontSize: fs, fontFamily: 'Arial',
-                    fill: tc, align: 'left', verticalAlign: 'middle',
-                    wrap: 'none', ellipsis: true, listening: false
-                }));
+                var f = fmtDeCelda(t, j, i) || {};
+                var esEnc = encabezado && j === 0;
+                var bg = f.bg || (esEnc ? hfill : (zebra && j > 0 && (j - 1) % 2 === 1 ? '#f1f5f9' : null));
+                if (bg) t.add(new Konva.Rect({ x: left, y: top, width: cw[i], height: rh[j], fill: bg, listening: false }));
                 left += cw[i];
+            }
+            top += rh[j];
+        }
+
+        // 2) Cuadrícula base.
+        var x = 0, y = 0;
+        if (conCuadricula) {
+            for (i = 0; i <= cols; i++) {
+                t.add(new Konva.Line({ points: [x, 0, x, H], stroke: colorBorde, strokeWidth: 1, listening: false }));
+                x += cw[i] || 0;
+            }
+            for (j = 0; j <= filas; j++) {
+                t.add(new Konva.Line({ points: [0, y, W, y], stroke: colorBorde, strokeWidth: 1, listening: false }));
+                y += rh[j] || 0;
+            }
+        }
+
+        // 3) Texto, imágenes y bordes propios de cada celda.
+        top = 0;
+        for (j = 0; j < filas; j++) {
+            var left2 = 0;
+            for (i = 0; i < cols; i++) {
+                var mg = mergeDeEditor(t, j, i);
+                if (mg && (mg.r0 !== j || mg.c0 !== i)) { left2 += cw[i]; continue; }
+                var mw = mg ? suma(cw.slice(mg.c0, mg.c1 + 1)) : cw[i];
+                var mh = mg ? suma(rh.slice(mg.r0, mg.r1 + 1)) : rh[j];
+                var f2 = fmtDeCelda(t, j, i) || {};
+                var esEnc2 = encabezado && j === 0;
+                var bg2 = f2.bg || (esEnc2 ? hfill : (zebra && j > 0 && (j - 1) % 2 === 1 ? '#f1f5f9' : null));
+                var left = left2;
+                var f = f2, bg = bg2;
+                if (mg) t.add(new Konva.Rect({ x: left, y: top, width: mw, height: mh, fill: bg || fondo, stroke: colorBorde, strokeWidth: 1, listening: false }));
+                var valor = (celdas[j] && celdas[j][i] != null) ? String(celdas[j][i]) : '';
+                var fs = Math.max(5, parseFloat(f.fs) || fsBase);
+                var color = f.tc || (f.bg ? contrasteTexto(f.bg) : (esEnc2 ? htexto : textoBase));
+                var estilo = [f.b ? 'bold' : '', f.i ? 'italic' : ''].filter(Boolean).join(' ');
+                var align = f.al ? alinearKonva(f.al) : alinearKonva(alinear[i]);
+
+                if (f.dbar) {
+                    var dbc = /^#[0-9a-f]{6}$/i.test(f.dbarColor || '') ? f.dbarColor : '#93c5fd';
+                    var dbp = Math.max(0, Math.min(100, parseFloat(f.dbar) || 0));
+                    t.add(new Konva.Rect({ x: left, y: top, width: mw * dbp / 100, height: mh, fill: dbc, opacity: 0.55, listening: false }));
+                }
+                if (f.im) {
+                    (function (src, cx, cy, ancho, alto, grupo) {
+                        cargarImagen(src).then(function (im) {
+                            if (!im || !grupo.getStage()) return;
+                            var k = Math.min((ancho - 6) / (im.width || 1), (alto - 6) / (im.height || 1));
+                            grupo.add(new Konva.Image({
+                                image: im, x: cx + (ancho - im.width * k) / 2, y: cy + (alto - im.height * k) / 2,
+                                width: im.width * k, height: im.height * k, listening: false
+                            }));
+                            capaContenido.batchDraw();
+                        });
+                    })(f.im, left, top, mw, mh, t);
+                } else if (f.spark) {
+                    dibujarSpark(t, f, left, top, mw, mh, valor, celdas);
+                } else if (f.bar) {
+                    dibujarBarra(t, f, left, top, mw, mh, valor);
+                } else if (valor !== '') {
+                    t.add(new Konva.Text({
+                        x: left + 5, y: top,
+                        width: Math.max(4, mw - 10), height: mh,
+                        text: valor, fontSize: fs, fontFamily: 'Arial',
+                        fontStyle: estilo || 'normal',
+                        textDecoration: (f.u || f.lk) ? 'underline' : '',
+                        fill: f.lk ? '#2563eb' : color, align: align, verticalAlign: 'middle',
+                        wrap: 'none', ellipsis: true, listening: false
+                    }));
+                }
+
+                // Bordes por lado de la celda (encima de la cuadrícula base).
+                var bTop = parseBorde(f.bt), bRight = parseBorde(f.br), bBottom = parseBorde(f.bb), bLeft = parseBorde(f.bl);
+                var sinBorde = function (lado) { return f[lado] === 'n'; };
+                if (sinBorde('bt')) t.add(new Konva.Line({ points: [left, top, left + mw, top], stroke: bg || fondo, strokeWidth: 2, listening: false }));
+                if (sinBorde('bb')) t.add(new Konva.Line({ points: [left, top + mh, left + mw, top + mh], stroke: bg || fondo, strokeWidth: 2, listening: false }));
+                if (sinBorde('bl')) t.add(new Konva.Line({ points: [left, top, left, top + mh], stroke: bg || fondo, strokeWidth: 2, listening: false }));
+                if (sinBorde('br')) t.add(new Konva.Line({ points: [left + mw, top, left + mw, top + mh], stroke: bg || fondo, strokeWidth: 2, listening: false }));
+                lineaBorde(t, left, top, left + mw, top, bTop);
+                lineaBorde(t, left + mw, top, left + mw, top + mh, bRight);
+                lineaBorde(t, left, top + mh, left + mw, top + mh, bBottom);
+                lineaBorde(t, left, top, left, top + mh, bLeft);
+
+                left2 += cw[i];
             }
             top += rh[j];
         }
@@ -1093,8 +1294,8 @@
             filas: filas, columnas: cols,
             colW: [110, 110, 110], rowH: [34, 34, 34],
             celdas: celdas, encabezado: true,
-            hfill: '#dbeafe', textoColor: '#111827', fondo: '#ffffff',
-            borde: '#94a3b8', fontSize: 14
+            hfill: '#dbeafe', htexto: '#111827', textoColor: '#111827', fondo: '#ffffff',
+            borde: '#94a3b8', fontSize: 14, celdasFmt: {}, alinear: [], bordes: true, zebra: false, merges: []
         });
         dibujarTabla(t);
         return t;
@@ -1143,6 +1344,8 @@
         var base = ultimoPunto || { x: 30, y: 40 };
         var x = Math.max(0, Math.min((C.ancho || p.anchoUtil) - p.anchoUtil, base.x - 20));
         var y = Math.max(0, Math.min((C.alto || alto) - Math.min(alto, 120), base.y - filaH));
+        meta = meta || {};
+        var estilo = meta.estilo || {};
 
         antes();
         var t = new Konva.Group({
@@ -1150,12 +1353,20 @@
             filas: filasN, columnas: p.cols,
             colW: p.colW, rowH: new Array(filasN).fill(filaH),
             celdas: p.matriz, encabezado: true,
-            hfill: '#dbeafe', textoColor: '#111827', fondo: '#ffffff',
+            hfill: estilo.enc || '#dbeafe', htexto: estilo.encTxt || '#111827',
+            textoColor: '#111827', fondo: '#ffffff',
             borde: '#94a3b8', fontSize: p.cols > 10 ? 9 : p.cols > 6 ? 10 : 12,
-            fuenteTipo: (meta && meta.tipo) || '',
-            fuenteId: (meta && meta.id) || 0,
-            fuenteNombre: (meta && meta.nombre) || '',
-            fuenteHash: (meta && meta.hash) || ''
+            celdasFmt: meta.fmt || {},
+            alinear: meta.alinear || [],
+            tipos: meta.tipos || [],
+            opciones: meta.opciones || [],
+            merges: meta.merges || [],
+            zebra: !!estilo.zebra,
+            bordes: estilo.bordes !== false,
+            fuenteTipo: meta.tipo || '',
+            fuenteId: meta.id || 0,
+            fuenteNombre: meta.nombre || '',
+            fuenteHash: meta.hash || ''
         });
         dibujarTabla(t);
         if (!agregarObjeto(t)) { t.destroy(); return null; }
@@ -1166,10 +1377,11 @@
         return p.matriz.length - 1;
     }
 
-    /** Actualiza una tabla vinculada conservando su posición, estilo y anchos si la estructura no cambió. */
-    function actualizarTablaVinculada(t, filas, anchos) {
+    /** Actualiza una tabla vinculada conservando su posición y anchos si la estructura no cambió. */
+    function actualizarTablaVinculada(t, filas, anchos, meta) {
         var p = prepararMatriz(filas, anchos);
         if (!p) return false;
+        meta = meta || {};
         var colsAntes = (t.getAttr('colW') || []).length;
         var filasAntes = (t.getAttr('rowH') || []).length;
         var colW = colsAntes === p.cols ? (t.getAttr('colW') || []).slice() : p.colW;
@@ -1181,6 +1393,17 @@
             colW: colW,
             rowH: rowH
         });
+        if (meta.fmt) t.setAttr('celdasFmt', meta.fmt);
+        if (meta.alinear) t.setAttr('alinear', meta.alinear);
+        if (meta.tipos) t.setAttr('tipos', meta.tipos);
+        if (meta.opciones) t.setAttr('opciones', meta.opciones);
+        if (meta.merges) t.setAttr('merges', meta.merges);
+        if (meta.estilo) {
+            t.setAttr('hfill', meta.estilo.enc || t.getAttr('hfill'));
+            t.setAttr('htexto', meta.estilo.encTxt || t.getAttr('htexto'));
+            t.setAttr('zebra', !!meta.estilo.zebra);
+            t.setAttr('bordes', meta.estilo.bordes !== false);
+        }
         dibujarTabla(t);
         return true;
     }
@@ -1210,7 +1433,10 @@
             if (!d.success) return false;
             var hash = d.hash || '';
             if (!forzar && hash && hash === (t.getAttr('fuenteHash') || '')) return false;
-            if (!actualizarTablaVinculada(t, d.filas, d.anchos)) return false;
+            if (!actualizarTablaVinculada(t, d.filas, d.anchos, {
+                estilo: d.estilo, fmt: d.fmt, alinear: d.alinear,
+                tipos: d.tipos, opciones: d.opciones, merges: d.merges
+            })) return false;
             t.setAttr('fuenteHash', hash);
             if (d.nombre) t.setAttr('fuenteNombre', d.nombre);
             return true;
@@ -1267,7 +1493,13 @@
                     tipo: d.fuenteTipo || origen,
                     id: d.fuenteId || id,
                     nombre: d.nombre || '',
-                    hash: d.hash || ''
+                    hash: d.hash || '',
+                    estilo: d.estilo,
+                    fmt: d.fmt,
+                    alinear: d.alinear,
+                    tipos: d.tipos,
+                    opciones: d.opciones,
+                    merges: d.merges
                 });
                 if (n === null) throw new Error('La tabla no tiene datos para insertar');
                 estado('Tabla vinculada insertada' + (d.nombre ? ': ' + d.nombre : '') + '. Se actualiza al abrir la lámina.');
@@ -1598,6 +1830,8 @@
     }
 
     function activar(nombreHerramienta) {
+        // La imagen se elige en un diálogo (equipo o Archivo); no es una herramienta de dibujo.
+        if (nombreHerramienta === 'imagen') { abrirModalImagen(null); return; }
         herramienta = nombreHerramienta;
         var esPaneo = herramienta === 'paneo';
         document.querySelectorAll('[data-herr]').forEach(function (b) {
@@ -1616,10 +1850,6 @@
             var c = capaDe(n);
             n.draggable((herramienta === 'select' || herramienta === 'multi') && c && !c.getAttr('locked'));
         });
-        if (nombreHerramienta === 'imagen') {
-            posNuevaImagen = { x: C.ancho / 2, y: C.alto / 2 };
-            archivoImg.click();
-        }
         if (herramienta !== 'select' && herramienta !== 'multi' && !esPaneo) deseleccionar();
     }
 
@@ -1691,8 +1921,7 @@
         if (!p) return;
 
         if (herramienta === 'imagen') {
-            posNuevaImagen = p;
-            archivoImg.click();
+            abrirModalImagen(p);
             return;
         }
 
@@ -1860,8 +2089,9 @@
         filaDash: $('ed-fila-dash'), dashL: $('ed-p-dash-l'), dashG: $('ed-p-dash-g'),
         tabla: $('ed-grupo-tabla'), filas: $('ed-p-filas'), columnas: $('ed-p-columnas'),
         colW: $('ed-p-col-w'), filaH: $('ed-p-fila-h'), encabezado: $('ed-p-encabezado'),
-        hfill: $('ed-p-hfill'), textoColor: $('ed-p-texto-color'),
-        fuente: $('ed-tabla-fuente'), fuenteNombre: $('ed-tabla-fuente-nombre'), tablaAyuda: $('ed-tabla-ayuda'),
+        hfill: $('ed-p-hfill'), htexto: $('ed-p-htexto'), textoColor: $('ed-p-texto-color'),
+        zebra: $('ed-p-zebra'), cuadricula: $('ed-p-cuadricula'),
+        tablaFuente: $('ed-tabla-fuente'), fuenteNombre: $('ed-tabla-fuente-nombre'), tablaAyuda: $('ed-tabla-ayuda'),
         pin: $('ed-grupo-pin'), numero: $('ed-p-numero'),
         medida: $('ed-grupo-medida'), unidad: $('ed-p-unidad'), longitud: $('ed-p-longitud'),
         filaCapa: $('ed-fila-capa'), capa: $('ed-p-capa'),
@@ -1917,7 +2147,7 @@
         mostrar(P.texto, !!n && n.getClassName() === 'Text');
         mostrar(P.tabla, !!n && !!n.getAttr('esTabla'));
         var vinculada = !!n && !!n.getAttr('esTabla') && !!n.getAttr('fuenteTipo');
-        mostrar(P.fuente, vinculada);
+        mostrar(P.tablaFuente, vinculada);
         mostrar(P.tablaAyuda, !vinculada);
         if (vinculada) {
             var tipoFuente = n.getAttr('fuenteTipo') === 'sheetflow' ? 'SheetFlow' : 'Inventario';
@@ -1991,7 +2221,10 @@
             P.filaH.value = Math.round((n.getAttr('rowH') || [34])[0]);
             P.encabezado.checked = !!n.getAttr('encabezado');
             P.hfill.value = colorHex(n.getAttr('hfill') || '#dbeafe');
+            P.htexto.value = colorHex(n.getAttr('htexto') || '#ffffff');
             P.textoColor.value = colorHex(n.getAttr('textoColor') || '#111827');
+            P.zebra.checked = !!n.getAttr('zebra');
+            P.cuadricula.checked = n.getAttr('bordes') !== false;
         }
         if (esPin) P.numero.value = n.getAttr('numero') || 1;
         if (esMedida) {
@@ -2168,8 +2401,17 @@
     P.hfill.addEventListener('change', function () {
         conTabla(function (t) { t.setAttr('hfill', P.hfill.value); });
     });
+    P.htexto.addEventListener('change', function () {
+        conTabla(function (t) { t.setAttr('htexto', P.htexto.value); });
+    });
     P.textoColor.addEventListener('change', function () {
         conTabla(function (t) { t.setAttr('textoColor', P.textoColor.value); });
+    });
+    P.zebra.addEventListener('change', function () {
+        conTabla(function (t) { t.setAttr('zebra', P.zebra.checked); });
+    });
+    P.cuadricula.addEventListener('change', function () {
+        conTabla(function (t) { t.setAttr('bordes', P.cuadricula.checked); });
     });
 
     $('ed-tabla-actualizar').addEventListener('click', function () {
@@ -2867,6 +3109,146 @@
     // ------------------------------------------------------------------
     // Imágenes
     // ------------------------------------------------------------------
+    function copiarArchivoImagen(archivoId, alTerminar) {
+        var fd = new FormData();
+        fd.append('id', C.id);
+        fd.append('archivo_id', archivoId);
+        estado('Preparando la imagen del Archivo…');
+        fetch(C.api.imagen, { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success) { estado(d.error || 'No se pudo insertar la imagen del Archivo', true); return; }
+                estado('');
+                alTerminar(d.src);
+            })
+            .catch(function () { estado('No se pudo insertar la imagen del Archivo', true); });
+    }
+
+    /** Diálogo para insertar una imagen desde el equipo o desde las carpetas de Archivo. */
+    function abrirModalImagen(p) {
+        posNuevaImagen = p || { x: C.ancho / 2, y: C.alto / 2 };
+
+        if (typeof abrirModal !== 'function') {
+            archivoImg.click();
+            return;
+        }
+
+        var cuerpo = document.createElement('div');
+        cuerpo.className = 'columna ed-img-selector';
+
+        var subir = document.createElement('button');
+        subir.type = 'button';
+        subir.className = 'btn btn--secundario btn--sm';
+        subir.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">upload</span> Subir desde el equipo';
+        subir.addEventListener('click', function () {
+            cerrarModal();
+            archivoImg.click();
+        });
+
+        var buscar = document.createElement('input');
+        buscar.type = 'search';
+        buscar.className = 'control';
+        buscar.placeholder = 'Buscar imagen en Archivo…';
+        buscar.autocomplete = 'off';
+
+        var aviso = document.createElement('p');
+        aviso.className = 'text-sm text-muted';
+        aviso.textContent = 'Cargando imágenes de Archivo…';
+
+        var lista = document.createElement('div');
+        lista.className = 'ed-img-lista';
+
+        cuerpo.appendChild(subir);
+        cuerpo.appendChild(buscar);
+        cuerpo.appendChild(aviso);
+        cuerpo.appendChild(lista);
+
+        var seleccion = 0;
+        var temporizador = null;
+
+        function marcarActiva(id) {
+            seleccion = id;
+            lista.querySelectorAll('.ed-img-opcion').forEach(function (b) {
+                b.classList.toggle('activa', +b.dataset.id === id);
+            });
+        }
+
+        function pintar(imagenes) {
+            lista.innerHTML = '';
+            if (!imagenes.length) {
+                aviso.textContent = 'No hay imágenes en Archivo que coincidan.';
+                return;
+            }
+            aviso.textContent = '';
+            var grupos = {}, orden = [];
+            imagenes.forEach(function (im) {
+                var carpeta = im.carpeta || 'Archivo';
+                if (!grupos[carpeta]) { grupos[carpeta] = []; orden.push(carpeta); }
+                grupos[carpeta].push(im);
+            });
+            orden.sort(function (a, b) { return a.localeCompare(b, 'es'); }).forEach(function (carpeta) {
+                var titulo = document.createElement('p');
+                titulo.className = 'ed-img-grupo';
+                titulo.textContent = carpeta;
+                var grid = document.createElement('div');
+                grid.className = 'ed-img-grid';
+                grupos[carpeta].forEach(function (im) {
+                    var boton = document.createElement('button');
+                    boton.type = 'button';
+                    boton.className = 'ed-img-opcion';
+                    boton.dataset.id = im.id;
+                    boton.title = im.nombre;
+                    var img = document.createElement('img');
+                    img.src = '/admin/archivo/miniatura?id=' + im.id;
+                    img.alt = '';
+                    img.loading = 'lazy';
+                    var nombre = document.createElement('span');
+                    nombre.textContent = im.nombre;
+                    boton.appendChild(img);
+                    boton.appendChild(nombre);
+                    boton.addEventListener('click', function () { marcarActiva(im.id); });
+                    grid.appendChild(boton);
+                });
+                lista.appendChild(titulo);
+                lista.appendChild(grid);
+            });
+            var ids = imagenes.map(function (i) { return i.id; });
+            if (ids.indexOf(seleccion) < 0) seleccion = imagenes[0].id;
+            marcarActiva(seleccion);
+        }
+
+        function cargar(q) {
+            aviso.textContent = 'Cargando imágenes de Archivo…';
+            lista.innerHTML = '';
+            fetch(C.api.archivoImagenes + '?q=' + encodeURIComponent(q || ''), { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) { pintar(d && d.success ? (d.imagenes || []) : []); })
+                .catch(function () { aviso.textContent = 'No se pudieron cargar las imágenes de Archivo.'; });
+        }
+
+        buscar.addEventListener('input', function () {
+            clearTimeout(temporizador);
+            temporizador = setTimeout(function () { cargar(buscar.value); }, 250);
+        });
+
+        abrirModal({
+            sobreTitulo: 'Editor',
+            titulo: 'Insertar imagen',
+            cuerpo: cuerpo,
+            textoConfirmar: 'Insertar',
+            alConfirmar: function () {
+                if (!seleccion) { estado('Elige una imagen', true); return; }
+                copiarArchivoImagen(seleccion, function (src) {
+                    insertarImagen(src, posNuevaImagen);
+                    posNuevaImagen = null;
+                });
+            }
+        });
+
+        cargar('');
+        setTimeout(function () { buscar.focus(); }, 30);
+    }
+
     function subirImagen(archivo, alTerminar) {
         var fd = new FormData();
         fd.append('id', C.id);
@@ -3011,7 +3393,7 @@
         redibujarFondo(); marcar();
     });
 
-    ['ed-cuadricula', 'ed-snap', 'ed-reglas-on', 'ed-guias-on'].forEach(function (id) {
+    ['ed-cuadricula', 'ed-snap', 'ed-reglas-on', 'ed-guias-on', 'ed-guias-snap'].forEach(function (id) {
         var el = $(id);
         if (!el) return;
         el.addEventListener('change', function () {
@@ -3019,6 +3401,7 @@
             if (id === 'ed-snap') SNAP = el.checked;
             if (id === 'ed-reglas-on') dibujarReglas();
             if (id === 'ed-guias-on') pintarGuias();
+            if (id === 'ed-guias-snap') GUIAS_SNAP = el.checked;
         });
     });
 

@@ -31,4 +31,14 @@ if ($accion === 'valores') {
     json_respuesta(['success' => true, 'valores' => DatosExternos::resolver($claves)]);
 }
 
+if ($accion === 'lista') {
+    $tipo = (string) ($_POST['tipo'] ?? '');
+    $params = json_decode((string) ($_POST['params'] ?? '{}'), true);
+    $lista = DatosExternos::lista($tipo, is_array($params) ? $params : []);
+    if (!$lista) {
+        json_respuesta(['success' => false, 'error' => 'No hay datos para esa lista.'], 422);
+    }
+    json_respuesta(['success' => true] + $lista);
+}
+
 json_respuesta(['success' => false, 'error' => 'Acción no válida'], 422);

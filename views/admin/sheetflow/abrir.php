@@ -25,6 +25,8 @@ $config = [
     'api'      => [
         'guardar' => '/admin/sheetflow/api/guardar',
         'externo' => '/admin/sheetflow/api/externo',
+        'versiones' => '/admin/sheetflow/api/versiones',
+        'compartir' => '/admin/sheetflow/api/compartir',
     ],
     'simbolos' => [],
 ];
@@ -32,6 +34,8 @@ $config = [
 $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
 $GLOBALS['scriptsPagina'][] = '/public/js/pantone.js?v=' . filemtime(__DIR__ . '/../../../public/js/pantone.js');
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/sheetflow.js?v=' . filemtime(__DIR__ . '/../../../public/vendor/herramientas/sheetflow.js');
+$GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/qrcode.min.js?v=' . filemtime(__DIR__ . '/../../../public/vendor/herramientas/qrcode.min.js');
+$GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/jsbarcode.min.js?v=' . filemtime(__DIR__ . '/../../../public/vendor/herramientas/jsbarcode.min.js');
 
 template('header', [
     'titulo'    => $hoja->nombre . ' · SheetFlow',
@@ -65,6 +69,12 @@ template('header', [
             <a href="/admin/sheetflow/ver?id=<?= (int) $hoja->id ?>" class="btn btn--texto">
                 <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver
             </a>
+            <button type="button" id="sf-versiones" class="btn btn--texto" title="Historial de versiones de esta tabla">
+                <span class="material-symbols-outlined" aria-hidden="true">history</span> Versiones
+            </button>
+            <button type="button" id="sf-compartir" class="btn btn--texto" title="Crear un enlace público de solo lectura">
+                <span class="material-symbols-outlined" aria-hidden="true">share</span> Compartir
+            </button>
             <a href="/admin/sheetflow" class="btn btn--texto">← Tablas</a>
         </div>
     </div>
@@ -108,6 +118,23 @@ template('header', [
             <button type="button" class="sf-b" data-alin="derecha" title="Alinear a la derecha"><i class="fa-solid fa-align-right"></i></button>
         </div>
         <div class="sf-grupo">
+            <span class="sf-etq">Celda</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-bar-poner" title="Dibuja una barra de progreso con el valor de la celda (0 a 100)"><i class="fa-solid fa-bars-progress"></i> Barra</button>
+            <button type="button" class="sf-b" id="sf-bar-quitar" title="Quita la barra de progreso"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="sf-b sf-b-txt" id="sf-spark-poner" title="Dibuja una minigráfica con los valores de un rango o una lista"><i class="fa-solid fa-chart-line"></i> Minigráfica…</button>
+            <button type="button" class="sf-b" id="sf-spark-quitar" title="Quita la minigráfica"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="sf-b" id="sf-nota-poner" title="Añade una nota a la celda elegida"><i class="fa-regular fa-comment-dots"></i></button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Reglas</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-regla" title="Colorea las celdas del rango elegido según su valor"><i class="fa-solid fa-wand-magic-sparkles"></i> Condicional…</button>
+            <button type="button" class="sf-b" id="sf-regla-quitar" title="Quita las reglas que tocan el rango elegido"><i class="fa-solid fa-eraser"></i></button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Análisis</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-grafica-poner" title="Crea una gráfica de barras, líneas o pastel a partir de un rango"><i class="fa-solid fa-chart-column"></i> Gráfica…</button>
+        </div>
+        <div class="sf-grupo">
             <span class="sf-etq">Bordes</span>
             <select id="sf-b-lado" title="Dónde poner el borde en las celdas elegidas">
                 <option value="todos">Todos</option><option value="exterior">Exterior</option><option value="arriba">Arriba</option><option value="abajo">Abajo</option>
@@ -132,6 +159,21 @@ template('header', [
             <button type="button" class="sf-b sf-b-txt" data-acc="col-izq" title="Insertar columna a la izquierda"><i class="fa-solid fa-arrow-left"></i> Izquierda</button>
             <button type="button" class="sf-b sf-b-txt" data-acc="col-der" title="Insertar columna a la derecha"><i class="fa-solid fa-arrow-right"></i> Derecha</button>
             <button type="button" class="sf-b sf-b-txt" data-acc="col-borrar" title="Eliminar las columnas elegidas"><i class="fa-solid fa-trash-can"></i> Eliminar</button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Combinar</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-combinar" title="Combina el rango elegido en una sola celda visible"><i class="fa-solid fa-object-group"></i> Combinar</button>
+            <button type="button" class="sf-b sf-b-txt" id="sf-separar" title="Separa las celdas combinadas del rango elegido"><i class="fa-solid fa-object-ungroup"></i> Separar</button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Enlace</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-lk-poner" title="Convierte el texto de la celda en un enlace"><i class="fa-solid fa-link"></i> Poner enlace…</button>
+            <button type="button" class="sf-b" id="sf-lk-quitar" title="Quita el enlace de las celdas elegidas"><i class="fa-solid fa-link-slash"></i></button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Códigos</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-qr-poner" title="Genera un código QR a partir del texto de la celda (o de una dirección que escribas)"><i class="fa-solid fa-qrcode"></i> QR…</button>
+            <button type="button" class="sf-b sf-b-txt" id="sf-barcode-poner" title="Genera un código de barras CODE128 a partir del texto de la celda"><i class="fa-solid fa-barcode"></i> Barras…</button>
         </div>
         <div class="sf-grupo">
             <span class="sf-etq">Imagen</span>
@@ -159,6 +201,21 @@ template('header', [
             <span class="sf-etq">Ordenar</span>
             <button type="button" class="sf-b sf-b-txt" data-acc="orden-asc" title="Ordenar A→Z / menor a mayor"><i class="fa-solid fa-arrow-down-a-z"></i> A→Z</button>
             <button type="button" class="sf-b sf-b-txt" data-acc="orden-desc" title="Ordenar Z→A / mayor a menor"><i class="fa-solid fa-arrow-down-z-a"></i> Z→A</button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Resumen</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-subtotales" title="Agrupa por una columna y agrega subtotales al final de la tabla">
+                <i class="fa-solid fa-layer-group"></i> Subtotales…
+            </button>
+            <button type="button" class="sf-b sf-b-txt" id="sf-pivote" title="Crea una tabla resumen (filas × columnas) en una hoja nueva">
+                <i class="fa-solid fa-table-cells"></i> Tabla dinámica…
+            </button>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Filtrar</span>
+            <input type="search" id="sf-filtro" class="sf-b" placeholder="Texto…" autocomplete="off" title="Muestra solo los renglones que contienen el texto (no borra datos)">
+            <label class="sf-chk" title="Busca solo en la columna elegida"><input type="checkbox" id="sf-filtro-col"> columna elegida</label>
+            <button type="button" class="sf-b" id="sf-filtro-limpiar" title="Quitar el filtro"><i class="fa-solid fa-filter-circle-xmark"></i></button>
         </div>
         <div class="sf-grupo">
             <span class="sf-etq">Fórmulas</span>
@@ -191,6 +248,13 @@ template('header', [
             <button type="button" class="sf-b sf-b-txt" id="sf-ext-quitar" title="Quita el vínculo de las celdas elegidas y deja el valor actual">
                 <i class="fa-solid fa-link-slash"></i> Quitar vínculo
             </button>
+            <span class="sf-etq" id="sf-ext-estado" title="Última actualización de los datos externos en este navegador"></span>
+        </div>
+        <div class="sf-grupo">
+            <span class="sf-etq">Listas</span>
+            <button type="button" class="sf-b sf-b-txt" id="sf-lista-insertar" title="Trae una lista completa (inventario, clientes, ventas, compras, gastos o cotizaciones) desde la celda elegida">
+                <i class="fa-solid fa-table-list"></i> Insertar lista…
+            </button>
         </div>
     </div>
     <div class="sf-panel" data-panel="vista" hidden>
@@ -221,7 +285,8 @@ template('header', [
     <div class="sf-scroll"><table class="sf-grid" id="sf-grid"></table></div>
 </div>
 <div class="sf-estadistica" id="sf-estadistica" aria-live="polite"></div>
-<p class="text-muted text-sm sf-ayuda">Clic para elegir · arrastra o Mayús+flechas para varias celdas · Enter o doble clic para editar · Supr borra · Ctrl+C / Ctrl+V copian y pegan desde Excel · Fórmulas: <code>+ − * / ^ &amp;</code>, <code>SUMA PROMEDIO MIN MAX CONTAR REDONDEAR</code> y condicionales <code>SI Y O NO SI.ERROR SUMAR.SI CONTAR.SI PROMEDIO.SI</code>. Mientras escribes una fórmula puedes <strong>hacer clic o arrastrar celdas, columnas o renglones</strong> para insertar sus referencias, como en Excel. En <em>Datos › Datos externos</em> puedes traer totales del inventario o datos de un producto; esas celdas se actualizan al abrir, guardar o pulsar «Actualizar». Arrastra el borde de una letra de columna para cambiar su ancho. <strong>La fila 1 es el encabezado; la primera celda con datos es A2, B2…</strong></p>
+<div class="sf-graficas" id="sf-graficas"></div>
+<p class="text-muted text-sm sf-ayuda">Clic para elegir · arrastra o Mayús+flechas para varias celdas · Enter o doble clic para editar (en fecha abre calendario; en casilla y semáforo cambia el valor) · Supr borra · Ctrl+C / Ctrl+V copian y pegan desde Excel · Fórmulas <code>+ − * / ^ &amp;</code>, <code>SUMA PROMEDIO MIN MAX CONTAR REDONDEAR</code> y condicionales <code>SI Y O NO SI.ERROR SUMAR.SI CONTAR.SI PROMEDIO.SI</code>. En <em>Inicio</em> tienes formato condicional, barras, minigráficas, gráficas, notas y bordes; en <em>Insertar</em>, enlaces, códigos QR y de barras, imágenes, combinación de celdas y filas/columnas; en <em>Datos</em>, tipos de columna, filtros, subtotales, tabla dinámica y datos externos de inventario, clientes, ventas, compras, gastos, cotizaciones, entregas y fiscal. Arriba, <em>Versiones</em> guarda el historial y <em>Compartir</em> crea un enlace de solo lectura. <strong>La fila 1 es el encabezado; la primera celda con datos es A2, B2…</strong></p>
 
     <div class="card sf-usos">
         <h3><span class="material-symbols-outlined" aria-hidden="true">share</span> Usar esta tabla en el Redactor</h3>

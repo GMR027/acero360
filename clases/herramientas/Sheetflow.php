@@ -94,7 +94,48 @@ class Sheetflow
             $clave = (string)$v;
             if (DatosExternos::esClave($clave)) $refs[$r . ',' . $c] = $clave;
         }
-        return ['cols' => $cols, 'rows' => $rows, 'calc' => (object)$calc, 'tot' => (object)$tot, 'estilo' => $estilo, 'fmt' => (object)$fmt, 'refs' => (object)$refs];
+        /* Reglas de formato condicional por rango. */
+        $reglas = [];
+        foreach (array_slice((array)($d['reglas'] ?? []), 0, 100) as $r) {
+            $r = is_array($r) ? $r : [];
+            $tipo = in_array($r['tipo'] ?? '', ['mayor', 'menor', 'entre', 'contiene', 'igual', 'vacio', 'no_vacio', 'escala', 'barras'], true) ? $r['tipo'] : '';
+            if ($tipo === '') continue;
+            $r0 = max(0, min($nr - 1, (int)($r['r0'] ?? 0)));
+            $r1 = max($r0, min($nr - 1, (int)($r['r1'] ?? $r0)));
+            $c0 = max(0, min($nc - 1, (int)($r['c0'] ?? 0)));
+            $c1 = max($c0, min($nc - 1, (int)($r['c1'] ?? $c0)));
+            $regla = ['tipo' => $tipo, 'r0' => $r0, 'r1' => $r1, 'c0' => $c0, 'c1' => $c1];
+            foreach (['v1', 'v2'] as $k) {
+                if (isset($r[$k])) $regla[$k] = mb_substr((string)$r[$k], 0, 60);
+            }
+            foreach (['color', 'color2'] as $k) {
+                if (isset($r[$k]) && is_string($r[$k]) && preg_match('/^#[0-9a-fA-F]{6}$/', $r[$k])) $regla[$k] = strtolower($r[$k]);
+            }
+            $regla['fmt'] = self::limpiarFmt($r['fmt'] ?? []);
+            $reglas[] = $regla;
+        }
+        $graficas = [];
+        foreach (array_slice((array)($d['graficas'] ?? []), 0, 20) as $g) {
+            $g = is_array($g) ? $g : [];
+            $rango = trim((string)($g['rango'] ?? ''));
+            if (!preg_match('/^[A-Za-z]{1,2}\d+(?::[A-Za-z]{1,2}\d+)?$/', $rango)) continue;
+            $graficas[] = [
+                'titulo' => mb_substr(trim(preg_replace('/[\x00-\x1f]/u', ' ', (string)($g['titulo'] ?? ''))), 0, 80),
+                'rango'  => $rango,
+                'tipo'   => in_array($g['tipo'] ?? '', ['barras', 'linea', 'pastel'], true) ? $g['tipo'] : 'barras',
+            ];
+        }
+        $merges = [];
+        foreach (array_slice((array)($d['merges'] ?? []), 0, 200) as $mg) {
+            $mg = is_array($mg) ? $mg : [];
+            $r0 = max(0, min($nr - 1, (int)($mg['r0'] ?? 0)));
+            $r1 = max(0, min($nr - 1, (int)($mg['r1'] ?? 0)));
+            $c0 = max(0, min($nc - 1, (int)($mg['c0'] ?? 0)));
+            $c1 = max(0, min($nc - 1, (int)($mg['c1'] ?? 0)));
+            if ($r1 <= $r0 && $c1 <= $c0) continue;
+            $merges[] = ['r0' => min($r0, $r1), 'c0' => min($c0, $c1), 'r1' => max($r0, $r1), 'c1' => max($c0, $c1)];
+        }
+        return ['cols' => $cols, 'rows' => $rows, 'calc' => (object)$calc, 'tot' => (object)$tot, 'estilo' => $estilo, 'fmt' => (object)$fmt, 'refs' => (object)$refs, 'reglas' => $reglas, 'graficas' => $graficas, 'merges' => $merges];
     }
 
     public const BORDES = ['bt' => 'top', 'br' => 'right', 'bb' => 'bottom', 'bl' => 'left'];
@@ -114,7 +155,28 @@ class Sheetflow
             if ($v === 'n') $o[$k] = 'n';
             elseif (preg_match('/^([1-6])\|(solid|dashed|dotted|double)\|(#[0-9a-fA-F]{6})$/', $v, $m)) $o[$k] = $m[1] . '|' . $m[2] . '|' . strtolower($m[3]);
         }
-        if (isset($f['im']) && is_string($f['im']) && preg_match('#^/uploads/vplan/[a-f0-9]{32}\.(png|jpg)$#', $f['im'])) $o['im'] = $f['im'];
+        if (isset($f['im']) && is_string($f['im']) && preg_match('#^/(?:public/)?uploads/vplan/[a-f0-9]{32}\.(png|jpg)$#', $f['im'])) {
+            $o['im'] = '/public/uploads/vplan/' . basename($f['im']);
+        }
+        // Enlaces, barras, notas y herramientas de celda (se validan aquí para que el JSON guardado sea seguro).
+        $lk = trim((string)($f['lk'] ?? ''));
+        if ($lk !== '' && mb_strlen($lk) <= 500 && preg_match('#^(https?://|mailto:|tel:|/)#i', $lk)) $o['lk'] = $lk;
+        if (!empty($f['bar'])) $o['bar'] = 1;
+        if (isset($f['barColor']) && is_string($f['barColor']) && preg_match('/^#[0-9a-fA-F]{6}$/', $f['barColor'])) $o['barColor'] = strtolower($f['barColor']);
+        $nota = trim(preg_replace('/[\x00-\x1f]/u', ' ', (string)($f['nota'] ?? '')));
+        if ($nota !== '' && mb_strlen($nota) <= 300) $o['nota'] = $nota;
+        $qr = trim((string)($f['qr'] ?? ''));
+        if ($qr !== '' && mb_strlen($qr) <= 300) $o['qr'] = $qr;
+        $barcode = trim((string)($f['barcode'] ?? ''));
+        if ($barcode !== '' && mb_strlen($barcode) <= 300) $o['barcode'] = $barcode;
+        $spark = trim((string)($f['spark'] ?? ''));
+        if ($spark !== '' && mb_strlen($spark) <= 300 && preg_match('/^([A-Za-z]{1,2}\d+(?::[A-Za-z]{1,2}\d+)?|[-\d.,\s]+)$/', $spark)) $o['spark'] = $spark;
+        if (isset($f['sparkTipo']) && in_array($f['sparkTipo'], ['linea', 'barras'], true)) $o['sparkTipo'] = $f['sparkTipo'];
+        if (isset($f['sparkColor']) && is_string($f['sparkColor']) && preg_match('/^#[0-9a-fA-F]{6}$/', $f['sparkColor'])) $o['sparkColor'] = strtolower($f['sparkColor']);
+        $grafica = trim((string)($f['grafica'] ?? ''));
+        if ($grafica !== '' && mb_strlen($grafica) <= 300) $o['grafica'] = $grafica;
+        if (isset($f['adj']) && is_string($f['adj']) && mb_strlen($f['adj']) <= 500 && preg_match('#^/#', $f['adj'])) $o['adj'] = $f['adj'];
+        if (isset($f['firma']) && is_string($f['firma']) && preg_match('#^/uploads/[a-z0-9/_-]+\.(png|jpg)$#i', $f['firma'])) $o['firma'] = $f['firma'];
         return $o;
     }
 
@@ -136,6 +198,11 @@ class Sheetflow
         if (!empty($f['tc'])) $c .= 'color:' . $f['tc'] . ';';
         elseif (!empty($f['bg'])) $c .= 'color:' . self::contraste($f['bg']) . ';';
         if (!empty($f['bg'])) $c .= 'background-color:' . $f['bg'] . ';';
+        if (!empty($f['dbar'])) {
+            $dc = $f['dbarColor'] ?? '#93c5fd';
+            $p = max(0, min(100, (float) $f['dbar']));
+            $c .= 'background-image:linear-gradient(to right,' . $dc . ' 0%,' . $dc . ' ' . $p . '%,transparent ' . $p . '%);';
+        }
         if (!empty($f['al'])) $c .= 'text-align:' . ['izquierda' => 'left', 'centro' => 'center', 'derecha' => 'right'][$f['al']] . ';';
         if (!$sinBordes) foreach (self::BORDES as $k => $lado) {
             if (!isset($f[$k])) continue;
@@ -250,7 +317,147 @@ class Sheetflow
             foreach ($cols as $c => $col) $totales[] = $col['tot'] !== '' && isset($tot[$c]) ? ($col['tot'] === 'cuenta' ? (string)$tot[$c] : self::formatear($tot[$c], $col['t'])) : '';
             $totales[0] = $totales[0] !== '' ? $totales[0] : 'Total';
         }
-        return ['columnas' => array_column($cols, 'n'), 'tipos' => array_column($cols, 't'), 'alinear' => array_column($cols, 'a'), 'filas' => $filas, 'totales' => $totales, 'estilo' => $d['estilo'], 'fmt' => $fmt, 'anchos' => array_column($cols, 'w'), 'opciones' => array_map(fn($c) => $c['op'] ?? [], $cols)];
+        return ['columnas' => array_column($cols, 'n'), 'tipos' => array_column($cols, 't'), 'alinear' => array_column($cols, 'a'), 'filas' => $filas, 'totales' => $totales, 'estilo' => $d['estilo'], 'fmt' => $fmt, 'reglas' => $d['reglas'] ?? [], 'reglasFmt' => self::reglasFmt($d), 'graficas' => $d['graficas'] ?? [], 'merges' => $d['merges'] ?? [], 'anchos' => array_column($cols, 'w'), 'opciones' => array_map(fn($c) => $c['op'] ?? [], $cols)];
+    }
+
+    /** Formato efectivo que aportan las reglas condicionales: "fila,col" => {bg, tc, dbar…} */
+    public static function reglasFmt(array $d): array
+    {
+        $reglas = (array)($d['reglas'] ?? []);
+        if (!$reglas) return [];
+
+        $minmax = [];
+        foreach ($reglas as $i => $r) {
+            if (!in_array($r['tipo'] ?? '', ['escala', 'barras'], true)) continue;
+            $min = null; $max = null;
+            for ($rr = $r['r0']; $rr <= $r['r1']; $rr++) {
+                for ($cc = $r['c0']; $cc <= $r['c1']; $cc++) {
+                    $v = self::numero(self::celda($d, $rr, $cc));
+                    if ($v === null) continue;
+                    if ($min === null || $v < $min) $min = $v;
+                    if ($max === null || $v > $max) $max = $v;
+                }
+            }
+            $minmax[$i] = [$min ?? 0.0, $max ?? 0.0];
+        }
+
+        $out = [];
+        foreach ($reglas as $i => $r) {
+            [$min, $max] = $minmax[$i] ?? [0.0, 0.0];
+            for ($rr = $r['r0']; $rr <= $r['r1']; $rr++) {
+                for ($cc = $r['c0']; $cc <= $r['c1']; $cc++) {
+                    $texto = self::celda($d, $rr, $cc);
+                    if (!self::reglaCumple($r, $texto, $min, $max)) continue;
+                    $f = [];
+                    $n = self::numero($texto);
+                    if ($r['tipo'] === 'escala') {
+                        $p = $max > $min && $n !== null ? max(0.0, min(1.0, ($n - $min) / ($max - $min))) : 0.0;
+                        $f['bg'] = self::mezclaColor($r['color'] ?? '#fee2e2', $r['color2'] ?? '#bbf7d0', $p);
+                        $f['tc'] = self::contraste($f['bg']);
+                    } elseif ($r['tipo'] === 'barras') {
+                        $p = $max > $min && $n !== null ? max(0.0, min(100.0, ($n - $min) / ($max - $min) * 100)) : 0.0;
+                        $f['dbar'] = round($p, 1);
+                        $f['dbarColor'] = $r['color'] ?? '#93c5fd';
+                    }
+                    if (!empty($r['fmt'])) $f = array_merge($f, $r['fmt']);
+                    if ($f) $out["$rr,$cc"] = array_merge($out["$rr,$cc"] ?? [], $f);
+                }
+            }
+        }
+        return $out;
+    }
+
+    private static function reglaCumple(array $r, string $texto, float $min, float $max): bool
+    {
+        $n = self::numero($texto);
+        $v1 = (string)($r['v1'] ?? '');
+        $v2 = (string)($r['v2'] ?? '');
+        $n1 = self::numero($v1);
+        $n2 = self::numero($v2);
+
+        return match ($r['tipo']) {
+            'mayor'    => $n !== null && $n1 !== null && $n > $n1,
+            'menor'    => $n !== null && $n1 !== null && $n < $n1,
+            'entre'    => $n !== null && $n1 !== null && $n2 !== null && $n >= min($n1, $n2) && $n <= max($n1, $n2),
+            'contiene' => $v1 !== '' && mb_stripos($texto, $v1) !== false,
+            'igual'    => $n !== null && $n1 !== null ? $n == $n1 : trim($texto) === trim($v1),
+            'vacio'    => trim($texto) === '',
+            'no_vacio' => trim($texto) !== '',
+            'escala', 'barras' => $n !== null,
+            default    => false,
+        };
+    }
+
+    private static function mezclaColor(string $a, string $b, float $p): string
+    {
+        $p = max(0.0, min(1.0, $p));
+        $ca = array_map('hexdec', str_split(ltrim($a, '#'), 2));
+        $cb = array_map('hexdec', str_split(ltrim($b, '#'), 2));
+        $out = '#';
+        for ($i = 0; $i < 3; $i++) {
+            $out .= str_pad(dechex((int) round($ca[$i] + ($cb[$i] - $ca[$i]) * $p)), 2, '0', STR_PAD_LEFT);
+        }
+        return $out;
+    }
+
+    /** Minigráfica (sparkline) de un rango A1 o de una lista de números separados por comas. */
+    public static function sparkSvg(string $expr, array $filas, int $w = 90, int $h = 28, string $color = '#2563eb', string $tipo = 'linea'): string
+    {
+        $vals = [];
+        $expr = trim($expr);
+        if (preg_match('/^([A-Za-z]{1,2})(\d+)(?::([A-Za-z]{1,2})(\d+))?$/', $expr, $m)) {
+            $c0 = self::indiceColumna($m[1]);
+            $r0 = max(0, (int) $m[2] - 2);
+            $c1 = isset($m[3]) && $m[3] !== '' ? self::indiceColumna($m[3]) : $c0;
+            $r1 = isset($m[4]) && $m[4] !== '' ? max(0, (int) $m[4] - 2) : $r0;
+            for ($r = min($r0, $r1); $r <= max($r0, $r1); $r++) {
+                for ($c = min($c0, $c1); $c <= max($c0, $c1); $c++) {
+                    $n = self::numero($filas[$r][$c] ?? '');
+                    if ($n !== null) $vals[] = $n;
+                }
+            }
+        } else {
+            foreach (preg_split('/[\s,;]+/', $expr) ?: [] as $x) {
+                $n = self::numero($x);
+                if ($n !== null) $vals[] = $n;
+            }
+        }
+        if (!$vals) return '';
+        $min = min($vals);
+        $max = max($vals);
+        $rango = $max - $min ?: 1;
+        $pad = 2;
+        $ancho = max(1, $w - $pad * 2);
+        $alto = max(1, $h - $pad * 2);
+        $col = preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : '#2563eb';
+        $svg = '<svg class="sf-spark" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" aria-hidden="true">';
+        $svg .= '<line x1="' . $pad . '" y1="' . ($h - $pad) . '" x2="' . ($w - $pad) . '" y2="' . ($h - $pad) . '" stroke="#e2e8f0" stroke-width="1"/>';
+        if ($tipo === 'barras') {
+            $n = count($vals);
+            $bw = max(1.0, $ancho / max(1, $n) * 0.8);
+            foreach ($vals as $i => $v) {
+                $bh = (($v - $min) / $rango) * $alto;
+                $x = $pad + ($ancho / max(1, $n)) * $i + (($ancho / max(1, $n)) - $bw) / 2;
+                $svg .= '<rect x="' . round($x, 2) . '" y="' . round($h - $pad - $bh, 2) . '" width="' . round($bw, 2) . '" height="' . round(max(1, $bh), 2) . '" fill="' . $col . '"/>';
+            }
+        } else {
+            $pts = [];
+            $n = count($vals);
+            foreach ($vals as $i => $v) {
+                $x = $pad + ($n === 1 ? $ancho / 2 : $ancho * $i / ($n - 1));
+                $y = $h - $pad - (($v - $min) / $rango) * $alto;
+                $pts[] = round($x, 2) . ',' . round($y, 2);
+            }
+            $svg .= '<polyline points="' . implode(' ', $pts) . '" fill="none" stroke="' . $col . '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+        }
+        return $svg . '</svg>';
+    }
+
+    private static function indiceColumna(string $letras): int
+    {
+        $n = 0;
+        foreach (str_split(strtoupper($letras)) as $ch) $n = $n * 26 + (ord($ch) - 64);
+        return max(0, $n - 1);
     }
 
     // ---------- Plantillas ----------
@@ -462,7 +669,9 @@ class Sheetflow
         $argb = fn($hex) => 'FF' . strtoupper(ltrim($hex, '#'));
         $est = ['solid' => 'thin', 'dashed' => 'dashed', 'dotted' => 'dotted', 'double' => 'double'];
         foreach ($d['cols'] as $c => $col) if ($col['w']) $hoja->getColumnDimension($Coord::stringFromColumnIndex($c + 1))->setAutoSize(false)->setWidth(round($col['w'] / 7, 1));
-        foreach ((array)$d['fmt'] as $k => $f) {
+        $fmtExcel = (array)$d['fmt'];
+        foreach (($m['reglasFmt'] ?? []) as $k => $f) $fmtExcel[$k] = array_merge($f, $fmtExcel[$k] ?? []);
+        foreach ($fmtExcel as $k => $f) {
             [$r, $c] = array_map('intval', explode(',', $k));
             if ($r >= count($m['filas'])) continue;
             $ref = $Coord::stringFromColumnIndex($c + 1) . ($r + 2);
@@ -500,7 +709,7 @@ class Sheetflow
     public static function imagenesDe($datos): array
     {
         $t = is_string($datos) ? $datos : json_encode($datos);
-        preg_match_all('#/uploads/vplan/([a-f0-9]{32}\.(?:png|jpg))#', str_replace('\\/', '/', (string)$t), $m);
+        preg_match_all('#/(?:public/)?uploads/vplan/([a-f0-9]{32}\.(?:png|jpg))#', str_replace('\\/', '/', (string)$t), $m);
         return array_values(array_unique($m[1]));
     }
 
@@ -510,6 +719,7 @@ class Sheetflow
         $db = SheetflowHoja::conexion();
         $n = $db->escape_string($nombre);
         foreach (["SELECT 1 FROM sheetflow_hojas WHERE id <> $excluirHoja AND datos LIKE '%$n%' LIMIT 1",
+                  "SELECT 1 FROM sheetflow_versiones WHERE datos LIKE '%$n%' LIMIT 1",
                   "SELECT 1 FROM redactor_documentos WHERE contenido LIKE '%$n%' LIMIT 1"] as $q) {
             $r = $db->query($q);
             if ($r && $r->num_rows) return true;
@@ -548,7 +758,7 @@ class Sheetflow
             if (!preg_match('/^[a-f0-9]{32}\.(png|jpg)$/', (string)$n)) continue;
             $tmp = tempnam(sys_get_temp_dir(), 'sfi');
             file_put_contents($tmp, (string)base64_decode((string)$b64, true));
-            if ($nuevo = Imagenes::guardarGrande($tmp, 2400)) $mapa['/uploads/vplan/' . $n] = '/uploads/vplan/' . $nuevo;
+            if ($nuevo = Imagenes::guardarGrande($tmp, 2400)) $mapa['/public/uploads/vplan/' . $n] = '/public/uploads/vplan/' . $nuevo;
             @unlink($tmp);
         }
         $json = strtr(json_encode($j['datos'], JSON_UNESCAPED_SLASHES), $mapa);
@@ -572,6 +782,17 @@ class Sheetflow
         $m = self::matriz($h);
         $e = $m['estilo'];
         $fmt = $m['fmt'];
+        foreach (($m['reglasFmt'] ?? []) as $k => $f) $fmt[$k] = array_merge($f, $fmt[$k] ?? []);
+        $mergeInicio = [];
+        $mergeCubierta = [];
+        foreach (($m['merges'] ?? []) as $mg) {
+            $mergeInicio[$mg['r0'] . ',' . $mg['c0']] = $mg;
+            for ($rr = $mg['r0']; $rr <= $mg['r1']; $rr++) {
+                for ($cc = $mg['c0']; $cc <= $mg['c1']; $cc++) {
+                    if ($rr !== $mg['r0'] || $cc !== $mg['c0']) $mergeCubierta["$rr,$cc"] = true;
+                }
+            }
+        }
         $red = !empty($op['redactor']);
         $esc = fn($t) => htmlspecialchars((string)$t, ENT_QUOTES, 'UTF-8');
         $alin = ['izquierda' => 'left', 'centro' => 'center', 'derecha' => 'right'];
@@ -597,9 +818,16 @@ class Sheetflow
         foreach ($m['filas'] as $r => $fila) {
             $o .= '<tr>';
             foreach ($fila as $c => $v) {
+                if (isset($mergeCubierta["$r,$c"])) continue;
+                $mg = $mergeInicio["$r,$c"] ?? null;
+                $span = $mg ? ' colspan="' . ($mg['c1'] - $mg['c0'] + 1) . '" rowspan="' . ($mg['r1'] - $mg['r0'] + 1) . '"' : '';
                 $f = $fmt["$r,$c"] ?? [];
                 $cero = $e['zebra'] && $r % 2 && empty($f['bg']) ? ';' . $bg . '#f1f5f9' : '';
-                $o .= '<td style="' . $borde . 'padding:3pt 6pt;text-align:' . $alin[$m['alinear'][$c]] . $cero . ';' . self::cssFmt($f) . '">' . $img($f) . ($v !== '' ? $esc($v) : ($red && !$img($f) ? '<br>' : '')) . '</td>';
+                $imgHtml = $img($f);
+                $contenido = !empty($f['spark'])
+                    ? self::sparkSvg((string)$f['spark'], $m['filas'], 90, 28, (string)($f['sparkColor'] ?? '#2563eb'), (string)($f['sparkTipo'] ?? 'linea'))
+                    : ($v !== '' ? $esc($v) : ($red && $imgHtml === '' ? '<br>' : ''));
+                $o .= '<td' . $span . ' style="' . $borde . 'padding:3pt 6pt;text-align:' . $alin[$m['alinear'][$c]] . $cero . ';' . self::cssFmt($f) . '">' . $imgHtml . $contenido . '</td>';
             }
             $o .= '</tr>';
         }
@@ -611,6 +839,21 @@ class Sheetflow
         return $o . '</tbody></table>';
     }
 
+    /** Gráficas guardadas en la hoja, como SVG (PDF y enlace público). */
+    public static function graficasHtml(SheetflowHoja $h): string
+    {
+        $graficas = (array) ($h->contenido()['graficas'] ?? []);
+        if (!$graficas) return '';
+        $m = self::matriz($h);
+        $esc = fn($t) => htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8');
+        $o = '';
+        foreach ($graficas as $g) {
+            $o .= '<div style="margin-top:12pt"><strong style="font-size:10pt">' . $esc((string) ($g['titulo'] ?? 'Gráfica')) . '</strong><br>'
+                . self::sparkSvg((string) $g['rango'], $m['filas'], 520, 180, '#2563eb', ($g['tipo'] ?? '') === 'linea' ? 'linea' : 'barras') . '</div>';
+        }
+        return $o;
+    }
+
     public static function pdf(SheetflowHoja $h): string
     {
         @ini_set('memory_limit', '512M');
@@ -618,7 +861,8 @@ class Sheetflow
         $esc = fn($t) => htmlspecialchars((string)$t, ENT_QUOTES, 'UTF-8');
         $css = '@page{margin:1.6cm}body{font-family:DejaVu Sans,Helvetica,sans-serif;font-size:' . ($ancha ? 8 : 10) . 'pt;color:#000}h1{font-size:15pt;margin:0 0 2pt}p.sub{margin:0 0 10pt;color:#555;font-size:9pt}tr{page-break-inside:avoid}thead{display:table-header-group}';
         $sub = formatear_fecha($h->fecha, 'd/m/Y') . ($h->departamento !== '' ? ' · ' . $h->departamento : '');
-        $html = '<html><head><meta charset="utf-8"><title>' . $esc($h->nombre) . '</title><style>' . $css . '</style></head><body><h1>' . $esc($h->nombre) . '</h1><p class="sub">' . $esc($sub) . '</p>' . self::html($h, 'sf-tabla', true) . '</body></html>';
+        $graficas = self::graficasHtml($h);
+        $html = '<html><head><meta charset="utf-8"><title>' . $esc($h->nombre) . '</title><style>' . $css . '</style></head><body><h1>' . $esc($h->nombre) . '</h1><p class="sub">' . $esc($sub) . '</p>' . self::html($h, 'sf-tabla', true) . $graficas . '</body></html>';
         $dompdf = Pdf::preparar($html, 'letter', $ancha ? 'landscape' : 'portrait', ['isRemoteEnabled' => false, 'chroot' => realpath(Imagenes::CARPETA_VPLAN) ?: Imagenes::CARPETA_VPLAN, 'defaultFont' => 'serif']);
         $dompdf->render();
         $canvas = $dompdf->getCanvas();

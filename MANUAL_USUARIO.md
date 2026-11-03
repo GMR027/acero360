@@ -205,7 +205,7 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 ### Ver pendientes y reportes
 
 1. «Resumen» muestra lo que falta recibir, las piezas por terminar, las facturas pendientes y lo que debes. «Compras y pedidos» filtra por proveedor, fechas, categoría, tipo, recepción, factura y pago.
-2. El expediente de cada proveedor (pestaña «Proveedores» → su nombre) reúne sus compras, recepciones, facturas, pagos y saldos. Los indicadores de arriba suman las compras nuevas, las entregas anteriores y los gastos ligados al proveedor; un gasto que ya pertenece a una compra no se cuenta dos veces.
+2. El expediente de cada proveedor (pestaña «Proveedores» → su nombre) reúne sus compras, recepciones, facturas, pagos y saldos.
 
 ### Corregir
 
@@ -213,7 +213,7 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 
 ### Historial anterior
 
-- Las «entregas anteriores» con foto que se registraban antes se muestran, como historial, en el expediente del proveedor que las tenga. También suman en «Comprado», «Pagado» y «Saldo pendiente», pero no en «Facturado» porque no tienen factura. Las compras nuevas se hacen con «Nueva compra».
+- Las «entregas anteriores» con foto que se registraban antes solo se muestran, como historial, en el expediente del proveedor que las tenga. Las compras nuevas se hacen con «Nueva compra».
 
 > **Consejos**
 > - El costo de cada compra queda guardado tal como se compró: si cambia el costo actual de un producto, las compras anteriores no se alteran.
@@ -268,10 +268,10 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 
 ### Eliminar un gasto (captura equivocada)
 
-- En el detalle del gasto, «Eliminar gasto» pide un motivo. El gasto **se borra junto con sus documentos** y deja de sumar en contabilidad, en el cierre del mes y en la estimación fiscal.
-- La copia queda **90 días en Ajustes → Papelera** por si necesitas restaurarla; después se borra definitivamente. Los archivos adjuntos no se restauran.
-- También puedes borrar varios desde la lista marcándolos y usando «Eliminar seleccionados».
-- En el filtro «Cancelados» sólo aparecen registros antiguos que quedaron marcados antes de este cambio; también se pueden eliminar desde la lista.
+1. En el detalle del gasto, «Eliminar gasto» pide un motivo. El gasto se borra junto con sus documentos y deja de sumar en contabilidad, en el cierre del mes y en la estimación fiscal.
+2. La copia queda 90 días en Ajustes → Papelera por si necesitas restaurarla; después se borra definitivamente. Los archivos adjuntos no se restauran.
+3. También puedes borrar varios desde la lista marcándolos y usando «Eliminar seleccionados».
+4. En el filtro «Cancelados» sólo aparecen registros antiguos que quedaron marcados antes de este cambio; también se pueden eliminar desde la lista.
 
 ### Que la plataforma lea la factura
 
@@ -299,7 +299,7 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 
 ### Facturar la venta
 
-1. En esa misma sección, llena los datos fiscales del receptor y el método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente», esos datos vienen precargados con los que trae el CFDI: revísalos.
+1. En «Facturación y cobro» llena los datos fiscales del receptor y el método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente», esos datos vienen precargados con los que trae el CFDI: revísalos.
 2. Adjunta el XML del CFDI (lo respalda y trae UUID y montos), el PDF o una foto. También puedes escribir el folio, el UUID y la fecha a mano.
 3. Si no tienes el archivo, marca «No tengo el archivo del CFDI: confirmo que la factura ya se emitió»: queda como confirmación manual, con quién y cuándo.
 4. Pulsa «Facturar y guardar»: la validación, los datos, el documento y la marca de facturada se guardan en un solo paso. Si falta algo obligatorio, no se factura y la pantalla te dice qué corregir.
@@ -307,11 +307,11 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 ### Si no se va a facturar
 
 1. Despliega «Otras opciones (sin facturar)» y pulsa «Marcar No se facturará»: la venta deja de aparecer como pendiente.
-2. Si después sí se factura, vuelve a esa sección y usa «Volver a pendiente» para capturarla.
+2. Si después sí se factura, vuelve a esta sección y usa «Volver a pendiente» para capturarla.
 
 ### Corregir una factura ya emitida
 
-La corrección no se hace en el formulario de facturación: registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
+- La corrección no se hace en este formulario: registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
 
 ### Pendientes de facturar
 
@@ -459,8 +459,8 @@ Un calendario del mes que junta dos cosas: lo que pasó en tus negocios cada dí
 
 ### Ver el detalle de un día
 
-- Haz clic en el botón «Ver» de la tarjeta de ese día en la Agenda. Se abre una ventana con la fecha y cada tipo de marcador con su cantidad y su importe; debajo aparece el listado de recordatorios y eventos de ese día, cada uno con su icono, su nombre y un botón de ojo para ver su ficha completa.
-- En la ficha del evento ves su importancia, hora, negocio, autor y descripción; puedes volver al listado del día o pasar a «Editar evento». El botón «Ver en el calendario» te lleva a esa fecha.
+1. Haz clic en el botón «Ver» de la tarjeta de ese día en la Agenda. Se abre una ventana con la fecha y cada tipo de marcador con su cantidad y su importe; debajo aparece el listado de recordatorios y eventos de ese día, cada uno con su icono, su nombre y un botón de ojo para ver su ficha completa.
+2. En la ficha del evento ves su importancia, hora, negocio, autor y descripción; puedes volver al listado del día o pasar a «Editar evento». El botón «Ver en el calendario» te lleva a esa fecha.
 
 ### Recordatorios y eventos
 
@@ -539,14 +539,25 @@ La hoja de cálculo en línea para controles, presupuestos y listados que despu�
 
 ### Datos externos
 
-1. En «Datos» → «Datos externos» → «Insertar dato…» puedes traer totales del inventario por negocio o datos de un producto: precio, existencia, importes sin IVA, IVA y total con IVA.
-2. La celda queda vinculada y se actualiza al abrir la tabla, guardar, exportar o pulsar «Actualizar».
-3. Solo cambia esa celda y las fórmulas que dependen de ella. Lo que escribiste a mano no se toca.
+1. En «Datos» → «Datos externos» → «Insertar dato…» puedes traer totales del inventario por negocio, datos de un producto, ventas, compras, gastos, cotizaciones, entregas, clientes o cifras fiscales de un periodo.
+2. También puedes insertar una lista completa (inventario, clientes, ventas, compras, gastos o cotizaciones) desde «Insertar lista…».
+3. La celda queda vinculada y se actualiza al abrir la tabla, guardar, exportar o pulsar «Actualizar». Solo cambia esa celda y las fórmulas que dependen de ella; lo que escribiste a mano no se toca.
 4. Para poner un valor propio en una celda vinculada, primero usa «Quitar vínculo».
+
+### Análisis y presentación
+
+1. En «Inicio»: formato condicional (mayor/menor/entre/contiene, escala de color y barras de datos), barras de progreso, minigráficas, notas, bordes y gráficas de barras, líneas o pastel.
+2. En «Insertar»: enlaces, códigos QR y de barras (se guardan como imagen), imágenes, combinación de celdas y filas o columnas.
+3. En «Datos»: filtro de renglones, subtotales por grupo y tabla dinámica; la tabla dinámica crea una hoja nueva para no tocar la original.
+
+### Compartir y versiones
+
+1. «Versiones» guarda hasta 20 copias anteriores y permite restaurarlas.
+2. «Compartir» crea un enlace público de solo lectura que puedes desactivar cuando quieras.
 
 ### Descargar
 
-1. «Descargar» → Excel (.xlsx), CSV, SheetFlow (.sheetflow), PDF o Imprimir.
+1. «Descargar» → Excel (.xlsx), CSV, SheetFlow (.sheetflow), PDF o Imprimir. El PDF incluye el formato condicional, las minigráficas y las gráficas de la tabla.
 2. El archivo .sheetflow guarda la tabla completa para volver a importarla después.
 
 > **Consejos**
@@ -568,8 +579,9 @@ El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas 
 ### Dibujar
 
 1. Las herramientas son: Seleccionar (V), Mover lienzo (H), Medir, Líneas (continua, discontinua, trazo y punto, punteada), Polilínea, Lápiz (P), Flecha (F), Rectángulo (R), rectángulo redondeado, Elipse (O), triángolo, rombo, zona translúcida, más formas (26 iconos), Texto (T), Tabla, círculo numerado, rombo de restricción e Imagen (I).
-2. Abajo a la izquierda están las casillas Cuadrícula, Imán, Reglas, Guías y Ortogonal (F8).
-3. El panel de la derecha cambia el color, el negrita/cursiva/subrayado/tachado, la alineación y las capas; ahí también puedes agrupar, desagrupar, alinear y distribuir.
+2. Abajo a la izquierda están las casillas Cuadrícula, Imán a cuadrícula, Reglas, Guías, Imán a guías y Ortogonal (F8). Los dos imanes se pueden activar juntos o por separado.
+3. Al insertar una imagen se abre un diálogo para elegir una de las carpetas de Archivo o subir una desde el equipo.
+4. El panel de la derecha cambia el color, el negrita/cursiva/subrayado/tachado, la alineación y las capas; ahí también puedes agrupar, desagrupar, alinear y distribuir.
 
 ### Páginas y descarga
 

@@ -64,10 +64,11 @@ $config = [
         'png'    => $l->marcas_png ?: null,
     ], $laminas),
     'api'          => [
-        'guardar' => '/admin/editor/api/guardar',
-        'imagen'  => '/admin/editor/api/imagen',
-        'pdf'     => '/admin/editor/api/pdf',
-        'tabla'   => '/admin/editor/api/tabla',
+        'guardar'         => '/admin/editor/api/guardar',
+        'imagen'          => '/admin/editor/api/imagen',
+        'pdf'             => '/admin/editor/api/pdf',
+        'tabla'           => '/admin/editor/api/tabla',
+        'archivoImagenes' => '/admin/editor/api/archivo-imagenes',
     ],
 ];
 
@@ -262,16 +263,17 @@ $formas = [
             <button type="button" class="ed-herr" data-herr="restr" title="Rombo de restricción numerado" aria-label="Rombo de restricción">
                 <span class="material-symbols-outlined">report</span>
             </button>
-            <button type="button" class="ed-herr" data-herr="imagen" title="Insertar imagen (I)" aria-label="Insertar imagen">
+            <button type="button" class="ed-herr" data-herr="imagen" title="Insertar imagen (I): desde el equipo o desde Archivo" aria-label="Insertar imagen">
                 <span class="material-symbols-outlined">image</span>
             </button>
         </div>
 
         <div class="ed-grupo ed-grupo--vista" role="group" aria-label="Vista">
             <label class="ed-chk" title="Muestra una cuadrícula de referencia"><input type="checkbox" id="ed-cuadricula" checked> Cuadrícula</label>
-            <label class="ed-chk" title="Lo que dibujas y mueves se imanta a la cuadrícula y a las guías"><input type="checkbox" id="ed-snap" checked> Imán</label>
+            <label class="ed-chk" title="Al mover un objeto lo ajusta a la cuadrícula"><input type="checkbox" id="ed-snap" checked> Imán a cuadrícula</label>
             <label class="ed-chk" title="Reglas y guías"><input type="checkbox" id="ed-reglas-on" checked> Reglas</label>
-            <label class="ed-chk" title="Muestra las guías y atrae hacia ellas lo que dibujas"><input type="checkbox" id="ed-guias-on" checked> Guías</label>
+            <label class="ed-chk" title="Muestra u oculta las guías"><input type="checkbox" id="ed-guias-on" checked> Guías</label>
+            <label class="ed-chk" title="Al mover un objeto lo ajusta a las guías"><input type="checkbox" id="ed-guias-snap" checked> Imán a guías</label>
             <label class="ed-chk" title="Líneas, flechas y polilíneas sólo en horizontal o vertical (F8)"><input type="checkbox" id="ed-orto"> Ortogonal <kbd>F8</kbd></label>
         </div>
     </div>
@@ -433,8 +435,13 @@ $formas = [
                         <label class="ed-chk ed-chk--fila"><input type="checkbox" id="ed-p-encabezado"> Primera fila como encabezado</label>
                         <div class="ed-fila">
                             <label class="ed-campo">Fondo del encabezado <input type="color" id="ed-p-hfill"></label>
+                            <label class="ed-campo">Texto del encabezado <input type="color" id="ed-p-htexto"></label>
+                        </div>
+                        <div class="ed-fila">
                             <label class="ed-campo">Color del texto <input type="color" id="ed-p-texto-color"></label>
                         </div>
+                        <label class="ed-chk ed-chk--fila"><input type="checkbox" id="ed-p-zebra"> Renglones alternos</label>
+                        <label class="ed-chk ed-chk--fila"><input type="checkbox" id="ed-p-cuadricula"> Líneas de cuadrícula</label>
                         <div id="ed-tabla-fuente" class="ed-fuente" hidden>
                             <p class="text-sm"><strong>Vinculada a</strong> <span id="ed-tabla-fuente-nombre">—</span></p>
                             <div class="ed-botones">

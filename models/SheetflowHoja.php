@@ -49,6 +49,18 @@ class SheetflowHoja extends ActiveRecord
         return self::consultarSQL("SELECT * FROM sheetflow_hojas ORDER BY departamento ASC, fecha DESC, id DESC");
     }
 
+    /** Hoja por su token de enlace público (solo lectura). */
+    public static function porToken(string $token): ?self
+    {
+        if (!preg_match('/^[a-f0-9]{32}$/', $token)) return null;
+        try {
+            $filas = self::consultarSQL("SELECT * FROM sheetflow_hojas WHERE token_publico = '" . self::escapar($token) . "' LIMIT 1");
+            return $filas[0] ?? null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /** Carpetas ya usadas por las tablas */
     public static function departamentos(): array
     {

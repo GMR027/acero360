@@ -14,6 +14,7 @@
     i + i { font-size: 1rem; } &:hover:not(:disabled) { background: var(--surface-hover); } &:disabled { opacity: .35; cursor: default; } &.activo { background: var(--primary-glow); border-color: var(--primary); color: var(--primary); } }
   .sf-b-txt { gap: .5rem; padding: 0 1rem; font-size: 1.2rem; white-space: nowrap; }
   input[type=number] { width: 5.4rem; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--bg-secondary); color: var(--text); font-size: 1.3rem; text-align: center; }
+  input[type=search] { width: 14rem; padding: .5rem .8rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--bg-secondary); color: var(--text); font-size: 1.2rem; }
   .sf-color, .sf-chk { display: inline-flex; align-items: center; gap: .4rem; font-size: 1.2rem; color: var(--text); cursor: pointer; input[type=color] { width: 2.4rem; height: 2.4rem; padding: 0; border: 1px solid var(--border); background: none; cursor: pointer; } } }
 
 .sf-formula { display: flex; align-items: center; gap: .8rem; margin-bottom: .8rem; padding: .4rem .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: .6rem;
@@ -52,14 +53,33 @@
   .sf-ancla { box-shadow: inset 0 0 0 2px var(--primary); }
   tr.sf-totales td { position: sticky; bottom: 0; z-index: 1; font-weight: 700; background: var(--bg-secondary); border-top: 2px solid var(--text-muted); }
   .sf-input { width: 100%; min-width: 8rem; margin: -.3rem 0; padding: .3rem .4rem; border: 2px solid var(--primary); border-radius: .3rem; background: var(--surface); color: var(--text); font: inherit; user-select: text; }
+  tr.sf-oculta { display: none; }
+  .sf-enlace { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .sf-barra-celda { display: flex; align-items: center; gap: .6rem; min-width: 10rem; }
+  .sf-barra-pista { flex: 1; height: .8rem; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .sf-barra-pista > span { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
+  .sf-barra-val { font-size: 1.1rem; color: var(--text-muted); min-width: 3.4rem; text-align: right; }
+  .sf-spark { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  td.sf-con-nota { position: relative; }
+  td.sf-con-nota::before { content: ''; position: absolute; top: 2px; right: 2px; width: 0; height: 0; border-top: .55rem solid var(--secondary, #d97706); border-left: .55rem solid transparent; }
   &.sf-sin-bordes td { border-right-color: transparent; } }
 .sf-ayuda code { font-family: 'Fira Code', monospace; }
 .sf-ver .tabla-wrapper { container-type: inline-size; overflow-x: auto; }
 // La letra de la tabla sigue el ancho disponible (no se ve diminuta en pantallas grandes ni desborda en las chicas)
 .sf-ver .sf-tabla { font-size: clamp(1.1rem, 1.5cqw, 4rem); overflow-wrap: anywhere; th, td { padding: .35em .6em !important; } }
 .sf-usos { margin-top: 1.6rem; .sf-lista-usos { margin: .6rem 0 0 1.4rem; display: grid; gap: .8rem; line-height: 1.6; } }
+.sf-publico-cuerpo { background: var(--bg-secondary); }
+.sf-publico { max-width: 120rem; margin: 0 auto; padding: 3rem 2rem; }
+.sf-publico__cabecera { margin-bottom: 1.4rem; }
+.sf-publico__tabla { padding: 1.4rem; overflow-x: auto; }
 
 .sf-estadistica { min-height: 2.2rem; margin: .6rem .4rem 0; font-size: 1.2rem; color: var(--text-muted); font-family: 'Fira Code', monospace; }
+.sf-graficas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(34rem, 100%), 1fr)); gap: 1.2rem; margin: 1.2rem 0; }
+.sf-grafica { margin: 0; padding: 1rem 1.2rem 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: .8rem; box-shadow: var(--shadow);
+  figcaption { display: flex; align-items: center; gap: .6rem; margin-bottom: .4rem; font-size: 1.2rem; color: var(--text-muted); }
+  figcaption strong { color: var(--text); font-size: 1.3rem; }
+  figcaption .sf-b { margin-left: auto; }
+  .sf-grafica-svg { display: block; width: 100%; height: auto; } }
 .sf-grid { .sf-col-n { width: 4.4rem; }
   .sf-letra { position: sticky; }
   .sf-tirador { position: absolute; top: 0; right: -.2rem; width: .8rem; height: 100%; cursor: col-resize; z-index: 5; &:hover { background: var(--primary); opacity: .6; } }
