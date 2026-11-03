@@ -59,6 +59,7 @@ try {
 
         const muestras = await page.locator('.ptn-paleta .ptn-sw').count();
         prueba(`${titulo}: hay muestras visibles (${muestras})`, muestras > 50);
+        prueba(`${titulo}: se listan todas las muestras (${muestras})`, muestras === 985, 'la rejilla quedó recortada');
 
         const familias = await page.locator('.ptn-paleta .ptn-fam').count();
         prueba(`${titulo}: hay chips de familia (${familias})`, familias >= 5);
@@ -80,7 +81,13 @@ try {
         await page.click('.ptn-paleta .ptn-fam[data-f="rojo"]');
         await page.waitForTimeout(200);
         const rojos = await page.locator('.ptn-paleta .ptn-sw').count();
-        prueba(`${titulo}: el filtro por familia funciona (${rojos} rojos)`, rojos > 50);
+        prueba(`${titulo}: el filtro por familia funciona (${rojos} rojos)`, rojos > 50 && rojos < muestras);
+        const rojoActivo = await page.locator('.ptn-paleta .ptn-fam[data-f="rojo"]').getAttribute('aria-pressed');
+        prueba(`${titulo}: el chip de familia queda activo`, rojoActivo === 'true');
+        await page.click('.ptn-paleta .ptn-fam[data-f="todas"]');
+        await page.waitForTimeout(200);
+        const todas = await page.locator('.ptn-paleta .ptn-sw').count();
+        prueba(`${titulo}: «Todas» recupera el listado completo (${todas})`, todas === muestras);
 
         // Aplicar el primer color de la familia.
         await page.fill('.ptn-paleta .ptn-busca', 'PMS 186');
@@ -101,7 +108,16 @@ try {
 
     // ---------- EDITOR ----------
     console.log('\nEditor');
-    await page.goto(`${BASE}/admin/editor/abrir?id=2`, { waitUntil: 'networkidle' });
+    // No fijar un id concreto: los documentos cambian entre bases. Se abre el
+    // primero que ofrezca la lista (o EDITOR_ID si se indica).
+    let urlEditor = `${BASE}/admin/editor/abrir?id=${process.env.EDITOR_ID || 32}`;
+    await page.goto(`${BASE}/admin/editor`, { waitUntil: 'domcontentloaded' });
+    const primerEditor = page.locator('a[href*="/admin/editor/abrir?id="]').first();
+    if (await primerEditor.count()) {
+        const href = await primerEditor.getAttribute('href');
+        if (href) urlEditor = /^https?:/.test(href) ? href : BASE + href;
+    }
+    await page.goto(urlEditor, { waitUntil: 'networkidle' });
     await comprobarPaleta('Editor', '#ed-fondo-color');
 
     // ---------- SHEETFLOW ----------
@@ -118,6 +134,9 @@ try {
     }
     await page.waitForTimeout(600);
     if (/sheetflow\/abrir/.test(page.url())) {
+        // Los colores viven en la pestaña «Modificar», que arranca oculta.
+        const pestModificar = page.locator('#sf-pestanas [data-pest="modificar"]');
+        if (await pestModificar.count()) await pestModificar.click();
         await comprobarPaleta('SheetFlow', '#sf-c-letra');
     } else {
         // Si el formulario no tenía ese campo, probamos sobre la propia página de crear.

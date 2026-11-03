@@ -1817,3 +1817,12 @@ La paleta Pantone podía aparecer lejos del botón: si no cabía debajo, se colo
 - **Insertar:** se quitaron «Bloque de obra» y «Tabla del programa». El manejador de la tabla del programa quedó protegido para no fallar si el botón no existe.
 - **Nueva pestaña Imprimir:** reúne hoja, orientación, márgenes, numeración, encabezado y qué incluir (cambios, comentarios y firmas). «Imprimir ahora» guarda si hace falta, genera el PDF con esos ajustes y abre el diálogo de impresión; «Abrir PDF» lo muestra sin imprimir. La barra de herramientas se oculta en esta pestaña para dejar sólo los ajustes.
 - **Manual y pruebas:** `probar_herramientas.mjs` suma comprobaciones de hamburguesa, ausencia de bloque/tabla del programa y pestaña Imprimir → **26/26**. Manual actualizado.
+
+---
+
+## Ronda — Paleta Pantone: filtros y acceso a las 985 muestras (2026-11-03)
+
+La paleta Pantone tenía dos fallos que impedían llegar a la mayoría de colores: los chips de familia no hacían nada al pulsarlos y la rejilla se recortaba a las primeras 300 muestras, con un aviso que obligaba a buscar para ver el resto. Ahora los filtros funcionan, «Todas» restaura el listado y se pueden recorrer las 985 muestras con el scroll interno del panel.
+
+- **`public/js/pantone.js`:** el escuchador global de clics atiende `.ptn-fam`, actualiza `filtro.f`, vuelve a pintar y reinicia el scroll. Se eliminó el tope `MAX_VISIBLE = 300`; la rejilla pinta todas las coincidencias y guarda la lista completa para aplicar la muestra correcta.
+- **`pruebas/probar_pantone.mjs`:** comprueba las 985 muestras, el filtro por familia, el estado activo del chip, la vuelta con «Todas»; abre el editor desde la lista (sin id fijo) y activa la pestaña «Modificar» de SheetFlow. Resultado en local: **40/40**.
