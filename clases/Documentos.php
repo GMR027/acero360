@@ -225,6 +225,19 @@ class Documentos
      */
     private static function componer(string $html, string $origen, string $orientacion = self::ORIENTACION): ?string
     {
+        // Mientras dompdf maqueta (un documento grande tarda bastante), la
+        // sesión queda libre para que las demás pestañas del usuario no se
+        // queden esperando.
+        liberarSesion();
+
+        // Si el mismo documento ya se compuso, se sirve tal cual: el HTML es
+        // el mismo, así que el PDF sale idéntico.
+        $clave = \Classes\CachePdf::clave($html, self::ANCHO_PAGINA, $orientacion);
+        $guardado = \Classes\CachePdf::obtener($clave);
+        if ($guardado !== null) {
+            return $guardado;
+        }
+
         try {
             $opciones = new \Dompdf\Options();
             $opciones->set('isRemoteEnabled', false);   // nunca sale a Internet
@@ -242,6 +255,8 @@ class Documentos
                 self::$errores[] = 'El PDF de ' . $origen . ' quedó vacío.';
                 return null;
             }
+
+            \Classes\CachePdf::guardar($clave, $bytes);
 
             return $bytes;
         } catch (\Throwable $excepcion) {

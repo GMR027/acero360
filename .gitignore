@@ -22,6 +22,7 @@ public/image/recortes/
 /build-info.json
 /storage/documentos/
 /storage/archivo/
+/storage/cache/
 /storage/restauracion-*/
 /respaldos/
 /.liveproject/

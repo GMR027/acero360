@@ -65,9 +65,16 @@ RUN { \
       echo 'date.timezone = America/Mexico_City'; \
       echo 'upload_max_filesize = 512M'; \
       echo 'post_max_size = 512M'; \
-      echo 'memory_limit = 256M'; \
+      echo 'memory_limit = 512M'; \
       echo 'max_execution_time = 600'; \
       echo 'max_input_time = 600'; \
+      echo 'opcache.enable = 1'; \
+      echo 'opcache.enable_cli = 0'; \
+      echo 'opcache.memory_consumption = 192'; \
+      echo 'opcache.interned_strings_buffer = 16'; \
+      echo 'opcache.max_accelerated_files = 20000'; \
+      echo 'opcache.validate_timestamps = 1'; \
+      echo 'opcache.revalidate_freq = 2'; \
     } > /usr/local/etc/php/conf.d/cotizaciones.ini
 
 WORKDIR /var/www/html

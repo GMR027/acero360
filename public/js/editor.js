@@ -702,6 +702,16 @@
     function guardar(manual) {
         if (guardando) return Promise.resolve(false);
         guardarPaginaActual();
+
+        // Auto-guardado sin nada pendiente: no se manda nada. Además, si se
+        // volviera a guardar «por las dudas», el servidor marcaría el documento
+        // como recién tocado y las imágenes de alta resolución ya generadas
+        // quedarían obsoletas, con lo que la siguiente exportación tendría que
+        // volver a pintar todas las láminas.
+        if (!manual && !sucio && paginas.length > 0 && paginas.every(function (p) { return p.id > 0; })) {
+            return Promise.resolve(true);
+        }
+
         guardando = true;
         estado('Guardando…');
 
@@ -789,7 +799,14 @@
      * para no pasarse del tamaño máximo de canvas de los navegadores.
      */
     function ratioExporte() {
-        var objetivo = 300 / 96;
+        // Resolución pedida por la pantalla del editor (dpiExporte, 200 por
+        // defecto). A 300 dpi una lámina de carta salía con 2550×3300 px:
+        // el navegador tardaba el doble en dibujarla y Dompdf el doble en
+        // decodificarla, sin que se notara a la hora de leer o imprimir.
+        var dpi = parseInt(C.dpiExporte, 10);
+        if (!dpi || dpi < 96) dpi = 200;
+        if (dpi > 600) dpi = 600;
+        var objetivo = dpi / 96;
         var lado = 8192;
         var area = 64e6;
         var r = Math.min(
@@ -3342,27 +3359,49 @@
         return (nombre.value.trim() || C.nombre || 'documento').replace(/[\\/:*?"<>|]+/g, '_') + '.' + ext;
     }
 
+    /** PDF ya compuesto por el servidor, o null si hay que volver a dibujar las láminas. */
+    function pdfReutilizable() {
+        var fd = new FormData();
+        fd.append('id', C.id);
+        fd.append('version', version);
+        fd.append('reusar', '1');
+        return fetch(C.api.pdf, { method: 'POST', body: fd }).then(function (r) {
+            if (r.ok) return r.blob();
+            // 409 = el servidor no pudo reutilizar las imágenes de alta
+            // resolución (el documento cambió): hay que renderizar otra vez.
+            if (r.status === 409) return null;
+            throw new Error('pdf');
+        });
+    }
+
     function exportarPdf(imprimir) {
         estado('Generando PDF…');
         var ventana = imprimir ? window.open('', '_blank') : null;
         guardar(false).then(function () {
-            var ratio = ratioExporte();
-            return Promise.all(paginas.map(function (p) { return renderUrl(p.json, ratio); })).then(function (urls) {
-                // Si el navegador no pudo con esa escala, se reintenta a tamaño real.
-                if (urls.some(function (u) { return !u; })) {
-                    return Promise.all(paginas.map(function (p) { return renderUrl(p.json, 1); }));
-                }
-                return urls;
-            }).then(function (urls) {
-                if (urls.some(function (u) { return !u; })) throw new Error('png');
-                var fd = new FormData();
-                fd.append('id', C.id);
-                fd.append('version', version);
-                fd.append('nombre', nombre.value.trim() || C.nombre);
-                fd.append('paginas', JSON.stringify(urls));
-                return fetch(C.api.pdf, { method: 'POST', body: fd }).then(function (r) {
-                    if (!r.ok) throw new Error('pdf');
-                    return r.blob();
+            // Primero se intenta con lo que ya está guardado: si el documento
+            // no cambió desde el último export, el servidor compone el PDF en
+            // un momento y el navegador no tiene que volver a pintar lámina
+            // por lámina (que es lo que más tarda).
+            return pdfReutilizable().then(function (ya) {
+                if (ya) return ya;
+                var ratio = ratioExporte();
+                return Promise.all(paginas.map(function (p) { return renderUrl(p.json, ratio); })).then(function (urls) {
+                    // Si el navegador no pudo con esa escala, se reintenta a tamaño real.
+                    if (urls.some(function (u) { return !u; })) {
+                        return Promise.all(paginas.map(function (p) { return renderUrl(p.json, 1); }));
+                    }
+                    return urls;
+                }).then(function (urls) {
+                    if (urls.some(function (u) { return !u; })) throw new Error('png');
+                    var fd = new FormData();
+                    fd.append('id', C.id);
+                    fd.append('version', version);
+                    fd.append('nombre', nombre.value.trim() || C.nombre);
+                    fd.append('paginas', JSON.stringify(urls));
+                    return fetch(C.api.pdf, { method: 'POST', body: fd }).then(function (r) {
+                        if (!r.ok) throw new Error('pdf');
+                        return r.blob();
+                    });
                 });
             });
         }).then(function (blob) {

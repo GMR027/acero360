@@ -25,6 +25,9 @@ class Sheetflow
     public const MAX_CELDA = 500;
     public const MAX_BYTES = 2_000_000;
 
+    /** Filas por tabla al componer el PDF de una hoja grande (ver tabla()). */
+    private const FILAS_POR_BLOQUE = 200;
+
     private static function hex($c, string $def): string
     {
         return is_string($c) && preg_match('/^#[0-9a-fA-F]{6}$/', $c) ? strtolower($c) : $def;
@@ -808,15 +811,20 @@ class Sheetflow
         if (array_filter($m['anchos'])) {
             $col = '<colgroup>' . implode('', array_map(fn($w) => '<col' . ($w ? ' style="width:' . round($w * 0.75) . 'pt"' : '') . '>', $m['anchos'])) . '</colgroup>';
         }
-        $o = $red ? '<table data-sf="' . (int)$h->id . '" style="width:100%;border-collapse:collapse"><tbody>' . '<tr>'
-            : '<table class="' . $esc($op['clase'] ?? 'sf-tabla') . '" style="border-collapse:collapse;width:100%">' . $col . '<thead><tr>';
+        $encabezados = '';
         foreach ($m['columnas'] as $c => $n) {
             $f = $fmt["-1,$c"] ?? [];
-            $o .= '<th style="' . $borde . 'padding:4pt 6pt;' . $bg . $e['enc'] . ';color:' . $e['encTxt'] . ';text-align:center;' . self::cssFmt($f) . '">' . $img($f) . $esc($n) . '</th>';
+            $encabezados .= '<th style="' . $borde . 'padding:4pt 6pt;' . $bg . $e['enc'] . ';color:' . $e['encTxt'] . ';text-align:center;' . self::cssFmt($f) . '">' . $img($f) . $esc($n) . '</th>';
         }
-        $o .= $red ? '</tr>' : '</tr></thead><tbody>';
+        $apertura = $red
+            ? '<table data-sf="' . (int)$h->id . '" style="width:100%;border-collapse:collapse"><tbody><tr>' . $encabezados . '</tr>'
+            : '<table class="' . $esc($op['clase'] ?? 'sf-tabla') . '" style="border-collapse:collapse;width:100%">' . $col
+                . '<thead><tr>' . $encabezados . '</tr></thead><tbody>';
+        $cierre = '</tbody></table>';
+
+        $cuerpo = [];
         foreach ($m['filas'] as $r => $fila) {
-            $o .= '<tr>';
+            $tr = '<tr>';
             foreach ($fila as $c => $v) {
                 if (isset($mergeCubierta["$r,$c"])) continue;
                 $mg = $mergeInicio["$r,$c"] ?? null;
@@ -827,16 +835,68 @@ class Sheetflow
                 $contenido = !empty($f['spark'])
                     ? self::sparkSvg((string)$f['spark'], $m['filas'], 90, 28, (string)($f['sparkColor'] ?? '#2563eb'), (string)($f['sparkTipo'] ?? 'linea'))
                     : ($v !== '' ? $esc($v) : ($red && $imgHtml === '' ? '<br>' : ''));
-                $o .= '<td' . $span . ' style="' . $borde . 'padding:3pt 6pt;text-align:' . $alin[$m['alinear'][$c]] . $cero . ';' . self::cssFmt($f) . '">' . $imgHtml . $contenido . '</td>';
+                $tr .= '<td' . $span . ' style="' . $borde . 'padding:3pt 6pt;text-align:' . $alin[$m['alinear'][$c]] . $cero . ';' . self::cssFmt($f) . '">' . $imgHtml . $contenido . '</td>';
             }
-            $o .= '</tr>';
+            $tr .= '</tr>';
+            $cuerpo[] = $tr;
         }
+
+        $pie = '';
         if ($m['totales']) {
-            $o .= '<tr>';
-            foreach ($m['totales'] as $c => $v) $o .= '<td style="' . $borde . 'border-top:2px solid #334155;padding:3pt 6pt;font-weight:bold;' . ($red ? 'background-color:#e2e8f0;' : '') . 'text-align:' . $alin[$m['alinear'][$c]] . '">' . ($v !== '' ? $esc($v) : ($red ? '<br>' : '')) . '</td>';
-            $o .= '</tr>';
+            $pie = '<tr>';
+            foreach ($m['totales'] as $c => $v) $pie .= '<td style="' . $borde . 'border-top:2px solid #334155;padding:3pt 6pt;font-weight:bold;' . ($red ? 'background-color:#e2e8f0;' : '') . 'text-align:' . $alin[$m['alinear'][$c]] . '">' . ($v !== '' ? $esc($v) : ($red ? '<br>' : '')) . '</td>';
+            $pie .= '</tr>';
         }
-        return $o . '</tbody></table>';
+
+        if ($red) {
+            return $apertura . implode('', $cuerpo) . $pie . $cierre;
+        }
+
+        /* En el PDF, Dompdf tarda y consume memoria de forma desproporcionada
+           al maquetar una tabla enorme (una sola de 1000 filas llegó a pedir
+           ~460 MB con celdas combinadas). Partirla en tablas más cortas baja
+           el consumo y el tiempo a la mitad, con el mismo aspecto: cada trozo
+           lleva su encabezado y sólo el último cierra con la fila de totales.
+           El corte nunca cae a media celda combinada. */
+        if (!empty($op['bloques']) && count($cuerpo) > self::FILAS_POR_BLOQUE) {
+            $mergeDeFila = [];
+            foreach (($m['merges'] ?? []) as $mg) {
+                for ($rr = $mg['r0']; $rr <= $mg['r1']; $rr++) {
+                    $mergeDeFila[$rr] = $mg;
+                }
+            }
+
+            $trozos = [];
+            $actual = [];
+            $contador = 0;
+            $totalFilas = count($cuerpo);
+            foreach ($cuerpo as $i => $tr) {
+                $actual[] = $tr;
+                $contador++;
+                $merge = $mergeDeFila[$i] ?? null;
+                // Sólo se corta donde no hay celdas combinadas abiertas.
+                $corto = $contador >= self::FILAS_POR_BLOQUE
+                    && $i < $totalFilas - 1
+                    && ($merge === null || $merge['r1'] === $i);
+                if ($corto) {
+                    $trozos[] = $actual;
+                    $actual = [];
+                    $contador = 0;
+                }
+            }
+            if ($actual) {
+                $trozos[] = $actual;
+            }
+        } else {
+            $trozos = [$cuerpo];
+        }
+
+        $salida = '';
+        $ultimo = count($trozos) - 1;
+        foreach ($trozos as $i => $grupo) {
+            $salida .= $apertura . implode('', $grupo) . ($i === $ultimo ? $pie : '') . $cierre;
+        }
+        return $salida;
     }
 
     /** Gráficas guardadas en la hoja, como SVG (PDF y enlace público). */
@@ -862,12 +922,33 @@ class Sheetflow
         $css = '@page{margin:1.6cm}body{font-family:DejaVu Sans,Helvetica,sans-serif;font-size:' . ($ancha ? 8 : 10) . 'pt;color:#000}h1{font-size:15pt;margin:0 0 2pt}p.sub{margin:0 0 10pt;color:#555;font-size:9pt}tr{page-break-inside:avoid}thead{display:table-header-group}';
         $sub = formatear_fecha($h->fecha, 'd/m/Y') . ($h->departamento !== '' ? ' · ' . $h->departamento : '');
         $graficas = self::graficasHtml($h);
-        $html = '<html><head><meta charset="utf-8"><title>' . $esc($h->nombre) . '</title><style>' . $css . '</style></head><body><h1>' . $esc($h->nombre) . '</h1><p class="sub">' . $esc($sub) . '</p>' . self::html($h, 'sf-tabla', true) . $graficas . '</body></html>';
-        $dompdf = Pdf::preparar($html, 'letter', $ancha ? 'landscape' : 'portrait', ['isRemoteEnabled' => false, 'chroot' => realpath(Imagenes::CARPETA_VPLAN) ?: Imagenes::CARPETA_VPLAN, 'defaultFont' => 'serif']);
+        $html = '<html><head><meta charset="utf-8"><title>' . $esc($h->nombre) . '</title><style>' . $css . '</style></head><body><h1>' . $esc($h->nombre) . '</h1><p class="sub">' . $esc($sub) . '</p>' . self::tabla($h, ['clase' => 'sf-tabla', 'rutas' => true, 'bloques' => true]) . $graficas . '</body></html>';
+
+        // Mismo contenido de la hoja = mismo PDF; una tabla de 1000 filas
+        // tarda ~4 s en maquetarse y casi siempre es la misma de siempre.
+        $papel = 'letter';
+        $orientacion = $ancha ? 'landscape' : 'portrait';
+        $opciones = ['isRemoteEnabled' => false, 'chroot' => realpath(Imagenes::CARPETA_VPLAN) ?: Imagenes::CARPETA_VPLAN, 'defaultFont' => 'serif'];
+        $clave = CachePdf::clave($html, $papel, $orientacion, $opciones);
+        $guardado = CachePdf::obtener($clave);
+        if ($guardado !== null) {
+            return $guardado;
+        }
+
+        $dompdf = Pdf::preparar($html, $papel, $orientacion, $opciones);
         $dompdf->render();
         $canvas = $dompdf->getCanvas();
         $canvas->page_text($canvas->get_width() / 2 - 30, $canvas->get_height() - 22, 'Página {PAGE_NUM} de {PAGE_COUNT}', $dompdf->getFontMetrics()->getFont('helvetica'), 8, [0.4, 0.4, 0.4]);
-        return $dompdf->output();
+        $pdf = $dompdf->output();
+
+        // El pie («Página X de Y») se dibuja en el canvas, no en el HTML, pero
+        // depende sólo de las páginas que salieron de ese HTML: el PDF guardado
+        // lo trae ya puesto.
+        if (is_string($pdf) && $pdf !== '') {
+            CachePdf::guardar($clave, $pdf);
+        }
+
+        return $pdf;
     }
 
     // ---------- Hojas creadas desde otras herramientas ----------

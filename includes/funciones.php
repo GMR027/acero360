@@ -94,6 +94,27 @@ function sesionActiva(): void
     }
 }
 
+/**
+ * Suelta el candado de la sesión durante un trabajo largo (dompdf).
+ *
+ * PHP bloquea el archivo de sesión de todo el usuario mientras la petición
+ * vive: si la exportación de un PDF tarda 30 s, cualquier otra pestaña del
+ * mismo usuario que toque la sesión (guardar, exportar, abrir el editor)
+ * espera esos 30 s con «conectando…». Al cerrarla, las demás peticiones
+ * corren en paralelo; si algo vuelve a escribir en $_SESSION, sesionActiva()
+ * la reabre.
+ */
+function liberarSesion(): void
+{
+    if (PHP_SAPI === 'cli') {
+        return; // las pruebas no usan sesión y no deben sufrir este cierre
+    }
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+}
+
 /** True cuando la petición llegó por HTTPS (directo o detrás del ingress del clúster). */
 function conexionSegura(): bool
 {

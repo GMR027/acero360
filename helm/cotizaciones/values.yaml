@@ -41,14 +41,18 @@ persistence:
   archivo:
     size: 2Gi            # storage/archivo (herramienta Archivo: ofimática, PDF, planos…)
 
+# Los PDF se generan con Dompdf dentro de la petición: es trabajo de CPU
+# de un solo hilo y con mucha memoria (una tabla grande o un documento de
+# muchas láminas supera los 256 MB). Con 300m el contenedor sólo recibía
+# 30 % de un núcleo, así que TODO lo que tardaba 1 s tardaba ~3.3 s.
 resources:
   app:
     requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 300m
+      cpu: 250m
       memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
   mysql:
     requests:
       cpu: 100m

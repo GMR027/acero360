@@ -48,6 +48,11 @@ $config = [
     'nombre'       => $documento->nombre,
     'ancho'        => $ancho,
     'alto'         => $alto,
+    // Resolución con la que el navegador rasteriza cada lámina al exportar
+    // el PDF. 200 dpi sale nítido en pantalla e impreso y pinta ~2.2 veces
+    // menos píxeles que los 300 dpi de antes (el PDF tardaba lo mismo en el
+    // servidor, pero el navegador tardaba el doble en generarlo).
+    'dpiExporte'   => 200,
     'orientacion'  => $documento->orientacion,
     'fondo'        => $documento->fondo,
     'fondo_color'  => $documento->fondo_color,

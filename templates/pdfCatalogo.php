@@ -54,6 +54,27 @@ $imagenBase64 = static function (?string $archivo) use ($archivoAbsoluto): strin
     return 'data:' . $tipo . ';base64,' . base64_encode($datos);
 };
 
+/**
+ * Miniatura del producto (300×300) ya convertida a base64.
+ *
+ * La tabla muestra la foto en una celda de 30 px: meter la foto completa
+ * (1000×1000, ~47 KB) hacía que el HTML del catálogo pesara ~5 veces más y
+ * que Dompdf tuviera que decodificar y escalar cada imagen. Con la miniatura
+ * (~9 KB) el documento sale igual de nítido y se compone mucho más rápido.
+ * Si no hay miniatura se usa la foto completa.
+ */
+$miniaturaBase64 = static function (?string $archivo) use ($imagenBase64): string {
+    $archivo = trim((string) $archivo);
+    if ($archivo === '') {
+        return '';
+    }
+
+    $mini = preg_replace('/\.([a-z0-9]+)$/i', '_mini.$1', $archivo);
+    $datos = $mini !== null ? $imagenBase64($mini) : '';
+
+    return $datos !== '' ? $datos : $imagenBase64($archivo);
+};
+
 /** Leyenda fiscal que cierra CADA sección (una por empresa). */
 $leyenda = 'Los precios no incluyen iva (16%), las ventas son con pago de contado.';
 ?>
@@ -253,7 +274,7 @@ $leyenda = 'Los precios no incluyen iva (16%), las ventas son con pago de contad
                 </thead>
                 <tbody>
                     <?php foreach ($productos as $producto) :
-                        $imagen = $imagenBase64($producto['imagen'] !== '' ? $producto['imagen'] : null);
+                        $imagen = $miniaturaBase64($producto['imagen'] !== '' ? $producto['imagen'] : null);
                         ?>
                         <tr>
                             <td class="mini">
