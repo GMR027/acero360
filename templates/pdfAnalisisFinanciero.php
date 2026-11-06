@@ -6,9 +6,10 @@
  *            $modo, $restar_proveedores, $restar_gastos, $generado.
  *
  * Se maqueta con tablas simples porque Dompdf no interpreta grid/flex. La
- * aguja del medidor se pinta con GD en el modo simple y con el SVG vectorial
- * en el detallado. Las miniaturas se incrustan en base64 para que el PDF no
- * dependa de archivos externos.
+ * aguja del medidor se pinta con GD sobre un PNG en el modo simple (el GD de
+ * producción no siempre admite WebP) y con el SVG vectorial en el detallado.
+ * Las miniaturas se incrustan en base64 para que el PDF no dependa de archivos
+ * externos.
  */
 
 $modo = ($modo ?? 'simple') === 'detallado' ? 'detallado' : 'simple';

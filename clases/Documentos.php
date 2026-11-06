@@ -367,7 +367,7 @@ class Documentos
         \template('pdfAnalisisFinanciero', $datos);
         $html = (string) ob_get_clean();
 
-        $bytes = self::componer($html, 'el análisis financiero', 'landscape');
+        $bytes = self::componer($html, 'el análisis financiero');
         if ($bytes === null) {
             \redirigir($volver, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
         }

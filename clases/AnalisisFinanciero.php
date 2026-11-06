@@ -914,7 +914,13 @@ class AnalisisFinanciero
      */
     public static function medidorDataUri(float $angulo): string
     {
-        $ruta = __DIR__ . '/../public/image/analisis/medidor.webp';
+        // PNG para el PDF: el GD del servidor de producción puede no tener
+        // soporte WebP, y entonces el medidor desaparecía del PDF. El WebP
+        // sigue usándose en la pantalla, que lo dibuja el navegador.
+        $ruta = __DIR__ . '/../public/image/analisis/medidor.png';
+        if (!is_file($ruta)) {
+            $ruta = __DIR__ . '/../public/image/analisis/medidor.webp';
+        }
         if (!is_file($ruta) || !function_exists('imagecreatefromstring')) {
             return '';
         }
