@@ -5,19 +5,25 @@
  * Dos caminos:
  *
  *   · `reusar=1` (sin `paginas`): si las imágenes de alta resolución ya
- *     generadas siguen vigentes, se componen el PDF con ellas y listo. Es lo
- *     que hace que repetir la exportación de un documento sin cambios salga
- *     de inmediato, sin volver a dibujar cada lámina en el navegador.
- *   · `paginas`: un arreglo JSON con un PNG en dataURL por lámina. Se guardan
- *     en `marcas_full` (imagen de alta resolución para las descargas) y se
- *     compone el PDF con Dompdf al tamaño exacto de la página (px a 96 dpi →
- *     puntos). La miniatura `marcas_png` no se toca aquí.
+ *     generadas siguen vigentes, se componen el PDF con ellas y listo. Si
+ *     sólo cambió una parte del documento se responde 409 con los índices
+ *     que hay que volver a dibujar (`faltan`), de modo que el navegador no
+ *     repinta las láminas que no cambiaron.
+ *   · `paginas`: un objeto/arreglo JSON con una imagen en dataURL por lámina.
+ *     Puede traer todas o sólo las que faltan. Se guardan en `marcas_full`
+ *     (imagen de alta resolución para las descargas) y se compone el PDF con
+ *     Dompdf al tamaño exacto de la página (px a 96 dpi → puntos). La
+ *     miniatura `marcas_png` no se toca aquí.
+ *
+ * Las imágenes del navegador llegan como JPEG opaco: Dompdf las embebe sin
+ * decodificarlas ni separar el canal alfa, que era la parte más lenta de la
+ * exportación anterior (PNG RGBA a 200 dpi).
  *
  * Para decidir si `marcas_full` sigue vigente, el nombre del archivo empieza
- * con una huella del contenido del documento (nombre, fondo y JSON de cada
- * lámina): cualquier cambio hace que la huella cambie y obligue a volver a
- * dibujar. No se comparan fechas porque el reloj de la base y el de PHP
- * pueden no coincidir.
+ * con una huella del contenido que representa (fondo, medidas y JSON de la
+ * lámina): cualquier cambio en esa lámina cambia su huella y obliga a
+ * volver a dibujarla. No se comparan fechas porque el reloj de la base y el
+ * de PHP pueden no coincidir.
  */
 
 soloAdmin();
@@ -34,7 +40,7 @@ if (!$documento) {
     json_respuesta(['success' => false, 'error' => 'El documento no existe'], 404);
 }
 
-$laminas = $documento->laminas();
+$laminas = array_values($documento->laminas());
 if (!$laminas) {
     json_respuesta(['success' => false, 'error' => 'El documento aún no tiene láminas'], 422);
 }
@@ -44,90 +50,107 @@ $anchoPt = round($anchoPx * 0.75, 2);
 $altoPt = round($altoPx * 0.75, 2);
 
 /**
- * Huella de lo que se ve en el documento: el nombre, el fondo y el JSON de
- * cada lámina. Si cambia cualquier cosa, cambia la huella.
- *
- * Se usa en lugar de comparar fechas porque el reloj de la base y el de PHP
- * pueden no coincidir (aquí van con una hora de diferencia) y una imagen
- * vieja pasaría por buena. La huella no depende de relojes: o el contenido es
- * el mismo o no lo es.
+ * Huella de lo que se ve en UNA lámina: fondo, medidas y su JSON de Konva.
+ * No incluye el nombre del documento ni el de la lámina porque no se pintan:
+ * cambiar el título no debe obligar a redibujar todas las páginas.
  */
-$huella = static function (\Model\EditorDocumento $documento, array $laminas): string {
+$huellaLamina = static function (\Model\EditorDocumento $documento, \Model\EditorLamina $lamina): string {
     $partes = [
-        'nombre'   => (string) $documento->nombre,
-        'fondo'    => (string) $documento->fondo,
-        'color'    => (string) $documento->fondo_color,
-        'config'   => $documento->configFondo(),
-        'medidas'  => $documento->medidas(),
-    ];
-    foreach ($laminas as $lamina) {
-        $partes['laminas'][] = [
+        'fondo'   => (string) $documento->fondo,
+        'color'   => (string) $documento->fondo_color,
+        'config'  => $documento->configFondo(),
+        'medidas' => $documento->medidas(),
+        'lamina'  => [
             (int) $lamina->orden,
-            (string) $lamina->nombre,
             (string) $lamina->marcas_json,
-        ];
-    }
+        ],
+    ];
 
     return substr(md5(json_encode($partes)), 0, 16);
 };
 
-$versionDoc = $huella($documento, $laminas);
+$hashes = [];
+foreach ($laminas as $i => $lamina) {
+    $hashes[$i] = $huellaLamina($documento, $lamina);
+}
 
-/** Rutas absolutas de las imágenes de alta resolución, o null si alguna ya no sirve. */
-$reutilizables = static function (array $laminas, int $anchoPx, string $versionDoc): ?array {
-    $minimo = (int) round($anchoPx * 0.9);
-    $rutas = [];
-
-    foreach ($laminas as $lamina) {
-        $archivo = (string) ($lamina->marcas_full ?? '');
-        // El nombre del archivo empieza con la huella del contenido que
-        // representa: si no coincide con la de ahora, la imagen es de una
-        // versión anterior del documento y hay que volver a dibujarla.
-        if ($archivo === '' || !str_starts_with($archivo, $versionDoc . '-')) {
-            return null;
-        }
-        $ruta = Imagenes::CARPETA_VPLAN . '/' . $archivo;
-        $info = is_file($ruta) ? @getimagesize($ruta) : null;
-        if (!$info || $info[0] < $minimo) {
-            return null;
-        }
-        $rutas[] = $ruta;
+/** Ruta de la imagen de alta resolución vigente para la lámina, o null. */
+$rutaReusable = static function (\Model\EditorLamina $lamina, string $hash, int $anchoPx): ?string {
+    $archivo = (string) ($lamina->marcas_full ?? '');
+    // El nombre del archivo empieza con la huella del contenido que
+    // representa: si no coincide con la de ahora, la imagen es de una
+    // versión anterior de esa lámina y hay que volver a dibujarla.
+    if ($archivo === '' || !str_starts_with($archivo, $hash . '-')) {
+        return null;
     }
 
-    return $rutas;
+    $ruta = Imagenes::CARPETA_VPLAN . '/' . $archivo;
+    $minimo = (int) round($anchoPx * 0.9);
+    $info = is_file($ruta) ? @getimagesize($ruta) : null;
+
+    return ($info && $info[0] >= $minimo) ? $ruta : null;
 };
 
+/** Rutas reutilizables por índice; los índices ausentes son los que faltan. */
+$rutas = [];
+$faltan = [];
+foreach ($laminas as $i => $lamina) {
+    $ruta = $rutaReusable($lamina, $hashes[$i], $anchoPx);
+    if ($ruta === null) {
+        $faltan[] = $i;
+    } else {
+        $rutas[$i] = $ruta;
+    }
+}
+
 if (!empty($_POST['reusar'])) {
-    $rutas = $reutilizables($laminas, $anchoPx, $versionDoc);
-    if ($rutas === null) {
-        // El cliente vuelve a dibujar las láminas y repite la petición.
-        json_respuesta(['success' => false, 'reuso' => false, 'error' => 'Las láminas cambiaron'], 409);
+    if ($faltan) {
+        // El cliente vuelve a dibujar sólo estas láminas y repite la petición.
+        json_respuesta([
+            'success' => false,
+            'reuso'   => false,
+            'faltan'  => $faltan,
+            'error'   => 'Algunas láminas cambiaron',
+        ], 409);
     }
 } else {
     $paginas = json_decode((string) ($_POST['paginas'] ?? ''), true);
 
-    if (!is_array($paginas) || count($paginas) !== count($laminas)) {
+    if (!is_array($paginas) || !$paginas) {
         json_respuesta(['success' => false, 'error' => 'Guarda el documento antes de exportar'], 422);
     }
 
-    $rutas = [];
+    $entrantes = [];
     foreach ($paginas as $i => $data) {
-        if (!is_string($data) || !preg_match('#^data:image/png;base64,#', $data)) {
+        $i = (int) $i;
+        if ($i < 0 || $i >= count($laminas)) {
+            json_respuesta(['success' => false, 'error' => 'Una lámina no corresponde al documento'], 422);
+        }
+        $entrantes[$i] = $data;
+    }
+
+    foreach ($entrantes as $i => $data) {
+        if (!is_string($data) || !preg_match('#^data:image/(png|jpeg);base64,#', $data, $tipo)) {
             json_respuesta(['success' => false, 'error' => 'Una lámina no se pudo convertir'], 422);
         }
-        $bin = base64_decode(substr($data, strlen('data:image/png;base64,')), true);
+
+        $prefijo = 'data:image/' . $tipo[1] . ';base64,';
+        $bin = base64_decode(substr($data, strlen($prefijo)), true);
         if ($bin === false || strlen($bin) > 25 * 1024 * 1024) {
             json_respuesta(['success' => false, 'error' => 'Una lámina es demasiado grande'], 422);
         }
+
         $info = @getimagesizefromstring($bin);
-        if (!$info || $info[2] !== IMAGETYPE_PNG) {
-            json_respuesta(['success' => false, 'error' => 'Una lámina no es un PNG válido'], 422);
+        $esperado = $tipo[1] === 'jpeg' ? IMAGETYPE_JPEG : IMAGETYPE_PNG;
+        if (!$info || $info[2] !== $esperado) {
+            json_respuesta(['success' => false, 'error' => 'Una lámina no es una imagen válida'], 422);
         }
 
         // El nombre lleva delante la huella del contenido que la imagen
-        // representa: así el siguiente exporte sabe, sin mirar relojes, si la
-        // imagen sigue correspondiendo al documento actual.
-        $archivo = $versionDoc . '-' . bin2hex(random_bytes(8)) . '.png';
+        // representa: así el siguiente exporte sabe, sin mirar relojes, si
+        // la imagen sigue correspondiendo a la lámina actual.
+        $extension = $tipo[1] === 'jpeg' ? 'jpg' : 'png';
+        $archivo = $hashes[$i] . '-' . bin2hex(random_bytes(8)) . '.' . $extension;
         if (@file_put_contents(Imagenes::CARPETA_VPLAN . '/' . $archivo, $bin) === false) {
             json_respuesta(['success' => false, 'error' => 'No se pudo guardar una lámina'], 500);
         }
@@ -140,9 +163,15 @@ if (!empty($_POST['reusar'])) {
             Imagenes::eliminarVplan($viejo);
         }
 
-        $rutas[] = Imagenes::CARPETA_VPLAN . '/' . $archivo;
+        $rutas[$i] = Imagenes::CARPETA_VPLAN . '/' . $archivo;
+    }
+
+    if (count($rutas) !== count($laminas)) {
+        json_respuesta(['success' => false, 'error' => 'Falta una lámina por dibujar: vuelve a exportar'], 422);
     }
 }
+
+ksort($rutas);
 
 $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
     . '@page { margin: 0; size: ' . $anchoPt . 'pt ' . $altoPt . 'pt; }'

@@ -68,9 +68,6 @@ $iconoArchivo = static function (Archivo $a): string {
 
 /* --- Subida: ¿cuánto pesa lo que admite el servidor? --- */
 $maxSubida = ArchivoAlmacen::maxBytes();
-$extensiones = ArchivoAlmacen::extensiones();
-$extensionesTexto = 'Ofimática: ' . implode(', ', array_slice($extensiones, 0, 30))
-    . ' · Modelos: ' . implode(', ', array_slice($extensiones, 30));
 
 // Confirmaciones, carpetas e iconos de las herramientas portadas (modal estilizado).
 $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
@@ -86,10 +83,9 @@ template('header', [
     <div class="encabezado-pagina">
         <div>
             <p class="texto-secundario">
-                Carpetas virtuales para alojar y organizar tu información: documentos de
-                Office, LibreOffice y OnlyOffice, PDF, imágenes y modelos de Rhinoceros,
-                Revit, AutoCAD o SketchUp. Archivo compartido: todos los administradores
-                ven lo mismo.
+                Carpetas virtuales para alojar y organizar cualquier tipo de archivo: documentos,
+                PDF, imágenes, comprimidos, modelos de Rhinoceros, Revit, AutoCAD o SketchUp y
+                cualquier otro formato. Archivo compartido: todos los administradores ven lo mismo.
             </p>
         </div>
         <div class="encabezado-pagina__acciones">
@@ -162,9 +158,8 @@ template('header', [
     </div>
 
     <p class="text-sm text-muted ar-ayuda">
-        Admite <?= count($extensiones) ?> formatos · hasta <?= formatear_tamano($maxSubida) ?> por archivo ·
-        <span title="<?= s($extensionesTexto) ?>">Office, LibreOffice, OnlyOffice, PDF, imágenes,
-        comprimidos y modelos (Rhinoceros, Revit, AutoCAD, SketchUp…)</span>.
+        Admite cualquier tipo de archivo · hasta <?= formatear_tamano($maxSubida) ?> por archivo.
+        Los formatos que el navegador no puede previsualizar se descargan.
         <?php if ($profundidad >= ArchivoCarpeta::PROFUNDIDAD_MAX) : ?>
             <em>(Esta carpeta ya está en la profundidad máxima: no admite subcarpetas.)</em>
         <?php endif; ?>
@@ -269,13 +264,15 @@ template('header', [
                             <td class="mono"><?= $a->tamanoLegible() ?></td>
                             <td class="mono"><?= formatear_fecha($a->subido, 'd/m/Y H:i') ?></td>
                             <td class="herramientas-acciones">
-                                <a class="btn btn--secundario btn--sm"
-                                   href="<?= $vista ? '/admin/archivo/ver?id=' . (int) $a->id : '/admin/archivo/descargar?id=' . (int) $a->id ?>"
-                                   data-ver-archivo="<?= (int) $a->id ?>"
-                                   data-archivo-tipo="<?= s($vista ?? 'otro') ?>"
-                                   data-archivo-nombre="<?= s($a->titulo()) ?>">
-                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver
-                                </a>
+                                <?php if ($vista) : ?>
+                                    <a class="btn btn--secundario btn--sm"
+                                       href="/admin/archivo/ver?id=<?= (int) $a->id ?>"
+                                       data-ver-archivo="<?= (int) $a->id ?>"
+                                       data-archivo-tipo="<?= s($vista) ?>"
+                                       data-archivo-nombre="<?= s($a->titulo()) ?>">
+                                        <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver
+                                    </a>
+                                <?php endif; ?>
                                 <a class="btn btn--primario btn--sm" href="/admin/archivo/descargar?id=<?= (int) $a->id ?>">
                                     <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar
                                 </a>

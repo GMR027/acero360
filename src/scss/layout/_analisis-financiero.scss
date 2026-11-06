@@ -1,0 +1,345 @@
+/* ==========================================================================
+   _analisis-financiero.scss — Medidor, filtros y tablas del balance financiero.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+
+.analisis-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-sm $espacio-md;
+  min-height: 2.25rem;
+
+  &--deudas {
+    margin-top: $espacio-md;
+    padding-top: $espacio-md;
+    border-top: 1px solid $color-borde;
+
+    > .campo__etiqueta {
+      flex-basis: 100%;
+    }
+  }
+}
+
+.analisis-medidor {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
+  gap: $espacio-lg;
+  align-items: center;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+
+  &__grafico {
+    position: relative;
+    width: 100%;
+    max-width: 36rem;
+    margin: 0 auto;
+
+    &--redondo {
+      max-width: 24rem;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+  }
+
+  &__aguja {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  &__texto {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $espacio-xs;
+  }
+
+  &__puntaje {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    line-height: 1;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+
+    small {
+      margin-left: 0.2rem;
+      font-size: $fuente-base;
+      font-weight: 500;
+      color: $color-texto-secundario;
+    }
+  }
+
+  &__balance {
+    margin: $espacio-sm 0 0;
+    font-size: $fuente-lg;
+    color: $color-texto-secundario;
+
+    strong {
+      font-family: $fuente-titulos;
+      font-size: $fuente-2xl;
+      color: $color-texto;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__resultado {
+    margin: 0;
+    font-size: $fuente-base;
+    color: $color-texto-secundario;
+
+    strong {
+      font-family: $fuente-titulos;
+      font-size: $fuente-xl;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+.analisis-resultado--positivo {
+  color: $color-exito;
+}
+
+.analisis-resultado--negativo {
+  color: $color-error;
+}
+
+.analisis-stat {
+  &--apagado {
+    opacity: 0.72;
+  }
+
+  &--ganancia {
+    border-color: $color-exito;
+    background: $color-exito-claro;
+  }
+
+  &--perdida {
+    border-color: $color-error;
+    background: $color-error-claro;
+  }
+
+  &--balance {
+    border-color: $color-primario-borde;
+    background: $color-primario-claro;
+  }
+}
+
+.analisis-tabla-cab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $espacio-sm;
+  padding: $espacio-md $espacio-md 0;
+
+  h2 {
+    margin: 0;
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-sm;
+  }
+}
+
+.analisis-tabla-total {
+  font-family: $fuente-titulos;
+  font-size: $fuente-lg;
+  font-weight: 700;
+  color: $color-texto;
+  font-variant-numeric: tabular-nums;
+}
+
+.analisis-alertas__lista {
+  display: grid;
+  gap: $espacio-sm;
+  margin: $espacio-md 0 0;
+  padding: 0 $espacio-md $espacio-md;
+  list-style: none;
+}
+
+.analisis-alertas__item {
+  display: flex;
+  align-items: flex-start;
+  gap: $espacio-sm;
+  padding: $espacio-sm $espacio-md;
+  border-radius: $radio-md;
+  font-size: $fuente-sm;
+  color: $color-texto;
+
+  .material-symbols-outlined {
+    flex: 0 0 auto;
+    font-size: 1.25rem;
+  }
+
+  &--error {
+    background: $color-error-claro;
+    color: $color-error;
+  }
+
+  &--advertencia {
+    background: $color-advertencia-claro;
+    color: $color-advertencia-texto;
+  }
+
+  &--info {
+    background: $color-primario-claro;
+    color: $color-primario-texto;
+  }
+}
+
+.analisis-comparativo__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: $espacio-md;
+  padding: $espacio-md;
+}
+
+.analisis-comparativo__item {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-xs;
+  padding: $espacio-md;
+  background: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+
+  strong {
+    font-family: $fuente-titulos;
+    font-size: $fuente-xl;
+    font-variant-numeric: tabular-nums;
+  }
+
+  small {
+    color: $color-texto-secundario;
+    font-size: $fuente-xs;
+  }
+}
+
+.analisis-comparativo__var {
+  font-size: $fuente-sm;
+  font-weight: 700;
+
+  &--bien {
+    color: $color-exito;
+  }
+
+  &--mal {
+    color: $color-error;
+  }
+}
+
+.analisis-antiguedad {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: $espacio-sm;
+  padding: $espacio-md;
+}
+
+.analisis-antiguedad__item {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-xs;
+  padding: $espacio-sm $espacio-md;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+  background: $color-superficie;
+
+  span {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  strong {
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-variant-numeric: tabular-nums;
+  }
+
+  small {
+    color: $color-texto-secundario;
+    font-size: $fuente-xs;
+  }
+
+  &--con-deuda {
+    border-color: $color-advertencia;
+    background: $color-advertencia-claro;
+  }
+}
+
+.analisis-producto {
+  display: flex;
+  align-items: center;
+  gap: $espacio-sm;
+  min-width: 0;
+
+  img,
+  &__vacio {
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: $radio-md;
+    object-fit: cover;
+    background: $color-primario-claro;
+  }
+
+  &__vacio {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: $color-primario-texto;
+    font-size: 1.35rem;
+  }
+
+  > span {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+}
+
+.analisis-stock {
+  white-space: nowrap;
+
+  strong {
+    font-variant-numeric: tabular-nums;
+  }
+
+  span {
+    display: block;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+
+  &--bajo,
+  &--bajo span {
+    color: $color-error;
+  }
+
+  &--bajo strong {
+    color: $color-error;
+  }
+}
+
+.analisis-tabla {
+  tfoot td {
+    border-top: 2px solid $color-borde;
+    background: $color-superficie;
+  }
+}

@@ -749,6 +749,84 @@ class Entregas
     }
 
     /**
+     * Agrega fotos del acta a una entrega ya registrada de la venta.
+     *
+     * Se usa desde el detalle de la venta para subir o completar las fotos
+     * sin tener que registrar otra entrega. Valida que la entrega pertenezca
+     * a la venta y aplica los mismos límites, EXIF y marca de agua que el
+     * formulario de entrega.
+     *
+     * @param array<int, array> $fotos entradas de $_FILES ya separadas.
+     */
+    public static function agregarFotos(int $ventaId, int $entregaId, array $fotos, int $usuarioId): bool
+    {
+        self::$errores = [];
+        self::$fotosGuardadas = 0;
+
+        $fotos = array_values(array_filter(
+            $fotos,
+            static fn ($f) => is_array($f) && !empty($f['tmp_name'])
+        ));
+
+        if (!$fotos) {
+            self::$errores[] = 'Selecciona al menos una foto del acta.';
+            return false;
+        }
+        if (count($fotos) > self::MAX_FOTOS) {
+            self::$errores[] = 'Se admiten como máximo ' . self::MAX_FOTOS . ' fotos por envío: reduce la selección.';
+            return false;
+        }
+        $pesoFotos = array_sum(array_map(static fn ($f) => (int) ($f['size'] ?? 0), $fotos));
+        if ($pesoFotos > self::MAX_FOTOS_TOTAL_MB * 1048576) {
+            self::$errores[] = 'Las fotos suman ' . round($pesoFotos / 1048576, 1) . ' MB y el máximo por envío es de '
+                . self::MAX_FOTOS_TOTAL_MB . ' MB: reduce la cantidad o el tamaño.';
+            return false;
+        }
+        foreach ($fotos as $foto) {
+            $motivo = Imagenes::validarArchivo($foto);
+            if ($motivo !== '') {
+                self::$errores[] = $motivo;
+                return false;
+            }
+        }
+
+        $consulta = self::$db->prepare('SELECT id FROM entregas WHERE id = ? AND venta_id = ?');
+        $consulta->bind_param('ii', $entregaId, $ventaId);
+        $consulta->execute();
+        $existe = $consulta->get_result()->num_rows > 0;
+        $consulta->close();
+
+        if (!$existe) {
+            self::$errores[] = 'La entrega elegida no pertenece a esta venta.';
+            return false;
+        }
+
+        $guardadas = [];
+        try {
+            self::$db->begin_transaction();
+            self::guardarFotos($entregaId, $fotos, $usuarioId, $guardadas);
+            Auditoria::registrar('venta', $ventaId, 'fotos_entrega', $usuarioId, null, [
+                'entrega_id' => $entregaId,
+                'fotos'      => count($guardadas),
+            ]);
+            self::$db->commit();
+            self::$fotosGuardadas = count($guardadas);
+            return true;
+        } catch (\mysqli_sql_exception $excepcion) {
+            self::$db->rollBack();
+            self::borrarFotos($guardadas);
+            error_log('[Entregas::agregarFotos] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible guardar las fotos.';
+            return false;
+        } catch (\RuntimeException $rechazo) {
+            self::$db->rollBack();
+            self::borrarFotos($guardadas);
+            self::$errores[] = $rechazo->getMessage();
+            return false;
+        }
+    }
+
+    /**
      * Procesa las fotos del acta y las registra contra la entrega.
      *
      * Cada archivo se guarda en public/image con nombre generado por el

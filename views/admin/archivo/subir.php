@@ -3,8 +3,9 @@
  * views/admin/archivo/subir.php — Sube archivos a la carpeta indicada.
  *
  * Sólo POST (formulario multipart con el _csrf que inyecta la aplicación).
- * Cada archivo se valida por extensión y por firma real antes de guardarlo;
- * los que no pasan se anotan y se informa junto al resultado.
+ * Se admite cualquier tipo de archivo; los formatos conocidos se validan por
+ * extensión y por firma real antes de guardarlos. Los que no pasan se anotan
+ * y se informa junto al resultado.
  */
 
 soloAdmin();

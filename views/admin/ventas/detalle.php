@@ -13,7 +13,7 @@
 
 soloAdmin();
 
-$id    = (int) ($_GET['id'] ?? 0);
+$id    = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
 $cotizacion = \App\Ventas::buscarID($id);
 
 if (!$cotizacion) {
@@ -21,7 +21,26 @@ if (!$cotizacion) {
     paginaNoEncontrada();
 }
 
+$errores = [];
+
+// Subida de fotos del acta a una entrega ya registrada de esta venta.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['accion'] ?? '') === 'fotos') {
+    $destino = '/admin/ventas/detalle?id=' . $id . '#fotos-entrega';
+
+    if (!consumirToken($_POST['token'] ?? null)) {
+        redirigir($destino, 'error', 'Este formulario ya se envió; las fotos no se guardaron dos veces.');
+    }
+
+    $fotos = \App\Archivos::listaDeSubidas($_FILES['fotos'] ?? null);
+    if (\App\Entregas::agregarFotos($id, (int) ($_POST['entrega_id'] ?? 0), $fotos, (int) ($_SESSION['id'] ?? 0))) {
+        $conFotos = \App\Entregas::$fotosGuardadas;
+        redirigir($destino, 'exito', 'Se guardaron ' . $conFotos . ' foto' . ($conFotos === 1 ? '' : 's') . ' del acta.');
+    }
+    $errores = \App\Entregas::getErrores();
+}
+
 $detalles = \App\Ventas::detalles($id);
+$entregas = \App\Entregas::entregasDeVenta($id);
 $estado   = \App\Ventas::datosEstado($cotizacion->estado);
 
 /** Descuento por renglón y descuento global (con su porcentaje negociado). */
@@ -105,6 +124,10 @@ template('header', [
                 <span>Operación de esta venta</span>
             </a>
         <?php endif; ?>
+        <a class="btn btn--secundario" href="#fotos-entrega">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">photo_camera</span>
+            <span>Fotos de la entrega</span>
+        </a>
         <a class="btn btn--primario" href="/admin/ventas/pdf?id=<?= $id ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
             <span>Exportar PDF</span>
@@ -157,6 +180,119 @@ if ($ingresoVenta) {
     Entregas, incidencias, devoluciones y cambios de esta venta se gestionan en
     <a href="/admin/entregas-seguimiento/venta?id=<?= $id ?>">Operación de esta venta</a>.
 </p>
+
+<?php
+/**
+ * Fotos del acta. Viven en cada entrega (una venta puede tener entregas
+ * parciales), así que aquí se muestran todas las de la venta y se pueden
+ * agregar a cualquiera de sus entregas ya registradas.
+ */
+$entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empty($e['fotos'])));
+?>
+<section class="tarjeta mb-lg" id="fotos-entrega">
+    <div class="tabla-toolbar">
+        <div>
+            <h2 class="titulo-5">Fotos de la entrega</h2>
+            <p class="texto-secundario texto-sm mb-0">
+                Fotos del acta adjuntas a las entregas de esta venta. Al abrirlas se muestran con la marca de agua del
+                negocio, la fecha, la hora y la ubicación.
+            </p>
+        </div>
+        <?php if ($entregas) : ?>
+            <a class="btn btn--secundario btn--sm" href="/admin/entregas-seguimiento/venta?id=<?= $id ?>#fotos-entrega">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">fact_check</span>
+                <span>Ver seguimiento</span>
+            </a>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($errores) : ?>
+        <div class="nota nota--error mb-lg" role="alert">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
+            <span><?php foreach ($errores as $i => $e) : ?><?= $i ? '<br>' : '' ?><?= escaparValores($e) ?><?php endforeach; ?></span>
+        </div>
+    <?php endif; ?>
+
+    <?php if (!$entregas) : ?>
+        <p class="texto-secundario">
+            Esta venta todavía no tiene entregas registradas. Registra la entrega para poder adjuntar las fotos del acta.
+        </p>
+        <?php if ($cotizacion->estado === 'registrada') : ?>
+            <a class="btn btn--primario btn--sm" href="/admin/entregas/entregar?venta=<?= $id ?>&volver=seguimiento">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">local_shipping</span>
+                <span>Registrar entrega</span>
+            </a>
+        <?php endif; ?>
+    <?php else : ?>
+        <?php if ($entregasConFotos) : ?>
+            <?php foreach ($entregasConFotos as $e) : $fechaE = date('d/m/Y', strtotime($e['fecha'])); $nFotos = count($e['fotos']); ?>
+                <div class="seguimiento-fotos">
+                    <p class="texto-sm mb-0">
+                        <strong>Entrega del <?= $fechaE ?></strong>
+                        <span class="texto-secundario">
+                            · <?= $nFotos ?> foto<?= $nFotos === 1 ? '' : 's' ?> · registró <?= escaparValores($e['usuario_nombre'] ?? '—') ?>
+                        </span>
+                    </p>
+                    <ul class="seguimiento-fotos__lista">
+                        <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); $rutaMarcada = \App\FotosEntrega::url($foto['archivo']); ?>
+                            <li class="seguimiento-fotos__item">
+                                <button type="button" class="seguimiento-fotos__enlace"
+                                        data-ampliar-imagen="<?= escaparValores($rutaMarcada) ?>"
+                                        data-ampliar-sobre="Fotos de la entrega"
+                                        data-ampliar-titulo="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                        title="Ver la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                        aria-label="Ampliar la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>">
+                                    <img class="seguimiento-fotos__imagen" src="<?= escaparValores($rutaFoto) ?>"
+                                         alt="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                         loading="lazy">
+                                </button>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endforeach; ?>
+        <?php else : ?>
+            <p class="texto-secundario">Aún no hay fotos adjuntas. Puedes subirlas a cualquiera de las entregas de la venta.</p>
+        <?php endif; ?>
+
+        <form class="formulario" action="/admin/ventas/detalle?id=<?= $id ?>#fotos-entrega" method="post" enctype="multipart/form-data" novalidate>
+            <input type="hidden" name="id" value="<?= $id ?>">
+            <input type="hidden" name="accion" value="fotos">
+            <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+
+            <div class="formulario__rejilla">
+                <div class="campo">
+                    <label class="campo__etiqueta" for="fotos-entrega-archivos">Agregar fotos del acta</label>
+                    <input class="control" type="file" id="fotos-entrega-archivos" name="fotos[]"
+                           accept="image/jpeg,image/png,image/webp" multiple>
+                    <span class="campo__ayuda">
+                        Hasta <?= (int) \App\Entregas::MAX_FOTOS ?> fotos por envío y
+                        <?= (int) \App\Entregas::MAX_FOTOS_TOTAL_MB ?> MB en total.
+                    </span>
+                </div>
+                <div class="campo">
+                    <label class="campo__etiqueta" for="fotos-entrega-destino">Entrega</label>
+                    <select class="control" id="fotos-entrega-destino" name="entrega_id">
+                        <?php foreach (array_reverse($entregas) as $e) : $piezas = array_sum(array_column($e['renglones'], 'cantidad')); ?>
+                            <option value="<?= (int) $e['id'] ?>">
+                                <?= date('d/m/Y', strtotime($e['fecha'])) ?> ·
+                                <?= $piezas ?> pieza<?= $piezas === 1 ? '' : 's' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span class="campo__ayuda">Se adjuntan a la entrega elegida (la más reciente aparece primero).</span>
+                </div>
+            </div>
+
+            <div class="formulario__acciones">
+                <button class="btn btn--primario" type="submit">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_photo_alternate</span>
+                    <span>Subir fotos</span>
+                </button>
+            </div>
+        </form>
+    <?php endif; ?>
+</section>
 
 <div class="cotizador-detalle">
     <!-- Documento -->

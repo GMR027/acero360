@@ -356,6 +356,25 @@ class Documentos
         self::enviar($bytes, 'estadisticas-' . $p['tipo'] . '-' . $p['anio']);
     }
 
+    /**
+     * PDF del primer apartado de Análisis Financiero: medidor, resumen,
+     * inventario, proveedores pendientes y gastos operativos del mes.
+     * Solo lectura: exportar no modifica ninguna cifra.
+     */
+    public static function descargarAnalisisFinanciero(array $datos, string $nombre, string $volver): void
+    {
+        ob_start();
+        \template('pdfAnalisisFinanciero', $datos);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'el análisis financiero', 'landscape');
+        if ($bytes === null) {
+            \redirigir($volver, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, $nombre);
+    }
+
     /** PDF del resumen de cierre (fotografía guardada). Solo lectura. */
     public static function descargarCierre(array $snapshot, array $estado): void
     {

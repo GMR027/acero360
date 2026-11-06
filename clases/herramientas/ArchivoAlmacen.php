@@ -7,11 +7,9 @@ namespace Classes;
  * «Archivo» (carpetas virtuales con ofimática, PDF y modelos BIM/CAD).
  *
  * Reglas de seguridad:
- *   • Sólo extensiones de una lista blanca, y el contenido debe ser coherente
- *     con lo que dice la extensión (firma %PDF-, PK\x03\x04 de los ZIP de
- *     Office/LibreOffice/OnlyOffice, OLE de los .doc/.xls antiguos, firmas de
- *     imagen…). Formatos binarios sin firma fiable (RVT, 3DM, SKP…) pasan la
- *     comprobación de extensión y de cabecera binaria.
+ *   • La herramienta admite cualquier extensión. Los formatos conocidos se
+ *     validan además por su contenido (firma); los desconocidos se guardan
+ *     como binario y sólo se sirven como descarga.
  *   • Los bytes viven FUERA de public/ (storage/archivo/…), con nombre
  *     aleatorio: el nombre del usuario sólo se guarda como dato.
  *   • Tamaño máximo limitado por el PHP del servidor (se informa en el error).
@@ -103,16 +101,22 @@ class ArchivoAlmacen
         return max(1048576, $min);
     }
 
-    /** Extensiones admitidas, con su familia (para el texto de ayuda de la vista). */
+    /**
+     * Formatos con validación de firma conocida.
+     *
+     * La herramienta admite cualquier archivo: esta lista sólo sirve para
+     * comprobar el contenido de los tipos que sabemos reconocer y para elegir
+     * su familia. El resto se guarda como binario genérico.
+     */
     public static function extensiones(): array
     {
         return array_keys(self::FORMATOS);
     }
 
-    /** Familia que corresponde a una extensión ('' si no está admitida). */
+    /** Familia que corresponde a una extensión ('otro' si no la conocemos). */
     public static function familia(string $ext): string
     {
-        return self::FORMATOS[strtolower($ext)] ?? '';
+        return self::FORMATOS[strtolower($ext)] ?? 'otro';
     }
 
     /**
@@ -168,8 +172,9 @@ class ArchivoAlmacen
      * ------------------------------------------------------------------ */
 
     /**
-     * Comprueba una subida: código de error, tamaño, extensión admitida y
-     * firma real del contenido. Devuelve [ext, familia, sha256] o null.
+     * Comprueba una subida: código de error, tamaño, extensión y, cuando el
+     * formato es conocido, la firma real del contenido. Se admite cualquier
+     * extensión (o ninguna); lo desconocido se guarda como binario.
      *
      * @param array{name?: string, tmp_name?: string, size?: int, error?: int} $archivo
      * @return array{ext: string, familia: string, sha256: string, tamano: int}|null
@@ -211,25 +216,27 @@ class ArchivoAlmacen
             return null;
         }
 
-        $ext = strtolower(pathinfo((string) ($archivo['name'] ?? ''), PATHINFO_EXTENSION));
-        if ($ext === '' || !isset(self::FORMATOS[$ext])) {
-            self::$errores[] = '«' . self::nombreOriginal($archivo) . '»: formato no admitido. '
-                . 'Se aceptan documentos de Office, LibreOffice y OnlyOffice, PDF, imágenes, '
-                . 'comprimidos y modelos (Rhinoceros, Revit, AutoCAD, SketchUp…).';
-            return null;
-        }
+        // Cualquier extensión es válida. Se normaliza para usarla como sufijo
+        // del nombre aleatorio; si no hay extensión se guarda como «.bin».
+        $ext = strtolower((string) pathinfo((string) ($archivo['name'] ?? ''), PATHINFO_EXTENSION));
+        $ext = substr(preg_replace('/[^a-z0-9]/', '', $ext) ?? '', 0, 16);
+        $extGuardado = $ext !== '' ? $ext : 'bin';
+        $conocido = $ext !== '' && isset(self::FORMATOS[$ext]);
+        $familia = $conocido ? self::FORMATOS[$ext] : 'otro';
 
-        // Firma real del contenido: la extensión sola no basta.
-        $firma = (string) file_get_contents($temporal, false, null, 0, 16);
-        if (!self::firmaValida($ext, $firma)) {
-            self::$errores[] = '«' . self::nombreOriginal($archivo) . '» no parece un archivo ' . strtoupper($ext)
-                . ' válido (el contenido no coincide con su extensión).';
-            return null;
+        // Firma real del contenido: sólo para los formatos que sabemos validar.
+        if ($conocido) {
+            $firma = (string) file_get_contents($temporal, false, null, 0, 16);
+            if (!self::firmaValida($ext, $firma)) {
+                self::$errores[] = '«' . self::nombreOriginal($archivo) . '» no parece un archivo ' . strtoupper($ext)
+                    . ' válido (el contenido no coincide con su extensión).';
+                return null;
+            }
         }
 
         return [
-            'ext'     => $ext,
-            'familia' => self::FORMATOS[$ext],
+            'ext'     => $extGuardado,
+            'familia' => $familia,
             'sha256'  => hash_file('sha256', $temporal),
             'tamano'  => $tamano,
         ];
@@ -343,7 +350,11 @@ class ArchivoAlmacen
             return null;
         }
 
-        $nombre = bin2hex(random_bytes(16)) . '.' . $ext;
+        $ext = substr(preg_replace('/[^a-z0-9]/', '', strtolower($ext)) ?? '', 0, 16);
+        // Los tipos desconocidos se guardan como binario, sin conservar una
+        // extensión que pudiera interpretarse como ejecutable en el servidor.
+        if ($familia === 'otro') $ext = 'bin';
+        $nombre = bin2hex(random_bytes(16)) . '.' . ($ext !== '' ? $ext : 'bin');
         $ruta = $destino . '/' . $nombre;
 
         $movido = is_uploaded_file($archivo['tmp_name'])

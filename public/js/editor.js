@@ -71,6 +71,51 @@
 
     var UNIDADES = { px: 1, mm: 25.4 / 96, cm: 2.54 / 96, m: 0.0254 / 96, in: 1 / 96 };
     var NOMBRE_UNIDAD = { px: 'px', mm: 'mm', cm: 'cm', m: 'm', in: 'in' };
+    var CLAVE_UNIDAD_GEO = 'editor-unidad-geo';
+
+    /** Convierte píxeles del lienzo al valor que se muestra en la unidad. */
+    function aUnidad(px, unidad) {
+        return px * (UNIDADES[unidad] || 1);
+    }
+
+    /** Convierte un valor escrito en la unidad a píxeles del lienzo. */
+    function aPx(valor, unidad) {
+        return valor / (UNIDADES[unidad] || 1);
+    }
+
+    /** Decimales de los campos de posición y tamaño. */
+    function decimalesGeo(unidad) {
+        return unidad === 'px' ? 0 : (unidad === 'm' ? 3 : 2);
+    }
+
+    /** Decimales para longitudes finas (grosor y longitud de línea). */
+    function decimalesFino(unidad) {
+        return unidad === 'px' ? 2 : (unidad === 'm' ? 4 : 3);
+    }
+
+    function valorGeo(px, unidad) {
+        return Number(aUnidad(px, unidad).toFixed(decimalesGeo(unidad)));
+    }
+
+    function valorFino(px, unidad) {
+        return Number(aUnidad(px, unidad).toFixed(decimalesFino(unidad)));
+    }
+
+    function pasoGeo(unidad) {
+        if (unidad === 'px') return 1;
+        if (unidad === 'mm') return 1;
+        if (unidad === 'm') return 0.001;
+        if (unidad === 'in') return 0.01;
+        return 0.1;
+    }
+
+    function pasoFino(unidad) {
+        if (unidad === 'px') return 0.5;
+        if (unidad === 'mm') return 0.1;
+        if (unidad === 'm') return 0.0001;
+        if (unidad === 'in') return 0.001;
+        return 0.01;
+    }
 
     function esc(v) {
         return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -795,16 +840,16 @@
     // Render fuera de pantalla (miniaturas y exportación)
     // ------------------------------------------------------------------
     /**
-     * Escala de render para exportar: ~300 dpi (3.125× a 96 dpi), limitada
-     * para no pasarse del tamaño máximo de canvas de los navegadores.
+     * Escala de render para exportar, limitada para no pasarse del tamaño
+     * máximo de canvas de los navegadores.
      */
     function ratioExporte() {
-        // Resolución pedida por la pantalla del editor (dpiExporte, 200 por
-        // defecto). A 300 dpi una lámina de carta salía con 2550×3300 px:
-        // el navegador tardaba el doble en dibujarla y Dompdf el doble en
-        // decodificarla, sin que se notara a la hora de leer o imprimir.
+        // Resolución pedida por la pantalla del editor (dpiExporte, 150 por
+        // defecto). A 200 dpi una lámina de carta salía con 1654×2138 px y
+        // el navegador tardaba el doble en dibujarla sin ganar legibilidad
+        // apreciable al imprimir.
         var dpi = parseInt(C.dpiExporte, 10);
-        if (!dpi || dpi < 96) dpi = 200;
+        if (!dpi || dpi < 96) dpi = 150;
         if (dpi > 600) dpi = 600;
         var objetivo = dpi / 96;
         var lado = 8192;
@@ -817,7 +862,7 @@
         return Math.max(1, r);
     }
 
-    function renderUrl(json, ratio) {
+    function renderUrl(json, ratio, tipo) {
         return new Promise(function (resolve) {
             var div = document.createElement('div');
             div.style.cssText = 'position:fixed;left:-100000px;top:0;width:' + C.ancho + 'px;height:' + C.alto + 'px;overflow:hidden';
@@ -843,7 +888,15 @@
             }).then(function () {
                 st.draw();
                 var url = '';
-                try { url = st.toDataURL({ pixelRatio: ratio, mimeType: 'image/png' }); } catch (e) { url = ''; }
+                try {
+                    // JPEG opaco para el PDF: Dompdf lo embebe directo, sin
+                    // decodificar el PNG ni separar su canal alfa (la ruta
+                    // más lenta de Dompdf). Las miniaturas y el PNG de una
+                    // lámina siguen saliendo como PNG.
+                    var opciones = { pixelRatio: ratio, mimeType: tipo === 'jpeg' ? 'image/jpeg' : 'image/png' };
+                    if (tipo === 'jpeg') opciones.quality = parseFloat(C.calidadExporte) || 0.9;
+                    url = st.toDataURL(opciones);
+                } catch (e) { url = ''; }
                 st.destroy();
                 div.remove();
                 resolve(url);
@@ -2113,6 +2166,8 @@
         titulo: $('ed-sel-titulo'), info: $('ed-sel-info'),
         geo: $('ed-grupo-geometria'), apariencia: $('ed-grupo-apariencia'),
         x: $('ed-p-x'), y: $('ed-p-y'), w: $('ed-p-w'), h: $('ed-p-h'),
+        unidadGeo: $('ed-p-unidad-geo'), filaLinea: $('ed-fila-linea'),
+        lineaL: $('ed-p-linea-l'), lineaAng: $('ed-p-linea-ang'),
         rot: $('ed-p-rot'), op: $('ed-p-op'),
         filaTamano: $('ed-fila-tamano'),
         texto: $('ed-grupo-texto'), contenido: $('ed-p-texto'),
@@ -2138,6 +2193,80 @@
         Rect: 'Rectángulo', Ellipse: 'Elipse', Text: 'Texto', Line: 'Línea',
         Arrow: 'Flecha', Image: 'Imagen', Group: 'Grupo'
     };
+
+    // Unidad de trabajo recordada entre sesiones.
+    var unidadGuardada = 'px';
+    try { unidadGuardada = localStorage.getItem(CLAVE_UNIDAD_GEO) || 'px'; } catch (e) { unidadGuardada = 'px'; }
+    if (!UNIDADES[unidadGuardada]) unidadGuardada = 'px';
+    if (P.unidadGeo) P.unidadGeo.value = unidadGuardada;
+
+    function unidadActual() {
+        var u = P.unidadGeo ? P.unidadGeo.value : 'px';
+        return UNIDADES[u] ? u : 'px';
+    }
+
+    function actualizarControlesUnidad() {
+        var u = unidadActual();
+        var sufijo = NOMBRE_UNIDAD[u] || u;
+        document.querySelectorAll('[data-unidad-sufijo]').forEach(function (el) {
+            el.textContent = sufijo;
+        });
+        if (P.x) P.x.step = pasoGeo(u);
+        if (P.y) P.y.step = pasoGeo(u);
+        if (P.w) { P.w.step = pasoGeo(u); P.w.min = '0'; }
+        if (P.h) { P.h.step = pasoGeo(u); P.h.min = '0'; }
+        if (P.lineaL) { P.lineaL.step = pasoFino(u); P.lineaL.min = '0'; }
+        if (P.grosor) {
+            P.grosor.step = pasoFino(u);
+            P.grosor.max = valorFino(80, u);
+        }
+    }
+
+    function largoPuntos(pts) {
+        var total = 0;
+        for (var i = 2; i < pts.length; i += 2) {
+            total += Math.hypot(pts[i] - pts[i - 2], pts[i + 1] - pts[i - 1]);
+        }
+        return total;
+    }
+
+    function anguloPuntos(pts) {
+        if (pts.length < 4) return 0;
+        return Math.atan2(pts[pts.length - 1] - pts[1], pts[pts.length - 2] - pts[0]) * 180 / Math.PI;
+    }
+
+    function puntosEfectivos(n) {
+        var pts = n.points ? (n.points() || []).slice() : [];
+        var sx = n.scaleX(), sy = n.scaleY();
+        if (sx === 1 && sy === 1) return pts;
+        for (var i = 0; i < pts.length; i += 2) {
+            pts[i] *= sx;
+            pts[i + 1] *= sy;
+        }
+        return pts;
+    }
+
+    /** Pasa la escala actual del nodo a sus puntos para poder editarlos. */
+    function normalizarEscalaLinea(n) {
+        var sx = n.scaleX(), sy = n.scaleY();
+        if (sx === 1 && sy === 1) return;
+        var pts = (n.points ? n.points() : []).slice();
+        for (var i = 0; i < pts.length; i += 2) {
+            pts[i] *= sx;
+            pts[i + 1] *= sy;
+        }
+        n.points(pts);
+        n.scaleX(1);
+        n.scaleY(1);
+    }
+
+    function infoLinea(n) {
+        var pts = puntosEfectivos(n);
+        return { pts: pts, largo: largoPuntos(pts), angulo: anguloPuntos(pts) };
+    }
+
+    actualizarControlesUnidad();
+
     var NOMBRES_FORMA = {
         triangulo: 'Triángulo', rombo: 'Rombo', pentagono: 'Pentágono', hexagono: 'Hexágono',
         octagono: 'Octágono', estrella: 'Estrella', estrella4: 'Estrella de 4 puntas',
@@ -2215,15 +2344,22 @@
         var esRect = clase === 'Rect';
         var esElipse = clase === 'Ellipse';
 
-        P.x.value = Math.round(n.x());
-        P.y.value = Math.round(n.y());
+        var u = unidadActual();
+        P.x.value = valorGeo(n.x(), u);
+        P.y.value = valorGeo(n.y(), u);
         P.rot.value = Math.round(n.rotation());
         P.op.value = Math.round(n.opacity() * 100);
 
         var b = caja(n);
-        P.w.value = Math.round(b.width);
-        P.h.value = Math.round(b.height);
+        P.w.value = valorGeo(b.width, u);
+        P.h.value = valorGeo(b.height, u);
         mostrar(P.filaTamano, !esLinea && !esPin && !esTabla && !esMedida);
+        mostrar(P.filaLinea, esLinea && !esForma && !esMedida);
+        if (P.filaLinea && !P.filaLinea.hidden) {
+            var li = infoLinea(n);
+            P.lineaL.value = valorFino(li.largo, u);
+            P.lineaAng.value = Number((li.angulo + n.rotation()).toFixed(2));
+        }
 
         var conRelleno = esRect || esElipse || esForma || esTexto;
         var conTrazo = !esTexto && !esImagen && !esTabla && !esPin && !esMedida;
@@ -2232,7 +2368,7 @@
         mostrar(P.sinRelleno, conRelleno && !esTexto);
         mostrar(P.filaGrosor, conTrazo);
         mostrar(P.filaEstilo, (esLinea || conTrazo) && !esImagen);
-        P.grosor.value = (typeof n.strokeWidth === 'function' ? n.strokeWidth() : 0) || 0;
+        P.grosor.value = valorFino((typeof n.strokeWidth === 'function' ? n.strokeWidth() : 0) || 0, u);
         P.borde.value = colorHex((typeof n.stroke === 'function' ? n.stroke() : null) || '#4679a6');
 
         var relleno = typeof n.fill === 'function' ? n.fill() : null;
@@ -2295,11 +2431,24 @@
         actualizarProps();
     }
 
-    [['x', 'x'], ['y', 'y'], ['rot', 'rotation']].forEach(function (par) {
+    P.unidadGeo.addEventListener('change', function () {
+        var u = unidadActual();
+        try { localStorage.setItem(CLAVE_UNIDAD_GEO, u); } catch (e) {}
+        actualizarControlesUnidad();
+        actualizarProps();
+    });
+
+    [['x', 'x'], ['y', 'y']].forEach(function (par) {
         P[par[0]].addEventListener('change', function () {
-            var v = parseFloat(P[par[0]].value) || 0;
+            var u = unidadActual();
+            var v = aPx(parseFloat(P[par[0]].value) || 0, u);
             modificar(function (n) { n[par[1]](v); });
         });
+    });
+
+    P.rot.addEventListener('change', function () {
+        var v = parseFloat(P.rot.value) || 0;
+        modificar(function (n) { n.rotation(v); });
     });
 
     P.op.addEventListener('change', function () {
@@ -2308,7 +2457,8 @@
     });
 
     P.w.addEventListener('change', function () {
-        var v = Math.max(1, parseFloat(P.w.value) || 1);
+        var u = unidadActual();
+        var v = Math.max(1, aPx(parseFloat(P.w.value) || 1, u));
         modificar(function (n) {
             if (n.getAttr('esForma')) n.scaleX(v / 100);
             else if (n.getClassName() === 'Ellipse') n.radiusX(v / 2);
@@ -2316,11 +2466,51 @@
         });
     });
     P.h.addEventListener('change', function () {
-        var v = Math.max(1, parseFloat(P.h.value) || 1);
+        var u = unidadActual();
+        var v = Math.max(1, aPx(parseFloat(P.h.value) || 1, u));
         modificar(function (n) {
             if (n.getAttr('esForma')) n.scaleY(v / 100);
             else if (n.getClassName() === 'Ellipse') n.radiusY(v / 2);
             else n.height(v);
+        });
+    });
+
+    P.lineaL.addEventListener('change', function () {
+        var u = unidadActual();
+        var px = Math.max(0, aPx(parseFloat(P.lineaL.value) || 0, u));
+        modificar(function (n) {
+            normalizarEscalaLinea(n);
+            var pts = (n.points ? n.points() : []).slice();
+            if (pts.length < 4) return;
+            var actual = largoPuntos(pts);
+            if (actual < 0.0001) {
+                n.points([0, 0, px, 0]);
+                return;
+            }
+            var factor = px / actual;
+            for (var i = 2; i < pts.length; i += 2) {
+                pts[i] = pts[0] + (pts[i] - pts[0]) * factor;
+                pts[i + 1] = pts[1] + (pts[i + 1] - pts[1]) * factor;
+            }
+            n.points(pts);
+        });
+    });
+
+    P.lineaAng.addEventListener('change', function () {
+        var nuevo = parseFloat(P.lineaAng.value) || 0;
+        modificar(function (n) {
+            normalizarEscalaLinea(n);
+            var pts = (n.points ? n.points() : []).slice();
+            if (pts.length < 4) return;
+            // El campo muestra el ángulo visual: se descuenta el giro del nodo.
+            var delta = (nuevo - n.rotation() - anguloPuntos(pts)) * Math.PI / 180;
+            var cos = Math.cos(delta), sen = Math.sin(delta);
+            for (var i = 2; i < pts.length; i += 2) {
+                var dx = pts[i] - pts[0], dy = pts[i + 1] - pts[1];
+                pts[i] = pts[0] + dx * cos - dy * sen;
+                pts[i + 1] = pts[1] + dx * sen + dy * cos;
+            }
+            n.points(pts);
         });
     });
 
@@ -2361,7 +2551,8 @@
         modificar(function (n) { n.fill(v); });
     });
     P.grosor.addEventListener('change', function () {
-        var v = Math.max(0, parseFloat(P.grosor.value) || 0);
+        var u = unidadActual();
+        var v = Math.max(0, aPx(parseFloat(P.grosor.value) || 0, u));
         modificar(function (n) {
             n.strokeWidth(v);
             if (n.getClassName() === 'Arrow') n.fill(n.stroke() || '#1f2937');
@@ -3359,7 +3550,10 @@
         return (nombre.value.trim() || C.nombre || 'documento').replace(/[\\/:*?"<>|]+/g, '_') + '.' + ext;
     }
 
-    /** PDF ya compuesto por el servidor, o null si hay que volver a dibujar las láminas. */
+    /**
+     * PDF ya compuesto por el servidor. Si alguna lámina no se puede reutilizar
+     * devuelve { faltan: [índices] } para redibujar sólo esas.
+     */
     function pdfReutilizable() {
         var fd = new FormData();
         fd.append('id', C.id);
@@ -3367,11 +3561,28 @@
         fd.append('reusar', '1');
         return fetch(C.api.pdf, { method: 'POST', body: fd }).then(function (r) {
             if (r.ok) return r.blob();
-            // 409 = el servidor no pudo reutilizar las imágenes de alta
-            // resolución (el documento cambió): hay que renderizar otra vez.
-            if (r.status === 409) return null;
+            // 409 = hay láminas nuevas o cambiadas: el servidor dice cuáles.
+            if (r.status === 409) {
+                return r.json().then(function (j) {
+                    return { faltan: Array.isArray(j.faltan) ? j.faltan : null };
+                }).catch(function () { return { faltan: null }; });
+            }
             throw new Error('pdf');
         });
+    }
+
+    /** Dibuja las láminas indicadas y devuelve [{ i, u }] en el orden pedido. */
+    function renderLaminas(indices, ratio, hechas) {
+        var total = indices.length;
+        return Promise.all(indices.map(function (i) {
+            return renderUrl(paginas[i].json, ratio, 'jpeg').then(function (u) {
+                if (hechas) {
+                    hechas.n++;
+                    estado('Generando PDF… ' + hechas.n + '/' + total);
+                }
+                return { i: i, u: u };
+            });
+        }));
     }
 
     function exportarPdf(imprimir) {
@@ -3383,21 +3594,32 @@
             // un momento y el navegador no tiene que volver a pintar lámina
             // por lámina (que es lo que más tarda).
             return pdfReutilizable().then(function (ya) {
-                if (ya) return ya;
+                if (ya instanceof Blob) return ya;
+
+                var faltan = ya && ya.faltan ? ya.faltan : paginas.map(function (_, i) { return i; });
+                var hechas = { n: 0 };
                 var ratio = ratioExporte();
-                return Promise.all(paginas.map(function (p) { return renderUrl(p.json, ratio); })).then(function (urls) {
+
+                return renderLaminas(faltan, ratio, hechas).then(function (laminas) {
                     // Si el navegador no pudo con esa escala, se reintenta a tamaño real.
-                    if (urls.some(function (u) { return !u; })) {
-                        return Promise.all(paginas.map(function (p) { return renderUrl(p.json, 1); }));
+                    if (laminas.some(function (x) { return !x.u; })) {
+                        hechas.n = 0;
+                        return renderLaminas(faltan, 1, hechas);
                     }
-                    return urls;
-                }).then(function (urls) {
-                    if (urls.some(function (u) { return !u; })) throw new Error('png');
+                    return laminas;
+                }).then(function (laminas) {
+                    if (laminas.some(function (x) { return !x.u; })) throw new Error('imagen');
+
+                    // Mapa índice → dataURL: el servidor conserva las láminas
+                    // que ya tenía y sólo sustituye las enviadas.
+                    var mapa = {};
+                    laminas.forEach(function (x) { mapa[x.i] = x.u; });
+
                     var fd = new FormData();
                     fd.append('id', C.id);
                     fd.append('version', version);
                     fd.append('nombre', nombre.value.trim() || C.nombre);
-                    fd.append('paginas', JSON.stringify(urls));
+                    fd.append('paginas', JSON.stringify(mapa));
                     return fetch(C.api.pdf, { method: 'POST', body: fd }).then(function (r) {
                         if (!r.ok) throw new Error('pdf');
                         return r.blob();

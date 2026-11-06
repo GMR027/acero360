@@ -376,6 +376,11 @@ body:has(.ed-pagina) .principal,
         margin-bottom: .48rem;
         color: var(--color-texto-secundario);
         font-size: .69rem;
+        &__titulo {
+            display: flex;
+            align-items: baseline;
+            gap: .25rem;
+        }
         input, select, textarea {
             width: 100%;
             padding: .3rem .42rem;

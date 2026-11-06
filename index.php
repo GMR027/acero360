@@ -218,6 +218,7 @@ $router->post('/admin/ventas',          'views/admin/ventas/index.php',      'so
 $router->get('/admin/ventas/crear',     'views/admin/ventas/crear.php',      'soloAdmin');
 $router->post('/admin/ventas/crear',    'views/admin/ventas/crear.php',      'soloAdmin');
 $router->get('/admin/ventas/detalle',   'views/admin/ventas/detalle.php',    'soloAdmin');
+$router->post('/admin/ventas/detalle',  'views/admin/ventas/detalle.php',    'soloAdmin');
 $router->get('/admin/ventas/editar',    'views/admin/ventas/editar.php',     'soloAdmin');
 $router->post('/admin/ventas/editar',   'views/admin/ventas/editar.php',     'soloAdmin');
 $router->get('/admin/ventas/devolucion',  'views/admin/ventas/devolucion.php', 'soloAdmin');
@@ -307,6 +308,8 @@ $router->post('/admin/ajustes/almacenamiento', 'views/admin/ajustes-almacenamien
 // Descarga una copia completa (.tar.gz) para guardarla fuera del clúster.
 $router->get('/admin/ajustes/almacenamiento/descargar', 'views/admin/almacenamiento-descargar.php', 'soloAdmin');
 $router->get('/admin/estadisticas',          'views/admin/estadisticas/index.php',    'soloAdmin');
+$router->get('/admin/analisis-financiero',    'views/admin/analisis-financiero.php',   'soloAdmin');
+$router->get('/admin/analisis-financiero/exportar', 'views/admin/analisis-financiero/exportar.php', 'soloAdmin');
 $router->get('/admin/estadisticas/exportar', 'views/admin/estadisticas/exportar.php', 'soloAdmin');
 
 // --- Fiscal y cierre mensual (Etapa 6) ---

@@ -137,6 +137,14 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        'ruta'          => '/admin/analisis-financiero',
+        'icono'         => 'monitoring',
+        'texto'         => 'Análisis Financiero',
+        'subrutas'      => false,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/contabilidad/sin-facturar',
         'icono'         => 'pending_actions',
         'texto'         => 'Pendientes de facturar',

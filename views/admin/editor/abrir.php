@@ -49,10 +49,11 @@ $config = [
     'ancho'        => $ancho,
     'alto'         => $alto,
     // Resolución con la que el navegador rasteriza cada lámina al exportar
-    // el PDF. 200 dpi sale nítido en pantalla e impreso y pinta ~2.2 veces
-    // menos píxeles que los 300 dpi de antes (el PDF tardaba lo mismo en el
-    // servidor, pero el navegador tardaba el doble en generarlo).
-    'dpiExporte'   => 200,
+    // el PDF. 150 dpi sigue viéndose bien impreso y reduce a la mitad los
+    // píxeles frente a 200 dpi. Las láminas se envían como JPEG opaco, que
+    // Dompdf embebe sin decodificar ni separar el canal alfa.
+    'dpiExporte'   => 150,
+    'calidadExporte' => 0.90,
     'orientacion'  => $documento->orientacion,
     'fondo'        => $documento->fondo,
     'fondo_color'  => $documento->fondo_color,
@@ -357,13 +358,32 @@ $formas = [
 
                     <div id="ed-grupo-geometria" class="ed-prop-grupo">
                         <h4>Posición y tamaño</h4>
+                        <label class="ed-campo">Unidad
+                            <select id="ed-p-unidad-geo">
+                                <option value="px">píxeles</option>
+                                <option value="mm">milímetros</option>
+                                <option value="cm">centímetros</option>
+                                <option value="m">metros</option>
+                                <option value="in">pulgadas</option>
+                            </select>
+                        </label>
                         <div class="ed-fila">
-                            <label class="ed-campo">X <input type="number" id="ed-p-x" step="1"></label>
-                            <label class="ed-campo">Y <input type="number" id="ed-p-y" step="1"></label>
+                            <label class="ed-campo"><span class="ed-campo__titulo">X <small class="text-muted ed-unidad-sufijo" data-unidad-sufijo>px</small></span>
+                                <input type="number" id="ed-p-x" step="1"></label>
+                            <label class="ed-campo"><span class="ed-campo__titulo">Y <small class="text-muted ed-unidad-sufijo" data-unidad-sufijo>px</small></span>
+                                <input type="number" id="ed-p-y" step="1"></label>
                         </div>
                         <div class="ed-fila" id="ed-fila-tamano">
-                            <label class="ed-campo">Ancho <input type="number" id="ed-p-w" min="1" step="1"></label>
-                            <label class="ed-campo">Alto <input type="number" id="ed-p-h" min="1" step="1"></label>
+                            <label class="ed-campo"><span class="ed-campo__titulo">Ancho <small class="text-muted ed-unidad-sufijo" data-unidad-sufijo>px</small></span>
+                                <input type="number" id="ed-p-w" min="1" step="1"></label>
+                            <label class="ed-campo"><span class="ed-campo__titulo">Alto <small class="text-muted ed-unidad-sufijo" data-unidad-sufijo>px</small></span>
+                                <input type="number" id="ed-p-h" min="1" step="1"></label>
+                        </div>
+                        <div class="ed-fila" id="ed-fila-linea" hidden>
+                            <label class="ed-campo"><span class="ed-campo__titulo">Longitud <small class="text-muted ed-unidad-sufijo" data-unidad-sufijo>px</small></span>
+                                <input type="number" id="ed-p-linea-l" min="0" step="1"></label>
+                            <label class="ed-campo">Ángulo (°)
+                                <input type="number" id="ed-p-linea-ang" step="1"></label>
                         </div>
                         <div class="ed-fila">
                             <label class="ed-campo">Giro <input type="number" id="ed-p-rot" step="1"></label>
@@ -413,7 +433,7 @@ $formas = [
                         </div>
                         <label class="ed-chk ed-chk--fila" id="ed-fila-sin-relleno"><input type="checkbox" id="ed-p-sin-relleno"> Sin relleno</label>
                         <div class="ed-fila">
-                            <label class="ed-campo" id="ed-fila-grosor">Grosor
+                            <label class="ed-campo" id="ed-fila-grosor"><span class="ed-campo__titulo">Grosor <small class="text-muted ed-unidad-sufijo" data-unidad-sufijo>px</small></span>
                                 <input type="number" id="ed-p-grosor" min="0" max="80" step=".5">
                             </label>
                             <label class="ed-campo" id="ed-fila-estilo">Estilo de línea
