@@ -65,7 +65,7 @@ template('tabsCompras', ['tab' => 'complemento']);
         <div class="campo"><span class="campo__etiqueta">Fecha de pago</span>
             <span><?= escaparValores($fechaCorta) ?></span></div>
         <div class="campo"><span class="campo__etiqueta">Monto del complemento</span>
-            <span class="cifra"><strong><?= $comp ? formatoMoneda((float) ($comp['monto'] ?: $datos['total'])) : '—' ?></strong></span></div>
+            <span class="cifra"><strong><?= $comp ? formatoMoneda((float) ($comp['monto_total'] ?? $comp['monto'] ?: $datos['total'])) : '—' ?></strong></span></div>
         <div class="campo"><span class="campo__etiqueta">Moneda</span>
             <span><?= escaparValores($comp['moneda'] ?? $datos['moneda'] ?? 'MXN') ?></span></div>
         <div class="campo"><span class="campo__etiqueta">Forma de pago (SAT)</span>
@@ -124,8 +124,21 @@ template('tabsCompras', ['tab' => 'complemento']);
                             <div><dt>Saldo compra</dt><dd class="cifra"><?= formatoMoneda($d['orden']['saldo']) ?>
                                 <span class="texto-xs texto-secundario">(de <?= formatoMoneda($d['orden']['total']) ?>,
                                     pagado <?= formatoMoneda($d['orden']['pagado']) ?>)</span></dd></div>
+                        <?php elseif ($d['gasto']) : ?>
+                            <div><dt>Gasto</dt><dd>
+                                <a href="/admin/contabilidad/gastos/detalle?id=<?= (int) $d['gasto']['id'] ?>">
+                                    #<?= (int) $d['gasto']['id'] ?> · <?= escaparValores($d['gasto']['concepto']) ?></a>
+                            </dd></div>
+                            <div><dt>Estado del gasto</dt><dd>
+                                <span class="badge badge--neutro"><?= escaparValores($d['gasto']['metodo_cfdi'] ?: 'Método por definir') ?></span>
+                                <span class="badge <?= ($d['gasto']['estado_pago_clave'] ?? '') === 'pagado' ? 'badge--aprobado' : 'badge--pendiente' ?>">
+                                    <?= ($d['gasto']['estado_pago_clave'] ?? '') === 'pagado' ? 'Pagado' : (($d['gasto']['estado_pago_clave'] ?? '') === 'parcial' ? 'Pago parcial' : 'Por pagar') ?></span>
+                            </dd></div>
+                            <div><dt>Saldo del gasto</dt><dd class="cifra"><?= formatoMoneda($d['gasto']['saldo'] ?? 0) ?>
+                                <span class="texto-xs texto-secundario">(de <?= formatoMoneda($d['gasto']['total'] ?? 0) ?>,
+                                    abonado <?= formatoMoneda($d['gasto']['pagado'] ?? 0) ?>)</span></dd></div>
                         <?php else : ?>
-                            <div><dt>Compra</dt><dd><em><?= escaparValores($d['nota']) ?></em></dd></div>
+                            <div><dt>Factura</dt><dd><em><?= escaparValores($d['nota']) ?></em></dd></div>
                         <?php endif; ?>
 
                         <?php if ($d['saldo_anterior'] > 0) : ?>
@@ -150,17 +163,17 @@ template('tabsCompras', ['tab' => 'complemento']);
 
                     <p class="texto-sm mt-md"><?= escaparValores($d['nota']) ?></p>
 
-                    <?php if ($d['orden'] && !$procesada && !$duplicado && !$analisis['periodo_cerrado']) : ?>
+                    <?php if (($d['orden'] || $d['gasto']) && !$procesada && !$duplicado && !$analisis['periodo_cerrado']) : ?>
                         <div class="formulario__acciones mt-md">
                             <label class="comprobacion" for="vincular_<?= (int) $d['indice'] ?>">
                                 <input type="checkbox" id="vincular_<?= (int) $d['indice'] ?>" name="doctos[<?= (int) $d['indice'] ?>][vincular]" value="1" checked
                                     <?= $d['estado'] === 'sin_factura' ? 'disabled' : '' ?>>
-                                <span>Vincular esta factura a su compra y pagos</span>
+                                <span>Vincular esta factura a su <?= $d['orden'] ? 'compra y pagos' : 'gasto y abonos' ?></span>
                             </label>
                             <?php if ($d['puede_crear']) : ?>
                                 <label class="comprobacion" for="crear_<?= (int) $d['indice'] ?>">
                                     <input type="checkbox" id="crear_<?= (int) $d['indice'] ?>" name="doctos[<?= (int) $d['indice'] ?>][crear_pago]" value="1">
-                                    <span>Registrar el pago que el complemento evidencia y aún no existe
+                                    <span>Registrar el <?= $d['orden'] ? 'pago' : 'abono' ?> que el complemento evidencia y aún no existe
                                         (<?= formatoMoneda($d['importe_pagado']) ?>)</span>
                                 </label>
                             <?php endif; ?>

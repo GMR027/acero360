@@ -98,7 +98,7 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
         ?>
         <div class="mb-md" id="validacion-previa">
             <p class="texto-sm mb-sm">
-                <strong>Validación previa a facturar:</strong>
+                <strong><?= $ingreso['estado_facturacion'] === 'facturada' ? 'Estado de la factura:' : 'Validación previa a facturar:' ?></strong>
                 <span class="badge badge--aprobado"><?= (int) $rv['resumen']['correcto'] ?> correctos</span>
                 <?php if ($rv['resumen']['advertencia'] > 0) : ?>
                     <span class="badge badge--pendiente"><?= (int) $rv['resumen']['advertencia'] ?> advertencias</span>
@@ -129,14 +129,28 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
 
             <?php if ($rv['uuid'] !== '') : ?>
                 <p class="nota nota--info mb-sm" role="status">
-                    <span>Esta venta ya tiene un CFDI: UUID <strong><?= escaparValores($rv['uuid']) ?></strong><?php
-                    if ($rv['cfdi']) : ?> (archivo adjunto: <?= escaparValores($rv['cfdi']['nombre_original']) ?>)<?php endif; ?>.
-                    Sólo se reemite con una corrección o sustitución autorizada.</span>
+                    <span>
+                        <?php if ($rv['facturada']) : ?>
+                            <strong>Factura registrada.</strong> UUID <strong><?= escaparValores($rv['uuid']) ?></strong><?php
+                            if ($rv['cfdi']) : ?> (archivo adjunto: <?= escaparValores($rv['cfdi']['nombre_original']) ?>)<?php endif; ?>.
+                            No hay una emisión pendiente; sólo se reemite con una corrección o sustitución autorizada.
+                        <?php else : ?>
+                            <strong>CFDI listo para relacionar.</strong> UUID <strong><?= escaparValores($rv['uuid']) ?></strong>.
+                            Al guardar se vincula con la venta y se marca como facturada.
+                        <?php endif; ?>
+                    </span>
                 </p>
             <?php endif; ?>
         </div>
 
         <?php if ($editable && $capturable) : ?>
+            <?php if ($ingreso['estado_facturacion'] === 'facturada') : ?>
+                <p class="nota nota--advertencia mb-md" role="status">
+                    <span class="material-symbols-outlined nota__icono" aria-hidden="true">attach_file</span>
+                    <span>Esta venta ya está marcada como <strong>facturada sin XML</strong>. Si adjuntas el XML de la
+                        factura, se completan el UUID, el folio, la fecha y el pago que falten; no se vuelve a emitir nada.</span>
+                </p>
+            <?php endif; ?>
             <form class="formulario" id="form-facturacion" action="/admin/ventas/fiscal" method="post" enctype="multipart/form-data" novalidate>
                 <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
                 <input type="hidden" name="accion" value="emitir">
@@ -243,13 +257,19 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
                     <label class="campo__etiqueta" for="doc-archivo">Factura emitida (PDF y/o XML)</label>
                     <input class="control" type="file" id="doc-archivo" name="archivo[]"
                            multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xml">
-                    <span class="campo__ayuda">Puedes elegir varios a la vez: XML (trae UUID y montos), PDF o foto ·
-                        máx. <?= $maxMb ?> MB cada uno. El XML con timbre es lo que respalda la factura.</span>
+                    <span class="campo__ayuda">Puedes elegir varios a la vez: XML (trae UUID, montos, método y forma de pago),
+                        PDF o foto · máx. <?= $maxMb ?> MB cada uno. El XML con timbre es lo que respalda la factura y
+                        completa los datos que falten.</span>
                 </div>
+                <label class="comprobacion mt-sm" for="acepta-discrepancias">
+                    <input type="checkbox" id="acepta-discrepancias" name="acepta_discrepancias" value="1">
+                    <span>Si el total del XML no coincide con el de la venta, lo revisé y quiero continuar.
+                        <span class="texto-xs texto-secundario">Sólo hace falta en ese caso.</span></span>
+                </label>
                 <?php if ($cfdi) : ?>
                     <p class="nota nota--info mt-sm" role="status"><span>CFDI adjunto: <strong><?= escaparValores($cfdi['nombre_original']) ?></strong>
                         (<?= escaparValores($cfdi['uuid_fiscal']) ?>). Se conserva al guardar.</span></p>
-                <?php else : ?>
+                <?php elseif ($ingreso['estado_facturacion'] !== 'facturada') : ?>
                     <label class="comprobacion mt-sm" for="confirma-manual">
                         <input type="checkbox" id="confirma-manual" name="confirma_manual" value="1">
                         <span>No tengo el archivo del CFDI: confirmo que la factura ya se emitió.
@@ -278,9 +298,10 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
                 <div class="formulario__acciones">
                     <button class="btn btn--primario" type="submit">
                         <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">fact_check</span>
-                        <span><?= $ingreso['estado_facturacion'] === 'facturada' ? 'Guardar facturación' : 'Facturar y guardar' ?></span>
+                        <span><?= $ingreso['estado_facturacion'] === 'facturada' ? 'Adjuntar XML y guardar' : 'Facturar y guardar' ?></span>
                     </button>
-                    <span class="campo__ayuda">Un solo paso: se guardan los datos fiscales, se adjunta el documento y se marca la facturación.</span>
+                    <span class="campo__ayuda">Un solo paso: se guardan los datos fiscales, se adjunta el documento y se marca la facturación.
+                        Si subes el XML, el método y la forma de pago se leen del documento.</span>
                 </div>
             </form>
 
@@ -313,10 +334,93 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
             <?php endif; ?>
         <?php elseif ($editable) : ?>
             <p class="texto-secundario">
-                Esta venta ya está facturada con CFDI. Para corregirla, registra una
+                Esta venta ya está facturada con CFDI. Para <strong>cambiar el comprobante</strong> (otro UUID, otro
+                importe, una sustitución), registra una
                 <a href="/admin/entregas-seguimiento/venta?id=<?= $ventaFiscalId ?>#incidencias">incidencia de entrega</a>
-                que marque «Corregir factura»: se da de baja el documento anterior y se sube el correcto.
+                que marque «Corregir factura». Para <strong>sólo completar datos</strong> de la ficha o del pago,
+                usa el formulario de abajo: no toca el UUID ni el documento.
             </p>
+
+            <details class="mt-md">
+                <summary class="texto-sm">Corregir datos del CFDI (no cambia el UUID)</summary>
+                <form class="formulario mt-sm" action="/admin/ventas/fiscal" method="post" novalidate>
+                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                    <input type="hidden" name="accion" value="completar">
+                    <input type="hidden" name="venta" value="<?= $ventaFiscalId ?>">
+                    <input type="hidden" name="id" value="<?= (int) $ingreso['id'] ?>">
+                    <input type="hidden" name="volver" value="<?= escaparValores($volver) ?>">
+
+                    <div class="formulario__rejilla">
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="c-rfc">RFC del receptor</label>
+                            <input class="control" type="text" id="c-rfc" name="rfc" maxlength="20" style="text-transform:uppercase"
+                                   value="<?= escaparValores((string) $rv['cliente']['rfc']) ?>">
+                        </div>
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="c-cp">Código postal fiscal</label>
+                            <input class="control" type="text" id="c-cp" name="codigo_postal" maxlength="5" inputmode="numeric"
+                                   value="<?= escaparValores((string) $rv['cliente']['codigo_postal']) ?>">
+                        </div>
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="c-regimen">Régimen fiscal</label>
+                            <select class="control" id="c-regimen" name="regimen_fiscal">
+                                <option value="">— Sin definir —</option>
+                                <?php foreach (\App\VentasFiscal::REGIMENES as $claveR) : ?>
+                                    <option value="<?= $claveR ?>"<?= mb_strtoupper(trim((string) $rv['cliente']['regimen_fiscal'])) === $claveR ? ' selected' : '' ?>><?= $claveR ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="c-uso">Uso del CFDI</label>
+                            <?php $usoCorregir = mb_strtoupper(trim((string) (($rv['ingreso']['uso_cfdi'] ?? '') ?: $rv['cliente']['uso_cfdi']))); ?>
+                            <select class="control" id="c-uso" name="uso_cfdi">
+                                <option value="">— Sin definir —</option>
+                                <?php foreach (\App\VentasFiscal::USOS_CFDI as $claveU) : ?>
+                                    <?php $textoU = \App\Gastos::USOS_CFDI[$claveU] ?? $claveU; ?>
+                                    <option value="<?= $claveU ?>"<?= $usoCorregir === $claveU ? ' selected' : '' ?>><?= escaparValores($textoU) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="c-metodo">Método de pago</label>
+                            <?php $metodoCorregir = mb_strtoupper(trim((string) ($rv['ingreso']['metodo_pago'] ?? ''))); ?>
+                            <select class="control" id="c-metodo" name="metodo_pago">
+                                <option value="">— Sin definir —</option>
+                                <?php foreach (\App\VentasFiscal::METODOS as $claveM => $textoM) : ?>
+                                    <option value="<?= $claveM ?>"<?= $metodoCorregir === $claveM ? ' selected' : '' ?>><?= escaparValores($textoM) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="c-forma">Forma de pago</label>
+                            <?php $formaCorregir = \App\VentasFiscal::normalizarFormaPago((string) ($rv['ingreso']['forma_pago'] ?? '')); ?>
+                            <select class="control" id="c-forma" name="forma_pago">
+                                <option value="">— Sin definir —</option>
+                                <?php foreach (\App\VentasFiscal::FORMAS_PAGO as $claveF => $textoF) : ?>
+                                    <option value="<?= $claveF ?>"<?= $formaCorregir === $claveF ? ' selected' : '' ?>><?= escaparValores($claveF . ' · ' . $textoF) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="c-tipo">Tipo de comprobante</label>
+                            <?php $tipoCorregir = mb_strtoupper(trim((string) (($rv['ingreso']['tipo_cfdi'] ?? '') ?: 'I'))); ?>
+                            <select class="control" id="c-tipo" name="tipo_cfdi">
+                                <?php foreach (\App\Contabilidad::TIPOS_CFDI as $claveT => $textoT) : ?>
+                                    <option value="<?= $claveT ?>"<?= $tipoCorregir === $claveT ? ' selected' : '' ?>><?= escaparValores($textoT) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <p class="campo__ayuda mt-sm">
+                        Sólo se actualiza la ficha del cliente y los datos de pago del sistema. El UUID
+                        (<?= escaparValores($rv['uuid']) ?>) y el archivo del CFDI no se modifican.
+                    </p>
+                    <div class="formulario__acciones">
+                        <button class="btn btn--secundario" type="submit">Guardar datos del CFDI</button>
+                    </div>
+                </form>
+            </details>
         <?php endif; ?>
 
         <script>

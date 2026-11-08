@@ -130,6 +130,9 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
                     ?>
                     <option value="<?= (int) $cliente->id ?>"
                         data-rfc="<?= escaparValores(trim((string) ($cliente->rfc ?? ''))) ?>"
+                        data-cp="<?= escaparValores(trim((string) ($cliente->codigo_postal ?? ''))) ?>"
+                        data-regimen="<?= escaparValores(trim((string) ($cliente->regimen_fiscal ?? ''))) ?>"
+                        data-uso="<?= escaparValores(trim((string) ($cliente->uso_cfdi ?? ''))) ?>"
                         data-alias="<?= escaparValores(trim((string) ($cliente->alias ?? ''))) ?>"
                         data-descuento="<?= (float) $cliente->descuento_pct ?>"
                         <?= (int) $cotizacion->cliente_id === (int) $cliente->id ? 'selected' : '' ?>>
@@ -138,6 +141,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
                 <?php endforeach; ?>
             </select>
             <p class="campo__ayuda">Escribe y elige de la lista; el descuento de la ficha se precarga en el resumen.</p>
+            <p class="campo__ayuda" data-estado-fiscal-cliente hidden></p>
         </div>
 
         <div class="campo">

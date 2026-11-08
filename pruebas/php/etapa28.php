@@ -155,7 +155,8 @@ $prueba('ofrece las tres opciones del método', array_keys(Gastos::METODOS_CFDI)
     && str_contains($formulario, 'Gastos::METODOS_CFDI') && str_contains($formulario, 'Gastos::USOS_CFDI'));
 $prueba('los dos campos dependen de «Con factura»',
     str_contains($formulario, 'data-cfdi') && str_contains($formulario, 'alternarCfdi'));
-$detalle = (string) file_get_contents(__DIR__ . '/../../views/admin/contabilidad/gastos/detalle.php');
+$detalle = (string) file_get_contents(__DIR__ . '/../../views/admin/contabilidad/gastos/detalle.php')
+    . (string) file_get_contents(__DIR__ . '/../../templates/facturacionGasto.php');
 $prueba('el detalle muestra ambos datos', str_contains($detalle, 'Uso del CFDI') && str_contains($detalle, 'Método de pago'));
 $seguimiento = (string) file_get_contents(__DIR__ . '/../../views/admin/seguimiento.php');
 $prueba('el seguimiento ofrece definir el método de pago',

@@ -236,10 +236,11 @@ ComprasIntel::getErrores();
 
 echo "Tipo de comprobante no admitido (p. ej. complemento de pago)\n";
 $lecturaP = $leer('t32-pago.xml', $cfdi('A1B2C3D4-3200-4000-8000-111122227777', 'ZZX320101AA1', 'T32 Ferretería del Acero', '', 'P', '160.00', '0.00'));
-$anP = ComprasIntel::analizar($lecturaP);
-$prueba('el tipo «P» se clasifica como no admitido', $anP['clasificacion']['clave'] === 'indeterminado');
+$lecturaPDatos = Lecturas::buscarID($lecturaP);
+$prueba('el tipo «P» se desvía a Complementos de pago y no se analiza como compra',
+    ($lecturaPDatos['destino'] ?? '') === 'complemento' && ComprasIntel::analizar($lecturaP) === null);
 $okP = ComprasIntel::relacionar($lecturaP, $orden2, $usuario);
-$prueba('un CFDI de pago no se relaciona con una compra', !$okP && str_contains(implode(' ', ComprasIntel::getErrores()), 'no es una factura de compra'));
+$prueba('un CFDI de pago no se relaciona con una compra', !$okP);
 ComprasIntel::getErrores();
 
 echo "Cancelar (descartar) sin registrar nada\n";

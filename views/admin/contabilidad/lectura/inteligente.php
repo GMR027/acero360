@@ -40,6 +40,19 @@ if ($id === null) {
     $responder(['ok' => false, 'error' => implode(' · ', \App\Lecturas::getErrores()) ?: 'No fue posible leer el documento.'], 422);
 }
 
+/* Un CFDI tipo P es un complemento de pago, no una factura de venta o gasto.
+ * El alta inteligente no puede proponer una venta o un gasto desde él. */
+$lecturaCreada = \App\Lecturas::buscarID($id);
+$destinoReal = (string) ($lecturaCreada['destino'] ?? $destino);
+if (in_array($destinoReal, ['complemento', 'complemento_venta'], true)) {
+    $responder([
+        'ok' => false,
+        'error' => 'El XML es un complemento de pago (CFDI tipo P), no una factura: cárgalo en '
+            . ($destinoReal === 'complemento_venta' ? 'Ventas' : 'Compras') . ' → Complementos de pago.',
+        'url' => $destinoReal === 'complemento_venta' ? '/admin/ventas/complemento' : '/admin/compras/complemento',
+    ], 422);
+}
+
 $propuesta = \App\Lecturas::propuesta($id, $destino);
 if ($propuesta === null) {
     $responder(['ok' => false, 'error' => 'El documento se leyó, pero no se pudo preparar la propuesta.'], 500);

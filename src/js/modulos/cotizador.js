@@ -678,6 +678,57 @@ function cargarPreciosCliente(clienteId, aplicar) {
 /**
  * Cuando cambia el cliente se piden sus precios acordados al servidor.
  */
+/**
+ * Avisa si la ficha del cliente elegido ya tiene los datos fiscales que pide
+ * el CFDI. No bloquea la venta: la venta puede guardarse y facturarse después;
+ * sólo evita que el usuario descubra el faltante al final.
+ *
+ * @param {HTMLOptionElement|null} opcion
+ */
+function actualizarEstadoFiscalCliente(opcion) {
+  const aviso = cotizadorNodos ? cotizadorNodos.fiscalCliente : null;
+  if (!aviso) {
+    return;
+  }
+
+  aviso.textContent = '';
+  aviso.hidden = true;
+  aviso.classList.remove('texto-error', 'texto-exito');
+
+  if (!opcion || opcion.value === '') {
+    return;
+  }
+
+  const faltan = [];
+  if (!(opcion.getAttribute('data-rfc') || '').trim()) {
+    faltan.push('RFC');
+  }
+  if (!(opcion.getAttribute('data-cp') || '').trim()) {
+    faltan.push('código postal fiscal');
+  }
+  if (!(opcion.getAttribute('data-regimen') || '').trim()) {
+    faltan.push('régimen fiscal');
+  }
+  if (!(opcion.getAttribute('data-uso') || '').trim()) {
+    faltan.push('uso del CFDI');
+  }
+
+  aviso.hidden = false;
+
+  if (faltan.length === 0) {
+    aviso.textContent = 'Datos fiscales completos para facturar.';
+    aviso.classList.add('texto-exito');
+    return;
+  }
+
+  aviso.classList.add('texto-error');
+  aviso.textContent = 'Para facturar falta: ' + faltan.join(', ') + '. ';
+  const enlace = document.createElement('a');
+  enlace.href = '/admin/clientes/editar?id=' + encodeURIComponent(opcion.value);
+  enlace.textContent = 'Completar la ficha del cliente';
+  aviso.appendChild(enlace);
+}
+
 function actualizarClienteCotizador() {
   if (!cotizadorNodos) {
     return;
@@ -691,6 +742,8 @@ function actualizarClienteCotizador() {
   const descuentoFicha = opcion ? Number.parseFloat(opcion.getAttribute('data-descuento')) : NaN;
   cotizadorDescuento = Number.isFinite(descuentoFicha) ? descuentoFicha : 0;
   cotizadorNodos.descuento.value = String(cotizadorDescuento);
+
+  actualizarEstadoFiscalCliente(opcion);
 
   // Los acuerdos del cliente anterior dejan de valer en cuanto cambia la ficha.
   cotizadorPreciosCliente = {};
@@ -777,6 +830,7 @@ function referenciasCotizador(formulario) {
     estado: estado,
     cuerpo: document.getElementById('cuerpo-renglones'),
     cliente: formulario.querySelector('#cliente_id'),
+    fiscalCliente: document.querySelector('[data-estado-fiscal-cliente]'),
     empresa: formulario.querySelector('#empresa_id'),
     descuento: formulario.querySelector('#descuento_pct'),
     checkIva: formulario.querySelector('#aplica_iva'),
@@ -832,6 +886,10 @@ function inicializarCotizador() {
 
   catalogoCotizador();
   estadoInicialCotizador();
+
+  if (cotizadorNodos.cliente) {
+    actualizarEstadoFiscalCliente(cotizadorNodos.cliente.options[cotizadorNodos.cliente.selectedIndex]);
+  }
 
   /* Cliente precargado (al editar una cotización o al abrir el formulario con
    * ?cliente=): se traen sus precios acordados para que los productos que se

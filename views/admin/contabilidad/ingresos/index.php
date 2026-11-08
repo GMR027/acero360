@@ -15,7 +15,7 @@ $filtros = $periodo + [
     'facturacion' => (string) ($_GET['facturacion'] ?? ''),
     'q'           => trim($_GET['q'] ?? ''),
     'estado'      => ($_GET['estado'] ?? '') === 'cancelado' ? 'cancelado' : '',
-    'cobro'       => ($_GET['cobro'] ?? '') === 'pendiente' ? 'pendiente' : '',
+    'cobro'       => in_array($_GET['cobro'] ?? '', ['pendiente', 'sin_cobro', 'parcial', 'cobrado'], true) ? $_GET['cobro'] : '',
     'desde'       => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['desde'] ?? '')) ? $_GET['desde'] : '',
     'hasta'       => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['hasta'] ?? '')) ? $_GET['hasta'] : '',
 ];
@@ -149,6 +149,14 @@ template('resumenReporte', [
                 <?php foreach (\App\Contabilidad::FACTURACION as $clave => $d) : ?>
                     <option value="<?= $clave ?>"<?= $filtros['facturacion'] === $clave ? ' selected' : '' ?>><?= escaparValores($d['etiqueta']) ?></option>
                 <?php endforeach; ?>
+            </select>
+            <label class="solo-lectores" for="cobro">Cobro</label>
+            <select class="control control--compacto" id="cobro" name="cobro">
+                <option value="">Todo el cobro</option>
+                <option value="pendiente"<?= $filtros['cobro'] === 'pendiente' ? ' selected' : '' ?>>Por cobrar (cualquier saldo)</option>
+                <option value="sin_cobro"<?= $filtros['cobro'] === 'sin_cobro' ? ' selected' : '' ?>>Sin pagar</option>
+                <option value="parcial"<?= $filtros['cobro'] === 'parcial' ? ' selected' : '' ?>>Pago parcial</option>
+                <option value="cobrado"<?= $filtros['cobro'] === 'cobrado' ? ' selected' : '' ?>>Pagada</option>
             </select>
             <label class="solo-lectores" for="estado">Estado</label>
             <select class="control control--compacto" id="estado" name="estado">

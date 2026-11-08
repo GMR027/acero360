@@ -299,8 +299,9 @@ Lecturas::getErrores();
 echo "10. Complemento de pago (tipo «P») no se cuela como gasto de factura\n";
 $lecPago = $leer('t33-pago.xml', $cfdi('C1B2C3D4-3300-4000-8000-111122220007', 'T33RFC0101AA1', 'T33 Proveedor de compra',
     '', ['tipo' => 'P', 'total' => '160.00', 'iva' => '0.00', 'subtotal' => '0.00']));
-$anPago = ComprasIntel::analizar($lecPago);
-$prueba('el tipo «P» queda como no admitido/no clasificado', $anPago['clasificacion']['clave'] === 'indeterminado');
+$lecturaPago = Lecturas::buscarID($lecPago);
+$prueba('el tipo «P» se desvía a Complementos de pago, no a compras ni gastos',
+    ($lecturaPago['destino'] ?? '') === 'complemento' && ComprasIntel::analizar($lecPago) === null);
 
 echo "11. Periodo cerrado: el gasto no se cuela\n";
 $db->query("INSERT INTO periodos_contables (contribuyente_id, anio, mes, estado, cerrado_en) VALUES ($contribuyente, 2026, 9, 'cerrado', NOW())");

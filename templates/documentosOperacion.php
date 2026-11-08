@@ -128,17 +128,19 @@ if ($entidad === 'gasto' && is_array($gasto)) {
     <?php endif; ?>
 
     <?php
-    // Apartado propio del complemento de pago: solo aplica a gastos pagados con
-    // factura. Se permite adjuntarlo aunque el periodo de la factura esté cerrado
-    // (es un respaldo del pago, no un cambio de importes).
+    // Apartado propio del complemento de pago: aplica a cualquier gasto vigente
+    // con factura, esté pagado o no. Se permite adjuntarlo aunque el periodo de
+    // la factura esté cerrado (es un respaldo del pago, no un cambio de importes).
     $complementoVigente = $entidad === 'gasto' && is_array($gasto) && (string) ($gasto['estado'] ?? '') === 'vigente';
-    $complementoPagado = $complementoVigente && (string) ($gasto['estado_pago'] ?? '') === 'pagado';
     $complementoConFactura = (int) ($gasto['comprobante_fiscal'] ?? 0) === 1;
     $complementoMetodo = strtoupper(trim((string) ($gasto['metodo_pago_sat'] ?? '')));
+    // PUE no requiere complemento; PPD, «por definir» o sin método sí.
     $complementoRequerido = $complementoMetodo !== 'PUE';
     $complementoActivo = array_values(array_filter($complementos, static fn ($d) => (int) $d['activo'] === 1));
+    $estadoPagoComplemento = $complementoVigente ? \App\Gastos::estadoPagoGasto($gasto) : ['clave' => 'pendiente', 'pagado' => 0, 'saldo' => 0];
+    $complementoPendientePago = $complementoRequerido && $estadoPagoComplemento['pagado'] <= 0;
     ?>
-    <?php if ($complementoPagado && $complementoConFactura) : ?>
+    <?php if ($complementoVigente && $complementoConFactura) : ?>
         <div style="border-top:1px solid var(--color-borde); padding:1rem">
             <h3 class="titulo-5 mb-sm">Complemento de pago</h3>
 
@@ -148,11 +150,21 @@ if ($entidad === 'gasto' && is_array($gasto)) {
                 <p>
                     <?php if ($complementoActivo) : ?>
                         <span class="badge badge--aprobado">Complemento recibido</span>
+                    <?php elseif ($complementoPendientePago) : ?>
+                        <span class="badge badge--neutro">Se recibe después del pago</span>
                     <?php else : ?>
                         <span class="badge badge--pendiente">Falta el complemento de pago</span>
                     <?php endif; ?>
-                    <span class="texto-xs texto-secundario"> · La factura es <?= escaparValores($complementoMetodo !== '' ? $complementoMetodo : 'PPD o por definir') ?></span>
+                    <span class="texto-xs texto-secundario"> · La factura es
+                        <?= escaparValores($complementoMetodo !== '' ? $complementoMetodo : 'PPD o por definir') ?></span>
                 </p>
+
+                <?php if ($complementoPendientePago && !$complementoActivo) : ?>
+                    <p class="texto-sm texto-secundario">El complemento documenta un pago: primero registra el abono
+                        (o el pago total) y después carga el XML que el proveedor emita. El monto real del pago estará
+                        en el complemento, no en su campo Total (que es 0).</p>
+                <?php endif; ?>
+
                 <?php if (trim((string) ($gasto['uuid_fiscal'] ?? '')) === '') : ?>
                     <p class="texto-sm texto-secundario">La factura no tiene UUID registrado: el archivo se adjuntará sin validación.</p>
                 <?php endif; ?>
@@ -162,15 +174,17 @@ if ($entidad === 'gasto' && is_array($gasto)) {
                 <div class="tabla-contenedor mt-md">
                     <table class="tabla">
                         <caption class="solo-lectores">Complementos de pago adjuntos</caption>
-                        <thead><tr><th scope="col">Archivo</th><th scope="col">Cargado</th>
-                            <th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+                        <thead><tr><th scope="col">Archivo</th><th scope="col" class="tabla--numerica">Monto del pago</th>
+                            <th scope="col">Cargado</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                         <tbody>
                             <?php foreach ($complementos as $d) : ?>
+                                <?php $montoComplemento = (string) ($d['cfdi']['complemento']['monto'] ?? ''); ?>
                                 <tr<?= (int) $d['activo'] === 0 ? ' style="opacity:.6"' : '' ?>>
                                     <td><strong><?= escaparValores($d['nombre_original']) ?></strong>
                                         <span class="texto-xs texto-secundario"><br><?= number_format($d['tamano'] / 1024, 1) ?> KB
                                             <?= (int) $d['activo'] === 0 ? ' · <strong>De baja</strong>: ' . escaparValores((string) $d['motivo_baja']) : '' ?></span>
                                     </td>
+                                    <td class="tabla--numerica cifra"><?= $montoComplemento !== '' ? formatoMoneda((float) $montoComplemento) : '—' ?></td>
                                     <td class="texto-sm"><?= date('d/m/Y H:i', strtotime($d['creado_en'])) ?><br><?= escaparValores((string) $d['subido_por_nombre']) ?></td>
                                     <td class="tabla--numerica">
                                         <?php if ($vistaComplemento = \App\Archivos::tipoVista($d)) : ?>
@@ -205,21 +219,34 @@ if ($entidad === 'gasto' && is_array($gasto)) {
             <?php endif; ?>
 
             <?php if ($complementoRequerido && $complementoVigente) : ?>
-                <form class="formulario mt-md" action="/admin/contabilidad/documentos/subir" method="post" enctype="multipart/form-data">
-                    <input type="hidden" name="entidad" value="gasto">
-                    <input type="hidden" name="entidad_id" value="<?= (int) $entidadId ?>">
-                    <input type="hidden" name="retorno" value="<?= escaparValores($retorno) ?>">
-                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
-                    <input type="hidden" name="tipo" value="complemento_pago">
-                    <div class="campo">
-                        <label class="campo__etiqueta campo__etiqueta--obligatorio" for="complemento-archivo">XML o PDF del complemento</label>
-                        <input class="control" type="file" id="complemento-archivo" name="archivo" required accept=".xml,.pdf">
-                        <span class="campo__ayuda">Se adjunta tal cual, sin validarlo contra el SAT · máx. <?= $maxMb ?> MB</span>
-                    </div>
-                    <div class="formulario__acciones">
-                        <button class="btn btn--primario" type="submit">Subir complemento</button>
-                    </div>
-                </form>
+                <div class="encabezado-pagina__acciones mt-md">
+                    <a class="btn btn--primario" href="/admin/compras/complemento?gasto=<?= (int) $entidadId ?>">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">receipt_long</span>
+                        <span>Leer complemento (XML) y vincular</span>
+                    </a>
+                </div>
+                <p class="campo__ayuda mt-sm">El XML se lee en la bandeja de Complementos de pago: ahí se muestra el
+                    monto real del pago y se vincula con el abono correspondiente.</p>
+
+                <details class="mt-md">
+                    <summary class="texto-sm">Sólo adjuntar el archivo (PDF o XML)</summary>
+                    <form class="formulario mt-sm" action="/admin/contabilidad/documentos/subir" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="entidad" value="gasto">
+                        <input type="hidden" name="entidad_id" value="<?= (int) $entidadId ?>">
+                        <input type="hidden" name="retorno" value="<?= escaparValores($retorno) ?>">
+                        <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                        <input type="hidden" name="tipo" value="complemento_pago">
+                        <div class="campo">
+                            <label class="campo__etiqueta" for="complemento-archivo">Archivo del complemento</label>
+                            <input class="control" type="file" id="complemento-archivo" name="archivo" required accept=".xml,.pdf">
+                            <span class="campo__ayuda">Se adjunta tal cual · máx. <?= $maxMb ?> MB. Para vincular el pago,
+                                usa «Leer complemento (XML) y vincular».</span>
+                        </div>
+                        <div class="formulario__acciones">
+                            <button class="btn btn--secundario" type="submit">Adjuntar archivo</button>
+                        </div>
+                    </form>
+                </details>
             <?php endif; ?>
         </div>
     <?php endif; ?>

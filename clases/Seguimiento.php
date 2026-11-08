@@ -86,7 +86,9 @@ class Seguimiento
     {
         return [
             'cotizacion' => 'Abrir cotización', 'cobro' => 'Abrir venta', 'factura' => 'Abrir venta para facturar',
+            'factura_xml' => 'Adjuntar XML de la factura', 'factura_datos' => 'Completar datos del CFDI',
             'gasto_pago' => 'Abrir gasto', 'gasto_comp' => 'Abrir gasto', 'gasto_cfdi' => 'Abrir gasto',
+            'gasto_complemento' => 'Cargar complemento de pago',
             'compra_recibir' => 'Ver compra por recibir', 'compra_cfdi' => 'Abrir compra para facturar', 'compra_saldo' => 'Abrir compra',
             'entrada' => 'Abrir entrada', 'material' => 'Ver material',
             'entrega' => 'Ver entrega pendiente', 'cambio' => 'Entregar cambio', 'incidencia' => 'Abrir seguimiento de entrega',
@@ -191,12 +193,90 @@ class Seguimiento
             ];
         }
 
+        // Facturadas sin un XML con timbre: la marca existe, pero el respaldo no.
+        $sinXml = self::$db->query(
+            "SELECT i.id, i.venta_id, i.folio, i.fecha, i.total, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa
+               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id
+              WHERE i.estado = 'vigente' AND i.estado_facturacion = 'facturada'
+                AND NOT EXISTS (
+                    SELECT 1 FROM documentos d
+                     WHERE d.entidad = 'ingreso' AND d.entidad_id = i.id AND d.activo = 1
+                       AND d.tipo IN ('xml', 'factura_pdf')
+                       AND d.estado_validacion = 'cfdi_con_timbre' AND d.uuid_fiscal IS NOT NULL
+                )
+              ORDER BY i.fecha, i.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($sinXml as $f) {
+            $dias = self::dias($f['fecha']);
+            $avisos[] = [
+                'clave' => 'factura_xml:' . $f['id'], 'categoria' => 'factura', 'prioridad' => 'alta',
+                'titulo' => 'Facturada sin XML de respaldo · ' . $f['folio'],
+                'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · venta ' . self::antiguedad($dias)
+                    . '. Adjunta el XML del CFDI para que la factura quede respaldada.',
+                'fecha' => $f['fecha'], 'dias' => $dias,
+                'enlace' => Contabilidad::rutaDetalle($f, !empty($f['venta_id']) ? 'facturacion' : ''),
+                'huella' => 'sin_xml',
+            ];
+        }
+
+        // Facturadas con CFDI pero con datos internos incompletos (método o ficha del receptor).
+        $incompletas = self::$db->query(
+            "SELECT i.id, i.venta_id, i.folio, i.fecha, i.total, i.metodo_pago,
+                    cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                    cl.codigo_postal, cl.regimen_fiscal, cl.uso_cfdi
+               FROM ingresos i JOIN clientes cl ON cl.id = i.cliente_id
+              WHERE i.estado = 'vigente' AND i.estado_facturacion = 'facturada'
+                AND EXISTS (
+                    SELECT 1 FROM documentos d
+                     WHERE d.entidad = 'ingreso' AND d.entidad_id = i.id AND d.activo = 1
+                       AND d.tipo IN ('xml', 'factura_pdf')
+                       AND d.estado_validacion = 'cfdi_con_timbre' AND d.uuid_fiscal IS NOT NULL
+                )
+                AND (i.metodo_pago IS NULL OR i.metodo_pago = ''
+                     OR cl.codigo_postal IS NULL OR cl.codigo_postal = ''
+                     OR cl.regimen_fiscal IS NULL OR cl.regimen_fiscal = ''
+                     OR cl.uso_cfdi IS NULL OR cl.uso_cfdi = '')
+              ORDER BY i.fecha, i.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($incompletas as $f) {
+            $faltan = [];
+            if (trim((string) ($f['metodo_pago'] ?? '')) === '') {
+                $faltan[] = 'método de pago';
+            }
+            if (trim((string) ($f['codigo_postal'] ?? '')) === '') {
+                $faltan[] = 'CP fiscal';
+            }
+            if (trim((string) ($f['regimen_fiscal'] ?? '')) === '') {
+                $faltan[] = 'régimen fiscal';
+            }
+            if (trim((string) ($f['uso_cfdi'] ?? '')) === '') {
+                $faltan[] = 'uso del CFDI';
+            }
+            $dias = self::dias($f['fecha']);
+            $avisos[] = [
+                'clave' => 'factura_datos:' . $f['id'], 'categoria' => 'factura', 'prioridad' => 'normal',
+                'titulo' => 'Datos del CFDI incompletos · ' . $f['folio'],
+                'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · falta: '
+                    . implode(', ', $faltan) . '.',
+                'fecha' => $f['fecha'], 'dias' => $dias,
+                'enlace' => Contabilidad::rutaDetalle($f, !empty($f['venta_id']) ? 'facturacion' : ''),
+                'huella' => 'datos:' . implode(',', $faltan),
+            ];
+        }
+
         // Gastos por pagar, gastos sin comprobante fiscal y facturas con el método de pago sin resolver.
         // «Por definir» incluye los gastos antiguos guardados sin método: la factura existe y todavía
         // no se sabe si se paga de una vez (PUE) o en parcialidades (PPD).
         $gastos = self::$db->query(
             "SELECT id, fecha, beneficiario, concepto, total, estado_pago, comprobante_fiscal, metodo_pago_sat,
-                    (SELECT oc.id FROM ordenes_compra oc WHERE oc.gasto_id = gastos.id LIMIT 1) AS compra_id
+                    (SELECT oc.id FROM ordenes_compra oc WHERE oc.gasto_id = gastos.id LIMIT 1) AS compra_id,
+                    (SELECT COUNT(*) FROM documentos d WHERE d.entidad = 'gasto' AND d.entidad_id = gastos.id
+                       AND d.activo = 1 AND d.tipo = 'complemento_pago') AS complementos_adjuntos,
+                    (SELECT COUNT(*) FROM complemento_doctos cd
+                       JOIN complementos_pago cp ON cp.id = cd.complemento_id
+                      WHERE cd.gasto_id = gastos.id AND cp.estado = 'vigente') AS complementos_registrados,
+                    COALESCE((SELECT SUM(ROUND(pg.importe * 100)) FROM pagos_gasto pg
+                               WHERE pg.gasto_id = gastos.id AND pg.estado = 'vigente'), 0) AS pagado_centavos
               FROM gastos
               WHERE estado = 'vigente' AND (estado_pago = 'pendiente' OR comprobante_fiscal = 0 OR
                     (comprobante_fiscal = 1 AND IFNULL(metodo_pago_sat, 'POR') <> 'PUE'))
@@ -226,6 +306,9 @@ class Seguimiento
                 ];
             }
             $metodo = (string) ($g['metodo_pago_sat'] ?? '');
+            $sinComplemento = ((int) ($g['complementos_registrados'] ?? 0) + (int) ($g['complementos_adjuntos'] ?? 0)) === 0;
+            $tienePagosCompl = $g['estado_pago'] === 'pagado' || (int) ($g['pagado_centavos'] ?? 0) > 0;
+            $avisaComplemento = $metodo === 'PPD' && $sinComplemento && $tienePagosCompl;
             if ((int) $g['comprobante_fiscal'] === 1 && $metodo !== 'PUE') {
                 $ppd = $metodo === 'PPD';
                 $avisos[] = $base + [
@@ -236,6 +319,17 @@ class Seguimiento
                             ? ' · PPD: al cobrar cada parcialidad hay que emitir su complemento de pago.'
                             : ' · define si se paga en una sola exhibición (PUE) o en parcialidades (PPD).'),
                     'huella' => 'metodo' . ($metodo ?: 'sin'), 'metodo_cfdi' => $metodo ?: 'POR',
+                ];
+            }
+            // Factura PPD con abonos o pagada a la que le falta el complemento.
+            if ((int) $g['comprobante_fiscal'] === 1 && $avisaComplemento) {
+                $avisos[] = $base + [
+                    'clave' => 'gasto_complemento:' . $g['id'], 'prioridad' => 'alta',
+                    'titulo' => 'Factura PPD sin complemento de pago · ' . $g['beneficiario'],
+                    'detalle' => $g['concepto'] . ' · ' . $moneda($g['total'])
+                        . ' · falta el XML del complemento que respalda el pago.',
+                    'enlace' => '/admin/contabilidad/gastos/detalle?id=' . (int) $g['id'] . '#facturacion-pago',
+                    'huella' => 'sin_complemento',
                 ];
             }
         }

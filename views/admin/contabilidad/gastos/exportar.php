@@ -29,7 +29,8 @@ $filas = array_map(static fn ($g) => [
     $g['fecha'], $g['beneficiario'], $g['concepto'], (string) $g['categoria_nombre'],
     (int) $g['compartido'] === 1 ? 'Compartido' : (string) ($g['empresa_nombre'] ?? 'General'),
     (float) $g['subtotal'], (float) $g['iva'], (float) $g['total'],
-    $g['estado_pago'] === 'pagado' ? 'Pagado' : 'Pendiente', (int) $g['comprobante_fiscal'] === 1 ? 'Sí' : 'No', (int) $g['documentos'],
+    $g['estado_pago'] === 'pagado' ? 'Pagado' : ((int) ($g['pagado_centavos'] ?? 0) > 0 ? 'Pago parcial' : 'Pendiente'),
+    (int) $g['comprobante_fiscal'] === 1 ? 'Sí' : 'No', (int) $g['documentos'],
 ], $gastos);
 $filas[] = ['', '', '', '', 'TOTAL (' . $tot['n'] . ')', $tot['subtotal'], $tot['iva'], $tot['total'], '', '', ''];
 

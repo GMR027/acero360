@@ -208,7 +208,7 @@ class CfdiXml
      * lo que permite localizar las facturas y vincular el complemento a los pagos
      * registrados. Si el XML no trae complemento de pagos, devuelve null.
      *
-     * @return array{fecha_pago: string, monto: string, moneda: string, forma_pago: string,
+     * @return array{fecha_pago: string, monto: string, monto_total: string, moneda: string, forma_pago: string,
      *               doctos: array<int, array<string, string>>}|null
      */
     public static function complementoPago(string $xml): ?array
@@ -254,6 +254,21 @@ class CfdiXml
             'forma_pago' => $atributo($primerPago, 'FormaPagoP'),
             'doctos'     => [],
         ];
+        // Monto total del complemento: el atributo del nodo Pagos manda; si no
+        // viene, se suman los pagos. Es el dato que debe verse en la interfaz
+        // (el Total del comprobante es 0 por definición del CFDI tipo P).
+        $pagosNodo = $xpath->query('//*[local-name()="Pagos"]')->item(0);
+        $montoTotal = $atributo($pagosNodo, 'MontoTotalPagos');
+        if ($montoTotal === '') {
+            $suma = 0.0;
+            foreach ($pagos as $pago) {
+                if ($atributo($pago, 'Monto') !== '') {
+                    $suma += (float) $atributo($pago, 'Monto');
+                }
+            }
+            $montoTotal = number_format($suma, 2, '.', '');
+        }
+        $resultado['monto_total'] = $montoTotal;
         // La fecha del complemento también puede estar en el Comprobante (si hay varios pagos).
         if ($resultado['fecha_pago'] === '') {
             $resultado['fecha_pago'] = $primero(

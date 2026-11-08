@@ -2349,6 +2349,22 @@ input[type=file].control:disabled,
     transform: rotate(360deg);
   }
 }
+/* --- Avance de un cobro (facturación y cobro) ----------------------------- */
+.barra-cobro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.barra-cobro progress {
+  flex: 1 1 10rem;
+  height: 0.5rem;
+  accent-color: var(--color-primario);
+}
+.barra-cobro span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* ==========================================================================
    _badges.scss — Etiquetas de estado.
    Estructura uniforme: fondo suave, texto oscuro, borde del mismo tono y
@@ -5025,6 +5041,22 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* Formulario corto para fijar la ubicación manual de una entrega. */
+.formulario--ubicacion-entrega {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.formulario--ubicacion-entrega .campo {
+  flex: 1 1 22rem;
+  margin-bottom: 0;
+}
+.formulario--ubicacion-entrega .btn {
+  flex: 0 0 auto;
 }
 
 /* Línea de tiempo del historial de la venta. */

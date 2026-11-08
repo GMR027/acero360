@@ -8,7 +8,8 @@ namespace App;
  * Reúne tres cosas:
  *   · Inventario valuado al precio del catálogo (sin IVA / con IVA).
  *   · Pedidos de proveedor con saldo pendiente, sin importar el mes.
- *   · Gastos operativos pendientes del mes (solo si se piden).
+ *   · Gastos pendientes del mes (solo si se piden), incluidos los generales
+ *     y los de proveedor que no estén ligados a un pedido.
  *
  * La comparación se hace en una sola base: con IVA («precio de venta») o
  * sin IVA («precio de lista»). Así el medidor nunca mezcla importes netos
@@ -320,11 +321,70 @@ class AnalisisFinanciero
     }
 
     /**
-     * Gastos operativos pendientes del mes.
+     * Parte del gasto que corresponde a los negocios seleccionados.
      *
-     * Se excluyen los gastos ligados a un proveedor y los que ya están
-     * ligados a un pedido: esas deudas ya se muestran en proveedores y no
-     * deben contarse dos veces.
+     * Reglas:
+     *   · general (sin negocio y no compartido): entra completo y se marca
+     *     «general» para que la pantalla lo explique;
+     *   · compartido: suma sólo el porcentaje de los negocios elegidos; si no
+     *     hay reparto, se trata como general;
+     *   · de un negocio: entra sólo si ese negocio está seleccionado.
+     *
+     * @param array<string, mixed> $gasto
+     * @param int[]                $empresaIds
+     * @return array{subtotal: float, iva: float, general: bool}|null
+     */
+    private static function importeGasto(array $gasto, array $empresaIds): ?array
+    {
+        $subtotal = (float) $gasto['subtotal'];
+        $iva      = (float) $gasto['iva'];
+
+        if ((int) $gasto['compartido'] === 1) {
+            $partes = Gastos::reparto((int) $gasto['id']);
+            if (!$partes) {
+                return ['subtotal' => $subtotal, 'iva' => $iva, 'general' => true];
+            }
+
+            $subtotalParte = 0.0;
+            $ivaParte      = 0.0;
+            $toca          = false;
+
+            foreach ($partes as $parte) {
+                $empresaId = (int) $parte['empresa_id'];
+                if ($empresaIds && !in_array($empresaId, $empresaIds, true)) {
+                    continue;
+                }
+                $toca = true;
+                $factor = ((float) $parte['porcentaje']) / 100;
+                $subtotalParte += $subtotal * $factor;
+                $ivaParte      += $iva * $factor;
+            }
+
+            if (!$toca) {
+                return null;
+            }
+
+            return ['subtotal' => $subtotalParte, 'iva' => $ivaParte, 'general' => false];
+        }
+
+        $empresaId = (int) ($gasto['empresa_id'] ?? 0);
+        if ($empresaId === 0) {
+            return ['subtotal' => $subtotal, 'iva' => $iva, 'general' => true];
+        }
+        if ($empresaIds && !in_array($empresaId, $empresaIds, true)) {
+            return null;
+        }
+
+        return ['subtotal' => $subtotal, 'iva' => $iva, 'general' => false];
+    }
+
+    /**
+     * Gastos pendientes del mes.
+     *
+     * Entran todos los gastos vigentes y pendientes del periodo, incluidos los
+     * de proveedor y los generales (sin negocio). Sólo se excluyen los que ya
+     * están ligados a un pedido de compra: esa deuda se muestra en proveedores
+     * y no debe contarse dos veces.
      *
      * @param int[] $empresaIds
      * @return array{filas: array<int, array<string, mixed>>, sin_iva: float, iva: float, con_iva: float, base: float}
@@ -337,8 +397,6 @@ class AnalisisFinanciero
                LEFT JOIN categorias_gasto c ON c.id = g.categoria_id
               WHERE g.estado = 'vigente' AND g.estado_pago = 'pendiente'
                 AND YEAR(g.fecha) = ? AND MONTH(g.fecha) = ?
-                AND g.proveedor_id IS NULL
-                AND g.beneficiario_tipo <> 'proveedor'
                 AND NOT EXISTS (
                     SELECT 1 FROM ordenes_compra oc
                      WHERE oc.gasto_id = g.id AND oc.estado <> 'cancelada'
@@ -353,52 +411,15 @@ class AnalisisFinanciero
         $sinIva = 0.0;
         $ivaTotal = 0.0;
         $conIva = 0.0;
-        $especifico = count($empresaIds) === 1;
 
         while ($g = $resultado->fetch_assoc()) {
-            $asignaciones = [];
-            if ((int) $g['compartido'] === 1) {
-                foreach (Gastos::reparto((int) $g['id']) as $parte) {
-                    $asignaciones[(int) $parte['empresa_id']] = [
-                        'subtotal' => (float) $g['subtotal'] * ((float) $parte['porcentaje'] / 100),
-                        'iva'      => (float) $g['iva'] * ((float) $parte['porcentaje'] / 100),
-                    ];
-                }
-            } else {
-                $asignaciones[(int) ($g['empresa_id'] ?? 0)] = [
-                    'subtotal' => (float) $g['subtotal'],
-                    'iva'      => (float) $g['iva'],
-                ];
+            $parte = self::importeGasto($g, $empresaIds);
+            if ($parte === null) {
+                continue;
             }
 
-            if ($especifico) {
-                $empresaId = $empresaIds[0];
-                if (!isset($asignaciones[$empresaId])) {
-                    continue;
-                }
-                $subtotal = $asignaciones[$empresaId]['subtotal'];
-                $iva = $asignaciones[$empresaId]['iva'];
-            } else {
-                // Consolidado: se incluye una sola vez si toca a algún negocio
-                // seleccionado. Sin filtro de negocios entran todos.
-                $aplica = !$empresaIds;
-                if (!$aplica) {
-                    foreach (array_keys($asignaciones) as $empresaId) {
-                        if (in_array($empresaId, $empresaIds, true)) {
-                            $aplica = true;
-                            break;
-                        }
-                    }
-                }
-                if (!$aplica) {
-                    continue;
-                }
-                $subtotal = (float) $g['subtotal'];
-                $iva = (float) $g['iva'];
-            }
-
-            $importeSinIva = round($subtotal, 2);
-            $importeConIva = round($subtotal + $iva, 2);
+            $importeSinIva = round($parte['subtotal'], 2);
+            $importeConIva = round($parte['subtotal'] + $parte['iva'], 2);
 
             if ($importeConIva <= 0) {
                 continue;
@@ -410,13 +431,14 @@ class AnalisisFinanciero
                 'concepto'    => (string) $g['concepto'],
                 'beneficiario' => (string) $g['beneficiario'],
                 'categoria'   => (string) ($g['categoria_nombre'] ?? ''),
+                'general'     => $parte['general'],
                 'sin_iva'     => $importeSinIva,
-                'iva'         => round($iva, 2),
+                'iva'         => round($parte['iva'], 2),
                 'con_iva'     => $importeConIva,
             ];
 
             $sinIva += $importeSinIva;
-            $ivaTotal += $iva;
+            $ivaTotal += $parte['iva'];
             $conIva += $importeConIva;
         }
         $consulta->close();
@@ -546,50 +568,15 @@ class AnalisisFinanciero
         $sinIva = 0.0;
         $ivaTotal = 0.0;
         $conIva = 0.0;
-        $especifico = count($empresaIds) === 1;
 
         while ($g = $resultado->fetch_assoc()) {
-            $asignaciones = [];
-            if ((int) $g['compartido'] === 1) {
-                foreach (Gastos::reparto((int) $g['id']) as $parte) {
-                    $asignaciones[(int) $parte['empresa_id']] = [
-                        'subtotal' => (float) $g['subtotal'] * ((float) $parte['porcentaje'] / 100),
-                        'iva'      => (float) $g['iva'] * ((float) $parte['porcentaje'] / 100),
-                    ];
-                }
-            } else {
-                $asignaciones[(int) ($g['empresa_id'] ?? 0)] = [
-                    'subtotal' => (float) $g['subtotal'],
-                    'iva'      => (float) $g['iva'],
-                ];
+            $parte = self::importeGasto($g, $empresaIds);
+            if ($parte === null) {
+                continue;
             }
 
-            if ($especifico) {
-                $empresaId = $empresaIds[0];
-                if (!isset($asignaciones[$empresaId])) {
-                    continue;
-                }
-                $subtotal = $asignaciones[$empresaId]['subtotal'];
-                $iva = $asignaciones[$empresaId]['iva'];
-            } else {
-                $aplica = !$empresaIds;
-                if (!$aplica) {
-                    foreach (array_keys($asignaciones) as $empresaId) {
-                        if (in_array($empresaId, $empresaIds, true)) {
-                            $aplica = true;
-                            break;
-                        }
-                    }
-                }
-                if (!$aplica) {
-                    continue;
-                }
-                $subtotal = (float) $g['subtotal'];
-                $iva = (float) $g['iva'];
-            }
-
-            $importeSinIva = round($subtotal, 2);
-            $importeConIva = round($subtotal + $iva, 2);
+            $importeSinIva = round($parte['subtotal'], 2);
+            $importeConIva = round($parte['subtotal'] + $parte['iva'], 2);
             if ($importeConIva <= 0) {
                 continue;
             }
@@ -600,13 +587,14 @@ class AnalisisFinanciero
                 'concepto'     => (string) $g['concepto'],
                 'beneficiario' => (string) $g['beneficiario'],
                 'categoria'    => (string) ($g['categoria_nombre'] ?? ''),
+                'general'      => $parte['general'],
                 'sin_iva'      => $importeSinIva,
-                'iva'          => round($iva, 2),
+                'iva'          => round($parte['iva'], 2),
                 'con_iva'      => $importeConIva,
             ];
 
             $sinIva += $importeSinIva;
-            $ivaTotal += $iva;
+            $ivaTotal += $parte['iva'];
             $conIva += $importeConIva;
         }
         $consulta->close();

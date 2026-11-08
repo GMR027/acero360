@@ -56,11 +56,12 @@ class Entregas
     /**
      * Peso total admisible de las fotos de UNA entrega, en MB.
      *
-     * El tope real lo pone el servidor (ingress 20 m y post_max_size 25 M en
-     * el despliegue): validar aquí da un mensaje claro en vez de un cuerpo
-     * descartado por PHP.
+     * Con 8 fotos de hasta 15 MB el envío puede llegar a 120 MB si el
+     * navegador no alcanza a comprimirlas. El servidor vuelve a validar y
+     * guarda cada una muy por debajo de ese peso. El tope real de PHP e
+     * ingress es 512 MB.
      */
-    public const MAX_FOTOS_TOTAL_MB = 20;
+    public const MAX_FOTOS_TOTAL_MB = 120;
 
     public static function setDB($database): void
     {
@@ -612,6 +613,8 @@ class Entregas
      *
      * @param array<int, int> $piezas producto_id => cantidad entregada ahora.
      * @param array<int, array> $fotos entradas de $_FILES['fotos'] ya separadas por archivo.
+     * @param array<int, array> $metadatosFotos fecha/GPS leídos en el navegador antes de comprimir.
+     * @param string $ubicacion enlace de Google Maps, coordenadas o dirección de la entrega.
      */
     public static function registrarEntrega(
         int $ventaId,
@@ -621,12 +624,22 @@ class Entregas
         string $token,
         string $notas,
         int $usuarioId,
-        array $fotos = []
+        array $fotos = [],
+        array $metadatosFotos = [],
+        string $ubicacion = ''
     ): bool {
         self::$errores = [];
         self::$fotosGuardadas = 0;
         $piezas = array_filter(array_map('intval', $piezas), static fn ($c) => $c > 0);
         $fotos  = array_values(array_filter($fotos, 'is_array'));
+
+        $ubicacionNormalizada = FotosEntrega::normalizarUbicacion($ubicacion);
+        if ($ubicacionNormalizada['error'] !== '') {
+            self::$errores[] = $ubicacionNormalizada['error'];
+            return false;
+        }
+        $ubicacion = $ubicacionNormalizada['valor'];
+        $metadatosFotos = array_values(array_filter($metadatosFotos, 'is_array'));
 
         if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
             self::$errores[] = 'El formulario de entrega no es válido. Vuelve a abrirlo.';
@@ -653,7 +666,7 @@ class Entregas
         // Rechazo temprano de tamaño y tipo; el contenido real lo comprueba
         // Imagenes::subir al procesar cada archivo, también dentro de la operación.
         foreach ($fotos as $foto) {
-            $motivo = Imagenes::validarArchivo($foto);
+            $motivo = Imagenes::validarArchivo($foto, Imagenes::TAMANO_MAXIMO_ENTREGA);
             if ($motivo !== '') {
                 self::$errores[] = $motivo;
                 return false;
@@ -697,10 +710,11 @@ class Entregas
             }
 
             $notas = trim($notas) ?: null;
+            $ubicacionGuardar = $ubicacion !== '' ? $ubicacion : null;
             $crear = self::$db->prepare(
-                'INSERT INTO entregas (venta_id, preparacion_id, fecha, token, notas, usuario_id) VALUES (?, ?, ?, ?, ?, ?)'
+                'INSERT INTO entregas (venta_id, preparacion_id, fecha, token, notas, ubicacion_maps, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
-            $crear->bind_param('iisssi', $ventaId, $preparacionId, $fecha, $token, $notas, $usuarioId);
+            $crear->bind_param('iissssi', $ventaId, $preparacionId, $fecha, $token, $notas, $ubicacionGuardar, $usuarioId);
             try {
                 $crear->execute();
             } catch (\mysqli_sql_exception $duplicada) {
@@ -719,7 +733,7 @@ class Entregas
             $renglon->close();
 
             // Fotos del acta: se procesan y registran con la misma entrega.
-            self::guardarFotos($entregaId, $fotos, $usuarioId, $archivosFotos);
+            self::guardarFotos($entregaId, $fotos, $usuarioId, $archivosFotos, $metadatosFotos);
 
             self::avanzarPreparaciones($ventaId);
             IncidenciasEntrega::actualizarEstado($ventaId);
@@ -749,27 +763,55 @@ class Entregas
     }
 
     /**
-     * Agrega fotos del acta a una entrega ya registrada de la venta.
+     * Agrega fotos del acta a una entrega ya registrada de la venta y/o fija
+     * su ubicación manual.
      *
      * Se usa desde el detalle de la venta para subir o completar las fotos
      * sin tener que registrar otra entrega. Valida que la entrega pertenezca
      * a la venta y aplica los mismos límites, EXIF y marca de agua que el
      * formulario de entrega.
      *
-     * @param array<int, array> $fotos entradas de $_FILES ya separadas.
+     * @param array<int, array>  $fotos          entradas de $_FILES ya separadas.
+     * @param array<int, array>  $metadatosFotos fecha/GPS leídos en el navegador.
+     * @param string             $ubicacion      enlace de Google Maps, coordenadas o dirección.
      */
-    public static function agregarFotos(int $ventaId, int $entregaId, array $fotos, int $usuarioId): bool
-    {
+    public static function agregarFotos(
+        int $ventaId,
+        int $entregaId,
+        array $fotos,
+        int $usuarioId,
+        array $metadatosFotos = [],
+        string $ubicacion = ''
+    ): bool {
         self::$errores = [];
         self::$fotosGuardadas = 0;
+
+        $ubicacionNormalizada = FotosEntrega::normalizarUbicacion($ubicacion);
+        if ($ubicacionNormalizada['error'] !== '') {
+            self::$errores[] = $ubicacionNormalizada['error'];
+            return false;
+        }
+        $ubicacion = $ubicacionNormalizada['valor'];
 
         $fotos = array_values(array_filter(
             $fotos,
             static fn ($f) => is_array($f) && !empty($f['tmp_name'])
         ));
+        $metadatosFotos = array_values(array_filter($metadatosFotos, 'is_array'));
 
-        if (!$fotos) {
-            self::$errores[] = 'Selecciona al menos una foto del acta.';
+        $consulta = self::$db->prepare('SELECT id FROM entregas WHERE id = ? AND venta_id = ?');
+        $consulta->bind_param('ii', $entregaId, $ventaId);
+        $consulta->execute();
+        $existe = $consulta->get_result()->num_rows > 0;
+        $consulta->close();
+
+        if (!$existe) {
+            self::$errores[] = 'La entrega elegida no pertenece a esta venta.';
+            return false;
+        }
+
+        if (!$fotos && $ubicacion === '') {
+            self::$errores[] = 'Selecciona al menos una foto del acta o indica una ubicación.';
             return false;
         }
         if (count($fotos) > self::MAX_FOTOS) {
@@ -783,31 +825,26 @@ class Entregas
             return false;
         }
         foreach ($fotos as $foto) {
-            $motivo = Imagenes::validarArchivo($foto);
+            $motivo = Imagenes::validarArchivo($foto, Imagenes::TAMANO_MAXIMO_ENTREGA);
             if ($motivo !== '') {
                 self::$errores[] = $motivo;
                 return false;
             }
         }
 
-        $consulta = self::$db->prepare('SELECT id FROM entregas WHERE id = ? AND venta_id = ?');
-        $consulta->bind_param('ii', $entregaId, $ventaId);
-        $consulta->execute();
-        $existe = $consulta->get_result()->num_rows > 0;
-        $consulta->close();
-
-        if (!$existe) {
-            self::$errores[] = 'La entrega elegida no pertenece a esta venta.';
-            return false;
-        }
-
         $guardadas = [];
         try {
             self::$db->begin_transaction();
-            self::guardarFotos($entregaId, $fotos, $usuarioId, $guardadas);
+            if ($fotos) {
+                self::guardarFotos($entregaId, $fotos, $usuarioId, $guardadas, $metadatosFotos);
+            }
+            if ($ubicacion !== '') {
+                self::guardarUbicacion($entregaId, $ventaId, $ubicacion);
+            }
             Auditoria::registrar('venta', $ventaId, 'fotos_entrega', $usuarioId, null, [
                 'entrega_id' => $entregaId,
                 'fotos'      => count($guardadas),
+                'ubicacion'  => $ubicacion,
             ]);
             self::$db->commit();
             self::$fotosGuardadas = count($guardadas);
@@ -827,6 +864,62 @@ class Entregas
     }
 
     /**
+     * Fija o borra la ubicación manual de una entrega ya registrada.
+     *
+     * Acepta el enlace de Google Maps, coordenadas o una dirección. Una cadena
+     * vacía quita la ubicación. Se usa desde la sección «Fotos de la entrega»
+     * del seguimiento, aunque no se suban fotos nuevas.
+     */
+    public static function actualizarUbicacion(int $ventaId, int $entregaId, string $ubicacion, int $usuarioId): bool
+    {
+        self::$errores = [];
+        self::$fotosGuardadas = 0;
+
+        $normalizada = FotosEntrega::normalizarUbicacion($ubicacion);
+        if ($normalizada['error'] !== '') {
+            self::$errores[] = $normalizada['error'];
+            return false;
+        }
+
+        $consulta = self::$db->prepare('SELECT id FROM entregas WHERE id = ? AND venta_id = ?');
+        $consulta->bind_param('ii', $entregaId, $ventaId);
+        $consulta->execute();
+        $existe = $consulta->get_result()->num_rows > 0;
+        $consulta->close();
+
+        if (!$existe) {
+            self::$errores[] = 'La entrega elegida no pertenece a esta venta.';
+            return false;
+        }
+
+        try {
+            self::$db->begin_transaction();
+            self::guardarUbicacion($entregaId, $ventaId, $normalizada['valor']);
+            Auditoria::registrar('venta', $ventaId, 'ubicacion_entrega', $usuarioId, null, [
+                'entrega_id' => $entregaId,
+                'ubicacion'  => $normalizada['valor'],
+            ]);
+            self::$db->commit();
+            return true;
+        } catch (\mysqli_sql_exception $excepcion) {
+            self::$db->rollBack();
+            error_log('[Entregas::actualizarUbicacion] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible guardar la ubicación de la entrega.';
+            return false;
+        }
+    }
+
+    /** Escribe la ubicación manual (NULL si se quiere quitar). */
+    private static function guardarUbicacion(int $entregaId, int $ventaId, string $ubicacion): void
+    {
+        $valor = $ubicacion !== '' ? $ubicacion : null;
+        $consulta = self::$db->prepare('UPDATE entregas SET ubicacion_maps = ? WHERE id = ? AND venta_id = ?');
+        $consulta->bind_param('sii', $valor, $entregaId, $ventaId);
+        $consulta->execute();
+        $consulta->close();
+    }
+
+    /**
      * Procesa las fotos del acta y las registra contra la entrega.
      *
      * Cada archivo se guarda en public/image con nombre generado por el
@@ -836,25 +929,30 @@ class Entregas
      *
      * La fecha/hora de captura y el GPS se leen del temporal ANTES de
      * procesarlo: Intervention re-codifica y borra el EXIF. Esos datos son los
-     * que usa la marca de agua al abrir la foto ampliada (FotosEntrega).
+     * que usa la marca de agua al abrir la foto ampliada (FotosEntrega). Si el
+     * navegador ya comprimió la foto, manda esos datos en $metadatosFotos.
      *
-     * @param array<int, array> $fotos       entradas de $_FILES ya separadas.
-     * @param array<int, string> $guardadas  nombres escritos, por referencia.
+     * @param array<int, array>  $fotos          entradas de $_FILES ya separadas.
+     * @param array<int, string> $guardadas      nombres escritos, por referencia.
+     * @param array<int, array>  $metadatosFotos metadatos leídos en el navegador.
      */
-    private static function guardarFotos(int $entregaId, array $fotos, int $usuarioId, array &$guardadas): void
+    private static function guardarFotos(int $entregaId, array $fotos, int $usuarioId, array &$guardadas, array $metadatosFotos = []): void
     {
         $insertar = self::$db->prepare(
             'INSERT INTO entrega_fotos (entrega_id, archivo, tomada_en, latitud, longitud, usuario_id) VALUES (?, ?, ?, ?, ?, ?)'
         );
 
-        foreach ($fotos as $foto) {
+        foreach ($fotos as $indice => $foto) {
             if (empty($foto['tmp_name'])) {
                 continue;   // campo sin archivo: no es un error.
             }
 
-            $metadatos = FotosEntrega::metadatos($foto);
+            $metadatos = FotosEntrega::combinarMetadatos(
+                FotosEntrega::metadatos($foto),
+                FotosEntrega::metadatosDeFormulario($metadatosFotos[$indice] ?? null)
+            );
 
-            $nombre = Imagenes::subir($foto, 'entrega', 'informe');
+            $nombre = Imagenes::subir($foto, 'entrega', 'informe', Imagenes::TAMANO_MAXIMO_ENTREGA);
             if ($nombre === null) {
                 $insertar->close();
                 throw new \RuntimeException(Imagenes::ultimoError() ?: 'No fue posible guardar una de las fotos de la entrega.');
@@ -979,7 +1077,7 @@ class Entregas
 
         $consulta = self::$db->prepare(
             'SELECT f.archivo, f.tomada_en, f.latitud, f.longitud,
-                    en.fecha, en.creado_en,
+                    en.fecha, en.creado_en, en.ubicacion_maps AS entrega_ubicacion,
                     e.logo AS empresa_logo, e.nombre AS empresa_nombre,
                     cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     cl.ubicacion AS cliente_ubicacion

@@ -41,7 +41,12 @@ function abrirModalFormulario(enlace) {
     alConfirmar: function () {
       const formulario = document.querySelector('#modal-cuerpo form');
       if (formulario) {
-        formulario.submit(); // envío nativo: el servidor vuelve a validar todo
+        if (typeof enviarFormularioConFotos === 'function') {
+          // Comprime las fotos del acta antes del envío nativo.
+          enviarFormularioConFotos(formulario);
+        } else {
+          formulario.submit(); // envío nativo: el servidor vuelve a validar todo
+        }
       }
     },
   });

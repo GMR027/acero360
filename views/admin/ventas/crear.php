@@ -57,22 +57,91 @@ if ($esEnvio) {
     $faltantes = empty($errores) ? \App\Inventario::faltantesDeLineas($lineas) : [];
 
     if (empty($errores) && \App\Ventas::crear($datos, $lineas, (int) ($_SESSION['id'] ?? 0))) {
-        $nueva = \App\Ventas::buscarID(\App\Ventas::$ultimoId);
-        $folio = $nueva ? $nueva->folio : '';
+        $usuarioId = (int) ($_SESSION['id'] ?? 0);
+        $nuevaId   = (int) \App\Ventas::$ultimoId;
+        $nueva     = \App\Ventas::buscarID($nuevaId);
+        $folio     = $nueva ? $nueva->folio : '';
+        $avisoFactura = '';
 
-        /* Los cuatro datos del CFDI (método, forma, uso y tipo de comprobante) que trae
-         * la factura leída se guardan en el ingreso: así la sección «Facturación y cobro»
-         * los trae precargados en vez de vacíos. Son datos del documento, no de la venta,
-         * y sólo se escriben si vienen en el catálogo del SAT. */
-        $propuestaVenta = $lecturaId > 0 ? \App\Lecturas::propuesta($lecturaId, 'venta') : null;
-        if ($propuestaVenta) {
-            \App\VentasFiscal::guardarDatosLeidos(\App\Ventas::$ultimoId, [
-                'metodo_pago' => $propuestaVenta['metodo_pago'],
-                'forma_pago'  => $propuestaVenta['forma_pago'],
-                'uso_cfdi'    => $propuestaVenta['uso_cfdi'],
-                'tipo_cfdi'   => $propuestaVenta['tipo_cfdi'],
-            ], (int) ($_SESSION['id'] ?? 0));
-            \App\VentasFiscal::getErrores();   // la venta ya está guardada: no se retrocede por esto
+        /* La factura leída se adjunta a la venta y sus datos completan el
+         * ingreso y la ficha del cliente. Si el XML trae timbre, lo emitió este
+         * negocio y sus importes coinciden, la venta queda facturada sin pedir
+         * un segundo paso: la venta inteligente ya nació de esa factura. */
+        if ($lecturaId > 0) {
+            $propuestaVenta = \App\Lecturas::propuesta($lecturaId, 'venta');
+            if ($propuestaVenta) {
+                \App\VentasFiscal::guardarDatosLeidos($nuevaId, [
+                    'metodo_pago' => $propuestaVenta['metodo_pago'],
+                    'forma_pago'  => $propuestaVenta['forma_pago'],
+                    'uso_cfdi'    => $propuestaVenta['uso_cfdi'],
+                    'tipo_cfdi'   => $propuestaVenta['tipo_cfdi'],
+                ], $usuarioId);
+                \App\VentasFiscal::getErrores();   // la venta ya está guardada
+            }
+
+            $lectura = \App\Lecturas::buscarID($lecturaId);
+            $ingresoNuevo = \App\Contabilidad::ingresoDeVenta($nuevaId);
+            if ($lectura && $ingresoNuevo) {
+                $fallosAdj = \App\Lecturas::adjuntar($lectura, 'ingreso', (int) $ingresoNuevo['id'], $usuarioId);
+                if ($fallosAdj) {
+                    agregarAlerta('advertencia', 'La venta se guardó, pero algunos archivos de la factura no se adjuntaron: '
+                        . implode(' · ', $fallosAdj));
+                }
+            }
+
+            $cfdi = \App\Lecturas::cfdi($lecturaId);
+            if ($cfdi !== null && $ingresoNuevo) {
+                $completado = \App\VentasFiscal::completarDesdeCfdi($nuevaId, $cfdi, $usuarioId);
+                $datosCompletos = !$completado['errores'];
+                if (!$datosCompletos) {
+                    agregarAlerta('advertencia', 'La venta se guardó, pero no se pudieron completar los datos del CFDI: '
+                        . implode(' · ', $completado['errores']));
+                } elseif ($completado['discrepancias']) {
+                    agregarAlerta('advertencia', 'La factura quedó registrada, pero hay diferencias entre el XML y la ficha: '
+                        . implode(' ', $completado['discrepancias']));
+                }
+
+                $datosCfdi = \App\VentasFiscal::datosDeCfdi($cfdi);
+                $empresaNueva = \App\Empresas::buscarID((int) ($nueva->empresa_id ?? 0));
+                $rfcPropio = \App\VentasFiscal::normalizarRfc((string) ($empresaNueva->rfc ?? ''));
+                if ($rfcPropio === '') {
+                    $contribuyente = \App\Contabilidad::contribuyente(\App\Contabilidad::contribuyentePrincipal());
+                    $rfcPropio = \App\VentasFiscal::normalizarRfc((string) ($contribuyente['rfc'] ?? ''));
+                }
+                $clienteNuevo = \App\Clientes::buscarID((int) ($nueva->cliente_id ?? 0));
+                $rfcCliente = \App\VentasFiscal::normalizarRfc((string) ($clienteNuevo->rfc ?? ''));
+                $emisorPropio = $datosCfdi['emisor_rfc'] !== '' && $datosCfdi['emisor_rfc'] === $rfcPropio;
+                $receptorCoincide = $rfcCliente === '' || $datosCfdi['receptor_rfc'] === $rfcCliente;
+                $totalCoincide = $datosCfdi['total'] !== ''
+                    && \App\Contabilidad::centavos($datosCfdi['total']) === \App\Contabilidad::centavos($nueva->total);
+                $cfdiAdjunto = \App\Contabilidad::cfdiDeIngreso((int) $ingresoNuevo['id']);
+                $validacion = \App\VentasFiscal::validar($nuevaId, true);
+                $validacionOk = $validacion !== null && $validacion['puede_facturar'];
+
+                if ($datosCompletos && $validacionOk && $datosCfdi['uuid'] !== '' && $datosCfdi['tipo_cfdi'] === 'I'
+                    && $emisorPropio && $receptorCoincide && $totalCoincide && $cfdiAdjunto !== null) {
+                    if (\App\Contabilidad::actualizarFacturacion(
+                        (int) $ingresoNuevo['id'], 'facturada',
+                        $datosCfdi['folio'] !== '' ? $datosCfdi['folio'] : 'CFDI',
+                        $datosCfdi['uuid'],
+                        $datosCfdi['fecha'] !== '' ? $datosCfdi['fecha'] : (string) $nueva->fecha,
+                        $usuarioId,
+                        false
+                    )) {
+                        $avisoFactura = ' La factura del XML quedó registrada como emitida.';
+                    } else {
+                        agregarAlerta('advertencia', 'La venta se guardó, pero no se pudo marcar como facturada: '
+                            . implode(' · ', \App\Contabilidad::getErrores()));
+                    }
+                } elseif ($datosCfdi['uuid'] !== '' && !$receptorCoincide) {
+                    agregarAlerta('advertencia', 'La venta se guardó como pendiente de facturar: el RFC del receptor del XML no coincide con el cliente elegido.');
+                } elseif ($datosCompletos && !$validacionOk) {
+                    $pendientes = $validacion['errores'] ?? [];
+                    agregarAlerta('advertencia', 'La venta se guardó como pendiente de facturar: '
+                        . implode(' · ', array_slice($pendientes, 0, 4))
+                        . (count($pendientes) > 4 ? ' (+' . (count($pendientes) - 4) . ' más)' : ''));
+                }
+            }
         }
 
         if (!empty($faltantes)) {
@@ -87,9 +156,9 @@ if ($esEnvio) {
         }
 
         redirigir(
-            '/admin/ventas/detalle?id=' . \App\Ventas::$ultimoId,
+            '/admin/ventas/detalle?id=' . $nuevaId,
             'exito',
-            'Venta ' . $folio . ' registrada correctamente.'
+            'Venta ' . $folio . ' registrada correctamente.' . $avisoFactura
         );
     }
 

@@ -550,10 +550,10 @@ $correr = static function (string $cmd) use ($raiz): array {
     exec('cd ' . escapeshellarg($raiz) . ' && ' . $cmd . ' 2>&1', $salida, $codigo);
     return [$codigo, implode("\n", $salida)];
 };
-/** Reversiones en orden inverso (036 → 035 → 034 → 032). Devuelve '' o el error. */
+/** Reversiones en orden inverso (048 → 037 → 036 → 035 → 034 → 032). Devuelve '' o el error. */
 $revertir = static function () use ($correr): string {
     $err = '';
-    foreach (['037_clientes_rfc_reversion.sql', '036_complementos_clientes_reversion.sql',
+    foreach (['048_reversion.sql', '037_clientes_rfc_reversion.sql', '036_complementos_clientes_reversion.sql',
               '035_ventas_validacion_reversion.sql', '034_complementos_pago_reversion.sql',
               '032_compras_inteligentes_reversion.sql'] as $archivo) {
         [$cd, $sd] = $correr('mysql -uroot cotizaciones_mig_f8 < mysql/migraciones/' . escapeshellarg($archivo));
@@ -568,7 +568,8 @@ $revertir = static function () use ($correr): string {
 // 037_clientes_rfc.sql crea `clientes_rfc` y su reversión la elimina a propósito
 // (el registro de RFCs por cliente es parte de esa migración). Estaba fuera de
 // esta lista: la prueba fallaba en cuanto la tabla tuviera filas.
-$creadasPorMigracion = ['complementos_pago', 'complemento_doctos', 'complemento_pagos', 'complemento_cobros', 'clientes_rfc'];
+$creadasPorMigracion = ['complementos_pago', 'complemento_doctos', 'complemento_pagos', 'complemento_cobros', 'clientes_rfc',
+    'pagos_gasto', 'complemento_pagos_gasto'];
 
 [$c0] = $correr("mysql -uroot -e \"DROP DATABASE IF EXISTS $scratch; CREATE DATABASE $scratch CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci\"");
 [$c1, $salida1] = $correr("mysqldump -uroot --single-transaction cotizaciones | mysql -uroot $scratch");

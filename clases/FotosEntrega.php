@@ -54,34 +54,161 @@ class FotosEntrega
     /**
      * Enlaces a Google Maps y Apple Maps con la ubicación de una foto.
      *
-     * Se usa el GPS guardado de la foto y, si no lo tiene, la dirección del
-     * cliente. Devuelve [] cuando no hay ningún dato con el que ubicarla.
+     * Prioridad:
+     *   1. GPS de la foto (metadatos EXIF).
+     *   2. Ubicación manual de la entrega: enlace de Google Maps, coordenadas
+     *      o dirección.
+     *   3. Dirección registrada del cliente.
      *
-     * @param array $foto Fila de entrega_fotos (latitud, longitud).
-     * @return array{google: string, apple: string}|array{}
+     * Devuelve [] cuando no hay ningún dato con el que ubicarla. Si la
+     * ubicación manual es un enlace corto de Google Maps no se puede construir
+     * el enlace de Apple Maps: en ese caso sólo se devuelve «google».
+     *
+     * @param array  $foto      Fila de entrega_fotos (latitud, longitud).
+     * @param string $direccion Dirección registrada del cliente.
+     * @param string $manual    Ubicación manual de la entrega.
+     * @return array{google?: string, apple?: string}
      */
-    public static function urlsMapa(array $foto, string $direccion = ''): array
+    public static function urlsMapa(array $foto, string $direccion = '', string $manual = ''): array
     {
         $lat = $foto['latitud']  ?? null;
         $lon = $foto['longitud'] ?? null;
 
         if ($lat !== null && $lon !== null) {
-            $consulta = number_format((float) $lat, 7, '.', '')
-                . ',' . number_format((float) $lon, 7, '.', '');
-        } else {
-            $consulta = trim((string) preg_replace('/\s+/', ' ', $direccion));
+            return self::enlacesDeConsulta(
+                number_format((float) $lat, 7, '.', '')
+                . ',' . number_format((float) $lon, 7, '.', '')
+            );
         }
 
-        if ($consulta === '') {
-            return [];
+        $manual = trim($manual);
+        if ($manual !== '') {
+            $coordenadas = self::coordenadasDeEnlace($manual);
+            if ($coordenadas !== null) {
+                return self::enlacesDeConsulta($coordenadas);
+            }
+            if (self::esEnlace($manual)) {
+                // Enlace corto de Google Maps: se abre tal cual y no se inventa
+                // un enlace de Apple Maps que llevaría a otro sitio.
+                return ['google' => $manual];
+            }
+
+            return self::enlacesDeConsulta($manual);
         }
 
+        $consulta = trim((string) preg_replace('/\s+/', ' ', $direccion));
+        return $consulta === '' ? [] : self::enlacesDeConsulta($consulta);
+    }
+
+    /** @return array{google: string, apple: string} */
+    private static function enlacesDeConsulta(string $consulta): array
+    {
         $codificada = rawurlencode($consulta);
 
         return [
             'google' => 'https://www.google.com/maps/search/?api=1&query=' . $codificada,
             'apple'  => 'https://maps.apple.com/?q=' . $codificada,
         ];
+    }
+
+    /**
+     * Valida y normaliza la ubicación manual de una entrega.
+     *
+     * Acepta un enlace de Google Maps, coordenadas «latitud, longitud» o una
+     * dirección de texto. Devuelve el valor listo para guardar y el error
+     * (vacío si todo está bien).
+     *
+     * @return array{valor: string, error: string}
+     */
+    public static function normalizarUbicacion(string $valor): array
+    {
+        $valor = trim((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $valor));
+        $valor = trim((string) preg_replace('/\s+/u', ' ', $valor));
+
+        if ($valor === '') {
+            return ['valor' => '', 'error' => ''];
+        }
+        if (mb_strlen($valor) > 500) {
+            return ['valor' => '', 'error' => 'La ubicación no puede tener más de 500 caracteres.'];
+        }
+
+        // Un enlace sin esquema (maps.app.goo.gl/…) se completa con https.
+        if (preg_match('/^(?:maps\.|google\.|goo\.gl)\S+$/i', $valor) === 1) {
+            $valor = 'https://' . $valor;
+        }
+
+        if (self::esEnlace($valor)) {
+            $partes = parse_url($valor);
+            $host   = strtolower((string) ($partes['host'] ?? ''));
+
+            $esGoogle = $host === 'goo.gl'
+                || $host === 'maps.app.goo.gl'
+                || $host === 'maps.google.com'
+                || preg_match('/^(?:(?:www|maps)\.)?google\.(?:com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})$/', $host) === 1;
+
+            if (!$esGoogle) {
+                return ['valor' => '', 'error' => 'Pega un enlace de Google Maps válido o escribe coordenadas o una dirección.'];
+            }
+
+            return ['valor' => $valor, 'error' => ''];
+        }
+
+        // Coordenadas escritas a mano.
+        if (preg_match('/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/', $valor, $m) === 1) {
+            $lat = (float) $m[1];
+            $lon = (float) $m[2];
+            if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+                return ['valor' => '', 'error' => 'Las coordenadas no son válidas: la latitud va de -90 a 90 y la longitud de -180 a 180.'];
+            }
+            return ['valor' => number_format($lat, 7, '.', '') . ', ' . number_format($lon, 7, '.', ''), 'error' => ''];
+        }
+
+        return ['valor' => $valor, 'error' => ''];
+    }
+
+    /** ¿Es un enlace http(s)? */
+    private static function esEnlace(string $valor): bool
+    {
+        return (bool) preg_match('#^https?://#i', $valor);
+    }
+
+    /**
+     * Coordenadas «lat,lon» que se puedan leer de un enlace de Google Maps.
+     *
+     * Reconoce los formatos habituales (@lat,lon, ?q=lat,lon, ?ll=lat,lon y
+     * !3dlat!4dlon). Devuelve null si el enlace no las trae (p. ej. un enlace
+     * corto maps.app.goo.gl).
+     */
+    public static function coordenadasDeEnlace(string $valor): ?string
+    {
+        $texto = rawurldecode(trim($valor));
+
+        // Coordenadas escritas directamente («24.1426667, -110.3127500»).
+        if (preg_match('/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/', $texto, $m) === 1) {
+            $lat = (float) $m[1];
+            $lon = (float) $m[2];
+            if (abs($lat) <= 90 && abs($lon) <= 180) {
+                return number_format($lat, 7, '.', '') . ',' . number_format($lon, 7, '.', '');
+            }
+        }
+
+        $patrones = [
+            '/@(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/',
+            '/[?&](?:q|ll|destination)=(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/i',
+            '/!3d(-?\d{1,2}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/',
+        ];
+
+        foreach ($patrones as $patron) {
+            if (preg_match($patron, $texto, $m) === 1) {
+                $lat = (float) $m[1];
+                $lon = (float) $m[2];
+                if (abs($lat) <= 90 && abs($lon) <= 180) {
+                    return number_format($lat, 7, '.', '') . ',' . number_format($lon, 7, '.', '');
+                }
+            }
+        }
+
+        return null;
     }
 
     /* --------------------------------------------------------------------
@@ -129,6 +256,61 @@ class FotosEntrega
         $vacio['longitud'] = self::grados($gps['GPSLongitude'] ?? null, $gps['GPSLongitudeRef'] ?? null);
 
         return $vacio;
+    }
+
+    /**
+     * Normaliza los metadatos que envía el navegador tras comprimir la foto.
+     *
+     * El navegador lee el EXIF del archivo original y lo manda en un campo
+     * oculto; después la imagen ya no lo trae. Los valores son sólo para
+     * mostrar la fecha y la ubicación, así que se validan antes de guardarlos.
+     *
+     * @return array{tomada_en: ?string, latitud: ?float, longitud: ?float}
+     */
+    public static function metadatosDeFormulario(mixed $meta): array
+    {
+        $vacio = ['tomada_en' => null, 'latitud' => null, 'longitud' => null];
+        if (!is_array($meta)) {
+            return $vacio;
+        }
+
+        $fecha = trim((string) ($meta['tomada_en'] ?? ''));
+        if ($fecha !== '' && strtotime($fecha)) {
+            $vacio['tomada_en'] = date('Y-m-d H:i:s', strtotime($fecha));
+        }
+
+        $lat = $meta['latitud'] ?? null;
+        $lon = $meta['longitud'] ?? null;
+        if (is_numeric($lat) && is_numeric($lon)) {
+            $lat = (float) $lat;
+            $lon = (float) $lon;
+            if (abs($lat) <= 90 && abs($lon) <= 180) {
+                $vacio['latitud']  = round($lat, 7);
+                $vacio['longitud'] = round($lon, 7);
+            }
+        }
+
+        return $vacio;
+    }
+
+    /**
+     * Combina los metadatos del servidor (archivo original) con los del
+     * navegador. Manda el EXIF auténtico del temporal y, cuando el navegador
+     * ya comprimió y lo borró, se completan los huecos con los del cliente.
+     *
+     * @param array{tomada_en: ?string, latitud: ?float, longitud: ?float} $servidor
+     * @param array{tomada_en: ?string, latitud: ?float, longitud: ?float} $cliente
+     * @return array{tomada_en: ?string, latitud: ?float, longitud: ?float}
+     */
+    public static function combinarMetadatos(array $servidor, array $cliente): array
+    {
+        foreach (['tomada_en', 'latitud', 'longitud'] as $campo) {
+            if (($servidor[$campo] ?? null) === null && ($cliente[$campo] ?? null) !== null) {
+                $servidor[$campo] = $cliente[$campo];
+            }
+        }
+
+        return $servidor;
     }
 
     /** Convierte grados/minutos/segundos EXIF a grados decimales. */
@@ -296,7 +478,13 @@ class FotosEntrega
         }
 
         $direccion = trim((string) ($foto['cliente_ubicacion'] ?? ''));
+        $manual    = trim((string) ($foto['entrega_ubicacion'] ?? ''));
         $coordenadas = self::coordenadas($foto);
+        $desdeGps = $coordenadas !== '';
+
+        if ($coordenadas === '' && $manual !== '') {
+            $coordenadas = (string) self::coordenadasDeEnlace($manual);
+        }
 
         if ($direccion !== '') {
             $lineas[] = 'Ubicación: ' . $direccion;
@@ -304,7 +492,9 @@ class FotosEntrega
 
         if ($coordenadas !== '') {
             // Sin dirección, las coordenadas ocupan la línea de ubicación.
-            $lineas[] = ($direccion !== '' ? 'GPS: ' : 'Ubicación: ') . $coordenadas;
+            $lineas[] = ($desdeGps && $direccion !== '' ? 'GPS: ' : 'Ubicación: ') . $coordenadas;
+        } elseif ($manual !== '' && !self::esEnlace($manual)) {
+            $lineas[] = 'Ubicación: ' . $manual;
         }
 
         return $lineas;

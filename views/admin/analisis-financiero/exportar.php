@@ -24,7 +24,7 @@ if (!$seleccion) {
 $base = (string) ($_GET['base'] ?? 'venta') === 'lista' ? 'lista' : 'venta';
 $modo = (string) ($_GET['modo'] ?? 'simple') === 'detallado' ? 'detallado' : 'simple';
 $restarProveedores = (string) ($_GET['proveedores'] ?? '1') === '1';
-$restarGastos = (string) ($_GET['gastos'] ?? ($modo === 'detallado' ? '1' : '0')) === '1';
+$restarGastos = (string) ($_GET['gastos'] ?? '1') === '1';
 
 $r = \App\AnalisisFinanciero::resumen(
     $periodo['anio'],

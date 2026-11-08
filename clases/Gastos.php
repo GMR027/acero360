@@ -251,10 +251,32 @@ class Gastos
             $valores[] = (int) $f['empresa'];
             $valores[] = (int) $f['empresa'];
         }
-        if (in_array($f['pago'] ?? '', ['pendiente', 'pagado'], true)) {
-            $donde[] = 'g.estado_pago = ?';
-            $tipos .= 's';
-            $valores[] = $f['pago'];
+        if (in_array($f['pago'] ?? '', ['pendiente', 'parcial', 'pagado', 'sin_pago'], true)) {
+            $pagoFiltro = (string) $f['pago'];
+            if ($pagoFiltro === 'pagado') {
+                $donde[] = "g.estado_pago = 'pagado'";
+            } elseif ($pagoFiltro === 'parcial') {
+                $donde[] = "g.estado_pago = 'pendiente' AND EXISTS (
+                    SELECT 1 FROM pagos_gasto p WHERE p.gasto_id = g.id AND p.estado = 'vigente')";
+            } elseif ($pagoFiltro === 'sin_pago') {
+                $donde[] = "g.estado_pago = 'pendiente' AND NOT EXISTS (
+                    SELECT 1 FROM pagos_gasto p WHERE p.gasto_id = g.id AND p.estado = 'vigente')";
+            } else {
+                $donde[] = "g.estado_pago = 'pendiente'";
+            }
+        }
+        if (in_array($f['complemento'] ?? '', ['falta', 'recibido'], true)) {
+            $sinComplemento = "NOT EXISTS (
+                    SELECT 1 FROM documentos d WHERE d.entidad = 'gasto' AND d.entidad_id = g.id
+                       AND d.activo = 1 AND d.tipo = 'complemento_pago')
+                AND NOT EXISTS (
+                    SELECT 1 FROM complemento_doctos cd
+                      JOIN complementos_pago cp ON cp.id = cd.complemento_id
+                     WHERE cd.gasto_id = g.id AND cp.estado = 'vigente')";
+            $base = "g.comprobante_fiscal = 1 AND IFNULL(g.metodo_pago_sat, 'POR') <> 'PUE'";
+            $donde[] = $f['complemento'] === 'falta'
+                ? "($base AND $sinComplemento)"
+                : "($base AND NOT ($sinComplemento))";
         }
         if (($f['sin_comprobante'] ?? '') === '1') {
             $donde[] = 'g.comprobante_fiscal = 0';
@@ -277,7 +299,15 @@ class Gastos
 
         $consulta = self::$db->prepare(
             "SELECT g.*, e.nombre AS empresa_nombre, c.nombre AS categoria_nombre,
-                    (SELECT COUNT(*) FROM documentos d WHERE d.entidad = 'gasto' AND d.entidad_id = g.id AND d.activo = 1) AS documentos
+                    (SELECT COUNT(*) FROM documentos d WHERE d.entidad = 'gasto' AND d.entidad_id = g.id AND d.activo = 1) AS documentos,
+                    COALESCE((SELECT SUM(ROUND(pg.importe * 100)) FROM pagos_gasto pg
+                               WHERE pg.gasto_id = g.id AND pg.estado = 'vigente'), 0) AS pagado_centavos,
+                    (SELECT COUNT(*) FROM complemento_doctos cd
+                       JOIN complementos_pago cp ON cp.id = cd.complemento_id
+                      WHERE cd.gasto_id = g.id AND cp.estado = 'vigente') AS complementos_registrados,
+                    (SELECT COUNT(*) FROM documentos dc
+                      WHERE dc.entidad = 'gasto' AND dc.entidad_id = g.id AND dc.activo = 1
+                        AND dc.tipo = 'complemento_pago') AS complementos_adjuntos
                FROM gastos g
                LEFT JOIN empresas e ON e.id = g.empresa_id
                LEFT JOIN categorias_gasto c ON c.id = g.categoria_id
@@ -318,7 +348,11 @@ class Gastos
         $consulta = self::$db->prepare(
             "SELECT COUNT(*) AS n, COALESCE(SUM(ROUND(g.subtotal * 100)), 0) AS subtotal, COALESCE(SUM(ROUND(g.iva * 100)), 0) AS iva,
                     COALESCE(SUM(ROUND(g.total * 100)), 0) AS total,
-                    COALESCE(SUM(CASE WHEN g.estado_pago = 'pendiente' THEN ROUND(g.total * 100) ELSE 0 END), 0) AS por_pagar,
+                    COALESCE(SUM(CASE WHEN g.estado_pago = 'pendiente'
+                        THEN GREATEST(0, ROUND(g.total * 100) - COALESCE((
+                            SELECT SUM(ROUND(pg.importe * 100)) FROM pagos_gasto pg
+                             WHERE pg.gasto_id = g.id AND pg.estado = 'vigente'), 0))
+                        ELSE 0 END), 0) AS por_pagar,
                     COALESCE(SUM(g.comprobante_fiscal = 0), 0) AS sin_comprobante
                FROM gastos g WHERE $donde"
         );
@@ -821,12 +855,58 @@ class Gastos
     }
 
     /**
-     * Registra el pago de un gasto pendiente con la fecha y los datos del pago.
+     * Situación de pago de un gasto: pendiente, parcial o pagado.
      *
-     * El gasto nació de una compra no se paga aquí: su pago se registra en la
+     * «Parcial» no es un valor del ENUM (que sigue siendo pendiente/pagado para
+     * no tocar impuestos): se deduce de la suma de abonos de pagos_gasto.
+     *
+     * @return array{clave: string, etiqueta: string, clase: string, pagado: int, saldo: int}
+     */
+    public static function estadoPagoGasto(array $gasto): array
+    {
+        $id = (int) ($gasto['id'] ?? 0);
+        $total = Contabilidad::centavos($gasto['total'] ?? 0);
+        $pagado = $id > 0 ? PagosGasto::pagado($id) : 0;
+
+        if ((string) ($gasto['estado_pago'] ?? '') === 'pagado') {
+            return [
+                'clave' => 'pagado', 'etiqueta' => 'Pagado', 'clase' => 'badge--aprobado',
+                'pagado' => max($pagado, $total), 'saldo' => 0,
+            ];
+        }
+        if ($pagado > 0) {
+            if ($total > 0 && $pagado >= $total) {
+                return [
+                    'clave' => 'pagado', 'etiqueta' => 'Pagado', 'clase' => 'badge--aprobado',
+                    'pagado' => $pagado, 'saldo' => 0,
+                ];
+            }
+            return [
+                'clave' => 'parcial', 'etiqueta' => 'Pago parcial', 'clase' => 'badge--pendiente',
+                'pagado' => $pagado, 'saldo' => max(0, $total - $pagado),
+            ];
+        }
+
+        return [
+            'clave' => 'pendiente', 'etiqueta' => 'Pago pendiente', 'clase' => 'badge--pendiente',
+            'pagado' => 0, 'saldo' => $total,
+        ];
+    }
+
+    /** Suma de abonos vigentes del gasto en centavos. */
+    public static function pagado(int $id): int
+    {
+        return PagosGasto::pagado($id);
+    }
+
+    /**
+     * Registra un abono (parcial o total) de un gasto pendiente.
+     *
+     * El gasto que nació de una compra no se paga aquí: su pago se registra en la
      * compra (pagos_compra) para no contar el mismo dinero dos veces.
      *
-     * @param array<string, mixed> $datos fecha_pago, metodo_pago, forma_pago_sat, metodo_pago_sat
+     * @param array<string, mixed> $datos fecha_pago, importe, referencia, metodo_pago,
+     *                                    forma_pago_sat, metodo_pago_sat, pago_token
      */
     public static function pagar(int $id, array $datos, int $usuarioId): bool
     {
@@ -892,19 +972,38 @@ class Gastos
             return false;
         }
 
+        $saldo = PagosGasto::saldo($id);
+        if ($saldo <= 0) {
+            self::$errores[] = 'El gasto ya no tiene saldo pendiente.';
+            return false;
+        }
+        // Sin importe se paga todo el saldo (compatibilidad con el botón «Pagar» de siempre).
+        $importe = array_key_exists('importe', $datos) && trim((string) $datos['importe']) !== ''
+            ? trim((string) $datos['importe'])
+            : number_format($saldo / 100, 2, '.', '');
+        $token = trim((string) ($datos['pago_token'] ?? ''));
+        if ($token === '') {
+            $token = bin2hex(random_bytes(16));
+        }
+
+        if (!PagosGasto::registrar($id, $fecha, $importe, $metodo, (string) ($datos['referencia'] ?? ''), $token, $usuarioId)) {
+            self::$errores = PagosGasto::getErrores();
+            return false;
+        }
+
         $metodoDb = $metodo !== '' ? $metodo : null;
         $formaDb = $forma !== '' ? $forma : null;
         $metodoCfdiDb = $metodoCfdi !== '' ? $metodoCfdi : null;
-
         $consulta = self::$db->prepare(
-            "UPDATE gastos SET estado_pago = 'pagado', fecha_pago = ?, metodo_pago = ?, forma_pago_sat = ?, metodo_pago_sat = ? WHERE id = ?"
+            'UPDATE gastos SET metodo_pago = COALESCE(?, metodo_pago), forma_pago_sat = ?, metodo_pago_sat = ? WHERE id = ?'
         );
-        $consulta->bind_param('ssssi', $fecha, $metodoDb, $formaDb, $metodoCfdiDb, $id);
+        $consulta->bind_param('sssi', $metodoDb, $formaDb, $metodoCfdiDb, $id);
         $consulta->execute();
         $consulta->close();
 
         Auditoria::registrar('gasto', $id, 'pagar', $usuarioId, null, [
             'fecha_pago'      => [$gasto['fecha_pago'], $fecha],
+            'importe'         => $importe,
             'metodo_pago'     => [$gasto['metodo_pago'], $metodoDb],
             'forma_pago_sat'  => [$gasto['forma_pago_sat'], $formaDb],
             'metodo_pago_sat' => [$gasto['metodo_pago_sat'], $metodoCfdiDb],
@@ -912,7 +1011,7 @@ class Gastos
         return true;
     }
 
-    /** Marca como pagado un gasto pendiente (fecha de pago = hoy). */
+    /** Marca como pagado un gasto pendiente: abona el saldo con la fecha de hoy. */
     public static function marcarPagado(int $id, string $metodo, int $usuarioId): bool
     {
         self::$errores = [];
@@ -936,13 +1035,26 @@ class Gastos
             return false;
         }
 
-        $metodo = in_array($metodo, Contabilidad::METODOS_PAGO, true) ? $metodo : null;
-        $consulta = self::$db->prepare("UPDATE gastos SET estado_pago = 'pagado', fecha_pago = CURDATE(), metodo_pago = COALESCE(?, metodo_pago) WHERE id = ?");
-        $consulta->bind_param('si', $metodo, $id);
-        $consulta->execute();
-        $consulta->close();
+        $saldo = PagosGasto::saldo($id);
+        if ($saldo <= 0) {
+            self::$errores[] = 'El gasto ya no tiene saldo pendiente.';
+            return false;
+        }
+        $metodo = in_array($metodo, Contabilidad::METODOS_PAGO, true) ? $metodo : '';
+        if (!PagosGasto::registrar(
+            $id,
+            $hoy,
+            number_format($saldo / 100, 2, '.', ''),
+            $metodo,
+            'Pago total desde el Centro de seguimiento',
+            bin2hex(random_bytes(16)),
+            $usuarioId
+        )) {
+            self::$errores = PagosGasto::getErrores();
+            return false;
+        }
 
-        Auditoria::registrar('gasto', $id, 'pagar', $usuarioId, null, ['metodo' => $metodo]);
+        Auditoria::registrar('gasto', $id, 'pagar', $usuarioId, null, ['metodo' => $metodo ?: null]);
         return true;
     }
 

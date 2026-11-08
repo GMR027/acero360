@@ -205,9 +205,17 @@ class VentasFiscal
     /**
      * Toda la revisión previa de una venta. Devuelve null si no existe.
      *
+     * `$paraEmitir` distingue los dos usos de esta revisión:
+     *   · false (pantalla): una venta YA facturada no tiene una emisión
+     *     pendiente, así que los datos que solo hacen falta para emitir se
+     *     muestran como advertencias. Así no se pintan errores rojos que el
+     *     usuario no puede corregir desde una factura ya registrada.
+     *   · true (emisión): se exige todo lo necesario para emitir o relacionar
+     *     un CFDI. Es el que usan `emitir()` y la validación previa a facturar.
+     *
      * @return array<string, mixed>|null
      */
-    public static function validar(int $ventaId): ?array
+    public static function validar(int $ventaId, bool $paraEmitir = false): ?array
     {
         $datos = self::datosDeVenta($ventaId);
         if (!$datos) {
@@ -222,6 +230,16 @@ class VentasFiscal
         $items    = [];
         $errores  = [];
         $adv      = [];
+
+        /* Estado del CFDI: se calcula ANTES de las comprobaciones para que el
+         * resto sepa si la factura ya existe. */
+        $cfdi = null;
+        $uuid = '';
+        if ($ingreso) {
+            $cfdi = Contabilidad::cfdiDeIngreso((int) $ingreso['id']);
+            $uuid = strtoupper(trim((string) ($ingreso['uuid_fiscal'] ?: ($cfdi['uuid_fiscal'] ?? ''))));
+        }
+        $facturada = $ingreso !== null && (string) $ingreso['estado_facturacion'] === 'facturada';
 
         $agregar = static function (string $grupo, string $clave, string $estado, string $detalle) use (&$items, &$errores, &$adv) {
             $items[] = ['grupo' => $grupo, 'clave' => $clave, 'estado' => $estado, 'detalle' => $detalle];
@@ -611,17 +629,12 @@ class VentasFiscal
             $agregar('emision', 'periodo', 'correcto', 'El periodo contable de la venta está abierto.');
         }
 
-        $cfdi = null;
-        $uuid = '';
-        if ($ingreso) {
-            $cfdi = Contabilidad::cfdiDeIngreso((int) $ingreso['id']);
-            $uuid = strtoupper(trim((string) ($ingreso['uuid_fiscal'] ?: ($cfdi['uuid_fiscal'] ?? ''))));
-        }
-        $facturada = $ingreso !== null && (string) $ingreso['estado_facturacion'] === 'facturada';
-
         if ($facturada && $uuid !== '') {
-            $agregar('emision', 'cfdi', 'error',
-                'La venta ya tiene un CFDI válido vinculado (UUID ' . $uuid . '): sólo se permite un proceso de corrección o sustitución autorizado.');
+            // No es un error: es el estado normal de una venta ya facturada.
+            // Reemitir se bloquea en emitir(), no aquí.
+            $agregar('emision', 'cfdi', 'correcto',
+                'La venta ya está facturada con el CFDI ' . $uuid . ': no hay una emisión pendiente. '
+                . 'Sólo una corrección o sustitución autorizada puede reemitirla.');
         } elseif ($facturada) {
             $agregar('emision', 'cfdi', 'advertencia',
                 'La venta ya está marcada como facturada sin CFDI (confirmación manual).');
@@ -636,6 +649,30 @@ class VentasFiscal
 
         if ($ingreso === null) {
             $agregar('emision', 'ingreso', 'error', 'Falta el ingreso contable de la venta.');
+        }
+
+        /* Una venta ya facturada no tiene una emisión pendiente: cualquier
+         * faltante de datos es calidad del registro, no un bloqueo. Se muestra
+         * como advertencia para no dejar errores rojos sin forma de corregirlos
+         * desde una factura ya cerrada. La excepción es «emision»: una venta
+         * cancelada sigue siendo un error real. */
+        if ($facturada && !$paraEmitir) {
+            foreach ($items as &$item) {
+                if ($item['estado'] === 'error' && $item['grupo'] !== 'emision') {
+                    $item['estado'] = 'advertencia';
+                }
+            }
+            unset($item);
+
+            $errores = [];
+            $adv = [];
+            foreach ($items as $item) {
+                if ($item['estado'] === 'error') {
+                    $errores[] = $item['detalle'];
+                } elseif ($item['estado'] === 'advertencia') {
+                    $adv[] = $item['detalle'];
+                }
+            }
         }
 
         $puedeFacturar = true;
@@ -788,14 +825,26 @@ class VentasFiscal
     /**
      * Declara el método (PUE/PPD) y la forma de pago del CFDI en el ingreso de
      * la venta. La coherencia con los cobros reales la juzga validar().
+     *
+     * `$permitirVacio` se usa al completar los datos de una venta YA facturada:
+     * el CFDI ya existe y puede que su XML no traiga método (o la persona no lo
+     * tenga a mano). En ese caso no se borra nada ni se bloquea el guardado; en
+     * una venta pendiente, en cambio, el método sigue siendo obligatorio.
      */
-    public static function guardarPago(int $ventaId, string $metodo, string $forma, int $usuarioId = 0): bool
+    public static function guardarPago(int $ventaId, string $metodo, string $forma, int $usuarioId = 0, bool $permitirVacio = false): bool
     {
         self::$errores = [];
         $metodo = mb_strtoupper(trim($metodo));
         $forma  = self::normalizarFormaPago($forma);
 
-        if ($metodo === '' || !isset(self::METODOS[$metodo])) {
+        if ($metodo === '') {
+            if (!$permitirVacio) {
+                self::$errores[] = 'El método de pago debe ser PUE o PPD.';
+                return false;
+            }
+            return true;   // nada que cambiar: se conserva lo que ya estaba
+        }
+        if (!isset(self::METODOS[$metodo])) {
             self::$errores[] = 'El método de pago debe ser PUE o PPD.';
             return false;
         }
@@ -905,6 +954,104 @@ class VentasFiscal
         return true;
     }
 
+    /**
+     * Normaliza los datos de un CFDI leído (CfdiXml::leer) a los campos que usa
+     * la facturación de una venta. No escribe nada: sólo traduce y limpia.
+     *
+     * @param array<string, mixed> $cfdi array `datos` de CfdiXml::leer()
+     * @return array<string, string> receptor, pago, CFDI y totales normalizados.
+     */
+    public static function datosDeCfdi(array $cfdi): array
+    {
+        $texto = static fn (mixed $valor): string => trim((string) $valor);
+        $fecha = $texto($cfdi['fecha'] ?? '');
+
+        return [
+            'rfc'             => self::normalizarRfc($texto($cfdi['receptor_rfc'] ?? '')),
+            'codigo_postal'   => $texto($cfdi['receptor_cp'] ?? ''),
+            'regimen_fiscal'  => strtoupper($texto($cfdi['receptor_regimen'] ?? '')),
+            'uso_cfdi'        => strtoupper($texto($cfdi['uso_cfdi'] ?? '')),
+            'metodo_pago'     => strtoupper($texto($cfdi['metodo_pago'] ?? '')),
+            'forma_pago'      => self::normalizarFormaPago($texto($cfdi['forma_pago'] ?? '')),
+            'tipo_cfdi'       => strtoupper($texto($cfdi['tipo'] ?? '')),
+            'uuid'            => strtoupper($texto($cfdi['uuid'] ?? '')),
+            'folio'           => $texto($cfdi['folio_comercial'] ?? ''),
+            'fecha'           => preg_match('/^\d{4}-\d{2}-\d{2}/', $fecha) === 1 ? substr($fecha, 0, 10) : '',
+            'total'           => $texto($cfdi['total'] ?? ''),
+            'emisor_rfc'      => strtoupper($texto($cfdi['emisor_rfc'] ?? '')),
+            'receptor_rfc'    => strtoupper($texto($cfdi['receptor_rfc'] ?? '')),
+            'tipo'            => strtoupper($texto($cfdi['tipo'] ?? '')),
+        ];
+    }
+
+    /**
+     * Completa con los datos de un CFDI los campos VACÍOS del ingreso y de la
+     * ficha del cliente. Nunca sobrescribe un dato existente: si el documento
+     * dice algo distinto, lo devuelve en `discrepancias` para que la persona lo
+     * revise. El UUID, folio y fecha se guardan al marcar la facturación
+     * (Contabilidad::actualizarFacturacion), no aquí.
+     *
+     * @param array<string, mixed> $cfdi array `datos` de CfdiXml::leer()
+     * @return array{aplicados: string[], discrepancias: string[], errores: string[], datos: array<string, string>}
+     */
+    public static function completarDesdeCfdi(int $ventaId, array $cfdi, int $usuarioId = 0): array
+    {
+        self::$errores = [];
+        $datos = self::datosDeCfdi($cfdi);
+        $fila = self::datosDeVenta($ventaId);
+        if (!$fila) {
+            return ['aplicados' => [], 'discrepancias' => [], 'errores' => ['La venta ya no existe.'], 'datos' => $datos];
+        }
+        $ingreso = $fila['ingreso'];
+        if (!$ingreso) {
+            return ['aplicados' => [], 'discrepancias' => [], 'errores' => ['La venta no tiene ingreso contable asociado.'], 'datos' => $datos];
+        }
+
+        $aplicados = [];
+        $discrepancias = [];
+
+        /* Cuatro datos del comprobante: se llenan sólo si están vacíos. */
+        $nuevos = [];
+        foreach (['metodo_pago', 'forma_pago', 'uso_cfdi', 'tipo_cfdi'] as $campo) {
+            $valor = $datos[$campo];
+            if ($valor === '') {
+                continue;
+            }
+            $actual = strtoupper(trim((string) ($ingreso[$campo] ?? '')));
+            if ($actual === '') {
+                $nuevos[$campo] = $valor;
+            } elseif ($actual !== $valor) {
+                $discrepancias[] = 'El CFDI trae ' . $campo . ' "' . $valor . '" y el sistema ya tenía "' . $actual . '": se conserva el del sistema.';
+            }
+        }
+        if ($nuevos && !self::guardarDatosLeidos($ventaId, $nuevos, $usuarioId)) {
+            return ['aplicados' => [], 'discrepancias' => $discrepancias, 'errores' => self::getErrores(), 'datos' => $datos];
+        }
+        $aplicados = array_merge($aplicados, array_keys($nuevos));
+
+        /* Ficha del cliente: sólo los campos vacíos. */
+        $receptor = [];
+        $cliente = $fila['cliente'];
+        foreach (['rfc', 'codigo_postal', 'regimen_fiscal', 'uso_cfdi'] as $campo) {
+            $valor = $datos[$campo];
+            if ($valor === '') {
+                continue;
+            }
+            $actual = trim((string) ($cliente[$campo] ?? ''));
+            if ($actual === '') {
+                $receptor[$campo] = $valor;
+            } elseif (strtoupper($actual) !== strtoupper($valor)) {
+                $discrepancias[] = 'El CFDI trae ' . $campo . ' "' . $valor . '" y la ficha del cliente tiene "' . $actual . '": no se sobrescribió.';
+            }
+        }
+        if ($receptor && !self::completarReceptor($ventaId, $receptor, $usuarioId)) {
+            return ['aplicados' => $aplicados, 'discrepancias' => $discrepancias, 'errores' => self::getErrores(), 'datos' => $datos];
+        }
+        $aplicados = array_merge($aplicados, array_keys($receptor));
+
+        return ['aplicados' => $aplicados, 'discrepancias' => $discrepancias, 'errores' => [], 'datos' => $datos];
+    }
+
     /* ---------------------------------------------------------------- *
      * EMISIÓN — requisitos 6, 10, 11 y 12
      * ---------------------------------------------------------------- */
@@ -944,7 +1091,9 @@ class VentasFiscal
     public static function emitir(int $ventaId, bool $sustitucion = false, string $motivo = '', int $usuarioId = 0): array
     {
         self::$errores = [];
-        $revision = self::validar($ventaId);
+        // Emisión: aquí sí se exige todo lo necesario, aunque la venta ya esté
+        // facturada (la sustitución debe seguir siendo válida).
+        $revision = self::validar($ventaId, true);
         if ($revision === null) {
             return ['ok' => false, 'pendiente_pac' => false, 'cfdi' => null, 'errores' => ['La venta ya no existe.']];
         }

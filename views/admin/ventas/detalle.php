@@ -32,9 +32,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['accion'] ?? '') =
     }
 
     $fotos = \App\Archivos::listaDeSubidas($_FILES['fotos'] ?? null);
-    if (\App\Entregas::agregarFotos($id, (int) ($_POST['entrega_id'] ?? 0), $fotos, (int) ($_SESSION['id'] ?? 0))) {
+    $metadatosFotos = json_decode((string) ($_POST['fotos_meta'] ?? '[]'), true);
+    if (!is_array($metadatosFotos)) {
+        $metadatosFotos = [];
+    }
+    if (\App\Entregas::agregarFotos(
+        $id,
+        (int) ($_POST['entrega_id'] ?? 0),
+        $fotos,
+        (int) ($_SESSION['id'] ?? 0),
+        $metadatosFotos,
+        (string) ($_POST['ubicacion'] ?? '')
+    )) {
         $conFotos = \App\Entregas::$fotosGuardadas;
-        redirigir($destino, 'exito', 'Se guardaron ' . $conFotos . ' foto' . ($conFotos === 1 ? '' : 's') . ' del acta.');
+        $mensaje = $conFotos > 0
+            ? 'Se guardaron ' . $conFotos . ' foto' . ($conFotos === 1 ? '' : 's') . ' del acta.'
+            : 'Ubicación de la entrega guardada.';
+        redirigir($destino, 'exito', $mensaje);
     }
     $errores = \App\Entregas::getErrores();
 }
@@ -249,13 +263,41 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                             </li>
                         <?php endforeach; ?>
                     </ul>
+
+                    <?php
+                    $primeraFoto = $e['fotos'][0] ?? [];
+                    $mapas = \App\FotosEntrega::urlsMapa($primeraFoto, (string) $cotizacion->cliente_ubicacion, (string) ($e['ubicacion_maps'] ?? ''));
+                    ?>
+                    <?php if (!empty($e['ubicacion_maps'])) : ?>
+                        <p class="texto-xs texto-secundario mb-0">Ubicación manual: <?= escaparValores($e['ubicacion_maps']) ?></p>
+                    <?php endif; ?>
+                    <?php if ($mapas) : ?>
+                        <div class="seguimiento-fotos__acciones">
+                            <?php if (isset($mapas['google'])) : ?>
+                                <a class="btn btn--secundario btn--sm" href="<?= escaparValores($mapas['google']) ?>"
+                                   target="_blank" rel="noopener noreferrer"
+                                   aria-label="Abrir la ubicación de la entrega en Google Maps">
+                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">location_on</span>
+                                    <span>Google Maps</span>
+                                </a>
+                            <?php endif; ?>
+                            <?php if (isset($mapas['apple'])) : ?>
+                                <a class="btn btn--secundario btn--sm" href="<?= escaparValores($mapas['apple']) ?>"
+                                   target="_blank" rel="noopener noreferrer"
+                                   aria-label="Abrir la ubicación de la entrega en Apple Maps">
+                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">map</span>
+                                    <span>Apple Maps</span>
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         <?php else : ?>
             <p class="texto-secundario">Aún no hay fotos adjuntas. Puedes subirlas a cualquiera de las entregas de la venta.</p>
         <?php endif; ?>
 
-        <form class="formulario" action="/admin/ventas/detalle?id=<?= $id ?>#fotos-entrega" method="post" enctype="multipart/form-data" novalidate>
+        <form class="formulario" action="/admin/ventas/detalle?id=<?= $id ?>#fotos-entrega" method="post" enctype="multipart/form-data" novalidate data-comprimir-fotos>
             <input type="hidden" name="id" value="<?= $id ?>">
             <input type="hidden" name="accion" value="fotos">
             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
@@ -264,17 +306,21 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                 <div class="campo">
                     <label class="campo__etiqueta" for="fotos-entrega-archivos">Agregar fotos del acta</label>
                     <input class="control" type="file" id="fotos-entrega-archivos" name="fotos[]"
+                           data-max-bytes="<?= (int) \App\Imagenes::TAMANO_MAXIMO_ENTREGA ?>"
                            accept="image/jpeg,image/png,image/webp" multiple>
                     <span class="campo__ayuda">
                         Hasta <?= (int) \App\Entregas::MAX_FOTOS ?> fotos por envío y
-                        <?= (int) \App\Entregas::MAX_FOTOS_TOTAL_MB ?> MB en total.
+                        <?= (int) \App\Entregas::MAX_FOTOS_TOTAL_MB ?> MB en total; cada foto puede pesar
+                        hasta <?= (int) ceil(\App\Imagenes::TAMANO_MAXIMO_ENTREGA / 1048576) ?> MB.
+                        Se comprimen antes de enviarlas cuando el navegador puede.
                     </span>
+                    <span class="campo__ayuda" data-estado-fotos hidden></span>
                 </div>
                 <div class="campo">
                     <label class="campo__etiqueta" for="fotos-entrega-destino">Entrega</label>
                     <select class="control" id="fotos-entrega-destino" name="entrega_id">
                         <?php foreach (array_reverse($entregas) as $e) : $piezas = array_sum(array_column($e['renglones'], 'cantidad')); ?>
-                            <option value="<?= (int) $e['id'] ?>">
+                            <option value="<?= (int) $e['id'] ?>" data-ubicacion="<?= escaparValores((string) ($e['ubicacion_maps'] ?? '')) ?>">
                                 <?= date('d/m/Y', strtotime($e['fecha'])) ?> ·
                                 <?= $piezas ?> pieza<?= $piezas === 1 ? '' : 's' ?>
                             </option>
@@ -282,12 +328,21 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                     </select>
                     <span class="campo__ayuda">Se adjuntan a la entrega elegida (la más reciente aparece primero).</span>
                 </div>
+                <div class="campo">
+                    <label class="campo__etiqueta" for="fotos-entrega-ubicacion">Ubicación de Google Maps</label>
+                    <input class="control" type="text" id="fotos-entrega-ubicacion" name="ubicacion" maxlength="500"
+                           placeholder="Enlace de Google Maps, coordenadas o dirección">
+                    <span class="campo__ayuda">
+                        Si las fotos no traen GPS, esta ubicación se usa en el mapa. También puedes guardarla
+                        sin subir fotos nuevas. El GPS de la foto siempre tiene prioridad.
+                    </span>
+                </div>
             </div>
 
             <div class="formulario__acciones">
                 <button class="btn btn--primario" type="submit">
                     <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add_photo_alternate</span>
-                    <span>Subir fotos</span>
+                    <span>Subir fotos / guardar ubicación</span>
                 </button>
             </div>
         </form>

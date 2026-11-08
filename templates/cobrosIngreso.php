@@ -28,11 +28,51 @@ $cajaAtr   = $interna ? '' : ' class="tarjeta tarjeta--sin-relleno mb-lg"';
         <span class="badge <?= $etiqueta['clase'] ?>"><?= escaparValores($etiqueta['etiqueta']) ?></span>
     </<?= $tituloTag ?>>
 
+    <?php
+    $totalCobro = (float) $ingreso['total'];
+    $cobradoCobro = (float) $ingreso['cobrado'];
+    $pctCobro = $totalCobro > 0 ? min(100, max(0, (int) round($cobradoCobro * 100 / $totalCobro))) : 0;
+    $metodoCfdi = mb_strtoupper(trim((string) ($ingreso['metodo_pago'] ?? '')));
+    $sinComplemento = 0;
+    $abonosVigentes = 0;
+    foreach ($cobros as $c) {
+        if (($c['estado'] ?? '') !== 'vigente') {
+            continue;
+        }
+        $abonosVigentes++;
+        if (empty($c['complemento_uuid'])) {
+            $sinComplemento++;
+        }
+    }
+    ?>
+    <div class="barra-cobro mb-sm" role="group" aria-label="Avance del cobro">
+        <progress value="<?= $totalCobro > 0 ? $cobradoCobro : 0 ?>" max="<?= $totalCobro > 0 ? $totalCobro : 1 ?>"></progress>
+        <span class="texto-xs texto-secundario">
+            <?= $pctCobro ?> % cobrado · <?= $abonosVigentes ?> abono<?= $abonosVigentes === 1 ? '' : 's' ?>
+            · saldo <?= formatoMoneda($ingreso['saldo']) ?>
+        </span>
+    </div>
+
     <p class="texto-sm mb-md">
         Cada cobro es un dinero recibido (fecha, importe y referencia). Si cobraste en parcialidades, el SAT pide
         un <strong>complemento de pago</strong> que los respalda:
         <a href="/admin/ventas/complemento?ingreso=<?= (int) $ingreso['id'] ?>">cargar o ver complementos (XML)</a>.
     </p>
+
+    <?php if ($metodoCfdi === 'PPD' && $sinComplemento > 0) : ?>
+        <p class="nota nota--advertencia mb-md" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">receipt_long</span>
+            <span>Hay <?= $sinComplemento ?> abono<?= $sinComplemento === 1 ? '' : 's' ?> sin complemento de pago.
+                La factura es PPD, así que conviene cargar el XML del complemento que los respalde.
+                <a href="/admin/ventas/complemento?ingreso=<?= (int) $ingreso['id'] ?>">Cargar complemento</a>.</span>
+        </p>
+    <?php elseif ($metodoCfdi === 'PUE' && ($ingreso['estado_cobro'] ?? '') === 'parcial') : ?>
+        <p class="nota nota--advertencia mb-md" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
+            <span>La factura está declarada como PUE (pago en una sola exhibición) pero tiene abonos parciales.
+                Revisa el método de pago del CFDI o termina de cobrar el saldo.</span>
+        </p>
+    <?php endif; ?>
 
     <?php if ($editable) : ?>
         <form action="/admin/contabilidad/ingresos/accion" method="post"<?= $interna ? ' class="mb-md"' : ' style="padding:1rem"' ?>>
@@ -89,7 +129,7 @@ $cajaAtr   = $interna ? '' : ' class="tarjeta tarjeta--sin-relleno mb-lg"';
     <?php endif; ?>
 
     <?php if ($editable && (float) $ingreso['saldo'] > 0) : ?>
-        <details<?= $interna ? '' : ' style="padding:0 1rem 1rem"' ?>><summary class="texto-sm">Anotar un pago parcial</summary>
+        <details<?= $interna ? '' : ' style="padding:0 1rem 1rem"' ?>><summary class="btn btn--secundario btn--sm">Registrar un abono</summary>
         <form class="formulario mt-sm" action="/admin/contabilidad/ingresos/accion" method="post" novalidate>
             <input type="hidden" name="id" value="<?= (int) $ingreso['id'] ?>"><input type="hidden" name="accion" value="cobro">
             <input type="hidden" name="volver" value="<?= escaparValores($retorno) ?>">

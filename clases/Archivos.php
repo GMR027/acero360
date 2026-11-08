@@ -150,8 +150,6 @@ class Archivos
             return false;
         }
         $tipo = isset(self::TIPOS[$tipo]) || $tipo === 'auto' ? $tipo : 'otro';
-        // El complemento de pago es un adjunto posterior al cierre: no cambia
-        // importes ni la fecha del gasto, así que no se bloquea por el periodo.
         $esComplemento = $tipo === 'complemento_pago';
 
         $op = self::entidad($entidad, $entidadId);
@@ -159,39 +157,27 @@ class Archivos
             self::$errores[] = 'La operación a la que se adjunta ya no existe.';
             return false;
         }
-        if ($esComplemento) {
-            // El complemento se recibe después de pagar la factura. Se valida en
-            // el servidor para que un POST directo no adjunte un complemento a
-            // una operación que aún no se ha pagado (o que no es un gasto).
-            if ($entidad !== 'gasto') {
-                self::$errores[] = 'El complemento de pago solo se adjunta a un gasto.';
-                return false;
-            }
-            $consulta = self::$db->prepare('SELECT estado_pago, comprobante_fiscal FROM gastos WHERE id = ?');
-            $consulta->bind_param('i', $entidadId);
-            $consulta->execute();
-            $gastoComplemento = $consulta->get_result()->fetch_assoc();
-            $consulta->close();
-            if (!$gastoComplemento || $gastoComplemento['estado_pago'] !== 'pagado' || (int) $gastoComplemento['comprobante_fiscal'] !== 1) {
-                self::$errores[] = 'El complemento de pago se adjunta a una factura ya pagada.';
-                return false;
-            }
-        }
-        if (!$esComplemento && Contabilidad::periodoCerrado((int) $op['contribuyente_id'], $op['fecha'])) {
-            self::$errores[] = Contabilidad::mensajePeriodoCerrado($op['fecha']);
-            return false;
-        }
 
+        // Se valida primero: el tipo de CFDI decide si un XML es una factura o
+        // un complemento de pago (tipo P). Así una carga «automática» nunca
+        // guarda un complemento como si fuera el CFDI de la operación.
         $validado = self::validar($archivo, $esSubida);
         if ($validado === null) {
             return false;
         }
         ['ext' => $ext, 'familia' => $familia, 'mime' => $mime, 'contenido' => $contenido, 'sha256' => $sha, 'cfdi' => $cfdi] = $validado;
 
+        $tipoCfdi = strtoupper((string) ($cfdi['datos']['tipo'] ?? ''));
+
         // «auto»: el tipo se deduce del archivo (XML → CFDI, PDF → factura, imagen → imagen).
         if ($tipo === 'auto') {
-            $tipo = ['xml' => 'xml', 'pdf' => 'factura_pdf', 'imagen' => 'imagen'][$familia] ?? 'otro';
+            if ($familia === 'xml' && $tipoCfdi === 'P') {
+                $tipo = 'complemento_pago';
+            } else {
+                $tipo = ['xml' => 'xml', 'pdf' => 'factura_pdf', 'imagen' => 'imagen'][$familia] ?? 'otro';
+            }
         }
+        $esComplemento = $tipo === 'complemento_pago';
 
         // Coherencia entre el tipo elegido y el archivo. Un XML normal es el CFDI
         // de la operación; el complemento de pago conserva su tipo propio para
@@ -203,6 +189,88 @@ class Archivos
             return false;
         } elseif ($tipo === 'factura_pdf' && $familia !== 'pdf') {
             self::$errores[] = 'El tipo «Factura (PDF)» requiere un archivo PDF.';
+            return false;
+        }
+
+        /* -------------------- Complemento de pago -------------------- *
+         * Se recibe después de la factura y documenta un pago (total o
+         * parcial). No cambia importes ni la fecha del gasto, así que no se
+         * bloquea por el periodo. Solo aplica a gastos con factura vigentes. */
+        $gastoComplemento = null;
+        if ($esComplemento) {
+            if ($entidad !== 'gasto') {
+                self::$errores[] = 'El complemento de pago solo se adjunta a un gasto.';
+                return false;
+            }
+            $consulta = self::$db->prepare(
+                'SELECT estado, estado_pago, comprobante_fiscal, metodo_pago_sat, rfc_emisor, uuid_fiscal
+                   FROM gastos WHERE id = ?'
+            );
+            $consulta->bind_param('i', $entidadId);
+            $consulta->execute();
+            $gastoComplemento = $consulta->get_result()->fetch_assoc();
+            $consulta->close();
+
+            if (!$gastoComplemento || $gastoComplemento['estado'] !== 'vigente') {
+                self::$errores[] = 'El complemento de pago se adjunta a un gasto vigente.';
+                return false;
+            }
+            if ((int) $gastoComplemento['comprobante_fiscal'] !== 1) {
+                self::$errores[] = 'El complemento de pago se adjunta a un gasto con factura (CFDI).';
+                return false;
+            }
+
+            if ($familia === 'xml') {
+                if (!$cfdi['valido']) {
+                    self::$errores[] = $cfdi['error'] ?? 'El XML del complemento no es válido.';
+                    return false;
+                }
+                $comp = CfdiXml::complementoPago($contenido);
+                if ($comp === null) {
+                    self::$errores[] = 'El XML no trae un complemento de pagos (nodo Pagos con DoctoRelacionado): '
+                        . 'si es una factura, súbela como CFDI.';
+                    return false;
+                }
+
+                $rfcEmisorGasto = strtoupper(trim((string) ($gastoComplemento['rfc_emisor'] ?? '')));
+                $rfcEmisorXml = strtoupper((string) ($cfdi['datos']['emisor_rfc'] ?? ''));
+                if ($rfcEmisorGasto !== '' && $rfcEmisorXml !== '' && $rfcEmisorGasto !== $rfcEmisorXml) {
+                    self::$errores[] = 'El complemento lo emitió ' . $rfcEmisorXml . ' y la factura del gasto es de '
+                        . $rfcEmisorGasto . ': no corresponde.';
+                    return false;
+                }
+
+                $uuidGasto = strtoupper(trim((string) ($gastoComplemento['uuid_fiscal'] ?? '')));
+                if ($uuidGasto !== '') {
+                    $relaciona = false;
+                    foreach ($comp['doctos'] as $doctoComplemento) {
+                        if (strtoupper((string) ($doctoComplemento['uuid'] ?? '')) === $uuidGasto) {
+                            $relaciona = true;
+                            break;
+                        }
+                    }
+                    if (!$relaciona) {
+                        self::$errores[] = 'El complemento no relaciona la factura de este gasto (UUID ' . $uuidGasto . '): '
+                            . 'revisa que sea el XML correcto.';
+                        return false;
+                    }
+                }
+
+                $cfdi['datos']['complemento'] = [
+                    'monto'       => (string) ($comp['monto_total'] ?? $comp['monto'] ?? ''),
+                    'fecha_pago'  => (string) ($comp['fecha_pago'] ?? ''),
+                    'forma_pago'  => (string) ($comp['forma_pago'] ?? ''),
+                    'doctos'      => $comp['doctos'],
+                ];
+                $cfdi['datos']['alertas'] = [];
+                if (strtoupper(trim((string) ($gastoComplemento['metodo_pago_sat'] ?? ''))) === 'PUE') {
+                    $cfdi['datos']['alertas'][] = 'La factura está marcada como PUE (pago en una sola exhibición) y este archivo es un complemento de pago: revisa el método del CFDI.';
+                }
+            }
+        }
+
+        if (!$esComplemento && Contabilidad::periodoCerrado((int) $op['contribuyente_id'], $op['fecha'])) {
+            self::$errores[] = Contabilidad::mensajePeriodoCerrado($op['fecha']);
             return false;
         }
 
@@ -300,7 +368,9 @@ class Archivos
             $original = mb_substr(preg_replace('/[\x00-\x1F\x7F\/\\\\]/u', '_', basename((string) $archivo['name'])), 0, 255) ?: ('archivo.' . $ext);
             $uuidDoc = $uuid ?: null;
             $estado  = $familia === 'xml' && !$esComplemento ? $cfdi['estado'] : 'no_aplica';
-            $json    = $familia === 'xml' && $cfdi['valido'] && !$esComplemento ? json_encode($cfdi['datos'], JSON_UNESCAPED_UNICODE) : null;
+            // El complemento guarda sus datos (monto del pago, fecha y facturas
+            // relacionadas) para mostrarlos sin volver a leer el archivo.
+            $json    = $familia === 'xml' && $cfdi['valido'] ? json_encode($cfdi['datos'], JSON_UNESCAPED_UNICODE) : null;
             $tamano  = strlen($contenido);
             $contribuyenteId = (int) $op['contribuyente_id'];
 

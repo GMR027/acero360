@@ -305,8 +305,8 @@ $altaGasto = $archivo('views/admin/contabilidad/gastos/crear.php');
 $prueba('el alta precarga uso y tipo desde la lectura',
     str_contains($altaGasto, "'uso_cfdi'") && str_contains($altaGasto, "'tipo_cfdi'"));
 $prueba('el detalle muestra forma y tipo',
-    str_contains($archivo('views/admin/contabilidad/gastos/detalle.php'), 'Forma de pago')
-    && str_contains($archivo('views/admin/contabilidad/gastos/detalle.php'), 'Tipo de comprobante'));
+    str_contains($archivo('templates/facturacionGasto.php'), 'Forma de pago')
+    && str_contains($archivo('templates/facturacionGasto.php'), 'Tipo de comprobante'));
 $facturacion = $archivo('templates/facturacionVenta.php');
 $prueba('la facturación de la venta trae el tipo de comprobante',
     str_contains($facturacion, 'id="f-tipo"') && str_contains($facturacion, 'name="tipo_cfdi"'));

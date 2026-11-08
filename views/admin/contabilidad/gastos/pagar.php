@@ -26,16 +26,18 @@ if ($orden = \App\CompraContable::ordenDeGasto($id)) {
 }
 
 template('header', [
-    'titulo'    => 'Registrar pago',
+    'titulo'    => 'Registrar abono',
     'subtitulo' => 'Gasto: ' . $gasto['beneficiario'],
     'rutaActiva' => '/admin/contabilidad',
 ]);
+$estadoPago = \App\Gastos::estadoPagoGasto($gasto);
 ?>
 
 <section class="tarjeta">
     <p class="texto-secundario mb-md">
         <?= escaparValores($gasto['concepto']) ?> · <?= date('d/m/Y', strtotime($gasto['fecha'])) ?>
         · total <strong class="cifra"><?= formatoMoneda((float) $gasto['total']) ?></strong>
+        · saldo <strong class="cifra"><?= formatoMoneda($estadoPago['saldo'] / 100) ?></strong>
     </p>
     <?php template('formPagoGasto', [
         'gasto'        => $gasto,

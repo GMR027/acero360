@@ -106,6 +106,24 @@
   }
 }
 
+/* Formulario corto para fijar la ubicación manual de una entrega. */
+.formulario--ubicacion-entrega {
+  margin-top: $espacio-sm;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: $espacio-sm;
+
+  .campo {
+    flex: 1 1 22rem;
+    margin-bottom: 0;
+  }
+
+  .btn {
+    flex: 0 0 auto;
+  }
+}
+
 /* Línea de tiempo del historial de la venta. */
 .seguimiento-timeline {
   list-style: none;

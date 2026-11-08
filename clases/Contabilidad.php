@@ -826,8 +826,20 @@ class Contabilidad
                 $valores[] = $f[$campo];
             }
         }
-        if (($f['cobro'] ?? '') === 'pendiente') {
+        $cobroFiltro = (string) ($f['cobro'] ?? '');
+        if ($cobroFiltro === 'pendiente') {
+            // Cualquier saldo: sin cobros o con abonos parciales.
             $donde[] = "ROUND(i.total * 100) > COALESCE((SELECT SUM(ROUND(c.importe * 100)) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente'), 0)";
+        } elseif (in_array($cobroFiltro, ['sin_cobro', 'parcial', 'cobrado'], true)) {
+            $cobradoSql = "COALESCE((SELECT SUM(ROUND(c.importe * 100)) FROM cobros c WHERE c.ingreso_id = i.id AND c.estado = 'vigente'), 0)";
+            $totalSql = 'ROUND(i.total * 100)';
+            if ($cobroFiltro === 'sin_cobro') {
+                $donde[] = "$cobradoSql <= 0";
+            } elseif ($cobroFiltro === 'parcial') {
+                $donde[] = "$cobradoSql > 0 AND $cobradoSql < $totalSql";
+            } else {
+                $donde[] = "$cobradoSql >= $totalSql";
+            }
         }
         if (($f['estado'] ?? '') === 'cancelado') {
             $donde[] = "i.estado = 'cancelado'";

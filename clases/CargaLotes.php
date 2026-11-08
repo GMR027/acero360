@@ -79,7 +79,7 @@ class CargaLotes
         $ok = 0;
         $errores = [];
         foreach ($grupos as $base => $lista) {
-            $id = Lecturas::preparar($lista, $destino, $usuarioId, $esSubida);
+            $id = Lecturas::preparar($lista, $destino, $usuarioId, $esSubida, false);
             if ($id !== null) {
                 $ok++;
             } else {

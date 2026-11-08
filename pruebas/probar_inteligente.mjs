@@ -147,6 +147,15 @@ const uuidVenta = 'C0FFEE00-1111-4222-8333-444455556666';
 const uuidCompra = 'BEEF0000-9999-4888-8777-666655554444';
 
 const usuarioId = prepararUsuarioPrueba();
+let clienteDemoCreado = false;
+
+/* La factura de venta usa el RFC público XAXX010101000: la ficha debe existir
+ * para que la lectura preseleccione al cliente. En una base recién copiada no
+ * viene; se crea una sola vez. */
+if (Number(sql("SELECT COUNT(*) FROM clientes WHERE rfc = 'XAXX010101000'")) === 0) {
+  sql("INSERT INTO clientes (nombre, nombre_empresa, rfc) VALUES ('Cliente Demo 1', 'Cliente Demo 1', 'XAXX010101000')");
+  clienteDemoCreado = true;
+}
 const navegador = await chromium.launch();
 const contexto = await navegador.newContext({ viewport: { width: 1440, height: 900 } });
 const pagina = await contexto.newPage();
@@ -334,6 +343,9 @@ try {
     sql(`DELETE FROM ventas WHERE id = ${ventaCreada}`);
   }
   limpiarDePrueba();
+  if (clienteDemoCreado) {
+    sql("DELETE FROM clientes WHERE rfc = 'XAXX010101000' AND nombre_empresa = 'Cliente Demo 1'");
+  }
   sql(`DELETE FROM usuarios WHERE id = ${usuarioId}`);
 }
 

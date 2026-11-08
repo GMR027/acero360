@@ -15,6 +15,13 @@ if (!$lectura) {
 if ((string) $lectura['destino'] === 'compra') {
     redirigir('/admin/compras/inteligente/revision?id=' . $id);
 }
+// Un complemento de pago (CFDI tipo P) se revisa en su bandeja, no como gasto o venta.
+if ((string) $lectura['destino'] === 'complemento') {
+    redirigir('/admin/compras/complemento/revision?id=' . $id);
+}
+if ((string) $lectura['destino'] === 'complemento_venta') {
+    redirigir('/admin/ventas/complemento/revision?id=' . $id);
+}
 $usuario = (int) ($_SESSION['id'] ?? 0);
 $destino = $lectura['destino'];
 

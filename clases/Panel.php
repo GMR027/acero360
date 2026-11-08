@@ -192,7 +192,10 @@ class Panel
     public static function gastosPorPagar(int $limite = 6): array
     {
         return self::varias(
-            'SELECT g.id, g.fecha, g.beneficiario, g.concepto, g.total
+            'SELECT g.id, g.fecha, g.beneficiario, g.concepto,
+                    GREATEST(0, g.total - COALESCE((
+                        SELECT SUM(p.importe) FROM pagos_gasto p
+                         WHERE p.gasto_id = g.id AND p.estado = \'vigente\'), 0)) AS total
                FROM gastos g
               WHERE g.estado = \'vigente\' AND g.estado_pago = \'pendiente\'
               ORDER BY g.fecha, g.id LIMIT ' . max(1, $limite)
@@ -203,7 +206,9 @@ class Panel
     public static function resumenGastosPorPagar(): array
     {
         $f = self::uno(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(ROUND(g.total * 100)), 0) AS monto
+            "SELECT COUNT(*) AS n, COALESCE(SUM(GREATEST(0, ROUND(g.total * 100) - COALESCE((
+                        SELECT SUM(ROUND(p.importe * 100)) FROM pagos_gasto p
+                         WHERE p.gasto_id = g.id AND p.estado = 'vigente'), 0))), 0) AS monto
                FROM gastos g WHERE g.estado = 'vigente' AND g.estado_pago = 'pendiente'"
         );
 

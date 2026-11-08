@@ -32,6 +32,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['accion'] ?? '') =
     $errores = \App\IncidenciasEntrega::getErrores();
 }
 
+// POST: ubicación manual de una entrega (enlace de Google Maps, coordenadas o dirección).
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['accion'] ?? '') === 'ubicacion') {
+    if (!consumirToken($_POST['token'] ?? null)) {
+        redirigir($rutaVenta, 'error', 'Este formulario ya se envió; la ubicación no se guardó dos veces.');
+    }
+    if (\App\Entregas::actualizarUbicacion(
+        $id,
+        (int) ($_POST['entrega_id'] ?? 0),
+        (string) ($_POST['ubicacion'] ?? ''),
+        (int) ($_SESSION['id'] ?? 0)
+    )) {
+        redirigir($rutaVenta, 'exito', 'Ubicación de la entrega guardada.');
+    }
+    $errores = \App\Entregas::getErrores();
+}
+
 $pendientes = \App\Entregas::pendientesDeVentas([$id])[$id] ?? [];
 $entregas   = \App\Entregas::entregasDeVenta($id);
 $incidencias = \App\IncidenciasEntrega::deVenta($id);
@@ -138,17 +154,16 @@ template('tabsEntregas', ['tab' => 'seguimiento']);
 </section>
 
 <?php
-// Fotos del acta: las que se adjuntaron al registrar cada entrega (si no hay, no se pinta la sección).
-$entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empty($e['fotos'])));
+// Fotos del acta y ubicación manual: una sección por cada entrega registrada.
 ?>
-<?php if ($entregasConFotos) : ?>
+<?php if ($entregas) : ?>
     <section class="tarjeta mb-lg">
         <div class="tabla-toolbar">
             <h2 class="titulo-5">Fotos de la entrega</h2>
-            <span class="texto-secundario texto-sm">Adjuntadas al registrar cada entrega. Al abrirlas se muestran con la marca de agua del negocio, la fecha, la hora y la ubicación.</span>
+            <span class="texto-secundario texto-sm">Adjuntadas al registrar cada entrega. Al abrirlas se muestran con la marca de agua del negocio, la fecha, la hora y la ubicación. Si una foto no trae GPS, aquí puedes dejar la ubicación manual de su entrega.</span>
         </div>
 
-        <?php foreach ($entregasConFotos as $e) : $fechaE = date('d/m/Y', strtotime($e['fecha'])); $nFotos = count($e['fotos']); ?>
+        <?php foreach ($entregas as $e) : $fechaE = date('d/m/Y', strtotime($e['fecha'])); $nFotos = count($e['fotos']); ?>
             <div class="seguimiento-fotos">
                 <p class="texto-sm mb-0">
                     <strong>Entrega del <?= $fechaE ?></strong>
@@ -156,48 +171,73 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                         · <?= $nFotos ?> foto<?= $nFotos === 1 ? '' : 's' ?> · registró <?= escaparValores($e['usuario_nombre'] ?? '—') ?>
                     </span>
                 </p>
-                <ul class="seguimiento-fotos__lista">
-                    <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); $rutaMarcada = \App\FotosEntrega::url($foto['archivo']); ?>
-                        <li class="seguimiento-fotos__item">
-                            <button type="button" class="seguimiento-fotos__enlace"
-                                    data-ampliar-imagen="<?= escaparValores($rutaMarcada) ?>"
-                                    data-ampliar-sobre="Fotos de la entrega"
-                                    data-ampliar-titulo="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
-                                    title="Ver la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
-                                    aria-label="Ampliar la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>">
-                                <img class="seguimiento-fotos__imagen" src="<?= escaparValores($rutaFoto) ?>"
-                                     alt="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
-                                     loading="lazy">
-                            </button>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
+
+                <?php if ($e['fotos']) : ?>
+                    <ul class="seguimiento-fotos__lista">
+                        <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); $rutaMarcada = \App\FotosEntrega::url($foto['archivo']); ?>
+                            <li class="seguimiento-fotos__item">
+                                <button type="button" class="seguimiento-fotos__enlace"
+                                        data-ampliar-imagen="<?= escaparValores($rutaMarcada) ?>"
+                                        data-ampliar-sobre="Fotos de la entrega"
+                                        data-ampliar-titulo="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                        title="Ver la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                        aria-label="Ampliar la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>">
+                                    <img class="seguimiento-fotos__imagen" src="<?= escaparValores($rutaFoto) ?>"
+                                         alt="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
+                                         loading="lazy">
+                                </button>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php else : ?>
+                    <p class="texto-sm texto-secundario">Sin fotos adjuntas en esta entrega.</p>
+                <?php endif; ?>
+
+                <?php
+                $primeraFoto = $e['fotos'][0] ?? [];
+                $mapas = \App\FotosEntrega::urlsMapa($primeraFoto, (string) $venta->cliente_ubicacion, (string) ($e['ubicacion_maps'] ?? ''));
+                ?>
+                <?php if ($mapas) : ?>
+                    <div class="seguimiento-fotos__acciones">
+                        <?php if (isset($mapas['google'])) : ?>
+                            <a class="btn btn--secundario btn--sm"
+                               href="<?= escaparValores($mapas['google']) ?>"
+                               target="_blank" rel="noopener noreferrer"
+                               aria-label="Abrir la ubicación de la entrega en Google Maps">
+                                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">location_on</span>
+                                <span>Google Maps</span>
+                            </a>
+                        <?php endif; ?>
+                        <?php if (isset($mapas['apple'])) : ?>
+                            <a class="btn btn--secundario btn--sm"
+                               href="<?= escaparValores($mapas['apple']) ?>"
+                               target="_blank" rel="noopener noreferrer"
+                               aria-label="Abrir la ubicación de la entrega en Apple Maps">
+                                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">map</span>
+                                <span>Apple Maps</span>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
+                <form class="formulario formulario--ubicacion-entrega" action="<?= $rutaVenta ?>" method="post" novalidate>
+                    <input type="hidden" name="id" value="<?= $id ?>">
+                    <input type="hidden" name="accion" value="ubicacion">
+                    <input type="hidden" name="entrega_id" value="<?= (int) $e['id'] ?>">
+                    <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
+                    <div class="campo">
+                        <label class="campo__etiqueta" for="ubicacion-entrega-<?= (int) $e['id'] ?>">Ubicación de Google Maps</label>
+                        <input class="control" type="text" id="ubicacion-entrega-<?= (int) $e['id'] ?>" name="ubicacion"
+                               maxlength="500" value="<?= escaparValores((string) ($e['ubicacion_maps'] ?? '')) ?>"
+                               placeholder="Enlace de Google Maps, coordenadas o dirección">
+                        <span class="campo__ayuda">
+                            Se usa cuando las fotos no traen GPS. Déjala vacía y guarda para quitarla.
+                        </span>
+                    </div>
+                    <button class="btn btn--secundario btn--sm" type="submit">Guardar ubicación</button>
+                </form>
             </div>
         <?php endforeach; ?>
-
-        <?php
-        // Una sola ubicación para toda la sección: la de la primera foto.
-        $primeraFoto = $entregasConFotos[0]['fotos'][0] ?? [];
-        $mapas = \App\FotosEntrega::urlsMapa($primeraFoto, (string) $venta->cliente_ubicacion);
-        ?>
-        <?php if ($mapas) : ?>
-            <div class="seguimiento-fotos__acciones">
-                <a class="btn btn--secundario btn--sm"
-                   href="<?= escaparValores($mapas['google']) ?>"
-                   target="_blank" rel="noopener noreferrer"
-                   aria-label="Abrir la ubicación de la entrega en Google Maps">
-                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">location_on</span>
-                    <span>Google Maps</span>
-                </a>
-                <a class="btn btn--secundario btn--sm"
-                   href="<?= escaparValores($mapas['apple']) ?>"
-                   target="_blank" rel="noopener noreferrer"
-                   aria-label="Abrir la ubicación de la entrega en Apple Maps">
-                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">map</span>
-                    <span>Apple Maps</span>
-                </a>
-            </div>
-        <?php endif; ?>
     </section>
 <?php endif; ?>
 

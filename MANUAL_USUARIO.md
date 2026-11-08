@@ -121,7 +121,7 @@ Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene
 ### Registrar una entrega
 
 1. Desde la hoja de seguimiento de la venta pulsa «Registrar entrega» (se abre en ventana modal): escribe cuántas piezas entregaste, puede ser parcial, y confirma. Lo que quede en cero sigue pendiente.
-2. Si quieres dejar constancia, adjunta una o varias FOTOS DEL ACTA (JPG, PNG o WebP, hasta 6 MB cada una y un máximo de 8): se guardan con la entrega y se ven en la hoja de seguimiento, en la sección «Fotos de la entrega», donde se abren en una ventana modal y se cierran con el botón X.
+2. Si quieres dejar constancia, adjunta una o varias FOTOS DEL ACTA (JPG, PNG o WebP, hasta 15 MB cada una y un máximo de 8): se comprimen antes de enviarlas cuando el navegador puede y el servidor vuelve a reducirlas; se guardan con la entrega y se ven en la hoja de seguimiento, en la sección «Fotos de la entrega», donde se abren en una ventana modal y se cierran con el botón X. Si las fotos no traen GPS, en esa sección puedes pegar el enlace de Google Maps, coordenadas o la dirección de la entrega; el GPS de la foto siempre tiene prioridad.
 
 ### Seguir una venta (incidencias y devoluciones)
 
@@ -250,6 +250,7 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 1. Pulsa «Archivo de la factura o comprobante», de la misma sección: se abre una ventana —igual que en «Registro Venta Inteligente»— donde eliges uno o varios archivos (PDF, XML, JPG, PNG o WebP). Se detecta solo qué es cada uno.
 2. También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes». Cada archivo tiene «Ver»: el PDF se abre en una ventana, el XML muestra sus datos (folio, UUID, emisor, total y conceptos) y desde ahí también se descarga.
 3. Si subes el XML de la factura, se leen sus datos (folio fiscal, importes) y avisa si algo no cuadra.
+4. Si el XML es un **complemento de pago** (CFDI tipo P), no se confunde con la factura: se marca como complemento y en «Ver» se muestra el **monto real del pago**. El `Total 0.00` del comprobante es normal; el importe está en los pagos relacionados.
 
 ### Los cuatro datos del CFDI
 
@@ -262,9 +263,21 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 
 - «Más detalles (opcional)» tiene categoría, cómo pagaste, folio fiscal, repartir entre negocios y notas. No hace falta llenarlo.
 
-### Pagarlo después
+### Pagarlo después (total o en parcialidades)
 
-- Si lo dejaste como «lo debo todavía», ábrelo cuando lo pagues y cámbialo a pagado con su fecha.
+1. Abre el gasto y busca la tarjeta **«Facturación y pago»**: muestra el ciclo **Factura → Pago → Complemento**, con el total, lo abonado y el saldo.
+2. Pulsa **«Registrar abono»**. El importe viene con el saldo completo; si pagas una parte, escribe el importe y el gasto queda en **«Pago parcial»** con su saldo pendiente. Puedes registrar tantos abonos como haga falta.
+3. El gasto solo pasa a **«Pagado»** cuando la suma de abonos cubre el total. Un abono se puede cancelar con motivo: el saldo vuelve a subir y el abono queda en el historial.
+4. Si la factura es **PPD** (pago en parcialidades) o su método está por definir, la misma tarjeta te avisa de que falta el **complemento de pago**.
+
+### Complemento de pago de un gasto
+
+1. Cuando el proveedor emita el complemento (CFDI tipo P), pulsa **«Leer complemento (XML)»** en el gasto.
+2. El sistema muestra el **monto real del pago** (no el `Total 0.00` del comprobante) y las facturas relacionadas. Si el abono ya existe, lo vincula; si no, te ofrece registrarlo.
+3. Al confirmarlo, el gasto muestra **«Complemento recibido»** y el abono queda respaldado. Nunca se duplica el pago ni el complemento.
+4. Si solo quieres guardar el archivo, usa «Sólo adjuntar el archivo». La vista previa del XML explica que el Total 0.00 es normal en un complemento: el importe es el **Monto del pago**.
+
+> Si el gasto nació de una compra, sus pagos y su complemento se gestionan desde la compra; la tarjeta del gasto te lleva ahí.
 
 ### Eliminar un gasto (captura equivocada)
 
@@ -295,14 +308,16 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 ### Anotar un pago del cliente
 
 1. Abre la venta (Ventas → su folio; también desde Contabilidad → Ingresos → «Abrir», desde los avisos del panel o desde «Pendientes de facturar») y busca «Facturación y cobro».
-2. En «Pago»: pulsa «Ya me pagaron todo» si ya te pagaron completo, o despliega «Anotar un pago parcial» y escribe cuándo, cuánto y cómo te pagaron. Si paga en partes, anota cada pago: queda «Pago parcial» hasta completar.
+2. En «Pago»: pulsa «Ya me pagaron todo» si ya te pagaron completo, o pulsa «Registrar un abono» y escribe cuándo, cuánto y cómo te pagaron. Si paga en partes, anota cada pago: queda «Pago parcial» hasta completar. La barra de avance muestra el porcentaje cobrado, los abonos y el saldo.
+3. Si la factura es PPD y hay abonos sin complemento de pago, la misma sección te avisa y enlaza para cargar el XML; si es PUE con abonos parciales, te avisa de la incoherencia.
 
 ### Facturar la venta
 
-1. En «Facturación y cobro» llena los datos fiscales del receptor y el método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente», esos datos vienen precargados con los que trae el CFDI: revísalos.
-2. Adjunta el XML del CFDI (lo respalda y trae UUID y montos), el PDF o una foto. También puedes escribir el folio, el UUID y la fecha a mano.
+1. En «Facturación y cobro» llena los datos fiscales del receptor y el método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente», esos datos vienen precargados con los que trae el CFDI y, cuando el XML trae timbre y sus importes coinciden, la venta ya queda facturada automáticamente: no hace falta repetir el paso. Al elegir cliente en un alta normal, el sistema avisa si a su ficha le faltan datos fiscales.
+2. Adjunta el XML del CFDI: de ahí se leen el UUID, el folio, la fecha, el método, la forma de pago y los datos del receptor que falten, así que no hace falta elegirlos a mano. También puedes adjuntar el PDF o una foto, o escribir el folio, el UUID y la fecha.
 3. Si no tienes el archivo, marca «No tengo el archivo del CFDI: confirmo que la factura ya se emitió»: queda como confirmación manual, con quién y cuándo.
 4. Pulsa «Facturar y guardar»: la validación, los datos, el documento y la marca de facturada se guardan en un solo paso. Si falta algo obligatorio, no se factura y la pantalla te dice qué corregir.
+5. Si la venta ya estaba facturada a mano y después consigues el XML, entra a la venta y usa «Adjuntar XML y guardar». El comprobante queda vinculado sin volver a emitir nada.
 
 ### Si no se va a facturar
 
@@ -311,7 +326,8 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 
 ### Corregir una factura ya emitida
 
-- La corrección no se hace en este formulario: registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
+- Para **cambiar el comprobante** (otro UUID, otro importe o una sustitución), registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
+- Para **sólo completar datos** de una factura ya registrada (método de pago, CP, régimen, uso…), usa «Corregir datos del CFDI» en la misma sección. No cambia el UUID ni el documento.
 
 ### Pendientes de facturar
 
@@ -320,7 +336,7 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 ### Ver todas tus ventas
 
 1. Contabilidad → «Ventas y cobros» muestra DOS tablas: arriba las ventas con factura o pendientes de facturar, y abajo las que ya marcaste como «No facturada» (esas ya no se van a facturar).
-2. Cada tabla tiene su propio total y se pagina por su lado; los filtros de arriba (búsqueda, facturación y periodo) aplican a las dos.
+2. Cada tabla tiene su propio total y se pagina por su lado; los filtros de arriba (búsqueda, facturación, cobro y periodo) aplican a las dos. El filtro de cobro separa «sin pagar», «pago parcial», «pagada» y «por cobrar».
 3. El interruptor de la columna «Facturación» mueve una venta de una tabla a la otra: si un día llega la factura, márcala como facturada y sube a la tabla de arriba.
 
 > **Consejos**

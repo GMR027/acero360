@@ -170,9 +170,12 @@ class ComplementosPago
             return $fila;
         }
 
-        // 1. La factura original: primero como gasto de compra, luego como gasto suelto.
-        $gasto = null;
-        $q = self::$db->prepare("SELECT id, concepto, total, estado FROM gastos WHERE uuid_fiscal = ? AND estado = 'vigente' LIMIT 1");
+        // 1. La factura original: el gasto por su UUID. Puede venir de una compra
+        //    (pagos_compra) o ser un gasto suelto (pagos_gasto).
+        $q = self::$db->prepare(
+            "SELECT id, concepto, total, estado, estado_pago, uuid_fiscal, metodo_pago_sat
+               FROM gastos WHERE uuid_fiscal = ? AND estado = 'vigente' LIMIT 1"
+        );
         $q->bind_param('s', $fila['uuid']);
         $q->execute();
         $gasto = $q->get_result()->fetch_assoc();
@@ -180,7 +183,14 @@ class ComplementosPago
 
         $orden = null;
         if ($gasto) {
-            $fila['gasto'] = ['id' => (int) $gasto['id'], 'concepto' => (string) $gasto['concepto']];
+            $fila['gasto'] = [
+                'id' => (int) $gasto['id'],
+                'concepto' => (string) $gasto['concepto'],
+                'total' => (float) $gasto['total'],
+                'estado_pago' => (string) $gasto['estado_pago'],
+                'metodo_cfdi' => strtoupper(trim((string) $gasto['metodo_pago_sat'])),
+                'uuid' => strtoupper((string) $gasto['uuid_fiscal']),
+            ];
             $q = self::$db->prepare(
                 'SELECT o.id, o.folio, o.estado, o.estado_cfdi, o.total_esperado, o.iva, p.nombre AS proveedor_nombre
                    FROM ordenes_compra o JOIN proveedores p ON p.id = o.proveedor_id WHERE o.gasto_id = ? LIMIT 1'
@@ -201,6 +211,7 @@ class ComplementosPago
                     'saldo' => ($total - $pagado) / 100,
                     'estado_pago' => PagosCompra::estado($total, $pagado),
                 ];
+                $fila['tipo_pago'] = 'compra';
             }
         }
 
@@ -209,15 +220,21 @@ class ComplementosPago
             $fila['nota'] = 'No se encontró una factura con ese UUID en el sistema.';
             return $fila;
         }
-        if (!$orden) {
-            $fila['estado'] = 'sin_factura';
-            $fila['nota'] = 'El gasto #' . (int) $gasto['id'] . ' no pertenece a una compra: no hay pagos de proveedor que vincular.';
-            return $fila;
+
+        // 3. Pago existente: coincidencia EXACTA de importe entre los abonos
+        //    vigentes que todavía no estén ligados a otro complemento.
+        if ($orden) {
+            $candidatos = self::pagosCandidatos((int) $orden['id'], $importePagado, $complemento['fecha_pago'] ?? '');
+        } else {
+            $fila['tipo_pago'] = 'gasto';
+            $totalGasto = Contabilidad::centavos($gasto['total']);
+            $pagadoGasto = PagosGasto::pagado((int) $gasto['id']);
+            $fila['gasto']['pagado'] = $pagadoGasto / 100;
+            $fila['gasto']['saldo'] = max(0, $totalGasto - $pagadoGasto) / 100;
+            $fila['gasto']['estado_pago_clave'] = Gastos::estadoPagoGasto($gasto)['clave'];
+            $candidatos = self::pagosCandidatosGasto((int) $gasto['id'], $importePagado, $complemento['fecha_pago'] ?? '');
         }
 
-        // 3. Pago existente: coincidencia EXACTA de importe entre los pagos vigentes
-        //    de la compra que todavía no estén ligados a otro complemento.
-        $candidatos = self::pagosCandidatos((int) $orden['id'], $importePagado, $complemento['fecha_pago'] ?? '');
         $fila['pagos'] = array_map(static fn (array $p): array => [
             'id' => (int) $p['id'], 'fecha' => (string) $p['fecha'],
             'importe' => (float) $p['importe'], 'metodo' => (string) ($p['metodo'] ?? ''),
@@ -226,7 +243,7 @@ class ComplementosPago
         if ($candidatos['exacto'] !== null) {
             $fila['estado'] = 'vinculado';
             $fila['coincidencia'] = $candidatos['exacto'];
-            $fila['nota'] = 'Coincide con el pago del ' . $candidatos['exacto']['fecha'] . ' por '
+            $fila['nota'] = 'Coincide con el ' . ($orden ? 'pago' : 'abono') . ' del ' . $candidatos['exacto']['fecha'] . ' por '
                 . number_format((float) $candidatos['exacto']['importe'], 2) . '.';
             return $fila;
         }
@@ -235,7 +252,9 @@ class ComplementosPago
             $fila['estado'] = 'sin_pago';
             $fila['diferencia'] = $importePagado / 100;
             $fila['puede_crear'] = true;
-            $fila['nota'] = 'Este complemento reporta un pago que no está registrado en la compra.';
+            $fila['nota'] = $orden
+                ? 'Este complemento reporta un pago que no está registrado en la compra.'
+                : 'Este complemento reporta un abono que no está registrado en el gasto.';
             return $fila;
         }
 
@@ -253,11 +272,46 @@ class ComplementosPago
         $fila['diferencia'] = ($importePagado - Contabilidad::centavos($masCercano['importe'])) / 100;
         $fila['puede_crear'] = true;
         $fila['coincidencia'] = $masCercano;
-        $fila['nota'] = 'El complemento dice ' . number_format($importePagado / 100, 2) . ' y el pago más cercano es de '
+        $fila['nota'] = 'El complemento dice ' . number_format($importePagado / 100, 2) . ' y el '
+            . ($orden ? 'pago' : 'abono') . ' más cercano es de '
             . number_format((float) $masCercano['importe'], 2) . ' (diferencia '
             . number_format($fila['diferencia'], 2) . ').';
 
         return $fila;
+    }
+
+    /**
+     * Abonos vigentes de un gasto suelto, con el que coincide EXACTO en importe
+     * (y, si hay varios, el de la fecha del complemento primero).
+     *
+     * @return array{todos: array<int, array<string, mixed>>, exacto: ?array<string, mixed>}
+     */
+    private static function pagosCandidatosGasto(int $gastoId, int $importeCentavos, string $fecha): array
+    {
+        $q = self::$db->prepare(
+            "SELECT p.id, p.fecha, p.importe, p.metodo, p.referencia
+               FROM pagos_gasto p
+              WHERE p.gasto_id = ? AND p.estado = 'vigente'
+           ORDER BY p.fecha, p.id"
+        );
+        $q->bind_param('i', $gastoId);
+        $q->execute();
+        $todos = $q->get_result()->fetch_all(MYSQLI_ASSOC);
+        $q->close();
+
+        $exacto = null;
+        foreach ($todos as $p) {
+            if (Contabilidad::centavos($p['importe']) === $importeCentavos) {
+                if ($exacto === null || (string) $p['fecha'] === $fecha) {
+                    $exacto = $p;
+                }
+                if ((string) $p['fecha'] === $fecha) {
+                    break;
+                }
+            }
+        }
+
+        return ['todos' => $todos, 'exacto' => $exacto];
     }
 
     /**
@@ -358,7 +412,7 @@ class ComplementosPago
         $datos = $analisis['datos'];
         $comp = $analisis['complemento'];
         $fecha = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $comp['fecha_pago']) === 1 ? $comp['fecha_pago'] : date('Y-m-d');
-        $total = Contabilidad::centavos($comp['monto'] ?: ($datos['total'] ?? 0));
+        $total = Contabilidad::centavos($comp['monto_total'] ?? ($comp['monto'] ?: ($datos['total'] ?? 0)));
         $uuid = strtoupper(trim((string) ($datos['uuid'] ?? '')));
         if ($uuid === '') {
             self::$errores[] = 'El complemento no trae UUID: no se puede registrar sin folio fiscal.';
@@ -404,7 +458,8 @@ class ComplementosPago
                 // Estado y vínculo: TODOS los DoctoRelacionado quedan registrados (son datos
                 // del XML); solo el pago se crea o se liga cuando la persona lo eligió.
                 $pagoId = null;
-                if ($docto['orden'] === null) {
+                $tipoPago = (string) ($docto['tipo_pago'] ?? 'compra');
+                if ($docto['gasto'] === null) {
                     $estadoDocto = 'sin_factura';
                 } elseif (!$op['vincular']) {
                     $estadoDocto = 'pendiente';
@@ -419,7 +474,11 @@ class ComplementosPago
                     } else {
                         // No se pudo (saldo o periodo): queda la discrepancia sin escribir de más.
                         $estadoDocto = 'discrepancia';
-                        self::$errores[] = 'Compra ' . $docto['orden']['folio'] . ': no se registró el pago propuesto ('
+                        $referenciaDoc = $docto['orden'] !== null
+                            ? 'Compra ' . $docto['orden']['folio']
+                            : 'Gasto #' . (int) $docto['gasto']['id'];
+                        self::$errores[] = $referenciaDoc . ': no se registró el '
+                            . ($tipoPago === 'gasto' ? 'abono' : 'pago') . ' propuesto ('
                             . ($motivoFallo ?: 'revisar saldo y periodo') . ').';
                     }
                 } else {
@@ -451,7 +510,11 @@ class ComplementosPago
                 $creados++;
 
                 if ($pagoId !== null) {
-                    $ligar = self::$db->prepare('INSERT INTO complemento_pagos (complemento_docto_id, pago_id) VALUES (?, ?)');
+                    if ($tipoPago === 'gasto') {
+                        $ligar = self::$db->prepare('INSERT INTO complemento_pagos_gasto (complemento_docto_id, pago_gasto_id) VALUES (?, ?)');
+                    } else {
+                        $ligar = self::$db->prepare('INSERT INTO complemento_pagos (complemento_docto_id, pago_id) VALUES (?, ?)');
+                    }
                     $ligar->bind_param('ii', $doctoId, $pagoId);
                     $ligar->execute();
                     $ligar->close();
@@ -493,13 +556,33 @@ class ComplementosPago
         $metodo = self::FORMAS_SAT[(string) ($comp['forma_pago'] ?? '')] ?? '';
         // Determinista: reenviar el mismo complemento nunca duplica este pago.
         $token = substr(hash('sha256', $uuidComplemento . '|' . $docto['indice']), 0, 32);
+        $referencia = 'Complemento ' . $uuidComplemento;
+
+        if ((string) ($docto['tipo_pago'] ?? 'compra') === 'gasto') {
+            $ok = PagosGasto::registrar(
+                (int) $docto['gasto']['id'],
+                $fecha,
+                number_format($docto['importe_pagado'], 2, '.', ''),
+                $metodo,
+                $referencia,
+                $token,
+                $usuarioId,
+                true   // ya estamos dentro de la transacción del complemento
+            );
+            if (!$ok) {
+                $motivoFallo = PagosGasto::getErrores()[0] ?? '';
+                return null;
+            }
+
+            return PagosGasto::$ultimoId;
+        }
 
         $ok = PagosCompra::registrar(
             (int) $docto['orden']['id'],
             $fecha,
             number_format($docto['importe_pagado'], 2, '.', ''),
             $metodo,
-            'Complemento ' . $uuidComplemento,
+            $referencia,
             $token,
             $usuarioId,
             true   // ya estamos dentro de la transacción del complemento
@@ -583,12 +666,34 @@ class ComplementosPago
             }
             $cancelarPago->close();
 
+            /* Abonos de gastos sueltos creados por este mismo complemento. */
+            $q = self::$db->prepare(
+                'SELECT p.id, p.gasto_id FROM pagos_gasto p
+                   JOIN complemento_pagos_gasto cpg ON cpg.pago_gasto_id = p.id
+                  WHERE cpg.complemento_docto_id IN (SELECT id FROM complemento_doctos WHERE complemento_id = ?)
+                    AND p.estado = \'vigente\' AND p.referencia = ?'
+            );
+            $q->bind_param('is', $complementoId, $referencia);
+            $q->execute();
+            $creadosGasto = $q->get_result()->fetch_all(MYSQLI_ASSOC);
+            $q->close();
+            foreach ($creadosGasto as $creado) {
+                PagosGasto::cancelar((int) $creado['id'], $motivo, $usuarioId, true);
+            }
+
             $desvincular = self::$db->prepare(
                 'DELETE FROM complemento_pagos WHERE complemento_docto_id IN (SELECT id FROM complemento_doctos WHERE complemento_id = ?)'
             );
             $desvincular->bind_param('i', $complementoId);
             $desvincular->execute();
             $desvincular->close();
+
+            $desvincularGasto = self::$db->prepare(
+                'DELETE FROM complemento_pagos_gasto WHERE complemento_docto_id IN (SELECT id FROM complemento_doctos WHERE complemento_id = ?)'
+            );
+            $desvincularGasto->bind_param('i', $complementoId);
+            $desvincularGasto->execute();
+            $desvincularGasto->close();
 
             $anular = self::$db->prepare("UPDATE complementos_pago SET estado = 'cancelado', motivo_cancelacion = ? WHERE id = ?");
             $anular->bind_param('si', $motivo, $complementoId);
@@ -634,11 +739,36 @@ class ComplementosPago
     public static function doctos(int $complementoId): array
     {
         $q = self::$db->prepare(
-            'SELECT d.*, o.folio AS orden_folio FROM complemento_doctos d
+            'SELECT d.*, o.folio AS orden_folio, g.concepto AS gasto_concepto
+               FROM complemento_doctos d
           LEFT JOIN ordenes_compra o ON o.id = d.orden_id
+          LEFT JOIN gastos g ON g.id = d.gasto_id
               WHERE d.complemento_id = ? ORDER BY d.id'
         );
         $q->bind_param('i', $complementoId);
+        $q->execute();
+        $filas = $q->get_result()->fetch_all(MYSQLI_ASSOC);
+        $q->close();
+
+        return $filas;
+    }
+
+    /**
+     * Complementos vigentes que respaldan la factura de un gasto suelto.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function deGasto(int $gastoId): array
+    {
+        $q = self::$db->prepare(
+            'SELECT c.*, d.id AS docto_id, d.importe_pagado, d.num_parcialidad, d.saldo_anterior,
+                    d.estado AS docto_estado
+               FROM complemento_doctos d
+               JOIN complementos_pago c ON c.id = d.complemento_id
+              WHERE d.gasto_id = ? AND c.estado = \'vigente\'
+           ORDER BY c.fecha_pago, c.id'
+        );
+        $q->bind_param('i', $gastoId);
         $q->execute();
         $filas = $q->get_result()->fetch_all(MYSQLI_ASSOC);
         $q->close();

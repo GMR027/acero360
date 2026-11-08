@@ -47,10 +47,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 
     // Una o varias fotos del acta: el campo múltiple llega como $_FILES['fotos'].
     $fotos = \App\Archivos::listaDeSubidas($_FILES['fotos'] ?? null);
+    $metadatosFotos = json_decode((string) ($_POST['fotos_meta'] ?? '[]'), true);
+    if (!is_array($metadatosFotos)) {
+        $metadatosFotos = [];
+    }
 
     if (\App\Entregas::registrarEntrega(
         $ventaId, $prepId, $piezas, (string) ($_POST['fecha'] ?? ''), (string) ($_POST['token'] ?? ''),
-        (string) ($_POST['notas'] ?? ''), (int) ($_SESSION['id'] ?? 0), $fotos
+        (string) ($_POST['notas'] ?? ''), (int) ($_SESSION['id'] ?? 0), $fotos, $metadatosFotos,
+        (string) ($_POST['ubicacion'] ?? '')
     )) {
         $conFotos = \App\Entregas::$fotosGuardadas;
         redirigir($volver, 'exito', 'Entrega registrada. El inventario no cambió.'

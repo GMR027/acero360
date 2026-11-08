@@ -44,16 +44,29 @@ class Imagenes
     /** Lado máximo que genera el modo 'informe' (fotos de entrega). */
     private const INFORME_LADO = 1600;
 
+    /** Peso objetivo de una foto de entrega ya procesada (2 MB). */
+    private const INFORME_OBJETIVO = 2097152;
+
     /**
      * Tamaño máximo admitido por archivo: 6 MB.
      *
      * Éste es el tope que manda en la aplicación: si hay que subirlo, basta
-     * con cambiar este número (PHP admite 20M y el ingress 20m, así que hay
+     * con cambiar este número (PHP admite 512M y el ingress 512m, así que hay
      * holgura). Los mensajes de ayuda y la validación del navegador salen de
      * aquí y de TAMANO_MAXIMO_IMAGEN en src/js/modulos/validacion.js, que
      * debe mantenerse igual para que ambas capas digan lo mismo.
      */
     public const TAMANO_MAXIMO = 6291456;
+
+    /**
+     * Tope propio de las fotos del acta de entrega: 15 MB por archivo.
+     *
+     * Las fotos de un teléfono pueden pesar más que una imagen de producto.
+     * Se admiten hasta 15 MB y, al guardarlas, se re-codifican a un tamaño
+     * mucho menor (modo «informe»). El navegador también las comprime antes
+     * de enviarlas cuando puede.
+     */
+    public const TAMANO_MAXIMO_ENTREGA = 15728640;
 
     /** Tipos MIME admitidos. */
     public const TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
@@ -342,12 +355,15 @@ class Imagenes
     /**
      * Comprueba que el archivo subido sea admisible.
      *
+     * @param array    $archivo Elemento de $_FILES.
+     * @param int|null $maximo  Tope propio en bytes; null usa TAMANO_MAXIMO.
      * @return string '' si no hay nada que validar o si todo está bien;
      *                 en otro caso, el motivo del rechazo.
      */
-    public static function validarArchivo(array $archivo): string
+    public static function validarArchivo(array $archivo, ?int $maximo = null): string
     {
         self::$ultimoError = '';
+        $maximo ??= self::TAMANO_MAXIMO;
 
         // Sin archivo adjunto: no es un error, la imagen es opcional.
         if (!isset($archivo['error']) || $archivo['error'] === UPLOAD_ERR_NO_FILE) {
@@ -356,10 +372,10 @@ class Imagenes
         if ($archivo['error'] !== UPLOAD_ERR_OK) {
             return 'No fue posible subir el archivo. Intenta de nuevo.';
         }
-        if ((int) ($archivo['size'] ?? 0) > self::TAMANO_MAXIMO) {
-            // El número sale de la constante: así el mensaje no se queda
-            // viejo cuando cambia el tope.
-            $megas = (int) ceil(self::TAMANO_MAXIMO / 1048576);
+        if ((int) ($archivo['size'] ?? 0) > $maximo) {
+            // El número sale del tope recibido: así el mensaje no se queda
+            // viejo cuando cambia el límite de un tipo de foto.
+            $megas = (int) ceil($maximo / 1048576);
             return "La imagen no puede pesar más de {$megas} MB.";
         }
         if (!in_array($archivo['type'] ?? '', self::TIPOS, true)) {
@@ -376,16 +392,17 @@ class Imagenes
     /**
      * Procesa y guarda una imagen.
      *
-     * @param array  $archivo Elemento de $_FILES.
-     * @param string $prefijo Nombre inicial del archivo (ej. 'producto').
-     * @param string $modo    'cuadrada', 'logo', 'retrato' o 'informe'.
+     * @param array    $archivo Elemento de $_FILES.
+     * @param string   $prefijo Nombre inicial del archivo (ej. 'producto').
+     * @param string   $modo    'cuadrada', 'logo', 'retrato' o 'informe'.
+     * @param int|null $maximo  Tope propio en bytes; null usa TAMANO_MAXIMO.
      *
      * @return string|null Nombre del archivo generado, o null si no hay
      *                      imagen nueva (o si hubo un error: ver ultimoError()).
      */
-    public static function subir(array $archivo, string $prefijo, string $modo = 'cuadrada'): ?string
+    public static function subir(array $archivo, string $prefijo, string $modo = 'cuadrada', ?int $maximo = null): ?string
     {
-        $motivo = self::validarArchivo($archivo);
+        $motivo = self::validarArchivo($archivo, $maximo);
 
         if ($motivo !== '') {
             self::$ultimoError = $motivo;
@@ -443,11 +460,39 @@ class Imagenes
                 // Acta de entrega (venta o proveedor): se reduce para que
                 // quepa en pantalla y en el documento, conservando la
                 // proporción original y sin ampliar una foto pequeña.
-                $informe = self::nombreUnico($prefijo, $ext);
-                $gerenciador->read($archivo['tmp_name'])
-                    ->scaleDown(self::INFORME_LADO, self::INFORME_LADO)
-                    ->encodeByMediaType($mime, 88)
-                    ->save(self::CARPETA . '/' . $informe);
+                //
+                // Las fotos de teléfono pueden llegar a 15 MB. Además de
+                // redimensionar se baja la calidad por pasos hasta quedar por
+                // debajo de INFORME_OBJETIVO. Siempre se guarda JPEG: es el
+                // formato que entiende la marca de agua y el que mejor
+                // comprime una fotografía.
+                $informe = self::nombreUnico($prefijo, 'jpg');
+                $imagen  = $gerenciador->read($archivo['tmp_name'])->orient();
+                $imagen->scaleDown(self::INFORME_LADO, self::INFORME_LADO);
+
+                $datos   = '';
+                $calidad = 82;
+                for ($intento = 0; $intento < 7; $intento++) {
+                    $datos = (string) $imagen->toJpeg($calidad);
+                    if (strlen($datos) <= self::INFORME_OBJETIVO) {
+                        break;
+                    }
+                    if ($calidad > 58) {
+                        $calidad -= 8;
+                        continue;
+                    }
+                    // Ya no vale la pena bajar más la calidad: se reduce la
+                    // dimensión y se vuelve a probar con una calidad media.
+                    $imagen->scaleDown(
+                        max(640, (int) round($imagen->width() * 0.8)),
+                        max(640, (int) round($imagen->height() * 0.8))
+                    );
+                    $calidad = 74;
+                }
+
+                if ($datos === '' || @file_put_contents(self::CARPETA . '/' . $informe, $datos) === false) {
+                    throw new \RuntimeException('No fue posible guardar la foto de la entrega.');
+                }
 
                 return $informe;
             }

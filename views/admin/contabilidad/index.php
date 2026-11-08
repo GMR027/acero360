@@ -129,7 +129,16 @@ $tablaGastos = static function (array $lista, string $pie, bool $conIva): void {
                 <td><?= escaparValores((string) $x['categoria_nombre']) ?: '—' ?></td>
                 <?php if ($conIva) : ?><td class="tabla--numerica cifra"><?= formatoMoneda($x['iva']) ?></td><?php endif; ?>
                 <td class="tabla--numerica cifra"><strong><?= formatoMoneda($x['total']) ?></strong></td>
-                <td class="tabla--centro"><?= $x['estado_pago'] === 'pagado' ? '<span class="badge badge--aprobado">Sí, pagado</span>' : '<span class="badge badge--pendiente">Falta pagar</span>' ?></td>
+                <td class="tabla--centro"><?php
+                    $pagadoCentFila = (int) ($x['pagado_centavos'] ?? 0);
+                    if ((string) $x['estado_pago'] === 'pagado') {
+                        echo '<span class="badge badge--aprobado">Sí, pagado</span>';
+                    } elseif ($pagadoCentFila > 0) {
+                        echo '<span class="badge badge--pendiente">Pago parcial</span>';
+                    } else {
+                        echo '<span class="badge badge--pendiente">Falta pagar</span>';
+                    }
+                ?></td>
                 <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $x['id'] ?>">Abrir</a></td>
             </tr>
         <?php endforeach; ?>

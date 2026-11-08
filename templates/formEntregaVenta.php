@@ -26,12 +26,12 @@ $hrefCancelar = (string) ($hrefCancelar ?? '');
 $etiqueta = 'entregar-' . (int) $ventaId;
 
 // Ayuda de las fotos: los números salen de las constantes para que el texto no
-// se quede viejo si cambian los topes (6 MB por archivo, 8 fotos y 20 MB en total).
-$megasFoto   = (int) ceil(\App\Imagenes::TAMANO_MAXIMO / 1048576);
+// se quede viejo si cambian los topes (15 MB por archivo, 8 fotos y 120 MB en total).
+$megasFoto   = (int) ceil(\App\Imagenes::TAMANO_MAXIMO_ENTREGA / 1048576);
 $maximoFotos = \App\Entregas::MAX_FOTOS;
 $megasTotal  = \App\Entregas::MAX_FOTOS_TOTAL_MB;
 ?>
-<form class="formulario" action="/admin/entregas/entregar" method="post" enctype="multipart/form-data" novalidate>
+<form class="formulario" action="/admin/entregas/entregar" method="post" enctype="multipart/form-data" novalidate data-comprimir-fotos>
     <input type="hidden" name="venta" value="<?= (int) $ventaId ?>">
     <input type="hidden" name="prep" value="<?= $prepId ?>">
     <?php if ($volver !== '') : ?>
@@ -75,12 +75,24 @@ $megasTotal  = \App\Entregas::MAX_FOTOS_TOTAL_MB;
     <div class="campo campo--completo mt-lg">
         <label class="campo__etiqueta" for="fotos-<?= $etiqueta ?>">Fotos de la entrega (opcional)</label>
         <input class="control" type="file" id="fotos-<?= $etiqueta ?>" name="fotos[]"
+               data-max-bytes="<?= (int) \App\Imagenes::TAMANO_MAXIMO_ENTREGA ?>"
                multiple accept="image/jpeg,image/png,image/webp" aria-describedby="ayuda-fotos-<?= $etiqueta ?>">
         <span class="campo__ayuda" id="ayuda-fotos-<?= $etiqueta ?>">
             Una o varias fotografías del acta (quién recibe, el material, el estado en que llegó):
             JPG, PNG o WebP de hasta <?= $megasFoto ?> MB cada una, un máximo de <?= $maximoFotos ?> fotos
-            y <?= $megasTotal ?> MB en total. Se guardan con la entrega y se ven en el seguimiento de la venta
-            («Fotos de la entrega»), donde se abren a tamaño completo; la proporción se conserva sin recortar.
+            y <?= $megasTotal ?> MB en total. Se comprimen antes de enviarlas cuando el navegador puede;
+            la proporción se conserva sin recortar y el GPS/fecha de la foto se lee antes de comprimir.
+        </span>
+        <span class="campo__ayuda" data-estado-fotos hidden></span>
+    </div>
+
+    <div class="campo campo--completo mt-lg">
+        <label class="campo__etiqueta" for="ubicacion-<?= $etiqueta ?>">Ubicación de la entrega (Google Maps)</label>
+        <input class="control" type="text" id="ubicacion-<?= $etiqueta ?>" name="ubicacion" maxlength="500"
+               placeholder="Pega el enlace de Google Maps, las coordenadas o la dirección">
+        <span class="campo__ayuda">
+            Se usa cuando las fotos no traen GPS. Acepta un enlace de Google Maps, coordenadas
+            (por ejemplo 24.1426667, -110.3127500) o una dirección. El GPS de la foto siempre tiene prioridad.
         </span>
     </div>
 

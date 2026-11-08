@@ -1826,3 +1826,97 @@ La paleta Pantone tenía dos fallos que impedían llegar a la mayoría de colore
 
 - **`public/js/pantone.js`:** el escuchador global de clics atiende `.ptn-fam`, actualiza `filtro.f`, vuelve a pintar y reinicia el scroll. Se eliminó el tope `MAX_VISIBLE = 300`; la rejilla pinta todas las coincidencias y guarda la lista completa para aplicar la muestra correcta.
 - **`pruebas/probar_pantone.mjs`:** comprueba las 985 muestras, el filtro por familia, el estado activo del chip, la vuelta con «Todas»; abre el editor desde la lista (sin id fijo) y activa la pestaña «Modificar» de SheetFlow. Resultado en local: **40/40**.
+
+---
+
+## Ronda — Análisis financiero con gastos generales y fotos de entrega (2026-11-07)
+
+### Gastos que no aparecían en Análisis Financiero
+
+Un gasto vigente del mes podía no verse en ninguno de los dos modos por dos motivos: los gastos **generales** (sin negocio asignado, típicos de la carga por CFDI) se descartaban al repartir por negocio, y los gastos **pendientes con proveedor** se excluían aunque no estuvieran ligados a un pedido. Con los datos de octubre se comprobó: el gasto general pagado de $1,160 no aparecía en el detalle (el total decía $4,640 en vez de $5,800).
+
+- **`clases/AnalisisFinanciero.php`:** nuevo `importeGasto()` con una sola regla para los dos listados: el gasto general entra completo; el compartido suma sólo el porcentaje de los negocios seleccionados (si no tiene reparto se trata como general); el de un negocio entra si ese negocio está seleccionado. `gastosOperativos()` deja de excluir por proveedor y sólo omite los gastos ligados a un pedido vigente, que ya se muestran en la deuda con proveedores.
+- **Pantalla y PDF:** los gastos generales llevan la etiqueta «General»; los textos explican que los pendientes incluyen proveedor y generales, y que los ligados a un pedido se muestran en proveedores para no duplicarse. El modo Simple sigue restando sólo deudas pendientes (ahora la casilla viene activada por defecto, igual que en Detallado); el Detallado agrega los pagados.
+- **Pruebas:** `pruebas/php/etapa47.php` cubre gasto general pendiente, gasto de proveedor sin pedido, gasto ligado a pedido (sin doble conteo), gasto general pagado y gasto compartido 50/50 con uno y con dos negocios → **TODO OK**.
+
+### Fotos de entrega: 15 MB, compresión y metadatos
+
+- **`clases/Imagenes.php`:** `TAMANO_MAXIMO_ENTREGA` (15 MB) independiente del tope de 6 MB de producto; `validarArchivo()` y `subir()` aceptan el tope por tipo. El modo `informe` aplica la orientación EXIF, reduce a 1600 px, guarda siempre JPEG y baja calidad/dimensión por pasos hasta quedar por debajo de 2 MB.
+- **`src/js/modulos/fotosEntrega.js` (nuevo):** antes de comprimir lee la fecha, el GPS y la orientación EXIF del archivo original, redimensiona a 1600 px, recomprime a JPEG (~1.5 MB) y reemplaza el archivo del formulario. Los metadatos viajan en un campo oculto `fotos_meta`. Si el navegador no puede comprimir, el formulario sigue y el servidor recibe el original (hasta 15 MB) y lo procesa igual.
+- **`clases/Entregas.php`:** límite total por entrega de 120 MB (8 × 15 MB); `guardarFotos()` combina el EXIF del servidor con los metadatos del navegador; las fotos se comprimen en ambos lados.
+- **Formularios y manual:** ayuda de 15 MB, aviso de optimización y textos actualizados en la entrega y en la sección de fotos.
+- **Pruebas:** `pruebas/php/etapa48.php` sube un archivo de 10 MB, comprueba que queda por debajo de 2 MB y 1600 px; `pruebas/probar_operacion.mjs` comprime una foto de 10 MB con EXIF en el navegador, verifica fecha/GPS y guarda la ubicación sin fotos desde el detalle de la venta → **46/46**.
+
+### Ubicación manual de Google Maps
+
+- **Migración `047_entrega_ubicacion.sql`:** `entregas.ubicacion_maps VARCHAR(500)` (nula), con su reversión.
+- **`clases/FotosEntrega.php`:** `normalizarUbicacion()` acepta enlace de Google Maps, coordenadas o dirección; `urlsMapa()` usa primero el GPS de la foto, luego la ubicación manual y al final la dirección del cliente. Un enlace corto de Google Maps sólo genera el botón de Google; si trae coordenadas (`@lat,lon`, `?q=`, `!3d!4d` o texto `lat, lon`) se generan Google y Apple. La marca de agua usa la ubicación manual cuando la foto no trae GPS.
+- **`clases/Entregas.php`:** `registrarEntrega()` y `agregarFotos()` guardan la ubicación; `actualizarUbicacion()` la fija o la borra desde el seguimiento, con auditoría.
+- **Pantallas:** campo en el formulario de entrega (página y modal), en el formulario «Agregar fotos del acta» del detalle de venta (también permite guardar sólo la ubicación) y en cada entrega de la sección «Fotos de la entrega» del seguimiento, con sus botones de mapas por entrega.
+- **Pruebas:** `etapa48.php` valida enlaces, coordenadas y prioridades; `probar_operacion.mjs` guarda una ubicación manual, comprueba que se usa sin GPS y que el GPS real la vuelve a superar.
+
+---
+
+## Ronda — Fase 0: facturación de una venta ya emitida (2026-11-07)
+
+### El error que dejaba la pantalla sin salida
+
+Una venta **ya facturada con CFDI** seguía mostrando la validación de emisión: «Falta el método de pago…» y «La venta ya tiene un CFDI válido vinculado…». Como el formulario se oculta cuando la factura ya tiene comprobante, esos errores rojos no tenían forma de corregirse. Además, el XML sólo se archivaba: su método, forma, UUID, folio y los datos del receptor nunca llegaban al ingreso ni a la ficha del cliente. Se reprodujo con la venta 23 / ingreso 10: seis errores de emisión y ningún formulario.
+
+### Cambios
+
+- **`clases/VentasFiscal.php`:** `validar()` recibe `$paraEmitir`. En pantalla, una venta facturada ya no tiene errores de emisión: los faltantes de datos se muestran como advertencias y el CFDI existente se informa como estado, no como bloqueo. La emisión (`emitir()`, la validación previa y la lectura inteligente) sigue exigiendo todo.
+  - `guardarPago()` acepta no declarar método en una factura ya emitida (`$permitirVacio`), sin borrar el que ya estaba.
+  - Nuevos `datosDeCfdi()` (normaliza RFC, forma 28→05, fecha y tipo) y `completarDesdeCfdi()` (llena sólo campos vacíos del ingreso y de la ficha; lo que difiere se devuelve como discrepancia y no se sobrescribe).
+- **`views/admin/ventas/fiscal.php`:** ahora lee y valida los XML **antes** de escribir. De ahí salen UUID, folio, fecha, método, forma, uso, tipo y los datos del receptor que falten. Comprueba emisor, receptor y total contra la venta; rechaza complementos de pago (tipo P) y XML de otra operación. Una venta facturada a mano puede recibir su XML de respaldo. Nueva acción `completar` para corregir datos de una factura ya registrada sin tocar su UUID ni su documento.
+- **`templates/facturacionVenta.php`:** estados separados. Pendiente: «Facturar y guardar». Facturada sin XML: aviso y botón «Adjuntar XML y guardar». Facturada con XML: resumen del comprobante y bloque «Corregir datos del CFDI». Se agregó la casilla de discrepancia de total y se quitó la confirmación manual cuando la venta ya está facturada.
+- **`clases/Lecturas.php`:** la confirmación inteligente usa la validación estricta y distingue una factura ya respaldada con CFDI (no se reemite) de una confirmación manual (se puede respaldar con el XML).
+
+### Pruebas
+
+- `pruebas/php/etapa35.php`: la venta facturada con CFDI ya no se espera como error; se comprueba el estado informativo. **TODO OK**.
+- `pruebas/php/etapa49.php` (nueva): normalización del CFDI, venta pendiente que recibe su XML, venta facturada sin errores de pantalla, reemisión bloqueada y no sobrescritura de datos existentes. **TODO OK**.
+- `pruebas/probar_facturacion.mjs` (nueva): flujo real en el navegador. Comprueba el aviso fiscal del alta, sube un XML sin elegir método, verifica que el ingreso y el cliente se completan, que la venta queda facturada, que ya no hay errores rojos, que «Corregir datos» cambia el pago sin tocar el UUID, que una facturada a mano acepta su XML de respaldo y que la venta inteligente se factura sola con su XML → **28/28**.
+- `etapa28`, `etapa39`, `etapa4`, `etapa43` y `probar_operacion.mjs` siguen en verde (**46/46**).
+
+### Fase 1 — Venta inteligente y aviso fiscal en el alta
+
+- **Venta inteligente (`views/admin/ventas/crear.php`):** al guardar, la factura leída se adjunta al ingreso (XML y PDF) y sus datos completan la ficha del cliente y el pago. Si el XML trae timbre, su emisor es el negocio, el receptor coincide con el cliente y el total cuadra, la venta queda **facturada automáticamente**: ya nació de esa factura y no hace falta volver al detalle. Si algo no coincide, queda pendiente y se avisa.
+- **Alta de venta normal (`templates/formularioCotizaciones.php` + `src/js/modulos/cotizador.js`):** al elegir cliente se muestra si su ficha está completa para facturar o qué falta (RFC, CP, régimen, uso), con un enlace para completarla. No bloquea la venta.
+- **Pruebas:** `probar_facturacion.mjs` suma el aviso fiscal y la venta inteligente con auto-factura → **28/28**.
+
+### Fase 2-3 — Seguimiento de facturación y cobros
+
+- **Seguimiento (`clases/Seguimiento.php`):** dos avisos nuevos en «Facturas por definir»: «Facturada sin XML de respaldo» (marca facturada pero sin CFDI timbrado adjunto) y «Datos del CFDI incompletos» (método de pago o ficha fiscal del receptor vacíos). El segundo es exactamente el caso que antes no tenía salida; el enlace abre «Facturación y cobro» con la acción «Corregir datos del CFDI».
+- **Ventas y cobros (`clases/Contabilidad.php` + `views/admin/contabilidad/ingresos/index.php`):** el filtro de cobro ahora distingue **sin pagar**, **pago parcial**, **pagada** y **por cobrar (cualquier saldo)**; los totales y el contador respetan el filtro.
+- **Pago de una venta (`templates/cobrosIngreso.php`):** barra de avance con porcentaje, número de abonos y saldo; «Registrar un abono» pasa a ser un botón visible; si la factura es PPD y hay abonos sin complemento, avisa y enlaza a cargarlo; si es PUE con abonos parciales, avisa de la incoherencia.
+- **Estilos:** `.barra-cobro` en `src/scss/layout/_formularios.scss`.
+
+---
+
+## Ronda — Gastos PPD: abonos y complemento de pago (2026-11-07)
+
+### El problema
+
+En los gastos, una factura PPD (pago en parcialidades) solo se podía marcar como pagada de una vez. El complemento de pago se admitía únicamente cuando el gasto ya estaba pagado y se guardaba como archivo suelto, sin relación con el abono. Además, si el XML que se subía era un **complemento (CFDI tipo P)**, la vista previa mostraba su `Total 0.00` y lo comparaba contra el total del gasto: el importe real (en `Pagos/DoctoRelacionado`) no se veía y parecía una factura de $0.
+
+### Cambios
+
+- **Migración `048_pagos_gasto.sql`:** nueva tabla `pagos_gasto` (abonos por gasto, token único, cancelación con motivo) y `complemento_pagos_gasto` (vínculo complemento ↔ abono). Reversión incluida.
+- **`clases/PagosGasto.php`:** registrar, cancelar, pagado/saldo y sincronización de `gastos.estado_pago`. El estado «parcial» se deduce de la suma; el gasto solo pasa a «pagado» al cubrir el total.
+- **`clases/Gastos.php`:** `pagar()` registra abonos (importe y referencia opcionales) conservando el pago total de siempre; `marcarPagado()` abona el saldo; `estadoPagoGasto()` y filtros de lista (`pendiente`, `parcial`, `sin_pago`, `pagado`, `complemento=falta/recibido`). «Por pagar» se calcula con el saldo real.
+- **`clases/ComplementosPago.php`:** los complementos ahora resuelven también gastos sueltos (sin compra). Si el abono existe se vincula; si no, se puede crear desde la revisión. Al cancelar el complemento se cancelan los abonos creados por él. Se agregó `monto_total` a `CfdiXml::complementoPago()`.
+- **`clases/Archivos.php`:** un XML tipo P se guarda automáticamente como `complemento_pago`, sin comparar su total, sin marcarlo como CFDI validado y guardando el monto real en `datos_cfdi`. Se valida emisor y UUID relacionado contra la factura del gasto.
+- **`clases/Lecturas.php`:** un XML tipo P subido como factura se desvía a Complementos de pago (salvo en la carga por lotes, que ya lo clasifica en su carril).
+- **`views/admin/compras/complemento-revision.php`:** muestra el gasto suelto, sus abonos y las opciones de vincular/crear.
+- **Interfaz del gasto:** nueva tarjeta `templates/facturacionGasto.php` con el ciclo Factura → Pago → Complemento, barra de avance, abonos, complementos, avisos PPD/PUE y botones «Registrar abono» y «Leer complemento». La lista de gastos muestra Pagado/Parcial/Pendiente y el estado del complemento.
+- **Vista previa XML:** `src/js/modulos/documentoPreview.js` resume los complementos con «Monto del pago», fecha, forma de pago y facturas relacionadas; explica que el Total 0.00 es normal.
+- **Seguimiento y panel:** aviso «Factura PPD sin complemento de pago» y saldo real en gastos pendientes.
+- **Papelera:** copia y restaura los abonos; al restaurar, vuelve a enlazar los complementos por UUID.
+
+### Pruebas
+
+- `pruebas/php/etapa50.php` (nueva): abonos parciales, saldo, cancelación, complemento de gasto suelto, no duplicados, XML tipo P como complemento y filtros. **TODO OK**.
+- `pruebas/probar_gastos_pago.mjs` (nueva): abono parcial desde el detalle, complemento desde la bandeja, monto real en la revisión y vista previa del XML. **17/17**.
+- Ajustadas `etapa33`, `etapa32`, `etapa38`, `etapa28`, `etapa44` y `probar_inteligente` a la nueva clasificación de los CFDI tipo P.
+- `etapa2` a `etapa50`, `probar_operacion` (46/46), `probar_facturacion` (28/28), `probar_compras` (65/65) y `probar_proveedor_gasto` (28/28) en verde.

@@ -360,8 +360,10 @@ $okFacturar = Contabilidad::actualizarFacturacion($ingresoF, 'facturada', 'F35-1
 $prueba('la venta queda marcada como facturada con su UUID', $okFacturar === true, implode(' · ', Contabilidad::getErrores()));
 
 $revYa = VentasFiscal::validar($ventaF);
-$prueba('ya facturada con CFDI → error y no se permite reemitir',
-    $revYa['puede_facturar'] === false && $contiene($revYa['errores'], 'ya tiene un CFDI válido vinculado'));
+$prueba('ya facturada con CFDI → sin error de emisión; el estado se informa',
+    $revYa['puede_facturar'] === true
+    && !$contiene($revYa['errores'], 'ya tiene un CFDI válido vinculado')
+    && $contiene(array_column($revYa['items'], 'detalle'), 'ya está facturada con el CFDI'));
 
 $rechazo = VentasFiscal::emitir($ventaF, false, '', $usuario);
 $prueba('re-facturar sin corrección autorizada se rechaza',

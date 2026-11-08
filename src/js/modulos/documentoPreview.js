@@ -61,6 +61,90 @@ function agregarDatoDocumento(lista, etiqueta, valor) {
   lista.appendChild(definicion);
 }
 
+/** Resumen legible de un complemento de pago (CFDI tipo P). */
+function resumirComplementoDocumento(documento, comprobante, texto) {
+  const nodo = function (etiqueta) {
+    return documento.getElementsByTagNameNS('*', etiqueta)[0] || null;
+  };
+  const atributo = function (elemento, nombre) {
+    return elemento ? (elemento.getAttribute(nombre) || '').trim() : '';
+  };
+
+  const moneda = atributo(comprobante, 'Moneda') || 'MXN';
+  const pagos = Array.prototype.slice.call(documento.getElementsByTagNameNS('*', 'Pago'));
+  const doctos = Array.prototype.slice.call(documento.getElementsByTagNameNS('*', 'DoctoRelacionado'));
+  const emisor = nodo('Emisor');
+  const receptor = nodo('Receptor');
+  const timbre = nodo('TimbreFiscalDigital');
+  const primerPago = pagos[0] || null;
+
+  let monto = atributo(nodo('Pagos'), 'MontoTotalPagos');
+  if (monto === '') {
+    const suma = pagos.reduce(function (acumulado, pago) {
+      const valor = Number.parseFloat(atributo(pago, 'Monto'));
+      return acumulado + (Number.isFinite(valor) ? valor : 0);
+    }, 0);
+    monto = suma.toFixed(2);
+  }
+
+  const contenedor = crearNodoDocumento('div', 'documento-preview__resumen');
+  contenedor.appendChild(crearNodoDocumento('h3', 'documento-preview__subtitulo', 'Complemento de pago (CFDI tipo P)'));
+
+  const aviso = crearNodoDocumento('p', 'nota nota--info',
+    'Este archivo no es una factura: documenta un pago. El Total del comprobante es 0.00; '
+    + 'el monto real del pago es el que aparece abajo.');
+  contenedor.appendChild(aviso);
+
+  const lista = crearNodoDocumento('dl', 'documento-preview__datos');
+  agregarDatoDocumento(lista, 'Monto del pago', formatearImporteDocumento(monto, moneda));
+  agregarDatoDocumento(lista, 'Fecha de pago', atributo(primerPago, 'FechaPago').replace('T', ' '));
+  agregarDatoDocumento(lista, 'Forma de pago', atributo(primerPago, 'FormaPagoP'));
+  agregarDatoDocumento(lista, 'UUID del complemento', atributo(timbre, 'UUID'));
+  agregarDatoDocumento(lista, 'Emisor', [atributo(emisor, 'Nombre'), atributo(emisor, 'Rfc')].filter(Boolean).join(' · '));
+  agregarDatoDocumento(lista, 'Receptor', [atributo(receptor, 'Nombre'), atributo(receptor, 'Rfc')].filter(Boolean).join(' · '));
+
+  if (lista.children.length) {
+    contenedor.appendChild(crearNodoDocumento('h3', 'documento-preview__subtitulo', 'Datos del pago'));
+    contenedor.appendChild(lista);
+  }
+
+  if (doctos.length) {
+    const tabla = crearNodoDocumento('table', 'tabla documento-preview__conceptos');
+    tabla.appendChild(crearNodoDocumento('caption', 'solo-lectores', 'Facturas relacionadas con el pago'));
+
+    const cabecera = document.createElement('thead');
+    const filaCabecera = document.createElement('tr');
+    ['Factura (UUID)', 'Parcialidad', 'Saldo anterior', 'Importe pagado'].forEach(function (titulo, indice) {
+      const celda = crearNodoDocumento('th', indice === 0 ? null : 'tabla--numerica', titulo);
+      celda.scope = 'col';
+      filaCabecera.appendChild(celda);
+    });
+    cabecera.appendChild(filaCabecera);
+    tabla.appendChild(cabecera);
+
+    const cuerpo = document.createElement('tbody');
+    doctos.forEach(function (docto) {
+      const fila = document.createElement('tr');
+      fila.appendChild(crearNodoDocumento('td', null, atributo(docto, 'IdDocumento')));
+      fila.appendChild(crearNodoDocumento('td', 'tabla--numerica', atributo(docto, 'NumParcialidad')));
+      fila.appendChild(crearNodoDocumento('td', 'tabla--numerica cifra', formatearImporteDocumento(atributo(docto, 'ImpSaldoAnt'), moneda)));
+      fila.appendChild(crearNodoDocumento('td', 'tabla--numerica cifra', formatearImporteDocumento(atributo(docto, 'ImpPagado'), moneda)));
+      cuerpo.appendChild(fila);
+    });
+    tabla.appendChild(cuerpo);
+
+    contenedor.appendChild(crearNodoDocumento('h3', 'documento-preview__subtitulo', 'Facturas relacionadas'));
+    contenedor.appendChild(tabla);
+  }
+
+  const detalles = crearNodoDocumento('details', 'documento-preview__crudo');
+  detalles.appendChild(crearNodoDocumento('summary', 'btn btn--texto btn--sm', 'Ver XML completo'));
+  detalles.appendChild(crearNodoDocumento('pre', 'documento-preview__xml', texto));
+  contenedor.appendChild(detalles);
+
+  return contenedor;
+}
+
 /** Extrae el resumen legible de un XML de CFDI. Devuelve null si no lo es. */
 function resumirCfdiDocumento(texto) {
   const documento = new DOMParser().parseFromString(texto, 'application/xml');
@@ -78,6 +162,14 @@ function resumirCfdiDocumento(texto) {
   const comprobante = nodo('Comprobante');
   if (!comprobante) {
     return null;
+  }
+
+  // Un CFDI tipo P (o con nodo Pagos) es un complemento de pago, no una
+  // factura: su Total es 0 por definición. Se resume con el monto realmente
+  // pagado y sus facturas relacionadas, no con el «Total 0.00».
+  if (atributo(comprobante, 'TipoDeComprobante').toUpperCase() === 'P'
+      || documento.getElementsByTagNameNS('*', 'Pago').length > 0) {
+    return resumirComplementoDocumento(documento, comprobante, texto);
   }
 
   const emisor = nodo('Emisor');

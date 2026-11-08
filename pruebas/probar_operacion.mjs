@@ -26,6 +26,48 @@ const sql = (c) => execFileSync('mysql', ['-u', 'root', DB, '-N', '-B', '-e', c]
 let ok = 0, mal = 0;
 const verifica = (n, c, d = '') => { c ? ok++ : mal++; console.log((c ? '  ✓ ' : '  ✗ ') + n + (!c && d ? ' → ' + d : '')); };
 
+/** Inserta un APP1 EXIF mínimo (fecha + GPS) en un JPEG. */
+function jpegConExif(jpeg) {
+  const u32 = (n) => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0, 0); return b; };
+  const rac = (n, d) => Buffer.concat([u32(n), u32(d)]);
+  const tiff = Buffer.alloc(176);
+
+  tiff.write('II', 0, 'ascii');
+  tiff.writeUInt16LE(42, 2);
+  tiff.writeUInt32LE(8, 4);
+
+  // IFD0: punteros a Exif (0x8769) y GPS (0x8825).
+  tiff.writeUInt16LE(2, 8);
+  tiff.writeUInt16LE(0x8769, 10); tiff.writeUInt16LE(4, 12); tiff.writeUInt32LE(1, 14); tiff.writeUInt32LE(38, 18);
+  tiff.writeUInt16LE(0x8825, 22); tiff.writeUInt16LE(4, 24); tiff.writeUInt32LE(1, 26); tiff.writeUInt32LE(76, 30);
+  tiff.writeUInt32LE(0, 34);
+
+  // Exif IFD: DateTimeOriginal.
+  tiff.writeUInt16LE(1, 38);
+  tiff.writeUInt16LE(0x9003, 40); tiff.writeUInt16LE(2, 42); tiff.writeUInt32LE(20, 44); tiff.writeUInt32LE(56, 48);
+  tiff.writeUInt32LE(0, 52);
+  Buffer.from('2026:11:07 10:30:00\0', 'ascii').copy(tiff, 56);
+
+  // GPS IFD: N 24°8'33.6" W 110°18'45.9".
+  tiff.writeUInt16LE(4, 76);
+  tiff.writeUInt16LE(1, 78); tiff.writeUInt16LE(2, 80); tiff.writeUInt32LE(2, 82); tiff.write('N\0', 86, 'ascii');
+  tiff.writeUInt16LE(2, 90); tiff.writeUInt16LE(5, 92); tiff.writeUInt32LE(3, 94); tiff.writeUInt32LE(128, 98);
+  tiff.writeUInt16LE(3, 102); tiff.writeUInt16LE(2, 104); tiff.writeUInt32LE(2, 106); tiff.write('W\0', 110, 'ascii');
+  tiff.writeUInt16LE(4, 114); tiff.writeUInt16LE(5, 116); tiff.writeUInt32LE(3, 118); tiff.writeUInt32LE(152, 122);
+  tiff.writeUInt32LE(0, 126);
+  rac(24, 1).copy(tiff, 128); rac(8, 1).copy(tiff, 136); rac(3360, 100).copy(tiff, 144);
+  rac(110, 1).copy(tiff, 152); rac(18, 1).copy(tiff, 160); rac(4590, 100).copy(tiff, 168);
+
+  const payload = Buffer.concat([Buffer.from([0x45, 0x78, 0x69, 0x66, 0, 0]), tiff]);
+  const app1 = Buffer.alloc(4 + payload.length);
+  app1[0] = 0xFF;
+  app1[1] = 0xE1;
+  app1.writeUInt16BE(payload.length + 2, 2);
+  payload.copy(app1, 4);
+
+  return Buffer.concat([jpeg.subarray(0, 2), app1, jpeg.subarray(2)]);
+}
+
 const limpiar = () => {
   const u = sql(`SELECT IFNULL(MAX(id),0) FROM usuarios WHERE email='${EMAIL}'`);
   sql(`DELETE FROM venta_devoluciones WHERE venta_id IN (SELECT id FROM ventas WHERE usuario_id=${u})`);
@@ -118,6 +160,10 @@ try {
   verifica('el formulario del modal admite varias fotos del acta',
     await pagina.locator('#modal-cuerpo input[name="fotos[]"][multiple]').count() === 1
     && (await pagina.locator('#modal-cuerpo form[action="/admin/entregas/entregar"]').getAttribute('enctype')) === 'multipart/form-data');
+  verifica('el modal pide la ubicación de Google Maps de la entrega',
+    await pagina.locator('#modal-cuerpo input[name="ubicacion"]').count() === 1);
+  verifica('el formulario se marca para comprimir las fotos en el navegador',
+    await pagina.locator('#modal-cuerpo form[data-comprimir-fotos]').count() === 1);
   await pagina.click('[data-cerrar-modal]');
 
   await pagina.click(`a[data-modal-form="tpl-incidencia"]`);
@@ -184,6 +230,20 @@ try {
   verifica('sin GPS ni dirección no se muestran los botones de mapas',
     await pagina.locator('.seguimiento-fotos__acciones').count() === 0);
 
+  // Ubicación manual: se guarda en la entrega y se usa cuando no hay GPS.
+  const formUbicacion = pagina.locator('.formulario--ubicacion-entrega').first();
+  verifica('la sección de fotos trae el campo de ubicación manual', await formUbicacion.count() === 1);
+  await formUbicacion.locator('input[name="ubicacion"]').fill('24.1426667, -110.3127500');
+  await Promise.all([
+    pagina.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    formUbicacion.locator('button[type="submit"]').click(),
+  ]);
+  const manualDb = sql(`SELECT ubicacion_maps FROM entregas WHERE venta_id=${venta} ORDER BY id LIMIT 1`);
+  verifica('la ubicación manual queda guardada en la entrega', manualDb === '24.1426667, -110.3127500', manualDb);
+  const hrefManual = await pagina.locator('.seguimiento-fotos__acciones a', { hasText: 'Google Maps' }).getAttribute('href');
+  verifica('sin GPS el mapa usa las coordenadas manuales',
+    hrefManual === 'https://www.google.com/maps/search/?api=1&query=24.1426667%2C-110.3127500', hrefManual);
+
   const primera = sql(`SELECT f.archivo FROM entrega_fotos f
                          JOIN entregas e ON e.id = f.entrega_id
                         WHERE e.venta_id=${venta} ORDER BY f.id LIMIT 1`);
@@ -207,6 +267,7 @@ try {
 
   // Sin GPS, los botones caen a la dirección registrada del cliente.
   sql(`UPDATE entrega_fotos SET latitud=NULL, longitud=NULL WHERE archivo='${primera}'`);
+  sql(`UPDATE entregas SET ubicacion_maps=NULL WHERE venta_id=${venta}`);
   sql(`UPDATE clientes SET ubicacion='La Paz, Baja California Sur' WHERE id=${cliente}`);
   ubicacionClienteTocada = true;
   await pagina.reload({ waitUntil: 'domcontentloaded' });
@@ -243,7 +304,46 @@ try {
   verifica('la ventana ampliada carga la foto con marca', cargaVisor);
   await pagina.locator('#modal-principal [data-cerrar-modal]').first().click();
 
-  console.log('6. Consola');
+  console.log('6. Guardar sólo la ubicación desde el detalle de la venta');
+  await pagina.goto(`${BASE}/admin/ventas/detalle?id=${venta}`, { waitUntil: 'domcontentloaded' });
+  await pagina.fill('#fotos-entrega-ubicacion', 'https://maps.app.goo.gl/detalle-sin-fotos');
+  await Promise.all([
+    pagina.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    pagina.click('#fotos-entrega form[data-comprimir-fotos] button[type="submit"]'),
+  ]);
+  const ubicacionDetalle = sql(`SELECT ubicacion_maps FROM entregas WHERE venta_id=${venta} ORDER BY id LIMIT 1`);
+  verifica('se guarda la ubicación sin subir fotos nuevas',
+    ubicacionDetalle === 'https://maps.app.goo.gl/detalle-sin-fotos', ubicacionDetalle);
+
+  console.log('7. Compresión y metadatos en el navegador');
+  const jpegBase = readFileSync(`${RAIZ}public/image/producto-bb1.jpg`);
+  const jpegExif = jpegConExif(jpegBase);
+  const grande = Buffer.concat([jpegExif, Buffer.alloc(10 * 1024 * 1024)]);
+  const comprimida = await pagina.evaluate(async (base64) => {
+    const bin = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const archivo = new File([bin], 'acta-exif.jpg', { type: 'image/jpeg' });
+    const resultado = await comprimirArchivoFoto(archivo);
+    return {
+      original: archivo.size,
+      peso: resultado.archivo.size,
+      nombre: resultado.archivo.name,
+      tipo: resultado.archivo.type,
+      meta: resultado.meta,
+    };
+  }, grande.toString('base64'));
+
+  verifica('la compresión del navegador reduce una foto de 10 MB',
+    comprimida.peso < 2 * 1024 * 1024 && comprimida.peso < comprimida.original,
+    `${comprimida.original} → ${comprimida.peso} bytes`);
+  verifica('la foto comprimida queda en JPEG', comprimida.tipo === 'image/jpeg' && comprimida.nombre.endsWith('.jpg'),
+    `${comprimida.tipo} ${comprimida.nombre}`);
+  verifica('lee fecha y GPS EXIF antes de comprimir',
+    comprimida.meta.tomada_en === '2026-11-07 10:30:00'
+    && Math.abs(comprimida.meta.latitud - 24.1426667) < 0.0000001
+    && Math.abs(comprimida.meta.longitud + 110.31275) < 0.0000001,
+    JSON.stringify(comprimida.meta));
+
+  console.log('8. Consola');
   verifica('sin errores de JavaScript', errores.length === 0, errores.join(' | '));
 } catch (e) {
   mal += 1;

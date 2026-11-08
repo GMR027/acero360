@@ -75,7 +75,11 @@ class Papelera
             return null;
         }
 
-        return ['gastos' => $gasto, 'gasto_reparto' => self::filas('SELECT * FROM gasto_reparto WHERE gasto_id = ?', $id)];
+        return [
+            'gastos' => $gasto,
+            'gasto_reparto' => self::filas('SELECT * FROM gasto_reparto WHERE gasto_id = ?', $id),
+            'pagos_gasto' => self::filas('SELECT * FROM pagos_gasto WHERE gasto_id = ?', $id),
+        ];
     }
 
     /** Guarda la copia. false si no se pudo (el llamador debe revertir y NO borrar). */
@@ -277,6 +281,22 @@ class Papelera
         self::insertar('gastos', $gasto);
         foreach ($filas['gasto_reparto'] ?? [] as $reparto) {
             self::insertar('gasto_reparto', $reparto);
+        }
+        foreach ($filas['pagos_gasto'] ?? [] as $pago) {
+            self::insertar('pagos_gasto', $pago);
+        }
+
+        /* Los complementos de pago conservaron su DoctoRelacionado (solo perdieron
+         * el gasto_id al borrar el gasto). Se vuelven a enlazar por el UUID de la
+         * factura para que el detalle restaurado muestre su respaldo. */
+        if (!empty($gasto['uuid_fiscal'])) {
+            $uuid = (string) $gasto['uuid_fiscal'];
+            $religar = self::$db->prepare(
+                'UPDATE complemento_doctos SET gasto_id = ? WHERE documento_uuid = ? AND gasto_id IS NULL'
+            );
+            $religar->bind_param('is', $id, $uuid);
+            $religar->execute();
+            $religar->close();
         }
 
         return (string) ($gasto['beneficiario'] ?? ('gasto #' . $id));

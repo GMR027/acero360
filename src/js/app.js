@@ -257,6 +257,11 @@ function inicializarAplicacion() {
   //     arrastrar y soltar (va antes de mover campos en modales).
   prepararCargaArchivos();
 
+  // 5c. Fotos del acta de entrega: lee EXIF y comprime antes de enviar.
+  if (typeof prepararCompresionFotos === 'function') {
+    prepararCompresionFotos();
+  }
+
   // 6. Panel de ganancias: mes y semestre sólo aplican con un año concreto.
   const filtroAnio = document.getElementById('filtro-anio');
   if (filtroAnio) {

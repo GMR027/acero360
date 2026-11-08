@@ -167,7 +167,7 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
             </tr>
             <tr>
                 <td>
-                    <small>Gastos operativos pendientes</small>
+                    <small>Gastos pendientes</small>
                     <strong><?= $restar_gastos ? escaparValores($mx($r['gastos']['base'])) : 'No incluidos' ?></strong>
                     <small><?= $restar_gastos ? number_format(count($r['gastos']['filas'])) . ' gasto(s) pendiente(s)' : 'Check desactivado' ?></small>
                 </td>
@@ -196,7 +196,7 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
                 <small><?= number_format(count($r['proveedores']['filas'])) ?> pedido(s) pendiente(s) · <?= escaparValores($baseCorta) ?></small>
             </td>
             <td>
-                <small>Gastos operativos del mes</small>
+                <small>Gastos pendientes del mes</small>
                 <strong><?= $restar_gastos ? escaparValores($mx($r['gastos']['base'])) : 'No incluidos' ?></strong>
                 <small><?= $restar_gastos ? number_format(count($r['gastos']['filas'])) . ' gasto(s) pendiente(s)' : 'Check desactivado en la pantalla' ?></small>
             </td>
@@ -225,7 +225,7 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
                     </strong>
                 </p>
                 <p class="guia">
-                    Entradas = inventario + ventas del mes. Salidas = gastos pagados<?= $restar_gastos ? ' + gastos operativos pendientes' : '' ?><?= $restar_proveedores ? ' + deuda con proveedores' : '' ?>.
+                    Entradas = inventario + ventas del mes. Salidas = gastos pagados<?= $restar_gastos ? ' + gastos pendientes' : '' ?><?= $restar_proveedores ? ' + deuda con proveedores' : '' ?>.
                     La misma base (<?= escaparValores($baseCorta) ?>) se usa en todos los conceptos.
                 </p>
             <?php else : ?>
@@ -234,7 +234,7 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
                     Solidez = inventario / (inventario + deudas seleccionadas). La misma base (<?= escaparValores($baseCorta) ?>)
                     se usa para el inventario, los proveedores y los gastos.
                     <?php if ($restar_proveedores) : ?>Se resta la deuda con proveedores.<?php endif; ?>
-                    <?php if ($restar_gastos) : ?>Se restan los gastos operativos pendientes de <?= escaparValores(nombreMes((int) $periodo['mes'])) ?>.<?php endif; ?>
+                    <?php if ($restar_gastos) : ?>Se restan los gastos pendientes de <?= escaparValores(nombreMes((int) $periodo['mes'])) ?>.<?php endif; ?>
                     <?php if (!$restar_proveedores && !$restar_gastos) : ?>No se está restando ninguna deuda.<?php endif; ?>
                 </p>
             <?php endif; ?>
@@ -349,6 +349,7 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
                         <td><strong><?= escaparValores($fila['concepto']) ?></strong></td>
                         <td>
                             <?= escaparValores($fila['beneficiario'] ?: '—') ?>
+                            <?= !empty($fila['general']) ? ' · General' : '' ?>
                             <?= $fila['categoria'] !== '' ? ' · ' . escaparValores($fila['categoria']) : '' ?>
                         </td>
                         <td class="num"><?= escaparValores($mx($fila['sin_iva'])) ?></td>
@@ -473,8 +474,8 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
         </tr>
     </table>
 
-        <h2 class="gastos"><?= (int) $numGastos ?>. Gastos operativos de <?= escaparValores(nombreMes((int) $periodo['mes']) . ' ' . (int) $periodo['anio']) ?></h2>
-        <p class="guia">Solo gastos vigentes y pendientes de pago. Los gastos ligados a un proveedor o a un pedido no se muestran aquí para no duplicar la deuda.</p>
+        <h2 class="gastos"><?= (int) $numGastos ?>. Gastos pendientes de <?= escaparValores(nombreMes((int) $periodo['mes']) . ' ' . (int) $periodo['anio']) ?></h2>
+        <p class="guia">Todos los gastos vigentes pendientes de pago del mes, incluidos los de proveedor y los generales. Los que ya están ligados a un pedido se muestran en la deuda con proveedores para no duplicarse.</p>
         <table>
             <thead>
                 <tr>
@@ -493,6 +494,7 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
                         </td>
                         <td>
                             <?= escaparValores($fila['beneficiario'] ?: '—') ?>
+                            <?= !empty($fila['general']) ? ' · General' : '' ?>
                             <?= $fila['categoria'] !== '' ? ' · ' . escaparValores($fila['categoria']) : '' ?>
                         </td>
                         <td class="num"><?= escaparValores($mx($fila['sin_iva'])) ?></td>
@@ -500,7 +502,7 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
                     </tr>
                 <?php endforeach; ?>
                 <?php if (!$r['gastos']['filas']) : ?>
-                    <tr><td colspan="4" class="vacio">No hay gastos operativos pendientes en ese mes.</td></tr>
+                    <tr><td colspan="4" class="vacio">No hay gastos pendientes en ese mes.</td></tr>
                 <?php endif; ?>
             </tbody>
             <tfoot>
@@ -589,8 +591,9 @@ $imagenProducto = static function (array $fila) use ($imagenBase64): string {
 
     <p class="pie">
         Reporte administrativo de solo lectura. El inventario se valúa con el precio del catálogo.
-        La deuda con proveedores incluye todos los pedidos con saldo pendiente. Los gastos operativos
-        son únicamente los del mes seleccionado que siguen sin pagarse y que no están ligados a un proveedor.
+        La deuda con proveedores incluye todos los pedidos con saldo pendiente. Los gastos pendientes
+        son los del mes seleccionado que siguen sin pagarse; se incluyen los generales y los de proveedor
+        que no estén ligados a un pedido.
         <?php if ($modo === 'detallado') : ?>
             En modo detallado, las ventas y los gastos pagados son del mes seleccionado; las ventas incluyen
             facturadas, no facturadas y sin clasificar. Posición financiera = inventario + ventas - gastos pagados

@@ -33,10 +33,24 @@ $pendientes = array_values(array_filter(
     \App\Lecturas::pendientes(30),
     static fn ($p) => (string) $p['destino'] === 'complemento'
 ));
+/* Si se llega desde el detalle de un gasto, se muestra su contexto para que la
+ * persona confirme que está cargando el complemento de esa factura. */
+$gastoId = (int) ($_GET['gasto'] ?? 0);
+$gastoCtx = $gastoId > 0 ? \App\Gastos::buscarID($gastoId) : null;
 
 template('header', ['titulo' => 'Complementos de pago', 'subtitulo' => 'Compras y proveedores']);
 template('tabsCompras', ['tab' => 'complemento']);
 ?>
+
+<?php if ($gastoCtx) : ?>
+    <p class="nota nota--info mb-lg" role="status">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">receipt_long</span>
+        <span>Vas a cargar el complemento de la factura del gasto
+            <a href="/admin/contabilidad/gastos/detalle?id=<?= (int) $gastoCtx['id'] ?>">#<?= (int) $gastoCtx['id'] ?> · <?= escaparValores($gastoCtx['beneficiario']) ?></a>
+            (<?= formatoMoneda((float) $gastoCtx['total']) ?><?= $gastoCtx['uuid_fiscal'] ? ' · UUID ' . escaparValores($gastoCtx['uuid_fiscal']) : '' ?>).
+            El XML se leerá y se te mostrará el monto real del pago antes de vincularlo.</span>
+    </p>
+<?php endif; ?>
 
 <section class="tarjeta mb-lg">
     <h2 class="titulo-5 mb-md">Cargar complemento de pago (XML)</h2>

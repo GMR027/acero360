@@ -5,7 +5,8 @@
  * Balance entre el inventario y las deudas:
  *   · inventario valuado al precio de catálogo, en la base elegida;
  *   · pedidos de proveedor con saldo pendiente, de todos los meses;
- *   · gastos operativos pendientes del mes (opcional).
+ *   · gastos pendientes del mes (opcional), incluidos los generales y los de
+ *     proveedor que no estén ligados a un pedido.
  *
  * El selector «Comparar con» decide si todo se compara con IVA (precio de
  * venta) o sin IVA (precio de lista). Las tablas siempre muestran ambas
@@ -31,7 +32,7 @@ if (!$seleccion) {
 $base = (string) ($_GET['base'] ?? 'venta') === 'lista' ? 'lista' : 'venta';
 $modo = (string) ($_GET['modo'] ?? 'simple') === 'detallado' ? 'detallado' : 'simple';
 $restarProveedores = (string) ($_GET['proveedores'] ?? '1') === '1';
-$restarGastos = (string) ($_GET['gastos'] ?? ($modo === 'detallado' ? '1' : '0')) === '1';
+$restarGastos = (string) ($_GET['gastos'] ?? '1') === '1';
 
 $r = \App\AnalisisFinanciero::resumen(
     $periodo['anio'],
@@ -89,7 +90,7 @@ template('header', [
                         <option value="<?= $mes ?>"<?= $periodo['mes'] === $mes ? ' selected' : '' ?>><?= escaparValores(nombreMes($mes)) ?></option>
                     <?php endfor; ?>
                 </select>
-                <span class="campo__ayuda">Solo aplica a los gastos operativos. La deuda con proveedores siempre es de todos los meses.</span>
+                <span class="campo__ayuda">Solo aplica a los gastos del mes. La deuda con proveedores siempre es de todos los meses.</span>
             </div>
             <div class="campo">
                 <label class="campo__etiqueta" for="modo-analisis">Modo de análisis</label>
@@ -131,7 +132,7 @@ template('header', [
             <input type="hidden" name="gastos" value="0">
             <label class="ed-chk">
                 <input type="checkbox" name="gastos" value="1"<?= $restarGastos ? ' checked' : '' ?>>
-                Gastos operativos del mes
+                Gastos pendientes del mes
             </label>
         </div>
 
@@ -167,7 +168,7 @@ template('header', [
         </p>
         <p class="texto-sm texto-secundario mb-0">
             <?= escaparValores($baseTexto) ?>. Entradas = inventario + ventas del mes.
-            Salidas = gastos pagados<?= $restarGastos ? ' + gastos operativos pendientes' : '' ?><?= $restarProveedores ? ' + deuda con proveedores' : '' ?>.
+            Salidas = gastos pagados<?= $restarGastos ? ' + gastos pendientes' : '' ?><?= $restarProveedores ? ' + deuda con proveedores' : '' ?>.
         </p>
     </div>
 </section>
@@ -195,7 +196,7 @@ template('header', [
         <p class="texto-sm texto-secundario mb-0">
             <?= escaparValores($baseTexto) ?>. El medidor usa la misma base para los dos lados de la comparación.
             <?php if ($restarProveedores) : ?>Se resta la deuda con proveedores.<?php endif; ?>
-            <?php if ($restarGastos) : ?>Se restan los gastos operativos pendientes de <?= escaparValores(nombreMes($periodo['mes'])) ?>.<?php endif; ?>
+            <?php if ($restarGastos) : ?>Se restan los gastos pendientes de <?= escaparValores(nombreMes($periodo['mes'])) ?>.<?php endif; ?>
             <?php if (!$restarProveedores && !$restarGastos) : ?>No se está restando ninguna deuda: el balance es solo el inventario.<?php endif; ?>
         </p>
     </div>
@@ -228,7 +229,7 @@ template('header', [
         <span class="stat__pie"><?= number_format(count($r['gastos_pagados']['filas'])) ?> gasto<?= count($r['gastos_pagados']['filas']) === 1 ? '' : 's' ?> pagado<?= count($r['gastos_pagados']['filas']) === 1 ? '' : 's' ?> · <?= escaparValores($baseCorta) ?></span>
     </div>
     <div class="stat<?= $restarGastos ? '' : ' analisis-stat--apagado' ?>">
-        <span class="stat__etiqueta">Gastos operativos pendientes</span>
+        <span class="stat__etiqueta">Gastos pendientes</span>
         <span class="stat__valor"><?= $restarGastos ? escaparValores($m($r['gastos']['base'])) : 'No incluidos' ?></span>
         <span class="stat__pie"><?= $restarGastos ? number_format(count($r['gastos']['filas'])) . ' gasto' . (count($r['gastos']['filas']) === 1 ? '' : 's') . ' pendiente' . (count($r['gastos']['filas']) === 1 ? '' : 's') : 'Activa el check para restarlos' ?></span>
     </div>
@@ -261,7 +262,7 @@ template('header', [
         <span class="stat__pie"><?= number_format(count($r['proveedores']['filas'])) ?> pedido<?= count($r['proveedores']['filas']) === 1 ? '' : 's' ?> pendiente<?= count($r['proveedores']['filas']) === 1 ? '' : 's' ?> · <?= escaparValores($baseCorta) ?></span>
     </div>
     <div class="stat<?= $restarGastos ? '' : ' analisis-stat--apagado' ?>">
-        <span class="stat__etiqueta">Gastos operativos del mes</span>
+        <span class="stat__etiqueta">Gastos pendientes del mes</span>
         <span class="stat__valor"><?= $restarGastos ? escaparValores($m($r['gastos']['base'])) : 'No incluidos' ?></span>
         <span class="stat__pie"><?= $restarGastos ? number_format(count($r['gastos']['filas'])) . ' gasto' . (count($r['gastos']['filas']) === 1 ? '' : 's') . ' pendiente' . (count($r['gastos']['filas']) === 1 ? '' : 's') . ' · ' . escaparValores($baseCorta) : 'Activa el check para restarlos' ?></span>
     </div>
@@ -446,6 +447,9 @@ template('header', [
                             <td data-etiqueta="Gasto"><strong><?= escaparValores($fila['concepto']) ?></strong></td>
                             <td data-etiqueta="Beneficiario">
                                 <?= escaparValores($fila['beneficiario'] ?: '—') ?>
+                                <?php if (!empty($fila['general'])) : ?>
+                                    <span class="badge badge--neutro badge--sin-punto">General</span>
+                                <?php endif; ?>
                                 <?php if ($fila['categoria'] !== '') : ?>
                                     <span class="texto-xs texto-secundario"><?= escaparValores($fila['categoria']) ?></span>
                                 <?php endif; ?>
@@ -602,18 +606,18 @@ template('header', [
     <section class="tarjeta tarjeta--sin-relleno mb-lg" aria-labelledby="tabla-gastos">
         <header class="analisis-tabla-cab">
             <div>
-                <h2 class="titulo-5" id="tabla-gastos">Gastos operativos de <?= escaparValores(nombreMes($periodo['mes']) . ' ' . $periodo['anio']) ?></h2>
-                <p class="texto-sm texto-secundario mb-0">Solo gastos vigentes y pendientes de pago. Los gastos ligados a un proveedor o a un pedido no se muestran aquí para no duplicar la deuda.</p>
+                <h2 class="titulo-5" id="tabla-gastos">Gastos pendientes de <?= escaparValores(nombreMes($periodo['mes']) . ' ' . $periodo['anio']) ?></h2>
+                <p class="texto-sm texto-secundario mb-0">Todos los gastos vigentes pendientes de pago del mes, incluidos los de proveedor y los generales. Los que ya están ligados a un pedido se muestran en «Deuda con proveedores» para no duplicarse.</p>
             </div>
             <span class="badge badge--pendiente badge--sin-punto"><?= number_format(count($r['gastos']['filas'])) ?> pendiente<?= count($r['gastos']['filas']) === 1 ? '' : 's' ?></span>
         </header>
 
         <?php if (!$r['gastos']['filas']) : ?>
-            <p class="texto-secundario" style="padding:1rem">No hay gastos operativos pendientes en ese mes.</p>
+            <p class="texto-secundario" style="padding:1rem">No hay gastos pendientes en ese mes.</p>
         <?php else : ?>
             <div class="tabla-contenedor">
                 <table class="tabla analisis-tabla">
-                    <caption class="solo-lectores">Gastos operativos pendientes del mes</caption>
+                    <caption class="solo-lectores">Gastos pendientes del mes</caption>
                     <thead>
                         <tr>
                             <th scope="col">Gasto</th>
@@ -631,6 +635,9 @@ template('header', [
                                 </td>
                                 <td data-etiqueta="Beneficiario">
                                     <?= escaparValores($fila['beneficiario'] ?: '—') ?>
+                                    <?php if (!empty($fila['general'])) : ?>
+                                        <span class="badge badge--neutro badge--sin-punto">General</span>
+                                    <?php endif; ?>
                                     <?php if ($fila['categoria'] !== '') : ?>
                                         <span class="texto-xs texto-secundario"><?= escaparValores($fila['categoria']) ?></span>
                                     <?php endif; ?>

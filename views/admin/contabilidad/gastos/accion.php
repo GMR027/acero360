@@ -20,9 +20,22 @@ if (preg_match('#^/admin/seguimiento(\?[a-z_=&]*)?$#', (string) ($_POST['volver'
 
 if (($_POST['accion'] ?? '') === 'pagar') {
     if (\App\Gastos::pagar($id, $_POST, (int) ($_SESSION['id'] ?? 0))) {
-        redirigir($destino, 'exito', 'Gasto marcado como pagado.');
+        $estado = \App\Gastos::buscarID($id);
+        $estado = $estado ? \App\Gastos::estadoPagoGasto($estado) : ['clave' => 'pendiente', 'saldo' => 0];
+        $mensaje = $estado['clave'] === 'pagado'
+            ? 'Pago registrado: el gasto quedó pagado.'
+            : 'Abono registrado: quedan ' . formatoMoneda($estado['saldo'] / 100) . ' por pagar.';
+        redirigir($destino, 'exito', $mensaje);
     }
-    redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible marcar el gasto como pagado.');
+    redirigir($destino, 'error', \App\Gastos::getErrores()[0] ?? 'No fue posible registrar el abono.');
+}
+
+// Un abono se cancela con motivo (no se borra), igual que los pagos de compra.
+if (($_POST['accion'] ?? '') === 'cancelar_pago') {
+    if (\App\PagosGasto::cancelar((int) ($_POST['pago'] ?? 0), (string) ($_POST['motivo'] ?? ''), (int) ($_SESSION['id'] ?? 0))) {
+        redirigir($destino, 'exito', 'Abono cancelado. El saldo pendiente se actualizó.');
+    }
+    redirigir($destino, 'error', \App\PagosGasto::getErrores()[0] ?? 'No fue posible cancelar el abono.');
 }
 
 // Atajo del Centro de seguimiento: marca pagado con la fecha de hoy sin abrir

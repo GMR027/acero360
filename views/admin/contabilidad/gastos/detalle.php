@@ -22,7 +22,8 @@ $periodo  = ['anio' => (int) substr($gasto['fecha'], 0, 4), 'mes' => (int) subst
 // La factura puede ser de un periodo ya cerrado: lo que importa es que la fecha
 // de pago caiga en un periodo abierto (lo valida Gastos::pagar).
 $orden = \App\CompraContable::ordenDeGasto($id);
-$puedePagar = $vigente && $gasto['estado_pago'] === 'pendiente' && !$orden;
+$estadoPagoGasto = \App\Gastos::estadoPagoGasto($gasto);
+$puedeAbonar = $vigente && $estadoPagoGasto['clave'] !== 'pagado' && $estadoPagoGasto['saldo'] > 0 && !$orden;
 
 template('header', ['titulo' => 'Gasto: ' . $gasto['beneficiario'], 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
@@ -32,9 +33,8 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
     <p>
         <?= $vigente ? '<span class="badge badge--aprobado">Vigente</span>' : '<span class="badge badge--error">Cancelado</span>' ?>
         <span class="badge <?= $revision['clase'] ?>">Revisión fiscal: <?= escaparValores($revision['etiqueta']) ?></span>
-        <?= $gasto['estado_pago'] === 'pagado' ? '<span class="badge badge--aprobado">Pagado</span>' : '<span class="badge badge--pendiente">Pago pendiente</span>' ?>
-        <?= $cerrado ? '<span class="badge badge--neutro">Periodo cerrado</span>' : '' ?>
-    </p>
+        <span class="badge <?= escaparValores($estadoPagoGasto['clase']) ?>"><?= escaparValores($estadoPagoGasto['etiqueta']) ?></span>
+        <?= $cerrado ? '<span class="badge badge--neutro">Periodo cerrado</span>' : '' ?>    </p>
     <p class="mt-md"><strong><?= escaparValores($gasto['concepto']) ?></strong> · <?= date('d/m/Y', strtotime($gasto['fecha'])) ?>
         · <?= escaparValores(\App\Gastos::NATURALEZAS[$gasto['naturaleza']] ?? '') ?>
         <?= $gasto['categoria_nombre'] ? ' · ' . escaparValores($gasto['categoria_nombre']) : '' ?></p>
@@ -43,14 +43,8 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
         <div><dt>IVA (<?= rtrim(rtrim($gasto['iva_tasa'], '0'), '.') ?> %)</dt><dd><?= formatoMoneda($gasto['iva']) ?></dd></div>
         <div><dt>Total</dt><dd><strong><?= formatoMoneda($gasto['total']) ?></strong></dd></div>
         <div><dt>Negocio</dt><dd><?= (int) $gasto['compartido'] === 1 ? 'Compartido' : escaparValores((string) ($gasto['empresa_nombre'] ?? 'General')) ?></dd></div>
-        <div><dt>UUID</dt><dd><?= escaparValores((string) $gasto['uuid_fiscal']) ?: '—' ?></dd></div>
-        <div><dt>Uso del CFDI</dt><dd><?= $gasto['uso_cfdi'] ? escaparValores(\App\Gastos::USOS_CFDI[$gasto['uso_cfdi']] ?? $gasto['uso_cfdi']) : '—' ?></dd></div>
-        <div><dt>Método de pago</dt><dd><?= $gasto['metodo_pago_sat'] ? escaparValores(\App\Gastos::METODOS_CFDI[$gasto['metodo_pago_sat']] ?? $gasto['metodo_pago_sat']) : '—' ?></dd></div>
-        <?php $formaGasto = \App\VentasFiscal::normalizarFormaPago((string) ($gasto['forma_pago_sat'] ?? '')); ?>
-        <div><dt>Forma de pago</dt><dd><?= $formaGasto !== '' ? escaparValores($formaGasto . ' · ' . (\App\VentasFiscal::FORMAS_PAGO[$formaGasto] ?? '')) : '—' ?></dd></div>
-        <div><dt>Tipo de comprobante</dt><dd><?= $gasto['tipo_cfdi'] ? escaparValores(\App\Contabilidad::TIPOS_CFDI[$gasto['tipo_cfdi']] ?? $gasto['tipo_cfdi']) : '—' ?></dd></div>
         <div><dt>Pagado a</dt><dd><?= escaparValores(\App\Gastos::BENEFICIARIOS[$gasto['beneficiario_tipo']] ?? '') ?>: <?= escaparValores($gasto['beneficiario']) ?></dd></div>
-        <div><dt>Factura (CFDI)</dt><dd><span class="badge <?= $factura['clase'] ?>"><?= escaparValores($factura['etiqueta']) ?></span><br><small class="texto-secundario"><?= escaparValores($factura['detalle']) ?></small></dd></div>
+        <div><dt>Factura (CFDI)</dt><dd><span class="badge <?= $factura['clase'] ?>"><?= escaparValores($factura['etiqueta']) ?></span></dd></div>
     </dl>
     <?php if ($gasto['reparto']) : ?>
         <p class="mt-md texto-secundario">Reparto interno (el total contable no cambia):
@@ -91,32 +85,30 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
     <?php if ($gasto['observaciones']) : ?><p class="texto-secundario mt-md"><?= nl2br(escaparValores($gasto['observaciones'])) ?></p><?php endif; ?>
     <?php if (!$vigente) : ?><p class="nota nota--advertencia mt-md"><span>Cancelado: <?= escaparValores((string) $gasto['motivo_cancelacion']) ?></span></p><?php endif; ?>
 
-    <?php if ($vigente && ($puedePagar || !$cerrado)) : ?>
+    <?php if ($vigente && !$cerrado) : ?>
         <div class="encabezado-pagina__acciones mt-lg">
-            <?php if ($puedePagar) : ?>
-                <a class="btn btn--primario" href="/admin/contabilidad/gastos/pagar?id=<?= $id ?>"
-                   data-modal-form="tpl-pagar-gasto"
-                   data-modal-sobre-titulo="Gasto: <?= escaparValores($gasto['beneficiario']) ?>"
-                   data-modal-titulo="Registrar pago"
-                   data-modal-confirmar="Guardar pago">Pagar</a>
-            <?php endif; ?>
             <?php /* Editar y eliminar sí mueven el gasto: siguen bloqueados en un periodo cerrado. */ ?>
-            <?php if (!$cerrado) : ?>
-                <a class="btn btn--secundario" href="/admin/contabilidad/gastos/editar?id=<?= $id ?>">Editar</a>
-                <form action="/admin/contabilidad/gastos/accion" method="post" data-validar
-                      data-confirmacion-sobre="Gasto"
-                      data-confirmacion="¿Eliminar este gasto?"
-                      data-confirmacion-mensaje="El gasto se borrará junto con sus documentos. Queda 90 días en la Papelera por si necesitas restaurarlo."
-                      data-confirmacion-boton="Sí, eliminar">
-                    <input type="hidden" name="id" value="<?= $id ?>">
-                    <label class="solo-lectores" for="motivo">Motivo de la eliminación</label>
-                    <input class="control control--compacto" type="text" id="motivo" name="motivo" placeholder="Motivo de la eliminación" maxlength="200" required minlength="5">
-                    <button class="btn btn--peligro" type="submit">Eliminar gasto</button>
-                </form>
-            <?php endif; ?>
+            <a class="btn btn--secundario" href="/admin/contabilidad/gastos/editar?id=<?= $id ?>">Editar</a>
+            <form action="/admin/contabilidad/gastos/accion" method="post" data-validar
+                  data-confirmacion-sobre="Gasto"
+                  data-confirmacion="¿Eliminar este gasto?"
+                  data-confirmacion-mensaje="El gasto se borrará junto con sus documentos. Queda 90 días en la Papelera por si necesitas restaurarlo."
+                  data-confirmacion-boton="Sí, eliminar">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <label class="solo-lectores" for="motivo">Motivo de la eliminación</label>
+                <input class="control control--compacto" type="text" id="motivo" name="motivo" placeholder="Motivo de la eliminación" maxlength="200" required minlength="5">
+                <button class="btn btn--peligro" type="submit">Eliminar gasto</button>
+            </form>
         </div>
     <?php endif; ?>
 </section>
+
+<?php template('facturacionGasto', [
+    'gasto' => $gasto,
+    'orden' => $orden,
+    'cerrado' => $cerrado,
+    'factura' => $factura,
+]); ?>
 
 <?php template('documentosOperacion', [
     'entidad' => 'gasto',
@@ -126,7 +118,7 @@ template('tabsContabilidad', ['tab' => 'gastos', 'periodo' => $periodo]);
     'gasto' => $gasto,
 ]); ?>
 
-<?php if ($puedePagar) : ?>
+<?php if ($puedeAbonar && !$cerrado) : ?>
     <template id="tpl-pagar-gasto">
         <?php template('formPagoGasto', ['gasto' => $gasto, 'token' => tokenFormulario()]); ?>
     </template>

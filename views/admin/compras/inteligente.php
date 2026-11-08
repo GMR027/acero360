@@ -21,7 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$xmls) {
         redirigir('/admin/compras/inteligente', 'error', 'Este flujo usa el XML del CFDI (los datos exactos). El PDF o la foto se registran desde Contabilidad.');
     }
-    $id = \App\Lecturas::preparar(array_values($xmls), 'compra', (int) ($_SESSION['id'] ?? 0));
+    // Este flujo clasifica los CFDI tipo P como «no admitido» y remite a Complementos:
+    // no se auto-dirigen aquí para no romper su pantalla de revisión.
+    $id = \App\Lecturas::preparar(array_values($xmls), 'compra', (int) ($_SESSION['id'] ?? 0), true, false);
     if ($id === null) {
         redirigir('/admin/compras/inteligente', 'error', implode(' · ', \App\Lecturas::getErrores()));
     }

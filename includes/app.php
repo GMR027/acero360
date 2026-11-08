@@ -75,6 +75,7 @@ $clasesConectadas = [
     App\Materiales::class,
     App\PorTerminar::class,
     App\PagosCompra::class,
+    App\PagosGasto::class,
     App\CompraContable::class,
     App\ComprasIntel::class,
     App\ComplementosPago::class,

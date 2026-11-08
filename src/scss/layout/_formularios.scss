@@ -579,3 +579,21 @@ input[type='file'].control,
     transform: rotate(360deg);
   }
 }
+
+/* --- Avance de un cobro (facturación y cobro) ----------------------------- */
+.barra-cobro {
+  display: flex;
+  align-items: center;
+  gap: $espacio-sm;
+
+  progress {
+    flex: 1 1 10rem;
+    height: 0.5rem;
+    accent-color: $color-primario;
+  }
+
+  span {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}

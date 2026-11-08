@@ -56,7 +56,7 @@ class Lecturas
      * @param array<int, array<string, mixed>> $archivos entradas de $_FILES ya separadas (Archivos::listaDeSubidas)
      * @return int|null id de la lectura (null si ningún archivo es aceptable; errores en getErrores())
      */
-    public static function preparar(array $archivos, string $destino, int $usuarioId, bool $esSubida = true): ?int
+    public static function preparar(array $archivos, string $destino, int $usuarioId, bool $esSubida = true, bool $dirigirComplementos = true): ?int
     {
         self::$errores = [];
         if (!in_array($destino, ['gasto', 'venta', 'compra', 'complemento', 'complemento_venta'], true)) {
@@ -104,6 +104,21 @@ class Lecturas
 
         $principal = $guardados[0];
         $lectura = LectorDocumental::leer($principal['completa'], $principal['familia']);
+
+        /* Un XML tipo P es un complemento de pago, no una factura. Si se subió
+         * por «Leer factura» (gasto, venta o compra), se manda al flujo que sí
+         * sabe relacionarlo: así no se intenta crear un gasto de $0 ni se
+         * compara su Total (que por definición es 0) contra la operación. */
+        $tipoLeido = strtoupper((string) ($lectura['campos']['tipo_cfdi']['valor'] ?? ''));
+        if ($dirigirComplementos && $principal['familia'] === 'xml' && $tipoLeido === 'P') {
+            if ($destino === 'venta') {
+                $destino = 'complemento_venta';
+            } elseif ($destino !== 'complemento_venta') {
+                $destino = 'complemento';
+            }
+            $lectura['avisos'][] = 'El XML es un complemento de pago (CFDI tipo P), no una factura: se revisa en Complementos de pago. '
+                . 'Su campo Total es 0 porque el monto real está en los pagos relacionados.';
+        }
 
         // Documentos complementarios (p. ej. el PDF de un XML): se cruzan con la fuente principal.
         $extras = [];
@@ -615,12 +630,23 @@ class Lecturas
          * una venta podía quedar facturada por aquí sin RFC, CP o régimen. */
         $ventaId = (int) ($ingreso['venta_id'] ?? 0);
         if ($ventaId > 0) {
-            $revision = VentasFiscal::validar($ventaId);
-            if ($revision !== null && !$revision['puede_facturar']) {
-                self::$errores[] = 'No se puede marcar como facturada: ' . implode(' · ', array_slice($revision['errores'], 0, 4))
-                    . (count($revision['errores']) > 4 ? ' (+' . (count($revision['errores']) - 4) . ' más)' : '')
-                    . ' Completa los datos fiscales desde «Facturación y cobro» de la venta.';
-                return null;
+            $revision = VentasFiscal::validar($ventaId, true);
+            if ($revision !== null) {
+                $uuidEntrante = strtoupper(trim((string) ($v['uuid'] ?? '')));
+                $respaldaManual = $revision['facturada']
+                    && $revision['cfdi'] === null
+                    && ($revision['uuid'] === '' || $uuidEntrante === $revision['uuid']);
+
+                if ($revision['facturada'] && $revision['cfdi'] !== null) {
+                    self::$errores[] = 'La venta ya está facturada con un CFDI adjunto: para corregirla usa una incidencia de entrega que marque «Corregir factura».';
+                    return null;
+                }
+                if (!$revision['puede_facturar'] && !$respaldaManual) {
+                    self::$errores[] = 'No se puede marcar como facturada: ' . implode(' · ', array_slice($revision['errores'], 0, 4))
+                        . (count($revision['errores']) > 4 ? ' (+' . (count($revision['errores']) - 4) . ' más)' : '')
+                        . ' Completa los datos fiscales desde «Facturación y cobro» de la venta.';
+                    return null;
+                }
             }
         }
 

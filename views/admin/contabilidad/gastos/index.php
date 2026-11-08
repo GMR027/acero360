@@ -7,7 +7,8 @@ soloAdmin();
 
 $periodo = periodoSeleccionado(false);
 $filtros = $periodo + [
-    'q' => trim($_GET['q'] ?? ''), 'pago' => (string) ($_GET['pago'] ?? ''),
+    'q' => trim($_GET['q'] ?? ''), 'pago' => in_array($_GET['pago'] ?? '', ['pendiente', 'parcial', 'pagado', 'sin_pago'], true) ? $_GET['pago'] : '',
+    'complemento' => in_array($_GET['complemento'] ?? '', ['falta', 'recibido'], true) ? $_GET['complemento'] : '',
     'sin_comprobante' => ($_GET['sin_comprobante'] ?? '') === '1' ? '1' : '',
     'estado' => ($_GET['estado'] ?? '') === 'cancelado' ? 'cancelado' : '',
     'desde' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['desde'] ?? '')) ? $_GET['desde'] : '',
@@ -68,7 +69,15 @@ template('resumenReporte', [
             <select class="control control--compacto" id="pago" name="pago">
                 <option value="">Pagados y pendientes</option>
                 <option value="pendiente"<?= $filtros['pago'] === 'pendiente' ? ' selected' : '' ?>>Pendientes de pago</option>
+                <option value="sin_pago"<?= $filtros['pago'] === 'sin_pago' ? ' selected' : '' ?>>Sin pagar (nada abonado)</option>
+                <option value="parcial"<?= $filtros['pago'] === 'parcial' ? ' selected' : '' ?>>Pago parcial</option>
                 <option value="pagado"<?= $filtros['pago'] === 'pagado' ? ' selected' : '' ?>>Pagados</option>
+            </select>
+            <label class="solo-lectores" for="complemento">Complemento</label>
+            <select class="control control--compacto" id="complemento" name="complemento">
+                <option value="">Todo</option>
+                <option value="falta"<?= $filtros['complemento'] === 'falta' ? ' selected' : '' ?>>Falta complemento (PPD)</option>
+                <option value="recibido"<?= $filtros['complemento'] === 'recibido' ? ' selected' : '' ?>>Complemento recibido</option>
             </select>
             <label class="solo-lectores" for="estado">Estado</label>
             <select class="control control--compacto" id="estado" name="estado">
@@ -111,6 +120,14 @@ template('resumenReporte', [
                         <th scope="col" class="tabla--centro">Pago</th><th scope="col" class="tabla--centro">Comprobante</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                     <tbody>
                         <?php foreach ($gastos as $g) : ?>
+                            <?php
+                            $pagadoCent = (int) ($g['pagado_centavos'] ?? 0);
+                            $esPagado = (string) $g['estado_pago'] === 'pagado';
+                            $pagoEtiqueta = $esPagado ? 'Pagado' : ($pagadoCent > 0 ? 'Parcial' : 'Pendiente');
+                            $pagoClase = $esPagado ? 'badge--aprobado' : 'badge--pendiente';
+                            $metodoG = strtoupper(trim((string) ($g['metodo_pago_sat'] ?? '')));
+                            $conComplemento = ((int) ($g['complementos_registrados'] ?? 0) + (int) ($g['complementos_adjuntos'] ?? 0)) > 0;
+                            ?>
                             <tr>
                                 <td class="tabla--centro">
                                     <label class="solo-lectores" for="gasto-<?= (int) $g['id'] ?>">Seleccionar el gasto de <?= escaparValores($g['beneficiario']) ?> del <?= date('d/m/Y', strtotime($g['fecha'])) ?></label>
@@ -124,8 +141,17 @@ template('resumenReporte', [
                                 <td class="tabla--numerica cifra"><?= formatoMoneda($g['subtotal']) ?></td>
                                 <td class="tabla--numerica cifra"><?= formatoMoneda($g['iva']) ?></td>
                                 <td class="tabla--numerica cifra"><strong><?= formatoMoneda($g['total']) ?></strong></td>
-                                <td class="tabla--centro"><?= $g['estado_pago'] === 'pagado' ? '<span class="badge badge--aprobado">Pagado</span>' : '<span class="badge badge--pendiente">Pendiente</span>' ?></td>
+                                <td class="tabla--centro"><span class="badge <?= $pagoClase ?>"><?= escaparValores($pagoEtiqueta) ?></span>
+                                    <?php if ($pagadoCent > 0 && !$esPagado) : ?>
+                                        <span class="texto-xs texto-secundario"><br><?= formatoMoneda($pagadoCent / 100) ?> abonado</span>
+                                    <?php endif; ?></td>
                                 <td class="tabla--centro"><?= (int) $g['comprobante_fiscal'] === 1 ? '<span class="badge badge--aprobado">Sí</span>' : '<span class="badge badge--neutro">No</span>' ?>
+                                    <?php if ((int) $g['comprobante_fiscal'] === 1 && $metodoG !== '' && $metodoG !== 'PUE') : ?>
+                                        <span class="badge <?= $conComplemento ? 'badge--aprobado' : 'badge--pendiente' ?>">
+                                            <?= $conComplemento ? 'Complemento' : 'Falta complemento' ?></span>
+                                    <?php elseif ($metodoG === 'PUE') : ?>
+                                        <span class="badge badge--neutro">PUE</span>
+                                    <?php endif; ?>
                                     <br><a class="texto-xs" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>#documentos" aria-label="Ver los documentos del gasto"><?= (int) $g['documentos'] ?> doc.</a></td>
                                 <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>">Abrir</a></td>
                             </tr>
