@@ -93,6 +93,12 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 
+  @include hasta-tablet {
+    /* En tableta el menú es un riel estrecho: el contenido aprovecha el ancho
+       con un respiro menor que en escritorio. */
+    padding: $espacio-md;
+  }
+
   @include hasta-movil {
     /* El espacio para la barra inferior lo aporta el pie (.pie): aquí sólo
        se deja el respiro normal para que el contenido no pegue al borde. */

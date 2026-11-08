@@ -1089,13 +1089,20 @@ body {
 .principal {
   flex: 1;
   width: 100%;
-  max-width: 100rem;
+  max-width: 140rem;
   margin: 0 auto;
   padding: 1.5rem;
   /* Red de seguridad: si algún bloque desborda la línea, la zona de
      contenido se desliza horizontalmente en lugar de cortarse. */
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 1199px) {
+  .principal {
+    /* En tableta el menú es un riel estrecho: el contenido aprovecha el ancho
+       con un respiro menor que en escritorio. */
+    padding: 1rem;
+  }
 }
 @media (max-width: 767px) {
   .principal {
