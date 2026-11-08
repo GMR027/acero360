@@ -318,6 +318,7 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 3. Si no tienes el archivo, marca «No tengo el archivo del CFDI: confirmo que la factura ya se emitió»: queda como confirmación manual, con quién y cuándo.
 4. Pulsa «Facturar y guardar»: la validación, los datos, el documento y la marca de facturada se guardan en un solo paso. Si falta algo obligatorio, no se factura y la pantalla te dice qué corregir.
 5. Si la venta ya estaba facturada a mano y después consigues el XML, entra a la venta y usa «Adjuntar XML y guardar». El comprobante queda vinculado sin volver a emitir nada.
+6. Si la venta ya está facturada con CFDI pero le faltan el folio, la fecha, el método o la forma de pago, en «Documento de la factura» sube el XML: se completan los campos vacíos automáticamente y el UUID y el documento actual no se cambian.
 
 ### Si no se va a facturar
 
@@ -327,7 +328,7 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 ### Corregir una factura ya emitida
 
 - Para **cambiar el comprobante** (otro UUID, otro importe o una sustitución), registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
-- Para **sólo completar datos** de una factura ya registrada (método de pago, CP, régimen, uso…), usa «Corregir datos del CFDI» en la misma sección. No cambia el UUID ni el documento.
+- Para **sólo completar datos** de una factura ya registrada, sube el XML en «Documento de la factura»: se llenan el folio, la fecha, el método, la forma de pago, el uso y los datos fiscales que falten, sin cambiar el UUID ni el documento actual. También puedes corregir los datos a mano con «Corregir datos del CFDI».
 
 ### Pendientes de facturar
 

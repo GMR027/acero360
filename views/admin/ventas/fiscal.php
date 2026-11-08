@@ -57,9 +57,10 @@ $cfdiActual = \App\Contabilidad::cfdiDeIngreso($ingresoId);
 
 /* Una venta ya respaldada con CFDI no se vuelve a capturar aquí: su
  * corrección se hace desde una incidencia de entrega (baja el documento
- * anterior y sube el correcto). La única excepción es «completar», que sólo
- * corrige datos de la ficha y del pago sin tocar el comprobante. */
-if ($yaFacturada && $cfdiActual !== null && $accion !== 'completar') {
+ * anterior y sube el correcto). Las excepciones son «completar» (datos de la
+ * ficha y del pago) y «completar_xml» (sólo llena campos vacíos con el XML,
+ * sin cambiar el UUID ni el documento). */
+if ($yaFacturada && $cfdiActual !== null && !in_array($accion, ['completar', 'completar_xml'], true)) {
     redirigir($destino, 'error', 'Esta venta ya está facturada con CFDI. Para corregirla, usa una incidencia de entrega que marque «Corregir factura».');
 }
 
@@ -117,7 +118,7 @@ if ($accion === 'completar') {
     redirigir($destino, 'exito', 'Datos del CFDI actualizados. El UUID y el documento no cambiaron.');
 }
 
-if ($accion !== 'emitir') {
+if (!in_array($accion, ['emitir', 'completar_xml'], true)) {
     redirigir($destino, 'error', 'Acción de facturación no reconocida.');
 }
 
@@ -162,6 +163,20 @@ $datosXml = $xmlDatos !== null ? \App\VentasFiscal::datosDeCfdi($xmlDatos) : nul
 $avance = \App\VentasFiscal::validar($ventaId);
 if ($avance === null) {
     redirigir('/admin/ventas', 'error', 'La venta ya no existe.');
+}
+
+/* «completar_xml» sólo completa datos de una factura ya registrada. El XML
+ * debe traer timbre (UUID) y ser el mismo comprobante: no sustituye nada. */
+if ($accion === 'completar_xml') {
+    if (!$yaFacturada) {
+        redirigir($destino, 'error', 'Esta venta todavía no está facturada: usa «Facturar y guardar».');
+    }
+    if ($datosXml === null) {
+        redirigir($destino, 'error', 'Selecciona el XML de la factura para completar sus datos.');
+    }
+    if ($datosXml['uuid'] === '') {
+        redirigir($destino, 'error', 'El XML no trae timbre fiscal (UUID): no sirve para respaldar la factura.');
+    }
 }
 
 /* El XML tiene que ser de esta venta: emisor, receptor y total. */
@@ -280,11 +295,22 @@ if ($xmlDatos !== null) {
 }
 
 /* 4. Documentos de la factura: se adjuntan ANTES de decidir, para que un XML
- *    con timbre respalde la factura en este mismo envío. */
+ *    con timbre respalde la factura en este mismo envío. Si el archivo ya está
+ *    adjunto (mismo contenido), no se duplica: se usa para completar datos. */
+$shasAdjuntos = array_map(
+    static fn (array $doc): string => (string) $doc['sha256'],
+    \App\Archivos::deOperacion('ingreso', $ingresoId, false)
+);
 $fallos = [];
 foreach ($subidos as $archivo) {
+    $shaArchivo = is_file((string) ($archivo['tmp_name'] ?? '')) ? (string) hash_file('sha256', $archivo['tmp_name']) : '';
+    if ($shaArchivo !== '' && in_array($shaArchivo, $shasAdjuntos, true)) {
+        continue;   // ya está adjunto: el XML se usa para completar, no se duplica
+    }
     if (!\App\Archivos::subir('ingreso', $ingresoId, $archivo, 'auto', $usuario)) {
         $fallos[] = $archivo['name'] . ': ' . (\App\Archivos::getErrores()[0] ?? 'no se pudo adjuntar');
+    } else {
+        $shasAdjuntos[] = $shaArchivo;
     }
 }
 if ($fallos) {
@@ -313,23 +339,39 @@ if (!$yaFacturada && $cfdi === null && !$confirmaManual && (int) $ingreso['factu
         . 'sin documento no se puede marcar como facturada.');
 }
 
-$folio = trim((string) ($_POST['factura_folio'] ?? ''));
-if ($folio === '' && $datosXml !== null) {
-    $folio = $datosXml['folio'];
+if ($accion === 'completar_xml') {
+    /* Se conserva lo que ya existe; el XML sólo llena los huecos. */
+    $folio = trim((string) ($ingreso['factura_folio'] ?? ''));
+    if ($folio === '') {
+        $folio = $datosXml['folio'] !== '' ? $datosXml['folio'] : 'CFDI';
+    }
+    $uuid = strtoupper(trim((string) ($ingreso['uuid_fiscal'] ?? '')));
+    if ($uuid === '') {
+        $uuid = $datosXml['uuid'];
+    }
+    $fecha = trim((string) ($ingreso['fecha_facturacion'] ?? ''));
+    if ($fecha === '') {
+        $fecha = $datosXml['fecha'] !== '' ? $datosXml['fecha'] : date('Y-m-d');
+    }
+} else {
+    $folio = trim((string) ($_POST['factura_folio'] ?? ''));
+    if ($folio === '' && $datosXml !== null) {
+        $folio = $datosXml['folio'];
+    }
+    $uuid = strtoupper(trim((string) ($_POST['uuid_fiscal'] ?? '')));
+    if ($uuid === '' && $datosXml !== null) {
+        $uuid = $datosXml['uuid'];
+    }
+    if ($cfdi !== null) {
+        $uuid = $uuid !== '' ? $uuid : strtoupper((string) $cfdi['uuid_fiscal']);
+        $folio = $folio !== '' ? $folio : 'CFDI';
+    }
+    $fecha = trim((string) ($_POST['fecha_facturacion'] ?? ''));
+    if ($fecha === '' && $datosXml !== null) {
+        $fecha = $datosXml['fecha'];
+    }
+    $fecha = $fecha !== '' ? $fecha : date('Y-m-d');
 }
-$uuid = strtoupper(trim((string) ($_POST['uuid_fiscal'] ?? '')));
-if ($uuid === '' && $datosXml !== null) {
-    $uuid = $datosXml['uuid'];
-}
-if ($cfdi !== null) {
-    $uuid = $uuid !== '' ? $uuid : strtoupper((string) $cfdi['uuid_fiscal']);
-    $folio = $folio !== '' ? $folio : 'CFDI';
-}
-$fecha = trim((string) ($_POST['fecha_facturacion'] ?? ''));
-if ($fecha === '' && $datosXml !== null) {
-    $fecha = $datosXml['fecha'];
-}
-$fecha = $fecha !== '' ? $fecha : date('Y-m-d');
 
 if ($yaFacturada && $cfdi === null) {
     // Facturada sin XML y sin archivo nuevo: sólo se guardaron datos.
@@ -342,11 +384,13 @@ if (!\App\Contabilidad::actualizarFacturacion($ingresoId, 'facturada', $folio, $
     redirigir($destino, 'error', \App\Contabilidad::getErrores()[0] ?? 'No fue posible registrar la facturación.');
 }
 
-$mensaje = $yaFacturada
-    ? 'XML de la factura vinculado y datos completados.'
-    : ($cfdi !== null
-        ? 'Factura registrada con su CFDI adjunto.'
-        : 'Factura registrada como confirmación manual (sin CFDI adjunto).');
+$mensaje = $accion === 'completar_xml'
+    ? 'Datos completados desde el XML. El UUID y el documento no cambiaron.'
+    : ($yaFacturada
+        ? 'XML de la factura vinculado y datos completados.'
+        : ($cfdi !== null
+            ? 'Factura registrada con su CFDI adjunto.'
+            : 'Factura registrada como confirmación manual (sin CFDI adjunto).'));
 if ($completado['aplicados']) {
     $mensaje .= ' Se completaron del XML: ' . implode(', ', $completado['aplicados']) . '.';
 }

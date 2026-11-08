@@ -310,6 +310,7 @@ function inicializarAplicacion() {
 
   // 15. Vista previa de facturas y comprobantes (PDF, XML e imágenes) en el modal.
   inicializarDocumentoPreview();
+  inicializarFacturaXml();
 
   // 16. Vista previa de los archivos de la herramienta Archivo (PDF e imágenes).
   inicializarArchivoPreview();

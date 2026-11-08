@@ -1920,3 +1920,10 @@ En los gastos, una factura PPD (pago en parcialidades) solo se podía marcar com
 - `pruebas/probar_gastos_pago.mjs` (nueva): abono parcial desde el detalle, complemento desde la bandeja, monto real en la revisión y vista previa del XML. **17/17**.
 - Ajustadas `etapa33`, `etapa32`, `etapa38`, `etapa28`, `etapa44` y `probar_inteligente` a la nueva clasificación de los CFDI tipo P.
 - `etapa2` a `etapa50`, `probar_operacion` (46/46), `probar_facturacion` (28/28), `probar_compras` (65/65) y `probar_proveedor_gasto` (28/28) en verde.
+
+### Ajuste — «Documento de la factura» en ventas
+
+- La subida del XML ahora es la **primera sección** de «Facturación y cobro», antes de los datos fiscales y del pago. Al elegir el archivo, el navegador lee el CFDI y llena los campos vacíos (folio, UUID, fecha, método y forma de pago, uso, tipo y datos del receptor) y muestra un resumen de lo leído y de las diferencias.
+- Una venta **ya facturada con CFDI** también muestra «Documento de la factura» con la opción de subir el XML. Se completan los huecos sin cambiar el UUID ni el documento actual; si el XML es de otro UUID, se rechaza y se remite a la incidencia de entrega.
+- El formulario se reorganizó en tres pasos: **1. Documento**, **2. Datos de la factura** (folio, UUID, fecha, pago, uso y tipo) y **3. Datos fiscales del receptor**.
+- Nuevo `src/js/modulos/facturaXml.js`; `probar_facturacion.mjs` verifica el llenado previo a guardar y la corrección de una factura con CFDI → **36/36**.

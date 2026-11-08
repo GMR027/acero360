@@ -126,9 +126,21 @@ try {
   verifica('el formulario de facturación está visible', await pagina.locator('#form-facturacion').count() === 1);
   verifica('el método de pago empieza vacío', (await pagina.locator('#f-metodo').inputValue()) === '');
   verifica('el RFC del cliente está vacío o es el de la ficha', (await pagina.locator('#f-rfc').inputValue()) === 'AAA490101AAA');
+  verifica('la pantalla empieza por el documento de la factura',
+    (await pagina.locator('#form-facturacion .titulo-6').first().innerText()).includes('Documento de la factura')
+    && (await pagina.locator('#doc-archivo').isVisible()));
 
   console.log('2. Subir el XML sin elegir método');
   await pagina.setInputFiles('#doc-archivo', rutaXml);
+  await pagina.waitForFunction(() => {
+    const folio = document.getElementById('factura_folio');
+    const uuid = document.getElementById('uuid_fiscal');
+    const metodo = document.getElementById('f-metodo');
+    return folio && folio.value !== '' && uuid && uuid.value !== '' && metodo && metodo.value !== '';
+  }, { timeout: 5000 });
+  const xmlLeido = await pagina.locator('#xml-leido').innerText();
+  verifica('el XML llena folio, UUID, fecha y pago antes de guardar',
+    xmlLeido.includes('Folio') && xmlLeido.includes('UUID') && xmlLeido.includes('Método de pago'), xmlLeido.slice(0, 300));
   await Promise.all([
     pagina.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }),
     pagina.locator('#form-facturacion button[type=submit]').click(),
@@ -287,7 +299,67 @@ try {
   sql(`DELETE FROM lecturas_documentales WHERE id=${lecturaId}`);
   try { unlinkSync(rutaSmart); } catch { /* ya no está */ }
 
-  console.log('8. Consola');
+  console.log('8. Facturada con CFDI: el XML completa folio, fecha y pago');
+  const uuidCompletar = 'FA490000-0000-4000-8000-000000000052';
+  const rutaCompletar = join(carpeta, 'factura-completar.xml');
+  const xmlCompletar = `<?xml version="1.0" encoding="UTF-8"?>
+<Comprobante Version="4.0" Fecha="2026-11-08T10:30:00" TipoDeComprobante="I"
+  SubTotal="200.00" Total="${total}" Moneda="MXN" MetodoPago="PPD" FormaPago="03"
+  Serie="F49" Folio="3" LugarExpedicion="06000" Exportacion="01">
+  <Emisor Rfc="${rfcEmpresa}" Nombre="${nombreEmpresa}" RegimenFiscal="612"/>
+  <Receptor Rfc="AAA490101AAA" Nombre="T49 Receptor facturación"
+    DomicilioFiscalReceptor="06600" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
+  <Conceptos>
+    <Concepto ClaveProdServ="01010101" Cantidad="2" ClaveUnidad="H87"
+      ValorUnitario="100.00" Importe="200.00" Descripcion="Prueba de facturación"/>
+  </Conceptos>
+  <Impuestos TotalImpuestosTrasladados="32.00">
+    <Traslados><Traslado Impuesto="002" Base="200.00" TasaOCuota="0.160000" Importe="32.00"/></Traslados>
+  </Impuestos>
+  <Complemento>
+    <TimbreFiscalDigital Version="1.1" UUID="${uuidCompletar}" FechaTimbrado="2026-11-08T10:31:00"/>
+  </Complemento>
+</Comprobante>`;
+  writeFileSync(rutaCompletar, xmlCompletar);
+  const ventaCompletar = Number(php(`require 'includes/app.php';
+    App\\Ventas::crear(['empresa_id'=>1,'cliente_id'=>${cliente},'fecha'=>date('Y-m-d'),'aplica_iva'=>1,'descuento_pct'=>0,'condiciones_compra'=>''],[37=>['cantidad'=>2,'precio'=>100,'descuento_pct'=>0,'no_recordar'=>1]],${usuario});
+    $v=App\\Ventas::$ultimoId; $i=App\\Contabilidad::ingresoDeVenta($v);
+    App\\Archivos::subir('ingreso', $i['id'], ['name'=>'factura-completar.xml','tmp_name'=>${JSON.stringify(rutaCompletar)},'size'=>${readFileSync(rutaCompletar).length},'error'=>0], 'auto', ${usuario}, null, '', false);
+    App\\Contabilidad::actualizarFacturacion($i['id'], 'facturada', '', '${uuidCompletar}', '', ${usuario}, false);
+    echo $v;`));
+  verifica('se creó la venta facturada con CFDI y sin folio ni fecha', ventaCompletar > 0, String(ventaCompletar));
+  await pagina.goto(`${BASE}/admin/ventas/detalle?id=${ventaCompletar}`, { waitUntil: 'domcontentloaded' });
+  verifica('la venta facturada con CFDI ofrece el documento de la factura para subir el XML',
+    (await pagina.locator('#doc-completar').count()) === 1
+    && (await pagina.locator('#doc-completar').isVisible()));
+  await pagina.setInputFiles('#doc-completar', rutaCompletar);
+  await pagina.waitForSelector('#xml-leido-completar:not([hidden])', { timeout: 5000 });
+  const resumenCompletar = await pagina.locator('#xml-leido-completar').innerText();
+  verifica('el resumen del XML muestra folio, UUID y pago', resumenCompletar.includes('Folio') && resumenCompletar.includes('UUID') && resumenCompletar.includes('Método de pago'), resumenCompletar.slice(0, 300));
+  await Promise.all([
+    pagina.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }),
+    pagina.locator('#doc-completar').locator('xpath=ancestor::form').locator('button[type=submit]').click(),
+  ]);
+  const avisoCompletar = (await pagina.locator('.alerta, .nota--exito').allTextContents()).join(' | ');
+  verifica('el XML completa los datos sin cambiar el UUID', /Datos completados desde el XML/.test(avisoCompletar), avisoCompletar);
+  const ingCompletar = sql(`SELECT factura_folio, fecha_facturacion, metodo_pago, forma_pago, uso_cfdi, uuid_fiscal, factura_documento_id
+                              FROM ingresos WHERE venta_id=${ventaCompletar}`);
+  const [folioC, fechaC, metodoC, formaC, soloC, uuidC, docC] = ingCompletar.split('\t');
+  verifica('el folio, la fecha y el pago se llenan del XML', folioC === 'F493' && fechaC === '2026-11-08' && metodoC === 'PPD' && formaC === '03' && soloC === 'G03', ingCompletar);
+  verifica('el UUID y el documento existente no cambian', uuidC === uuidCompletar && Number(docC) > 0, ingCompletar);
+
+  const docsCompletar = sql(`SELECT archivo FROM documentos WHERE entidad='ingreso' AND entidad_id IN (SELECT id FROM ingresos WHERE venta_id=${ventaCompletar})`);
+  sql(`DELETE FROM documentos WHERE entidad='ingreso' AND entidad_id IN (SELECT id FROM ingresos WHERE venta_id=${ventaCompletar})`);
+  sql(`DELETE FROM ingresos WHERE venta_id=${ventaCompletar}`);
+  sql(`DELETE FROM venta_detalles WHERE venta_id=${ventaCompletar}`);
+  sql(`DELETE FROM movimientos_inventario WHERE venta_id=${ventaCompletar}`);
+  sql(`DELETE FROM ventas WHERE id=${ventaCompletar}`);
+  docsCompletar.split('\n').filter(Boolean).forEach((archivo) => {
+    try { unlinkSync(join(process.cwd(), 'storage/documentos', archivo)); } catch { /* ya no está */ }
+  });
+  try { unlinkSync(rutaCompletar); } catch { /* ya no está */ }
+
+  console.log('9. Consola');
   verifica('sin errores de JavaScript', errores.length === 0, errores.join(' | '));
 } catch (e) {
   mal += 1;
