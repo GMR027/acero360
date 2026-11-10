@@ -1927,3 +1927,38 @@ En los gastos, una factura PPD (pago en parcialidades) solo se podía marcar com
 - Una venta **ya facturada con CFDI** también muestra «Documento de la factura» con la opción de subir el XML. Se completan los huecos sin cambiar el UUID ni el documento actual; si el XML es de otro UUID, se rechaza y se remite a la incidencia de entrega.
 - El formulario se reorganizó en tres pasos: **1. Documento**, **2. Datos de la factura** (folio, UUID, fecha, pago, uso y tipo) y **3. Datos fiscales del receptor**.
 - Nuevo `src/js/modulos/facturaXml.js`; `probar_facturacion.mjs` verifica el llenado previo a guardar y la corrección de una factura con CFDI → **36/36**.
+
+---
+
+## Ronda — Fotos con fecha/ubicación, mapa con ubicación manual y acta PDF (2026-11-09)
+
+### Fotos del acta: fecha y ubicación visibles
+
+- **`src/js/modulos/fotosEntrega.js`:** el lector EXIF también toma `DateTime` de IFD0 (`0x0132`) cuando la cámara no escribe `DateTimeOriginal`/`DateTimeDigitized`. La fecha sólo se muestra si existe; si no, la galería usa la **fecha de registro de la entrega** y lo dice con esas palabras, sin inventar una fecha de toma.
+- **Nuevo `src/js/modulos/ubicacionActual.js`:** botón «Usar mi ubicación actual» en el formulario de entrega, en el detalle de la venta y en cada entrega del seguimiento. Escribe las coordenadas en el campo y explica el resultado o el motivo del rechazo; nunca envía el formulario solo. La cabecera `Permissions-Policy` ahora permite `geolocation=(self)` (antes la bloqueaba para todo el sitio).
+- **Nueva plantilla `templates/galeriaFotosEntrega.php`:** compartida por el detalle de la venta y el seguimiento. Cada foto muestra su fecha, de dónde salió la ubicación (GPS, ubicación manual de la entrega o dirección del cliente) y sus propios botones de Google/Apple Maps. Se conserva el par de botones de la entrega completa.
+- **`clases/FotosEntrega.php`:** `descripcionUbicacion()` y `coordenadasDeUbicacion()`; la marca de agua usa las coordenadas guardadas de la entrega cuando la foto no trae GPS. La resolución de enlaces cortos de Google se hace con lista blanca de hosts, sólo HTTPS, timeout de 3 s y máximo 4 saltos.
+
+### Mapa de ventas con ubicación manual
+
+- **Migración `049_entrega_ubicacion_coordenadas.sql`:** `entregas.ubicacion_lat` y `entregas.ubicacion_lon`, con su reversión. Se llenan al guardar la ubicación manual (coordenadas o enlace de Google).
+- **`clases/Estadisticas.php`:** el mapa usa el GPS de las fotos y, si no hay, las coordenadas de la entrega. El GPS de la foto conserva la prioridad; cada venta entra una sola vez y las ventas sin ubicación se calculan como total registrado menos ventas ubicadas.
+- **Estadísticas:** el texto del mapa ahora explica las dos fuentes de ubicación.
+
+### Alertas de entregas parciales
+
+- **`clases/Entregas.php`:** `ventasPendientes()` informa `incidencias_abiertas` y `senalEntrega()` distingue tres situaciones: «Sin entregar» (neutro), «Entrega parcial» (ámbar) y «Entrega parcial · N incidencias abiertas» (rojo). `ESTADOS_ENTREGA` no cambia.
+- **Pantallas de pendientes:** las tablas de Preparación y Entregas por cliente muestran el distintivo junto al folio.
+
+### Acta de entrega en PDF
+
+- **`clases/Documentos.php`:** `htmlActaEntrega()`, `pdfActaEntrega()` y `descargarActaEntrega($ventaId, $entregaId = 0)`. Con `entrega=0` exporta todas las entregas de la venta; con `entrega=<id>`, sólo esa.
+- **`templates/pdfActaEntrega.php`:** fecha, negocio emisor, datos del cliente, productos y cantidades entregadas, estado y detalle de incidencias, comentarios, fotos incrustadas en base64 con su fecha/ubicación y línea de firma. dompdf sigue sin acceso a Internet.
+- **Rutas y botones:** `/admin/entregas-seguimiento/acta` con «Acta de entrega (PDF)» en el seguimiento y «Acta de esta entrega (PDF)» en cada entrega.
+
+### Pruebas
+
+- `pruebas/php/mapa_ventas.php` y `probar_mapa_ventas.mjs`: cinco lugares, nueve ventas ubicadas, una sin ubicación, prioridad del GPS y ubicación manual → **TODO OK / 10/10**.
+- `pruebas/php/etapa48.php`: coordenadas normalizadas, prioridad GPS/manual/dirección y descripción de la galería → **TODO OK**.
+- `pruebas/php/etapa43.php`: señal visual de pendientes y composición del acta PDF → **TODO OK**.
+- `pruebas/probar_operacion.mjs`: fechas EXIF (incluido IFD0), botón de geolocalización, galería con mapas, exportación del acta completa y por entrega → **52/52**.

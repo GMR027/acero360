@@ -458,6 +458,98 @@ class Documentos
     }
 
     /* --------------------------------------------------------------------
+     * ACTA DE ENTREGA (seguimiento de una venta)
+     * ------------------------------------------------------------------ */
+
+    /**
+     * HTML del acta: datos del negocio emisor y del cliente, cada entrega con
+     * sus productos, incidencias, comentarios, fotos y ubicación.
+     *
+     * @param Ventas              $venta       Venta de la que se emite el acta.
+     * @param array<int, array>   $entregas    Entregas::entregasDeVenta().
+     * @param array<int, array>   $incidencias IncidenciasEntrega::deVenta().
+     */
+    public static function htmlActaEntrega(Ventas $venta, array $entregas, array $incidencias): string
+    {
+        ob_start();
+
+        \template('pdfActaEntrega', [
+            'venta'       => $venta,
+            'entregas'    => $entregas,
+            'incidencias' => $incidencias,
+            'fecha'       => date('d/m/Y H:i'),
+        ]);
+
+        $html = ob_get_clean();
+
+        return is_string($html) ? $html : '';
+    }
+
+    /** PDF del acta de entrega como cadena de bytes. */
+    public static function pdfActaEntrega(Ventas $venta, array $entregas, array $incidencias): ?string
+    {
+        $html = self::htmlActaEntrega($venta, $entregas, $incidencias);
+
+        if ($html === '') {
+            self::$errores[] = 'No se pudo componer el acta de entrega.';
+            return null;
+        }
+
+        return self::componer($html, 'el acta de entrega');
+    }
+
+    /**
+     * Envía el acta al navegador como descarga.
+     *
+     * @param int $ventaId   Venta de la que se emite el acta.
+     * @param int $entregaId 0 = todas las entregas de la venta; > 0 = sólo esa.
+     */
+    public static function descargarActaEntrega(int $ventaId, int $entregaId = 0): void
+    {
+        $venta = Ventas::buscarID($ventaId);
+        if (!$venta) {
+            \paginaNoEncontrada();
+        }
+
+        $destino = '/admin/entregas-seguimiento/venta?id=' . $ventaId;
+        $entregas = Entregas::entregasDeVenta($ventaId);
+
+        if (!$entregas) {
+            \redirigir($destino, 'error', 'Esta venta todavía no tiene entregas registradas para el acta.');
+        }
+
+        if ($entregaId > 0) {
+            $entregas = array_values(array_filter(
+                $entregas,
+                static fn (array $entrega): bool => (int) $entrega['id'] === $entregaId
+            ));
+            if (!$entregas) {
+                \redirigir($destino, 'error', 'La entrega indicada no pertenece a esta venta.');
+            }
+        }
+
+        $incidencias = IncidenciasEntrega::deVenta($ventaId);
+        if ($entregaId > 0) {
+            $incidencias = array_values(array_filter(
+                $incidencias,
+                static fn (array $incidencia): bool => (int) ($incidencia['entrega_id'] ?? 0) === $entregaId
+            ));
+        }
+
+        $bytes = self::pdfActaEntrega($venta, $entregas, $incidencias);
+        if ($bytes === null) {
+            \redirigir($destino, 'error', self::$errores[0] ?? 'No fue posible generar el acta de entrega.');
+        }
+
+        $nombre = 'acta-entrega-' . $venta->folio;
+        if ($entregaId > 0) {
+            $nombre .= '-entrega-' . $entregaId;
+        }
+
+        self::enviar($bytes, $nombre);
+    }
+
+    /* --------------------------------------------------------------------
      * ÓRDENES DE COMPRA
      * ------------------------------------------------------------------ */
 

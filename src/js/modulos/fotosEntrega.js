@@ -179,10 +179,15 @@
     const ifd0 = leerIfd(ifd0Pos);
     let exifPos = 0;
     let gpsPos = 0;
+    let fechaIfd0 = null;
 
     ifd0.forEach(function (entrada) {
       if (entrada.tag === 0x0112) {
         vacio.orientacion = leerShort(entrada) || 1;
+      } else if (entrada.tag === 0x0132) {
+        // DateTime de IFD0: respaldo cuando la cámara no escribe
+        // DateTimeOriginal/DateTimeDigitized en el sub-IFD Exif.
+        fechaIfd0 = normalizarFechaExif(leerAscii(entrada));
       } else if (entrada.tag === 0x8769) {
         exifPos = base + leerLong(entrada);
       } else if (entrada.tag === 0x8825) {
@@ -192,7 +197,7 @@
 
     if (exifPos) {
       const exif = leerIfd(exifPos);
-      const fechas = [0x9003, 0x9004, 0x0132];
+      const fechas = [0x9003, 0x9004];
       for (let i = 0; i < fechas.length; i++) {
         const entrada = exif.find(function (e) { return e.tag === fechas[i]; });
         if (entrada) {
@@ -203,6 +208,10 @@
           }
         }
       }
+    }
+
+    if (!vacio.tomada_en && fechaIfd0) {
+      vacio.tomada_en = fechaIfd0;
     }
 
     if (gpsPos) {

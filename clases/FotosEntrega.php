@@ -67,18 +67,26 @@ class FotosEntrega
      * @param array  $foto      Fila de entrega_fotos (latitud, longitud).
      * @param string $direccion Dirección registrada del cliente.
      * @param string $manual    Ubicación manual de la entrega.
+     * @param float|null $manualLat Latitud ya normalizada de la ubicación manual.
+     * @param float|null $manualLon Longitud ya normalizada de la ubicación manual.
      * @return array{google?: string, apple?: string}
      */
-    public static function urlsMapa(array $foto, string $direccion = '', string $manual = ''): array
-    {
+    public static function urlsMapa(
+        array $foto,
+        string $direccion = '',
+        string $manual = '',
+        ?float $manualLat = null,
+        ?float $manualLon = null
+    ): array {
         $lat = $foto['latitud']  ?? null;
         $lon = $foto['longitud'] ?? null;
 
         if ($lat !== null && $lon !== null) {
-            return self::enlacesDeConsulta(
-                number_format((float) $lat, 7, '.', '')
-                . ',' . number_format((float) $lon, 7, '.', '')
-            );
+            return self::enlacesDeConsulta(self::consultaCoordenadas((float) $lat, (float) $lon));
+        }
+
+        if ($manualLat !== null && $manualLon !== null) {
+            return self::enlacesDeConsulta(self::consultaCoordenadas($manualLat, $manualLon));
         }
 
         $manual = trim($manual);
@@ -109,6 +117,189 @@ class FotosEntrega
             'google' => 'https://www.google.com/maps/search/?api=1&query=' . $codificada,
             'apple'  => 'https://maps.apple.com/?q=' . $codificada,
         ];
+    }
+
+    /** Coordenadas en el formato que entienden los enlaces de mapas. */
+    private static function consultaCoordenadas(float $lat, float $lon): string
+    {
+        return number_format($lat, 7, '.', '') . ',' . number_format($lon, 7, '.', '');
+    }
+
+    /**
+     * Texto y enlaces para mostrar la ubicación de una foto.
+     *
+     * Se usa en la galería del acta: cada foto debe decir de dónde salió su
+     * ubicación (GPS, ubicación manual de la entrega o dirección del cliente)
+     * y ofrecer sus propios botones de mapas.
+     *
+     * @return array{texto: string, fuente: string, google?: string, apple?: string}
+     */
+    public static function descripcionUbicacion(
+        array $foto,
+        string $direccion = '',
+        string $manual = '',
+        ?float $manualLat = null,
+        ?float $manualLon = null
+    ): array {
+        $enlaces = self::urlsMapa($foto, $direccion, $manual, $manualLat, $manualLon);
+        $lat = $foto['latitud']  ?? null;
+        $lon = $foto['longitud'] ?? null;
+
+        if ($lat !== null && $lon !== null) {
+            $texto = 'GPS de la foto: ' . number_format((float) $lat, 6, '.', '')
+                . ', ' . number_format((float) $lon, 6, '.', '');
+            $fuente = 'foto';
+        } elseif ($manualLat !== null && $manualLon !== null) {
+            $texto = 'Ubicación de la entrega: ' . number_format($manualLat, 6, '.', '')
+                . ', ' . number_format($manualLon, 6, '.', '');
+            $fuente = 'entrega';
+        } else {
+            $manual = trim($manual);
+            if ($manual !== '') {
+                $coordenadas = self::coordenadasDeEnlace($manual);
+                $texto = 'Ubicación de la entrega: '
+                    . ($coordenadas !== null ? str_replace(',', ', ', $coordenadas) : $manual);
+                $fuente = 'entrega';
+            } else {
+                $direccion = trim((string) preg_replace('/\s+/', ' ', $direccion));
+                if ($direccion !== '') {
+                    $texto = 'Dirección del cliente: ' . $direccion;
+                    $fuente = 'cliente';
+                } else {
+                    $texto = 'Sin ubicación registrada.';
+                    $fuente = 'ninguna';
+                }
+            }
+        }
+
+        return ['texto' => $texto, 'fuente' => $fuente] + $enlaces;
+    }
+
+    /**
+     * Coordenadas normalizadas de una ubicación manual.
+     *
+     * Acepta coordenadas escritas a mano y enlaces de Google Maps que las
+     * contengan. Si es un enlace corto y $resolverEnlaces es true, resuelve la
+     * redirección en el servidor (sólo hosts de Google) antes de leerlas.
+     *
+     * @return array{lat: float, lon: float}|null
+     */
+    public static function coordenadasDeUbicacion(string $valor, bool $resolverEnlaces = true): ?array
+    {
+        static $cache = [];
+
+        $valor = trim($valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $clave = ($resolverEnlaces ? '1|' : '0|') . $valor;
+        if (array_key_exists($clave, $cache)) {
+            return $cache[$clave];
+        }
+
+        $coordenadas = self::coordenadasDeEnlace($valor);
+        if ($coordenadas === null && $resolverEnlaces && self::esEnlaceCorto($valor)) {
+            $final = self::resolverEnlaceCorto($valor);
+            if ($final !== null) {
+                $coordenadas = self::coordenadasDeEnlace($final);
+            }
+        }
+
+        $resultado = null;
+        if ($coordenadas !== null) {
+            [$lat, $lon] = array_pad(explode(',', $coordenadas, 2), 2, '');
+            $lat = (float) $lat;
+            $lon = (float) $lon;
+            if (abs($lat) <= 90 && abs($lon) <= 180) {
+                $resultado = ['lat' => round($lat, 7), 'lon' => round($lon, 7)];
+            }
+        }
+
+        $cache[$clave] = $resultado;
+        return $resultado;
+    }
+
+    /** ¿Es un enlace corto de Google Maps? */
+    private static function esEnlaceCorto(string $valor): bool
+    {
+        if (!self::esEnlace($valor)) {
+            return false;
+        }
+
+        $host = strtolower((string) parse_url($valor, PHP_URL_HOST));
+
+        return $host === 'maps.app.goo.gl'
+            || $host === 'goo.gl'
+            || $host === 'g.co'
+            || str_ends_with($host, '.goo.gl')
+            || str_ends_with($host, '.g.co');
+    }
+
+    /**
+     * Sigue las redirecciones de un enlace corto de Google Maps.
+     *
+     * Se hace a mano (sin FOLLOWLOCATION) para validar cada salto y no abrir
+     * la puerta a peticiones a hosts internos. Devuelve la URL final o null.
+     */
+    private static function resolverEnlaceCorto(string $url): ?string
+    {
+        if (!function_exists('curl_init')) {
+            return null;
+        }
+
+        $actual = $url;
+        for ($salto = 0; $salto < 4; $salto++) {
+            $conexion = curl_init($actual);
+            if ($conexion === false) {
+                return null;
+            }
+
+            curl_setopt_array($conexion, [
+                CURLOPT_NOBODY         => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_TIMEOUT        => 3,
+                CURLOPT_CONNECTTIMEOUT => 2,
+                CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
+                CURLOPT_USERAGENT      => 'cotizaciones/1.0',
+            ]);
+            curl_exec($conexion);
+            $destino = (string) curl_getinfo($conexion, CURLINFO_REDIRECT_URL);
+            curl_close($conexion);
+
+            if ($destino === '' || !self::esEnlace($destino)) {
+                break;
+            }
+            if (parse_url($destino, PHP_URL_SCHEME) !== 'https') {
+                return null;
+            }
+
+            $host = strtolower((string) parse_url($destino, PHP_URL_HOST));
+            if (!self::hostPermitido($host)) {
+                return null;
+            }
+
+            $actual = $destino;
+        }
+
+        return $actual !== $url ? $actual : null;
+    }
+
+    /** Hosts de Google Maps a los que se permite seguir una redirección. */
+    private static function hostPermitido(string $host): bool
+    {
+        if ($host === '') {
+            return false;
+        }
+        if ($host === 'maps.app.goo.gl' || $host === 'goo.gl' || $host === 'g.co') {
+            return true;
+        }
+        if (str_ends_with($host, '.goo.gl') || str_ends_with($host, '.g.co')) {
+            return true;
+        }
+
+        return preg_match('/(^|\.)google\.[a-z]{2,4}(?:\.[a-z]{2})?$/', $host) === 1;
     }
 
     /**
@@ -481,6 +672,13 @@ class FotosEntrega
         $manual    = trim((string) ($foto['entrega_ubicacion'] ?? ''));
         $coordenadas = self::coordenadas($foto);
         $desdeGps = $coordenadas !== '';
+
+        if ($coordenadas === '' && ($foto['entrega_lat'] ?? null) !== null && ($foto['entrega_lon'] ?? null) !== null) {
+            $coordenadas = self::consultaCoordenadas(
+                (float) $foto['entrega_lat'],
+                (float) $foto['entrega_lon']
+            );
+        }
 
         if ($coordenadas === '' && $manual !== '') {
             $coordenadas = (string) self::coordenadasDeEnlace($manual);

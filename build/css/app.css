@@ -5027,6 +5027,23 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   outline: 2px solid var(--color-primario);
   outline-offset: 2px;
 }
+.seguimiento-fotos {
+  /* Cada foto con su fecha, su ubicación y sus botones de mapas. */
+}
+.seguimiento-fotos__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.seguimiento-fotos__meta {
+  line-height: 1.35;
+}
+.seguimiento-fotos__mapas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: auto;
+}
 .seguimiento-fotos__imagen {
   display: block;
   width: 100%;

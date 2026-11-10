@@ -68,6 +68,34 @@ function jpegConExif(jpeg) {
   return Buffer.concat([jpeg.subarray(0, 2), app1, jpeg.subarray(2)]);
 }
 
+/**
+ * JPEG con EXIF que sólo trae DateTime en IFD0 (sin sub-IFD Exif). Es el
+ * respaldo que usan algunas cámaras y el que antes no se leía.
+ */
+function jpegConExifIfd0(jpeg) {
+  const u32 = (n) => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0, 0); return b; };
+  const tiff = Buffer.alloc(46);
+  tiff.write('II', 0, 'ascii');
+  tiff.writeUInt16LE(42, 2);
+  tiff.writeUInt32LE(8, 4);
+  tiff.writeUInt16LE(1, 8);
+  tiff.writeUInt16LE(0x0132, 10);
+  tiff.writeUInt16LE(2, 12);
+  tiff.writeUInt32LE(20, 14);
+  tiff.writeUInt32LE(26, 18);
+  tiff.writeUInt32LE(0, 22);
+  Buffer.from('2026:11:07 10:30:00\0', 'ascii').copy(tiff, 26);
+
+  const payload = Buffer.concat([Buffer.from([0x45, 0x78, 0x69, 0x66, 0, 0]), tiff]);
+  const app1 = Buffer.alloc(4 + payload.length);
+  app1[0] = 0xFF;
+  app1[1] = 0xE1;
+  app1.writeUInt16BE(payload.length + 2, 2);
+  payload.copy(app1, 4);
+
+  return Buffer.concat([jpeg.subarray(0, 2), app1, jpeg.subarray(2)]);
+}
+
 const limpiar = () => {
   const u = sql(`SELECT IFNULL(MAX(id),0) FROM usuarios WHERE email='${EMAIL}'`);
   sql(`DELETE FROM venta_devoluciones WHERE venta_id IN (SELECT id FROM ventas WHERE usuario_id=${u})`);
@@ -113,7 +141,10 @@ const s0 = stock();
 const navegador = await chromium.launch();
 const errores = [];
 try {
-  const pagina = await (await navegador.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  const contexto = await navegador.newContext({ viewport: { width: 1280, height: 900 } });
+  await contexto.grantPermissions(['geolocation']);
+  await contexto.setGeolocation({ latitude: 24.1426667, longitude: -110.31275 });
+  const pagina = await contexto.newPage();
   pagina.on('pageerror', (e) => errores.push(String(e)));
   pagina.on('console', (m) => { if (m.type() === 'error') errores.push(m.text()); });
 
@@ -233,6 +264,14 @@ try {
   // Ubicación manual: se guarda en la entrega y se usa cuando no hay GPS.
   const formUbicacion = pagina.locator('.formulario--ubicacion-entrega').first();
   verifica('la sección de fotos trae el campo de ubicación manual', await formUbicacion.count() === 1);
+  await formUbicacion.locator('[data-usar-ubicacion]').click();
+  await pagina.waitForFunction(() => {
+    const campo = document.querySelector('.formulario--ubicacion-entrega input[name="ubicacion"]');
+    return campo && campo.value === '24.1426667, -110.3127500';
+  }, null, { timeout: 5000 }).catch(() => {});
+  verifica('«Usar mi ubicación actual» escribe las coordenadas',
+    await formUbicacion.locator('input[name="ubicacion"]').inputValue() === '24.1426667, -110.3127500',
+    await formUbicacion.locator('input[name="ubicacion"]').inputValue());
   await formUbicacion.locator('input[name="ubicacion"]').fill('24.1426667, -110.3127500');
   await Promise.all([
     pagina.waitForNavigation({ waitUntil: 'domcontentloaded' }),
@@ -315,6 +354,26 @@ try {
   verifica('se guarda la ubicación sin subir fotos nuevas',
     ubicacionDetalle === 'https://maps.app.goo.gl/detalle-sin-fotos', ubicacionDetalle);
 
+  console.log('6b. Acta de entrega en PDF');
+  await pagina.goto(`${BASE}/admin/entregas-seguimiento/venta?id=${venta}`, { waitUntil: 'domcontentloaded' });
+  const actaHref = await pagina.locator('a', { hasText: 'Acta de entrega (PDF)' }).first().getAttribute('href');
+  verifica('el seguimiento ofrece el acta de todas las entregas',
+    actaHref === `/admin/entregas-seguimiento/acta?id=${venta}`, String(actaHref));
+  const entregaId = sql(`SELECT id FROM entregas WHERE venta_id=${venta} ORDER BY id LIMIT 1`);
+  const actaUna = await pagina.locator('a', { hasText: 'Acta de esta entrega (PDF)' }).first().getAttribute('href');
+  verifica('cada entrega ofrece su propio acta',
+    actaUna === `/admin/entregas-seguimiento/acta?id=${venta}&entrega=${entregaId}`, String(actaUna));
+
+  for (const [nombre, href] of [['todas', actaHref], ['una', actaUna]]) {
+    const respuesta = await pagina.request.get(new URL(href, BASE).href);
+    const cuerpo = Buffer.from(await respuesta.body());
+    verifica(`el acta (${nombre}) descarga un PDF`,
+      respuesta.ok()
+      && (respuesta.headers()['content-type'] || '').startsWith('application/pdf')
+      && cuerpo.subarray(0, 4).toString() === '%PDF',
+      `${respuesta.status()} ${respuesta.headers()['content-type'] || ''}`);
+  }
+
   console.log('7. Compresión y metadatos en el navegador');
   const jpegBase = readFileSync(`${RAIZ}public/image/producto-bb1.jpg`);
   const jpegExif = jpegConExif(jpegBase);
@@ -342,6 +401,16 @@ try {
     && Math.abs(comprimida.meta.latitud - 24.1426667) < 0.0000001
     && Math.abs(comprimida.meta.longitud + 110.31275) < 0.0000001,
     JSON.stringify(comprimida.meta));
+
+  const ifd0 = jpegConExifIfd0(jpegBase);
+  const fechaIfd0 = await pagina.evaluate(async (base64) => {
+    const bin = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const archivo = new File([bin], 'acta-ifd0.jpg', { type: 'image/jpeg' });
+    const resultado = await leerExifFoto(archivo);
+    return resultado.tomada_en;
+  }, ifd0.toString('base64'));
+  verifica('lee la fecha de IFD0 cuando no hay sub-IFD Exif',
+    fechaIfd0 === '2026-11-07 10:30:00', String(fechaIfd0));
 
   console.log('8. Consola');
   verifica('sin errores de JavaScript', errores.length === 0, errores.join(' | '));

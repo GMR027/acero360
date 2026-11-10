@@ -79,6 +79,7 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                                 'pendiente' => (int) $l['pendiente'],
                             ], array_values($lineas[(int) $v['id']] ?? []));
                             $pendiente = (int) $v['piezas'] - (int) $v['entregadas'];
+                            $senal = \App\Entregas::senalEntrega($v);
                             ?>
                             <tr>
                                 <td class="tabla--centro">
@@ -88,7 +89,8 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                                            data-lineas="<?= escaparValores(json_encode($grupo, JSON_UNESCAPED_UNICODE)) ?>">
                                 </td>
                                 <td>
-                                    <a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a>
+                                    <a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a><br>
+                                    <span class="badge <?= escaparValores($senal['clase']) ?>"><?= escaparValores($senal['etiqueta']) ?></span>
                                     <span class="texto-xs texto-secundario movil-oculto"><br><?= $v['cotizacion_id'] ? 'Desde cotización' : 'Venta directa' ?> · <?= date('d/m/Y', strtotime($v['fecha'])) ?></span>
                                 </td>
                                 <td><?= escaparValores($v['cliente_empresa'] ?: $v['cliente_nombre']) ?>

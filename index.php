@@ -347,6 +347,7 @@ $router->get('/admin/entregas/imprimir', 'views/admin/entregas/imprimir.php', 's
 $router->get('/admin/entregas-seguimiento',           'views/admin/entregas-seguimiento/index.php',     'soloAdmin');
 $router->get('/admin/entregas-seguimiento/venta',     'views/admin/entregas-seguimiento/venta.php',     'soloAdmin');
 $router->post('/admin/entregas-seguimiento/venta',    'views/admin/entregas-seguimiento/venta.php',     'soloAdmin');
+$router->get('/admin/entregas-seguimiento/acta',      'views/admin/entregas-seguimiento/acta.php',      'soloAdmin');
 $router->get('/admin/entregas-seguimiento/incidencia','views/admin/entregas-seguimiento/incidencia.php','soloAdmin');
 $router->post('/admin/entregas-seguimiento/incidencia','views/admin/entregas-seguimiento/incidencia.php','soloAdmin');
 $router->post('/admin/entregas-seguimiento/cerrar',   'views/admin/entregas-seguimiento/cerrar.php',    'soloAdmin');

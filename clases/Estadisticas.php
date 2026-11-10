@@ -772,7 +772,13 @@ class Estadisticas
      */
     public static function mapaVentas(int $empresa = 0, int $cliente = 0): array
     {
-        $donde = ["v.estado = 'registrada'", 'f.latitud IS NOT NULL', 'f.longitud IS NOT NULL'];
+        // Una venta puede ubicarse de dos formas: por el GPS de sus fotos de
+        // entrega o por la ubicación manual capturada al registrar la entrega.
+        $donde = [
+            "v.estado = 'registrada'",
+            '((f.latitud IS NOT NULL AND f.longitud IS NOT NULL)
+              OR (en.ubicacion_lat IS NOT NULL AND en.ubicacion_lon IS NOT NULL))',
+        ];
         $tipos = '';
         $valores = [];
         if ($empresa > 0) {
@@ -786,16 +792,18 @@ class Estadisticas
             $valores[] = $cliente;
         }
 
+        // Primero las filas con GPS de foto para que, si una venta tiene foto
+        // geolocalizada y además ubicación manual, el mapa use el GPS.
         $consulta = self::$db->prepare(
             'SELECT v.id AS venta_id, v.fecha,
                     COALESCE(NULLIF(cl.nombre_empresa, ""), cl.nombre) AS cliente,
-                    f.latitud, f.longitud
+                    f.latitud, f.longitud, en.ubicacion_lat, en.ubicacion_lon
                FROM ventas v
                JOIN clientes cl   ON cl.id = v.cliente_id
                JOIN entregas en   ON en.venta_id = v.id
-               JOIN entrega_fotos f ON f.entrega_id = en.id
+               LEFT JOIN entrega_fotos f ON f.entrega_id = en.id
               WHERE ' . implode(' AND ', $donde) . '
-              ORDER BY v.id, f.id'
+              ORDER BY v.id, (f.latitud IS NULL OR f.longitud IS NULL), f.id, en.id'
         );
         if ($tipos !== '') {
             $consulta->bind_param($tipos, ...$valores);
@@ -804,7 +812,8 @@ class Estadisticas
         $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
         $consulta->close();
 
-        // Agrupa por lugar; cada venta entra una sola vez aunque tenga varias fotos.
+        // Agrupa por lugar; cada venta entra una sola vez aunque tenga varias
+        // fotos o varias entregas ubicadas.
         $grupos = [];
         $vistas = [];
         foreach ($filas as $fila) {
@@ -812,10 +821,18 @@ class Estadisticas
             if (isset($vistas[$ventaId])) {
                 continue;
             }
+
+            $lat = $fila['latitud'] !== null ? (float) $fila['latitud'] : null;
+            $lon = $fila['longitud'] !== null ? (float) $fila['longitud'] : null;
+            if ($lat === null || $lon === null) {
+                $lat = $fila['ubicacion_lat'] !== null ? (float) $fila['ubicacion_lat'] : null;
+                $lon = $fila['ubicacion_lon'] !== null ? (float) $fila['ubicacion_lon'] : null;
+            }
+            if ($lat === null || $lon === null) {
+                continue;
+            }
             $vistas[$ventaId] = true;
 
-            $lat     = (float) $fila['latitud'];
-            $lon     = (float) $fila['longitud'];
             $clienteNombre = (string) $fila['cliente'];
             $fecha   = (string) $fila['fecha'];
 
@@ -853,38 +870,37 @@ class Estadisticas
 
         usort($grupos, static fn (array $a, array $b): int => $b['ventas'] <=> $a['ventas']);
 
-        // Ventas registradas sin ninguna foto con GPS (incluye las que no tienen fotos).
-        $dondeSin = [
-            "v.estado = 'registrada'",
-            'NOT EXISTS (SELECT 1 FROM entregas en2 JOIN entrega_fotos f2 ON f2.entrega_id = en2.id
-                          WHERE en2.venta_id = v.id AND f2.latitud IS NOT NULL AND f2.longitud IS NOT NULL)',
-        ];
-        $tiposSin = '';
-        $valoresSin = [];
+        // Ventas registradas sin ubicación: el total menos las que sí quedaron
+        // en el mapa (por GPS de foto o por la ubicación manual de la entrega).
+        $dondeTotal = ["v.estado = 'registrada'"];
+        $tiposTotal = '';
+        $valoresTotal = [];
         if ($empresa > 0) {
-            $dondeSin[] = 'v.empresa_id = ?';
-            $tiposSin .= 'i';
-            $valoresSin[] = $empresa;
+            $dondeTotal[] = 'v.empresa_id = ?';
+            $tiposTotal .= 'i';
+            $valoresTotal[] = $empresa;
         }
         if ($cliente > 0) {
-            $dondeSin[] = 'v.cliente_id = ?';
-            $tiposSin .= 'i';
-            $valoresSin[] = $cliente;
+            $dondeTotal[] = 'v.cliente_id = ?';
+            $tiposTotal .= 'i';
+            $valoresTotal[] = $cliente;
         }
 
-        $consulta = self::$db->prepare('SELECT COUNT(*) FROM ventas v WHERE ' . implode(' AND ', $dondeSin));
-        if ($tiposSin !== '') {
-            $consulta->bind_param($tiposSin, ...$valoresSin);
+        $consulta = self::$db->prepare('SELECT COUNT(*) FROM ventas v WHERE ' . implode(' AND ', $dondeTotal));
+        if ($tiposTotal !== '') {
+            $consulta->bind_param($tiposTotal, ...$valoresTotal);
         }
         $consulta->execute();
-        $sinUbicacion = (int) $consulta->get_result()->fetch_row()[0];
+        $totalVentas = (int) $consulta->get_result()->fetch_row()[0];
         $consulta->close();
+
+        $ubicadas = array_sum(array_column($grupos, 'ventas'));
 
         return [
             'radio'               => self::RADIO_MAPA,
             'puntos'              => $grupos,
-            'ventas_ubicadas'     => array_sum(array_column($grupos, 'ventas')),
-            'ventas_sin_ubicacion' => $sinUbicacion,
+            'ventas_ubicadas'     => $ubicadas,
+            'ventas_sin_ubicacion' => max(0, $totalVentas - $ubicadas),
         ];
     }
 

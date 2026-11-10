@@ -122,5 +122,34 @@ $mapas = FotosEntrega::urlsMapa(['latitud' => null, 'longitud' => null], 'La Paz
 $prueba('sin manual cae a la dirección del cliente',
     ($mapas['google'] ?? '') === 'https://www.google.com/maps/search/?api=1&query=La%20Paz%2C%20BCS');
 
+$coordenadas = FotosEntrega::coordenadasDeUbicacion('24.1426667, -110.3127500', false);
+$prueba('las coordenadas de la ubicación manual se normalizan',
+    $coordenadas !== null && abs($coordenadas['lat'] - 24.1426667) < 0.0000001 && abs($coordenadas['lon'] + 110.31275) < 0.0000001,
+    json_encode($coordenadas));
+$prueba('una dirección sin coordenadas no inventa una ubicación',
+    FotosEntrega::coordenadasDeUbicacion('La Paz, BCS', false) === null);
+$prueba('unas coordenadas fuera de rango se descartan',
+    FotosEntrega::coordenadasDeUbicacion('120, -300', false) === null);
+
+$mapas = FotosEntrega::urlsMapa([], '', '', 24.155, -110.295);
+$prueba('las coordenadas guardadas de la entrega generan ambos mapas',
+    str_contains($mapas['google'] ?? '', '24.1550000%2C-110.2950000') && isset($mapas['apple']),
+    json_encode($mapas));
+
+$descripcion = FotosEntrega::descripcionUbicacion(['latitud' => null, 'longitud' => null], '', '', 24.155, -110.295);
+$prueba('la galería describe la ubicación de la entrega',
+    $descripcion['fuente'] === 'entrega' && str_contains($descripcion['texto'], '24.155000'), $descripcion['texto']);
+$descripcion = FotosEntrega::descripcionUbicacion(
+    ['latitud' => 24.1426667, 'longitud' => -110.31275], '', '', 24.155, -110.295
+);
+$prueba('la galería prefiere el GPS de la foto',
+    $descripcion['fuente'] === 'foto' && str_contains($descripcion['texto'], 'GPS'), $descripcion['texto']);
+$descripcion = FotosEntrega::descripcionUbicacion(['latitud' => null, 'longitud' => null], 'La Paz, BCS', '');
+$prueba('sin coordenadas la galería cae a la dirección del cliente',
+    $descripcion['fuente'] === 'cliente' && str_contains($descripcion['texto'], 'La Paz'));
+$descripcion = FotosEntrega::descripcionUbicacion(['latitud' => null, 'longitud' => null], '', '');
+$prueba('sin ningún dato lo dice y no genera enlaces',
+    $descripcion['fuente'] === 'ninguna' && !isset($descripcion['google']), $descripcion['texto']);
+
 echo "\n" . ($fallos === 0 ? "Resultado: TODO OK\n" : "Resultado: $fallos fallo(s)\n");
 exit($fallos === 0 ? 0 : 1);

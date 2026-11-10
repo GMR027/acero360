@@ -90,10 +90,15 @@ $megasTotal  = \App\Entregas::MAX_FOTOS_TOTAL_MB;
         <label class="campo__etiqueta" for="ubicacion-<?= $etiqueta ?>">Ubicación de la entrega (Google Maps)</label>
         <input class="control" type="text" id="ubicacion-<?= $etiqueta ?>" name="ubicacion" maxlength="500"
                placeholder="Pega el enlace de Google Maps, las coordenadas o la dirección">
+        <button class="btn btn--secundario btn--sm mt-sm" type="button" data-usar-ubicacion="#ubicacion-<?= $etiqueta ?>">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">my_location</span>
+            <span>Usar mi ubicación actual</span>
+        </button>
         <span class="campo__ayuda">
             Se usa cuando las fotos no traen GPS. Acepta un enlace de Google Maps, coordenadas
             (por ejemplo 24.1426667, -110.3127500) o una dirección. El GPS de la foto siempre tiene prioridad.
         </span>
+        <span class="campo__ayuda" data-estado-ubicacion hidden></span>
     </div>
 
     <?php if ($conAcciones) : ?>

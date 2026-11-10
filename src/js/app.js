@@ -315,6 +315,9 @@ function inicializarAplicacion() {
   // 16. Vista previa de los archivos de la herramienta Archivo (PDF e imágenes).
   inicializarArchivoPreview();
 
+  // 17. «Usar mi ubicación actual» en los formularios de entrega.
+  prepararUbicacionActual();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

@@ -321,7 +321,8 @@ template('header', [
         <div>
             <h2 class="titulo-5" id="t-mapa-ventas">Mapa de ventas</h2>
             <p class="texto-sm texto-secundario mb-0">
-                Histórico completo, según el GPS de las fotos de entrega. Los pines agrupan las ventas a
+                Histórico completo, según el GPS de las fotos de entrega o la ubicación capturada al
+                registrar la entrega. Los pines agrupan las ventas a
                 <strong><?= (int) $mapaVentas['radio'] ?> m</strong> o menos y muestran cuántas hay en cada lugar.
             </p>
         </div>
@@ -344,14 +345,14 @@ template('header', [
     <?php else : ?>
         <p class="nota nota--info" role="status">
             <span class="material-symbols-outlined nota__icono" aria-hidden="true">location_off</span>
-            <span>Aún no hay ventas con GPS en las fotos de entrega. El mapa aparecerá cuando una foto del acta incluya su ubicación.</span>
+            <span>Aún no hay ventas ubicadas. El mapa aparecerá cuando una foto del acta incluya su GPS o cuando se capture la ubicación al registrar la entrega.</span>
         </p>
     <?php endif; ?>
 
     <?php if ($mapaVentas['ventas_sin_ubicacion'] > 0) : ?>
         <p class="campo__ayuda mt-sm mb-0">
             <?= number_format($mapaVentas['ventas_sin_ubicacion']) ?> venta<?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? '' : 's' ?> registrada<?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? '' : 's' ?>
-            no <?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? 'tiene' : 'tienen' ?> una foto con GPS y no
+            no <?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? 'tiene' : 'tienen' ?> GPS en las fotos ni ubicación capturada en la entrega y no
             <?= $mapaVentas['ventas_sin_ubicacion'] === 1 ? 'aparece' : 'aparecen' ?> en el mapa.
         </p>
     <?php endif; ?>

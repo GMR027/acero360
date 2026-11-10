@@ -59,9 +59,12 @@ template('tabsEntregas', ['tab' => 'clientes']);
                 <thead><tr><th scope="col">Venta</th><th scope="col" class="tabla--numerica">Por entregar</th><th scope="col">Preparación</th>
                     <th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                 <tbody>
-                    <?php foreach ($c['ventas'] as $v) : ?>
+                    <?php foreach ($c['ventas'] as $v) : $senal = \App\Entregas::senalEntrega($v); ?>
                         <tr>
-                            <td><a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a></td>
+                            <td>
+                                <a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a><br>
+                                <span class="badge <?= escaparValores($senal['clase']) ?>"><?= escaparValores($senal['etiqueta']) ?></span>
+                            </td>
                             <td class="tabla--numerica cifra"><?= (int) $v['piezas'] - (int) $v['entregadas'] ?></td>
                             <td><?= $v['en_preparaciones'] ? escaparValores($v['en_preparaciones']) : '—' ?></td>
                             <td class="tabla--numerica"><a class="btn btn--primario btn--sm" href="/admin/entregas-seguimiento/venta?id=<?= (int) $v['id'] ?>">Registrar entrega</a></td>

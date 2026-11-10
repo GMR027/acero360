@@ -219,6 +219,8 @@ class Entregas
                             FROM venta_detalles vd WHERE vd.venta_id = v.id) AS piezas,
                        (SELECT COALESCE(SUM(er.cantidad), 0) FROM entrega_renglones er
                           JOIN entregas en ON en.id = er.entrega_id WHERE en.venta_id = v.id) AS entregadas,
+                       (SELECT COUNT(*) FROM entrega_incidencias i
+                         WHERE i.venta_id = v.id AND i.estado = 'abierta') AS incidencias_abiertas,
                        (SELECT GROUP_CONCAT(p.folio ORDER BY p.id SEPARATOR ', ') FROM preparacion_ventas pv
                           JOIN preparaciones p ON p.id = pv.preparacion_id
                          WHERE pv.venta_id = v.id AND p.estado IN ($activos)) AS en_preparaciones
@@ -227,6 +229,48 @@ class Entregas
                   JOIN clientes cl ON cl.id = v.cliente_id
                  WHERE $donde
                 HAVING piezas > entregadas";
+    }
+
+    /**
+     * Señal visual de una venta que todavía tiene piezas por entregar.
+     *
+     * Distingue una venta sin empezar de una entrega parcial y, sobre todo, de
+     * una entrega parcial con incidencias abiertas: en las pantallas de
+     * pendientes las tres se veían igual.
+     *
+     * @param array<string, mixed> $venta Fila de ventasPendientes().
+     * @return array{clave: string, etiqueta: string, clase: string, icono: string}
+     */
+    public static function senalEntrega(array $venta): array
+    {
+        $entregadas = (int) ($venta['entregadas'] ?? 0);
+        $abiertas   = (int) ($venta['incidencias_abiertas'] ?? 0);
+
+        if ($entregadas <= 0) {
+            return [
+                'clave'    => 'sin_entrega',
+                'etiqueta' => 'Sin entregar',
+                'clase'    => 'badge--neutro',
+                'icono'    => 'schedule',
+            ];
+        }
+
+        if ($abiertas > 0) {
+            return [
+                'clave'    => 'parcial_con_incidencias',
+                'etiqueta' => 'Entrega parcial · ' . $abiertas . ' incidencia' . ($abiertas === 1 ? '' : 's')
+                    . ' abierta' . ($abiertas === 1 ? '' : 's'),
+                'clase'    => 'badge--error',
+                'icono'    => 'report_problem',
+            ];
+        }
+
+        return [
+            'clave'    => 'parcial',
+            'etiqueta' => 'Entrega parcial',
+            'clase'    => 'badge--pendiente',
+            'icono'    => 'inventory_2',
+        ];
     }
 
     /**
@@ -639,6 +683,7 @@ class Entregas
             return false;
         }
         $ubicacion = $ubicacionNormalizada['valor'];
+        $coordenadasUbicacion = $ubicacion !== '' ? FotosEntrega::coordenadasDeUbicacion($ubicacion) : null;
         $metadatosFotos = array_values(array_filter($metadatosFotos, 'is_array'));
 
         if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
@@ -711,10 +756,13 @@ class Entregas
 
             $notas = trim($notas) ?: null;
             $ubicacionGuardar = $ubicacion !== '' ? $ubicacion : null;
+            $ubicacionLat = $coordenadasUbicacion['lat'] ?? null;
+            $ubicacionLon = $coordenadasUbicacion['lon'] ?? null;
             $crear = self::$db->prepare(
-                'INSERT INTO entregas (venta_id, preparacion_id, fecha, token, notas, ubicacion_maps, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO entregas (venta_id, preparacion_id, fecha, token, notas, ubicacion_maps, ubicacion_lat, ubicacion_lon, usuario_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
-            $crear->bind_param('iissssi', $ventaId, $preparacionId, $fecha, $token, $notas, $ubicacionGuardar, $usuarioId);
+            $crear->bind_param('iissssddi', $ventaId, $preparacionId, $fecha, $token, $notas, $ubicacionGuardar, $ubicacionLat, $ubicacionLon, $usuarioId);
             try {
                 $crear->execute();
             } catch (\mysqli_sql_exception $duplicada) {
@@ -792,6 +840,7 @@ class Entregas
             return false;
         }
         $ubicacion = $ubicacionNormalizada['valor'];
+        $coordenadasUbicacion = $ubicacion !== '' ? FotosEntrega::coordenadasDeUbicacion($ubicacion) : null;
 
         $fotos = array_values(array_filter(
             $fotos,
@@ -839,7 +888,13 @@ class Entregas
                 self::guardarFotos($entregaId, $fotos, $usuarioId, $guardadas, $metadatosFotos);
             }
             if ($ubicacion !== '') {
-                self::guardarUbicacion($entregaId, $ventaId, $ubicacion);
+                self::guardarUbicacion(
+                    $entregaId,
+                    $ventaId,
+                    $ubicacion,
+                    $coordenadasUbicacion['lat'] ?? null,
+                    $coordenadasUbicacion['lon'] ?? null
+                );
             }
             Auditoria::registrar('venta', $ventaId, 'fotos_entrega', $usuarioId, null, [
                 'entrega_id' => $entregaId,
@@ -880,6 +935,9 @@ class Entregas
             self::$errores[] = $normalizada['error'];
             return false;
         }
+        $coordenadas = $normalizada['valor'] !== ''
+            ? FotosEntrega::coordenadasDeUbicacion($normalizada['valor'])
+            : null;
 
         $consulta = self::$db->prepare('SELECT id FROM entregas WHERE id = ? AND venta_id = ?');
         $consulta->bind_param('ii', $entregaId, $ventaId);
@@ -894,7 +952,13 @@ class Entregas
 
         try {
             self::$db->begin_transaction();
-            self::guardarUbicacion($entregaId, $ventaId, $normalizada['valor']);
+            self::guardarUbicacion(
+                $entregaId,
+                $ventaId,
+                $normalizada['valor'],
+                $coordenadas['lat'] ?? null,
+                $coordenadas['lon'] ?? null
+            );
             Auditoria::registrar('venta', $ventaId, 'ubicacion_entrega', $usuarioId, null, [
                 'entrega_id' => $entregaId,
                 'ubicacion'  => $normalizada['valor'],
@@ -909,12 +973,20 @@ class Entregas
         }
     }
 
-    /** Escribe la ubicación manual (NULL si se quiere quitar). */
-    private static function guardarUbicacion(int $entregaId, int $ventaId, string $ubicacion): void
-    {
+    /** Escribe la ubicación manual y sus coordenadas (NULL si se quiere quitar). */
+    private static function guardarUbicacion(
+        int $entregaId,
+        int $ventaId,
+        string $ubicacion,
+        ?float $lat = null,
+        ?float $lon = null
+    ): void {
         $valor = $ubicacion !== '' ? $ubicacion : null;
-        $consulta = self::$db->prepare('UPDATE entregas SET ubicacion_maps = ? WHERE id = ? AND venta_id = ?');
-        $consulta->bind_param('sii', $valor, $entregaId, $ventaId);
+
+        $consulta = self::$db->prepare(
+            'UPDATE entregas SET ubicacion_maps = ?, ubicacion_lat = ?, ubicacion_lon = ? WHERE id = ? AND venta_id = ?'
+        );
+        $consulta->bind_param('sddii', $valor, $lat, $lon, $entregaId, $ventaId);
         $consulta->execute();
         $consulta->close();
     }
@@ -1078,6 +1150,7 @@ class Entregas
         $consulta = self::$db->prepare(
             'SELECT f.archivo, f.tomada_en, f.latitud, f.longitud,
                     en.fecha, en.creado_en, en.ubicacion_maps AS entrega_ubicacion,
+                    en.ubicacion_lat AS entrega_lat, en.ubicacion_lon AS entrega_lon,
                     e.logo AS empresa_logo, e.nombre AS empresa_nombre,
                     cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     cl.ubicacion AS cliente_ubicacion

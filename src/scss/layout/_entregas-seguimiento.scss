@@ -82,6 +82,24 @@
     }
   }
 
+  /* Cada foto con su fecha, su ubicación y sus botones de mapas. */
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-xs;
+  }
+
+  &__meta {
+    line-height: 1.35;
+  }
+
+  &__mapas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $espacio-xs;
+    margin-top: auto;
+  }
+
   &__imagen {
     display: block;
     width: 100%;

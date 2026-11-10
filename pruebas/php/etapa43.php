@@ -134,6 +134,16 @@ $prueba('el listado ya muestra la incidencia abierta',
         "SELECT (SELECT COUNT(*) FROM entrega_incidencias e WHERE e.venta_id = v.id AND e.estado = 'abierta') AS incidencias_abiertas
            FROM ventas v WHERE v.id = $ventaId) t") === 1);
 
+echo "— señal visual de pendientes —\n";
+$senal = Entregas::senalEntrega(['entregadas' => 0, 'incidencias_abiertas' => 0]);
+$prueba('venta sin empezar se marca «sin entregar»', $senal['clave'] === 'sin_entrega' && $senal['clase'] === 'badge--neutro', $senal['etiqueta']);
+$senal = Entregas::senalEntrega(['entregadas' => 2, 'incidencias_abiertas' => 0]);
+$prueba('entrega parcial sin incidencias se distingue', $senal['clave'] === 'parcial' && $senal['clase'] === 'badge--pendiente', $senal['etiqueta']);
+$senal = Entregas::senalEntrega(['entregadas' => 2, 'incidencias_abiertas' => 1]);
+$prueba('entrega parcial con incidencia abierta se marca en rojo',
+    $senal['clave'] === 'parcial_con_incidencias' && $senal['clase'] === 'badge--error'
+    && str_contains($senal['etiqueta'], '1 incidencia'), $senal['etiqueta']);
+
 /* -------------------------------------------------------------------- *
  * 3. FECHA Y OBSERVACIONES DEL SEGUIMIENTO
  * ------------------------------------------------------------------ */
@@ -320,6 +330,19 @@ if (!$ingreso || $ingreso['estado'] !== 'vigente') {
     @unlink($pdfNuevo);
     @unlink($xmlNuevo);
 }
+
+/* -------------------------------------------------------------------- *
+ * 6b. ACTA DE ENTREGA EN PDF
+ * ------------------------------------------------------------------ */
+echo "— acta de entrega —\n";
+$acta = \App\Documentos::pdfActaEntrega(
+    Ventas::buscarID($ventaId),
+    Entregas::entregasDeVenta($ventaId),
+    IncidenciasEntrega::deVenta($ventaId)
+);
+$prueba('el acta de entrega se compone como PDF',
+    is_string($acta) && str_starts_with($acta, '%PDF') && strlen($acta) > 1000,
+    $acta === null ? implode(' · ', \App\Documentos::getErrores()) : (string) strlen((string) $acta));
 
 /* -------------------------------------------------------------------- *
  * LIMPIEZA Y VERIFICACIÓN FINAL (la venta es de la etapa: se borra entera)

@@ -239,59 +239,11 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
         <?php endif; ?>
     <?php else : ?>
         <?php if ($entregasConFotos) : ?>
-            <?php foreach ($entregasConFotos as $e) : $fechaE = date('d/m/Y', strtotime($e['fecha'])); $nFotos = count($e['fotos']); ?>
-                <div class="seguimiento-fotos">
-                    <p class="texto-sm mb-0">
-                        <strong>Entrega del <?= $fechaE ?></strong>
-                        <span class="texto-secundario">
-                            · <?= $nFotos ?> foto<?= $nFotos === 1 ? '' : 's' ?> · registró <?= escaparValores($e['usuario_nombre'] ?? '—') ?>
-                        </span>
-                    </p>
-                    <ul class="seguimiento-fotos__lista">
-                        <?php foreach ($e['fotos'] as $indice => $foto) : $rutaFoto = \App\Imagenes::url($foto['archivo']); $rutaMarcada = \App\FotosEntrega::url($foto['archivo']); ?>
-                            <li class="seguimiento-fotos__item">
-                                <button type="button" class="seguimiento-fotos__enlace"
-                                        data-ampliar-imagen="<?= escaparValores($rutaMarcada) ?>"
-                                        data-ampliar-sobre="Fotos de la entrega"
-                                        data-ampliar-titulo="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
-                                        title="Ver la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
-                                        aria-label="Ampliar la foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>">
-                                    <img class="seguimiento-fotos__imagen" src="<?= escaparValores($rutaFoto) ?>"
-                                         alt="Foto <?= $indice + 1 ?> de la entrega del <?= $fechaE ?>"
-                                         loading="lazy">
-                                </button>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-
-                    <?php
-                    $primeraFoto = $e['fotos'][0] ?? [];
-                    $mapas = \App\FotosEntrega::urlsMapa($primeraFoto, (string) $cotizacion->cliente_ubicacion, (string) ($e['ubicacion_maps'] ?? ''));
-                    ?>
-                    <?php if (!empty($e['ubicacion_maps'])) : ?>
-                        <p class="texto-xs texto-secundario mb-0">Ubicación manual: <?= escaparValores($e['ubicacion_maps']) ?></p>
-                    <?php endif; ?>
-                    <?php if ($mapas) : ?>
-                        <div class="seguimiento-fotos__acciones">
-                            <?php if (isset($mapas['google'])) : ?>
-                                <a class="btn btn--secundario btn--sm" href="<?= escaparValores($mapas['google']) ?>"
-                                   target="_blank" rel="noopener noreferrer"
-                                   aria-label="Abrir la ubicación de la entrega en Google Maps">
-                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">location_on</span>
-                                    <span>Google Maps</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php if (isset($mapas['apple'])) : ?>
-                                <a class="btn btn--secundario btn--sm" href="<?= escaparValores($mapas['apple']) ?>"
-                                   target="_blank" rel="noopener noreferrer"
-                                   aria-label="Abrir la ubicación de la entrega en Apple Maps">
-                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">map</span>
-                                    <span>Apple Maps</span>
-                                </a>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
+            <?php foreach ($entregasConFotos as $e) : ?>
+                <?php template('galeriaFotosEntrega', [
+                    'entrega'          => $e,
+                    'direccionCliente' => (string) $cotizacion->cliente_ubicacion,
+                ]); ?>
             <?php endforeach; ?>
         <?php else : ?>
             <p class="texto-secundario">Aún no hay fotos adjuntas. Puedes subirlas a cualquiera de las entregas de la venta.</p>
@@ -332,10 +284,16 @@ $entregasConFotos = array_values(array_filter($entregas, static fn ($e) => !empt
                     <label class="campo__etiqueta" for="fotos-entrega-ubicacion">Ubicación de Google Maps</label>
                     <input class="control" type="text" id="fotos-entrega-ubicacion" name="ubicacion" maxlength="500"
                            placeholder="Enlace de Google Maps, coordenadas o dirección">
+                    <button class="btn btn--secundario btn--sm mt-sm" type="button"
+                            data-usar-ubicacion="#fotos-entrega-ubicacion">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">my_location</span>
+                        <span>Usar mi ubicación actual</span>
+                    </button>
                     <span class="campo__ayuda">
                         Si las fotos no traen GPS, esta ubicación se usa en el mapa. También puedes guardarla
                         sin subir fotos nuevas. El GPS de la foto siempre tiene prioridad.
                     </span>
+                    <span class="campo__ayuda" data-estado-ubicacion hidden></span>
                 </div>
             </div>
 

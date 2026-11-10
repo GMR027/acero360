@@ -210,7 +210,10 @@ function cabecerasSeguridad(): void
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: same-origin');
-    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    // La geolocalización se permite sólo al propio origen: la usan los
+    // formularios de entrega para capturar la ubicación cuando la foto no
+    // trae GPS. Cámara, micrófono y pagos siguen bloqueados.
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=()');
     header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; "
         . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; "
         . "img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; frame-src 'self'; "

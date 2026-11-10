@@ -38,7 +38,7 @@ $limpiar = static function () use ($db, $EMAIL_CLIENTE): void {
     $db->query("DELETE FROM clientes WHERE email = '" . $db->real_escape_string($EMAIL_CLIENTE) . "'");
 };
 
-$crearVenta = static function (int $empresa, string $fecha, array $fotos, string $estado = 'registrada') use ($db, $USUARIO, $EMAIL_CLIENTE): int {
+$crearVenta = static function (int $empresa, string $fecha, array $fotos, string $estado = 'registrada', ?array $manual = null) use ($db, $USUARIO, $EMAIL_CLIENTE): int {
     $clienteId = (int) $db->query("SELECT id FROM clientes WHERE email = '" . $db->real_escape_string($EMAIL_CLIENTE) . "'")->fetch_row()[0];
     $folio = 'MAPA-' . strtoupper(bin2hex(random_bytes(5)));
     $consulta = $db->prepare(
@@ -51,8 +51,13 @@ $crearVenta = static function (int $empresa, string $fecha, array $fotos, string
     $consulta->close();
 
     $token = bin2hex(random_bytes(16));
-    $consulta = $db->prepare('INSERT INTO entregas (venta_id, fecha, token, usuario_id) VALUES (?, ?, ?, ?)');
-    $consulta->bind_param('issi', $ventaId, $fecha, $token, $USUARIO);
+    if ($manual !== null) {
+        $consulta = $db->prepare('INSERT INTO entregas (venta_id, fecha, token, usuario_id, ubicacion_lat, ubicacion_lon) VALUES (?, ?, ?, ?, ?, ?)');
+        $consulta->bind_param('issidd', $ventaId, $fecha, $token, $USUARIO, $manual[0], $manual[1]);
+    } else {
+        $consulta = $db->prepare('INSERT INTO entregas (venta_id, fecha, token, usuario_id) VALUES (?, ?, ?, ?)');
+        $consulta->bind_param('issi', $ventaId, $fecha, $token, $USUARIO);
+    }
     $consulta->execute();
     $entregaId = (int) $db->insert_id;
     $consulta->close();
@@ -106,16 +111,22 @@ $crearVenta(1, '2026-07-10', [[null, null]]);
 // Cancelada con GPS: no debe aparecer en el mapa.
 $crearVenta(2, '2026-08-10', [$lejos], 'cancelada');
 
+// Ubicación manual sin GPS en las fotos: sí debe aparecer en el mapa.
+$crearVenta(1, '2026-09-10', [[null, null]], 'registrada', [24.1550000, -110.2950000]);
+
+// Foto con GPS + ubicación manual en otro lugar: manda el GPS de la foto.
+$crearVenta(1, '2026-10-10', [[24.1600000, -110.2900000]], 'registrada', $lejos);
+
 $clienteId = (int) $db->query("SELECT id FROM clientes WHERE email = '" . $db->real_escape_string($EMAIL_CLIENTE) . "'")->fetch_row()[0];
 
 if ($modo === '--sembrar') {
     echo json_encode([
         'cliente' => $clienteId,
         'esperados' => [
-            'puntos' => 3,
-            'ventas_ubicadas' => 7,
+            'puntos' => 5,
+            'ventas_ubicadas' => 9,
             'ventas_sin_ubicacion' => 1,
-            'por_ventas' => [4, 2, 1],
+            'por_ventas' => [4, 2, 1, 1, 1],
             'primera' => '2026-01-10',
             'ultima' => '2026-04-10',
         ],
@@ -137,21 +148,41 @@ $prueba = static function (string $nombre, bool $ok, string $detalle = '') use (
 
 $mapa = Estadisticas::mapaVentas(0, $clienteId);
 $porVentas = array_map(static fn (array $p): int => $p['ventas'], $mapa['puntos']);
-$prueba('3 lugares distintos en el mapa', count($mapa['puntos']) === 3, (string) count($mapa['puntos']));
-$prueba('7 ventas ubicadas (la foto doble cuenta una vez)', $mapa['ventas_ubicadas'] === 7, (string) $mapa['ventas_ubicadas']);
-$prueba('el orden es 4, 2 y 1 ventas', $porVentas === [4, 2, 1], implode(', ', $porVentas));
-$prueba('1 venta registrada sin GPS', $mapa['ventas_sin_ubicacion'] === 1, (string) $mapa['ventas_sin_ubicacion']);
-$prueba('la venta cancelada con GPS no se cuenta', array_sum($porVentas) === 7, (string) array_sum($porVentas));
+$prueba('5 lugares distintos en el mapa', count($mapa['puntos']) === 5, (string) count($mapa['puntos']));
+$prueba('9 ventas ubicadas (foto doble y ubicación manual cuentan una vez)', $mapa['ventas_ubicadas'] === 9, (string) $mapa['ventas_ubicadas']);
+$prueba('el orden es 4, 2 y tres de 1 venta', $porVentas === [4, 2, 1, 1, 1], implode(', ', $porVentas));
+$prueba('1 venta registrada sin GPS ni ubicación manual', $mapa['ventas_sin_ubicacion'] === 1, (string) $mapa['ventas_sin_ubicacion']);
+$prueba('la venta cancelada con GPS no se cuenta', array_sum($porVentas) === 9, (string) array_sum($porVentas));
 $prueba('el grupo de 4 abarca de enero a abril', $mapa['puntos'][0]['primera'] === '2026-01-10' && $mapa['puntos'][0]['ultima'] === '2026-04-10',
     $mapa['puntos'][0]['primera'] . ' a ' . $mapa['puntos'][0]['ultima']);
 $prueba('la segunda foto de una venta no crea otro lugar', count(array_filter($porVentas, static fn (int $n): bool => $n === 2)) === 1);
 
+// La ubicación manual ubica la venta cuando las fotos no traen GPS.
+$manualEncontrada = false;
+foreach ($mapa['puntos'] as $punto) {
+    if (abs($punto['lat'] - 24.155) < 0.0001 && abs($punto['lon'] + 110.295) < 0.0001) {
+        $manualEncontrada = $punto['ventas'] === 1;
+    }
+}
+$prueba('una venta con sólo ubicación manual aparece en el mapa', $manualEncontrada);
+
+// El GPS de la foto gana sobre la ubicación manual de la entrega.
+$fotoGana = false;
+foreach ($mapa['puntos'] as $punto) {
+    if (abs($punto['lat'] - 24.16) < 0.0001 && abs($punto['lon'] + 110.29) < 0.0001) {
+        $fotoGana = $punto['ventas'] === 1;
+    }
+}
+$prueba('el GPS de la foto tiene prioridad sobre la ubicación manual', $fotoGana);
+
 $empresa1 = Estadisticas::mapaVentas(1, $clienteId);
 $empresa2 = Estadisticas::mapaVentas(2, $clienteId);
-$prueba('filtro por negocio 1: grupos de 4 y 1', array_map(static fn (array $p): int => $p['ventas'], $empresa1['puntos']) === [4, 1],
+$prueba('filtro por negocio 1: grupos de 4 y tres de 1', array_map(static fn (array $p): int => $p['ventas'], $empresa1['puntos']) === [4, 1, 1, 1],
     implode(', ', array_column($empresa1['puntos'], 'ventas')));
 $prueba('filtro por negocio 2: sólo el grupo de 2', array_map(static fn (array $p): int => $p['ventas'], $empresa2['puntos']) === [2],
     implode(', ', array_column($empresa2['puntos'], 'ventas')));
+$prueba('sin ubicación por negocio: 1 en el 1 y 0 en el 2', $empresa1['ventas_sin_ubicacion'] === 1 && $empresa2['ventas_sin_ubicacion'] === 0,
+    $empresa1['ventas_sin_ubicacion'] . ' / ' . $empresa2['ventas_sin_ubicacion']);
 
 $limpiar();
 

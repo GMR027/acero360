@@ -4,7 +4,7 @@
  *   DB_NAME=cotizaciones_test php -S 127.0.0.1:8017 index.php &
  *   DB_NAME=cotizaciones_test node pruebas/probar_mapa_ventas.mjs
  *
- * Los datos (tres lugares con 4, 2 y 1 ventas) los siembra
+ * Los datos (cinco lugares con 4, 2, 1, 1 y 1 ventas) los siembra
  * pruebas/php/mapa_ventas.php --sembrar; la prueba los retira al terminar.
  */
 import { chromium } from 'playwright';
@@ -65,10 +65,10 @@ try {
 
   console.log('1. Mapa y pines');
   verifica('el mapa de Leaflet se creó', await pagina.locator('#mapa-ventas.leaflet-container').count() === 1);
-  verifica('hay 3 pines (los 3 lugares)', await pagina.locator('.mapa-ventas__pin').count() === esperados.puntos,
+  verifica('hay 5 pines (los 5 lugares)', await pagina.locator('.mapa-ventas__pin').count() === esperados.puntos,
     String(await pagina.locator('.mapa-ventas__pin').count()));
   const numeros = await pagina.locator('.mapa-ventas__numero').allTextContents();
-  verifica('los números son 4, 2 y 1', numeros.join(',') === esperados.por_ventas.join(','), numeros.join(', '));
+  verifica('los números son 4, 2, 1, 1 y 1', numeros.join(',') === esperados.por_ventas.join(','), numeros.join(', '));
   verifica('las teselas apuntan a OpenStreetMap',
     (await pagina.locator('.leaflet-tile').first().getAttribute('src') || '').includes('tile.openstreetmap.org'));
   verifica('se muestra la atribución de OpenStreetMap',
@@ -82,8 +82,8 @@ try {
 
   console.log('3. Resumen');
   const resumen = await pagina.locator('.mapa-ventas__resumen').textContent();
-  verifica('el resumen cuenta las 7 ventas ubicadas', resumen.includes('7 ventas ubicadas'), resumen);
-  verifica('el resumen avisa de la venta sin GPS', resumen.includes('1 sin ubicación'), resumen);
+  verifica('el resumen cuenta las 9 ventas ubicadas', resumen.includes('9 ventas ubicadas'), resumen);
+  verifica('el resumen avisa de la venta sin ubicación', resumen.includes('1 sin ubicación'), resumen);
 
   console.log('4. Consola');
   verifica('sin errores de JavaScript ni de CSP', errores.length === 0, errores.join(' | '));
