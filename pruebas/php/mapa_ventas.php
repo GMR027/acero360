@@ -117,16 +117,25 @@ $crearVenta(1, '2026-09-10', [[null, null]], 'registrada', [24.1550000, -110.295
 // Foto con GPS + ubicación manual en otro lugar: manda el GPS de la foto.
 $crearVenta(1, '2026-10-10', [[24.1600000, -110.2900000]], 'registrada', $lejos);
 
+// Ubicación guardada SÓLO como texto (sin columnas de coordenadas): el mapa
+// debe leer las coordenadas del enlace igual que si estuvieran en sus columnas.
+$ventaTexto = $crearVenta(1, '2026-11-10', [[null, null]]);
+$consulta = $db->prepare('UPDATE entregas SET ubicacion_maps = ? WHERE venta_id = ?');
+$enlaceTexto = 'https://www.google.com/maps/@24.1700000,-110.2800000,17z';
+$consulta->bind_param('si', $enlaceTexto, $ventaTexto);
+$consulta->execute();
+$consulta->close();
+
 $clienteId = (int) $db->query("SELECT id FROM clientes WHERE email = '" . $db->real_escape_string($EMAIL_CLIENTE) . "'")->fetch_row()[0];
 
 if ($modo === '--sembrar') {
     echo json_encode([
         'cliente' => $clienteId,
         'esperados' => [
-            'puntos' => 5,
-            'ventas_ubicadas' => 9,
+            'puntos' => 6,
+            'ventas_ubicadas' => 10,
             'ventas_sin_ubicacion' => 1,
-            'por_ventas' => [4, 2, 1, 1, 1],
+            'por_ventas' => [4, 2, 1, 1, 1, 1],
             'primera' => '2026-01-10',
             'ultima' => '2026-04-10',
         ],
@@ -148,11 +157,11 @@ $prueba = static function (string $nombre, bool $ok, string $detalle = '') use (
 
 $mapa = Estadisticas::mapaVentas(0, $clienteId);
 $porVentas = array_map(static fn (array $p): int => $p['ventas'], $mapa['puntos']);
-$prueba('5 lugares distintos en el mapa', count($mapa['puntos']) === 5, (string) count($mapa['puntos']));
-$prueba('9 ventas ubicadas (foto doble y ubicación manual cuentan una vez)', $mapa['ventas_ubicadas'] === 9, (string) $mapa['ventas_ubicadas']);
-$prueba('el orden es 4, 2 y tres de 1 venta', $porVentas === [4, 2, 1, 1, 1], implode(', ', $porVentas));
+$prueba('6 lugares distintos en el mapa', count($mapa['puntos']) === 6, (string) count($mapa['puntos']));
+$prueba('10 ventas ubicadas (foto doble, ubicación manual y texto cuentan una vez)', $mapa['ventas_ubicadas'] === 10, (string) $mapa['ventas_ubicadas']);
+$prueba('el orden es 4, 2 y cuatro de 1 venta', $porVentas === [4, 2, 1, 1, 1, 1], implode(', ', $porVentas));
 $prueba('1 venta registrada sin GPS ni ubicación manual', $mapa['ventas_sin_ubicacion'] === 1, (string) $mapa['ventas_sin_ubicacion']);
-$prueba('la venta cancelada con GPS no se cuenta', array_sum($porVentas) === 9, (string) array_sum($porVentas));
+$prueba('la venta cancelada con GPS no se cuenta', array_sum($porVentas) === 10, (string) array_sum($porVentas));
 $prueba('el grupo de 4 abarca de enero a abril', $mapa['puntos'][0]['primera'] === '2026-01-10' && $mapa['puntos'][0]['ultima'] === '2026-04-10',
     $mapa['puntos'][0]['primera'] . ' a ' . $mapa['puntos'][0]['ultima']);
 $prueba('la segunda foto de una venta no crea otro lugar', count(array_filter($porVentas, static fn (int $n): bool => $n === 2)) === 1);
@@ -166,6 +175,15 @@ foreach ($mapa['puntos'] as $punto) {
 }
 $prueba('una venta con sólo ubicación manual aparece en el mapa', $manualEncontrada);
 
+// Ubicación guardada sólo como texto: se leen sus coordenadas sin salir a la red.
+$textoEncontrada = false;
+foreach ($mapa['puntos'] as $punto) {
+    if (abs($punto['lat'] - 24.17) < 0.0001 && abs($punto['lon'] + 110.28) < 0.0001) {
+        $textoEncontrada = $punto['ventas'] === 1;
+    }
+}
+$prueba('una ubicación guardada sólo como texto también aparece en el mapa', $textoEncontrada);
+
 // El GPS de la foto gana sobre la ubicación manual de la entrega.
 $fotoGana = false;
 foreach ($mapa['puntos'] as $punto) {
@@ -177,7 +195,7 @@ $prueba('el GPS de la foto tiene prioridad sobre la ubicación manual', $fotoGan
 
 $empresa1 = Estadisticas::mapaVentas(1, $clienteId);
 $empresa2 = Estadisticas::mapaVentas(2, $clienteId);
-$prueba('filtro por negocio 1: grupos de 4 y tres de 1', array_map(static fn (array $p): int => $p['ventas'], $empresa1['puntos']) === [4, 1, 1, 1],
+$prueba('filtro por negocio 1: grupos de 4 y cuatro de 1', array_map(static fn (array $p): int => $p['ventas'], $empresa1['puntos']) === [4, 1, 1, 1, 1],
     implode(', ', array_column($empresa1['puntos'], 'ventas')));
 $prueba('filtro por negocio 2: sólo el grupo de 2', array_map(static fn (array $p): int => $p['ventas'], $empresa2['puntos']) === [2],
     implode(', ', array_column($empresa2['puntos'], 'ventas')));

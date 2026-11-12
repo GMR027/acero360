@@ -42,7 +42,9 @@ $etiquetasIndice = static fn (string $tipo, int $i): string => match ($tipo) {
 $anteriorTexto = (string) ($p['anio'] - 1);
 $graficas = [];
 foreach ($r['graficas'] as $g) { $graficas[$g['id']] = $g; }
-$anchas = ['ventas-serie', 'ventas-anios', 'ventas-vs-cobros', 'negocios', 'gastos-anios'];
+$anchas = ['ventas-serie', 'ventas-anios', 'ventas-vs-cobros', 'negocios', 'gastos-anios', 'gastos-categoria'];
+/** Gráficas que no se muestran en el celular (su información sigue en las tablas). */
+$ocultasMovil = ['semestres', 'negocios'];
 $secciones = [
     'ventas'    => ['Ventas', 'Cómo se mueven tus ventas mes a mes, año contra año y por semestre.'],
     'ingresos'  => ['Ingresos, cobros y facturación', 'Lo que vendiste, lo que ya cobraste y lo que falta por cobrar o facturar.'],
@@ -56,8 +58,16 @@ $sinMovimiento = $r['analisis']['sin_movimiento'];
 $colorIndicador = ['realizadas' => \App\Analisis::COLOR['ventas'], 'cobros' => \App\Analisis::COLOR['cobros'], 'facturadas' => \App\Analisis::COLOR['facturada'], 'gastos' => \App\Analisis::COLOR['gastos']];
 
 /** Tarjeta de una gráfica: título, subtítulo y lienzo (la gráfica la dibuja graficas.js). */
-$tarjetaGrafica = static function (array $g) use ($anchas): string {
-    return '<section class="grafica-tarjeta' . (in_array($g['id'], $anchas, true) ? ' estadisticas-rejilla__ancho' : '') . '" id="g-' . escaparValores($g['id']) . '">'
+$tarjetaGrafica = static function (array $g) use ($anchas, $ocultasMovil): string {
+    $clases = 'grafica-tarjeta';
+    if (in_array($g['id'], $anchas, true)) {
+        $clases .= ' estadisticas-rejilla__ancho';
+    }
+    if (in_array($g['id'], $ocultasMovil, true)) {
+        $clases .= ' movil-oculto';
+    }
+
+    return '<section class="' . $clases . '" id="g-' . escaparValores($g['id']) . '">'
         . '<header><h3 class="grafica-tarjeta__titulo">' . escaparValores($g['titulo']) . '</h3><p class="grafica-tarjeta__subtitulo">' . escaparValores($g['subtitulo']) . '</p></header>'
         . '<figure class="grafica" data-grafica="' . escaparValores(json_encode($g, JSON_UNESCAPED_UNICODE)) . '" aria-label="' . escaparValores($g['titulo']) . '"></figure></section>';
 };
@@ -146,12 +156,12 @@ template('header', [
     <?= $f['empresa'] > 0 ? 'Con un negocio elegido, sus gastos incluyen su parte de los compartidos.' : '' ?></p>
 
 <nav class="estadisticas-nav" aria-label="Secciones de estadísticas">
-    <?php foreach ($secciones as $clave => [$titulo]) : ?><a class="chip" href="#sec-<?= $clave ?>"><?= escaparValores($titulo) ?></a><?php endforeach; ?>
+    <?php foreach ($secciones as $clave => [$titulo]) : ?><a class="chip<?= $clave === 'ingresos' ? ' movil-oculto' : '' ?>" href="#sec-<?= $clave ?>"><?= escaparValores($titulo) ?></a><?php endforeach; ?>
     <a class="chip movil-oculto" href="#tablas">Tablas</a>
 </nav>
 
 <?php foreach ($secciones as $clave => [$titulo, $descripcion]) : $deSeccion = array_filter($graficas, static fn ($g) => $g['seccion'] === $clave); ?>
-    <section class="estadisticas-seccion" id="sec-<?= $clave ?>" aria-labelledby="t-<?= $clave ?>">
+    <section class="estadisticas-seccion<?= $clave === 'ingresos' ? ' movil-oculto' : '' ?>" id="sec-<?= $clave ?>" aria-labelledby="t-<?= $clave ?>">
         <h2 class="titulo-4" id="t-<?= $clave ?>"><?= escaparValores($titulo) ?></h2>
         <p class="campo__ayuda mb-md"><?= escaparValores($descripcion) ?></p>
         <?php if (!$deSeccion) : ?>
@@ -167,12 +177,12 @@ template('header', [
                 <div class="tabla-contenedor">
                     <table class="tabla">
                         <caption>Comparación entre negocios · <?= escaparValores($etiquetaPeriodo) ?> (sin filtro de negocio)</caption>
-                        <thead><tr><th scope="col">Negocio</th><th scope="col" class="tabla--numerica">Ventas del periodo</th><th scope="col" class="tabla--numerica">Operaciones</th>
-                            <th scope="col" class="tabla--numerica">Mismo avance <?= $anteriorTexto ?></th><th scope="col" class="tabla--numerica">Variación</th><th scope="col" class="tabla--numerica">Participación</th></tr></thead>
+                        <thead><tr><th scope="col">Negocio</th><th scope="col" class="tabla--numerica">Ventas del periodo</th><th scope="col" class="tabla--numerica movil-oculto">Operaciones</th>
+                            <th scope="col" class="tabla--numerica movil-oculto">Mismo avance <?= $anteriorTexto ?></th><th scope="col" class="tabla--numerica movil-oculto">Variación</th><th scope="col" class="tabla--numerica">Participación</th></tr></thead>
                         <tbody>
                             <?php foreach ($negocios as $n) : $vn = \App\Estadisticas::variacion($n['previo'], $n['periodo']); ?>
-                                <tr><td><strong><?= escaparValores($n['nombre']) ?></strong></td><td class="tabla--numerica cifra"><?= $m($n['periodo']) ?></td><td class="tabla--numerica cifra"><?= number_format($n['ventas']) ?></td>
-                                    <td class="tabla--numerica cifra"><?= $m($n['previo']) ?></td><td class="tabla--numerica"><?= $variacion($vn) ?></td>
+                                <tr><td><strong><?= escaparValores($n['nombre']) ?></strong></td><td class="tabla--numerica cifra"><?= $m($n['periodo']) ?></td><td class="tabla--numerica cifra movil-oculto"><?= number_format($n['ventas']) ?></td>
+                                    <td class="tabla--numerica cifra movil-oculto"><?= $m($n['previo']) ?></td><td class="tabla--numerica movil-oculto"><?= $variacion($vn) ?></td>
                                     <td class="tabla--numerica cifra"><?= $totalNegocios > 0 ? number_format($n['periodo'] * 100 / $totalNegocios, 1) . ' %' : '—' ?></td></tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -180,16 +190,17 @@ template('header', [
                 </div>
             </div>
 
-            <?php foreach (\App\Estadisticas::agruparPorNegocio($r['productos']) as $grupoProductos) : ?>
-                <div class="tarjeta tarjeta--sin-relleno mt-md">
+            <?php foreach (\App\Estadisticas::agruparPorNegocio($r['productos']) as $indiceGrupo => $grupoProductos) : ?>
+                <div class="tarjeta tarjeta--sin-relleno mt-md<?= $indiceGrupo > 0 ? ' movil-oculto' : '' ?>">
                     <div class="tabla-contenedor">
                         <table class="tabla">
                             <caption>Ventas por negocio · productos de <?= escaparValores($grupoProductos['negocio']) ?> · <?= escaparValores($etiquetaPeriodo) ?></caption>
-                            <thead><tr><th scope="col">Código</th><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Piezas</th><th scope="col" class="tabla--numerica">Importe (sin IVA)</th><th scope="col" class="tabla--numerica">Ventas</th></tr></thead>
+                            <thead><tr><th scope="col">Código</th><th scope="col" class="tabla--numerica">Piezas</th><th scope="col" class="tabla--numerica">Importe (sin IVA)</th><th scope="col" class="tabla--numerica">Importe con IVA</th></tr></thead>
                             <tbody>
                                 <?php foreach ($grupoProductos['filas'] as $x) : ?>
-                                    <tr><td><strong><?= escaparValores($x['sku'] !== '' ? $x['sku'] : '—') ?></strong></td><td><?= escaparValores($x['nombre']) ?></td>
-                                        <td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td><td class="tabla--numerica cifra"><?= number_format($x['operaciones']) ?></td></tr>
+                                    <tr><td><strong><?= escaparValores($x['sku'] !== '' ? $x['sku'] : '—') ?></strong></td>
+                                        <td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td>
+                                        <td class="tabla--numerica cifra"><?= $m($x['importe_con_iva']) ?></td></tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>

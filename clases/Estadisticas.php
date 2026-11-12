@@ -280,7 +280,10 @@ class Estadisticas
      * cada negocio trae sus `$limite` productos con más importe, con su código (SKU).
      * El negocio es el emisor de la venta (`v.empresa_id`), el mismo que usa «Ventas por negocio».
      *
-     * @return array<int, array{producto_id: int, empresa_id: int, negocio: string, sku: string, nombre: string, imagen: ?string, unidades: int, importe: int, operaciones: int}>
+     * `importe_con_iva` reparte el total real de cada venta (con IVA y descuentos) entre sus
+     * renglones en proporción a su importe sin IVA; así el dato coincide con lo que se cobró.
+     *
+     * @return array<int, array{producto_id: int, empresa_id: int, negocio: string, sku: string, nombre: string, imagen: ?string, unidades: int, importe: int, importe_con_iva: int, operaciones: int}>
      */
     public static function topProductos(string $desde, string $hasta, array $f = [], int $limite = 10): array
     {
@@ -296,6 +299,7 @@ class Estadisticas
             'SELECT t.* FROM (
                 SELECT p.id AS producto_id, v.empresa_id, e.nombre AS negocio, p.sku, p.nombre, p.imagen,
                        SUM(vd.cantidad) AS unidades, SUM(ROUND(vd.subtotal * 100)) AS importe, COUNT(DISTINCT v.id) AS operaciones,
+                       ROUND(SUM(vd.subtotal * v.total / NULLIF(v.subtotal, 0)) * 100) AS importe_con_iva,
                        ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY SUM(ROUND(vd.subtotal * 100)) DESC, SUM(vd.cantidad) DESC, p.nombre ASC) AS posicion
                   FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
                        JOIN empresas e ON e.id = v.empresa_id
@@ -311,7 +315,8 @@ class Estadisticas
         return array_map(static fn ($x) => [
             'producto_id' => (int) $x['producto_id'], 'empresa_id' => (int) $x['empresa_id'], 'negocio' => (string) $x['negocio'],
             'sku' => (string) $x['sku'], 'nombre' => $x['nombre'], 'imagen' => $x['imagen'],
-            'unidades' => (int) $x['unidades'], 'importe' => (int) $x['importe'], 'operaciones' => (int) $x['operaciones'],
+            'unidades' => (int) $x['unidades'], 'importe' => (int) $x['importe'],
+            'importe_con_iva' => (int) $x['importe_con_iva'], 'operaciones' => (int) $x['operaciones'],
         ], $filas);
     }
 
@@ -772,12 +777,15 @@ class Estadisticas
      */
     public static function mapaVentas(int $empresa = 0, int $cliente = 0): array
     {
-        // Una venta puede ubicarse de dos formas: por el GPS de sus fotos de
-        // entrega o por la ubicación manual capturada al registrar la entrega.
+        // Una venta puede ubicarse de tres formas: por el GPS de sus fotos de
+        // entrega, por la ubicación manual ya convertida a coordenadas o por el
+        // texto de la ubicación (enlaces largos y coordenadas pegadas antes de
+        // que existieran las columnas). El texto se lee sin salir a la red.
         $donde = [
             "v.estado = 'registrada'",
             '((f.latitud IS NOT NULL AND f.longitud IS NOT NULL)
-              OR (en.ubicacion_lat IS NOT NULL AND en.ubicacion_lon IS NOT NULL))',
+              OR (en.ubicacion_lat IS NOT NULL AND en.ubicacion_lon IS NOT NULL)
+              OR COALESCE(en.ubicacion_maps, "") <> "")',
         ];
         $tipos = '';
         $valores = [];
@@ -797,7 +805,7 @@ class Estadisticas
         $consulta = self::$db->prepare(
             'SELECT v.id AS venta_id, v.fecha,
                     COALESCE(NULLIF(cl.nombre_empresa, ""), cl.nombre) AS cliente,
-                    f.latitud, f.longitud, en.ubicacion_lat, en.ubicacion_lon
+                    f.latitud, f.longitud, en.ubicacion_lat, en.ubicacion_lon, en.ubicacion_maps
                FROM ventas v
                JOIN clientes cl   ON cl.id = v.cliente_id
                JOIN entregas en   ON en.venta_id = v.id
@@ -827,6 +835,15 @@ class Estadisticas
             if ($lat === null || $lon === null) {
                 $lat = $fila['ubicacion_lat'] !== null ? (float) $fila['ubicacion_lat'] : null;
                 $lon = $fila['ubicacion_lon'] !== null ? (float) $fila['ubicacion_lon'] : null;
+            }
+            if ($lat === null || $lon === null) {
+                // Ubicaciones guardadas sólo como texto (enlaces largos o
+                // coordenadas capturadas antes de existir las columnas).
+                $coordenadas = FotosEntrega::coordenadasDeUbicacion((string) ($fila['ubicacion_maps'] ?? ''), false);
+                if ($coordenadas !== null) {
+                    $lat = $coordenadas['lat'];
+                    $lon = $coordenadas['lon'];
+                }
             }
             if ($lat === null || $lon === null) {
                 continue;

@@ -93,6 +93,11 @@ try {
   const tablaClientes = (await pagina.locator('table:has(caption:text("Clientes con mayor volumen"))').first().innerText()).toLowerCase();
   verifica('la tabla de clientes trae Negocio', tablaClientes.includes('negocio'));
   verifica('ventas por negocio detalla sus productos con el código', (await pagina.locator('table:has(caption:text("productos de Canastillas de la Baja")) tbody tr').count()) >= 1);
+  const encabezadosProductos = (await pagina.locator('table:has(caption:text("productos de Soluciones en Acero"))').first().locator('thead th').allTextContents()).map((x) => x.trim());
+  verifica('ventas por negocio: sólo Código, Piezas, Importe sin IVA e Importe con IVA',
+    JSON.stringify(encabezadosProductos) === JSON.stringify(['Código', 'Piezas', 'Importe (sin IVA)', 'Importe con IVA']), encabezadosProductos.join(' | '));
+  verifica('la gráfica de productos trae sólo el código (sin nombre)',
+    JSON.parse(top1).categorias.every((c) => !c.includes('·')), top1.slice(0, 160));
 
   console.log('Periodo incompleto');
   await pagina.goto(`${BASE}/admin/estadisticas?tipo=anio&anio=${new Date().getFullYear()}&atras=1`);
@@ -142,10 +147,34 @@ try {
     const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     verifica(ruta2.split('?')[0] + (ruta2.includes('?') ? '?…' : '') + ' @390px sin desborde', !desborde);
   }
+
+  // Un gasto del periodo para que exista la gráfica de categorías.
+  sql(`INSERT INTO gastos (contribuyente_id, empresa_id, fecha, beneficiario, concepto, categoria_id, subtotal, total, estado_pago, estado, usuario_id)
+       SELECT MIN(c.id), MIN(e.id), '2026-01-15', 'Prueba E7', 'Gasto de prueba E7', 15, 100, 100, 'pagado', 'vigente', MIN(u.id)
+         FROM contribuyentes c, empresas e, usuarios u`);
+  await pagina.goto(`${BASE}/admin/estadisticas?tipo=anio&anio=2026&atras=1`);
+  verifica('en móvil se oculta Comparación entre semestres', await pagina.locator('#g-semestres').isHidden());
+  verifica('en móvil se oculta la sección Ingresos, cobros y facturación', await pagina.locator('#sec-ingresos').isHidden());
+  verifica('en móvil se oculta Ventas por negocio · 2026', await pagina.locator('#g-negocios').isHidden());
+  const gastosCategoria = pagina.locator('#g-gastos-categoria');
+  verifica('Gastos por categoría ocupa todo el ancho',
+    await gastosCategoria.count() === 1 && await gastosCategoria.evaluate((e) => e.classList.contains('estadisticas-rejilla__ancho')));
+  const columnasNegocios = await pagina.locator('table:has(caption:text("Comparación entre negocios")) thead th')
+    .evaluateAll((ths) => ths.filter((th) => th.offsetParent !== null).map((th) => th.textContent.trim()));
+  verifica('comparación entre negocios: Negocio, Ventas y Participación en móvil',
+    JSON.stringify(columnasNegocios) === JSON.stringify(['Negocio', 'Ventas del periodo', 'Participación']), columnasNegocios.join(' | '));
+  const tablasProductos = await pagina.locator('table:has(caption:text("Ventas por negocio · productos de"))')
+    .evaluateAll((ts) => ts.filter((t) => t.offsetParent !== null).length);
+  verifica('en móvil sólo queda la tabla de productos del primer negocio', tablasProductos === 1, String(tablasProductos));
+  const encabezadosMovil = (await pagina.locator('table:has(caption:text("productos de Soluciones en Acero"))').first().locator('thead th').allTextContents()).map((x) => x.trim());
+  verifica('la tabla de productos conserva sus 4 columnas en móvil',
+    JSON.stringify(encabezadosMovil) === JSON.stringify(['Código', 'Piezas', 'Importe (sin IVA)', 'Importe con IVA']), encabezadosMovil.join(' | '));
+
   verifica('sin errores de consola', errores.length === 0, errores.join(' | '));
 } finally {
   await navegador.close();
   sql(`DELETE FROM usuarios WHERE email='${EMAIL}'`);
+  sql("DELETE FROM gastos WHERE concepto = 'Gasto de prueba E7'");
   for (const t of ['cobros', 'ingresos']) { sql(`DELETE FROM ${t}`); }
   sql('DELETE FROM movimientos_inventario WHERE venta_id IS NOT NULL OR cotizacion_id IS NOT NULL'); sql('DELETE FROM venta_cambios_entregados'); sql('DELETE FROM venta_devoluciones'); sql('DELETE FROM ventas'); sql('DELETE FROM cotizaciones');
 }

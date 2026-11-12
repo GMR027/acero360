@@ -948,11 +948,10 @@ document.addEventListener('DOMContentLoaded', iniciarAyudas);
  *     Se abre con el botón de la cabecera o haciendo clic una SEGUNDA vez
  *     sobre la casilla ya seleccionada.
  *
- *   · VER: la Agenda es una tabla con una fila por marcador del negocio o
- *     recordatorio. El botón «Ver» de un recordatorio abre su ficha completa;
- *     el de un marcador del negocio abre el detalle del día. Los datos de cada
- *     día viajan UNA vez en los nodos [data-agenda-datos] y cada fila los
- *     referencia con data-agenda-ref.
+ *   · VER: la Agenda es una tabla con una fila por operación del negocio o
+ *     recordatorio. El botón «Ver» de una operación abre el detalle de su
+ *     módulo; el de un recordatorio abre su ficha completa. Los datos del
+ *     recordatorio viajan en el atributo data-evento del propio botón.
  *
  * La Agenda y el calendario se sincronizan solos: al cargar con un día
  * elegido, la página baja hasta sus filas de la Agenda.
@@ -1056,138 +1055,8 @@ function calendarioAbrirAlta(iso) {
   }
 }
 
-/**
- * Cuerpo del modal «Ver»: el resumen del negocio de ese día y, debajo, el
- * listado de recordatorios y eventos capturados. Cada evento trae su icono,
- * su nombre y un botón para abrir la ficha completa. Se construye con
- * createElement, nunca con innerHTML.
- */
-function calendarioCuerpoDetalle(datos) {
-  const envoltura = document.createElement('div');
-  envoltura.className = 'agenda-detalle';
-
-  // --- Resumen de lo que pasó en los negocios ---
-  if (!datos.negocio || datos.negocio.length === 0) {
-    const vacio = document.createElement('p');
-    vacio.className = 'texto-secundario';
-    vacio.textContent = 'Ese día no hubo ventas, gastos ni recepciones.';
-    envoltura.appendChild(vacio);
-  } else {
-    datos.negocio.forEach(function (fila) {
-      const filaNodo = document.createElement('div');
-      filaNodo.className = 'agenda-detalle__fila';
-
-      const concepto = document.createElement('span');
-      concepto.className = 'agenda-detalle__concepto';
-
-      const icono = document.createElement('span');
-      icono.className = 'material-icons agenda-dia__icono agenda-dia__icono--' + fila.color;
-      icono.setAttribute('aria-hidden', 'true');
-      icono.textContent = fila.icono;
-      concepto.appendChild(icono);
-
-      const texto = document.createElement('span');
-      texto.textContent = fila.n + ' ' + (fila.n === 1 ? fila.etiqueta : fila.plural);
-      concepto.appendChild(texto);
-      filaNodo.appendChild(concepto);
-
-      if (fila.importe !== null && fila.importe !== undefined) {
-        const cifra = document.createElement('span');
-        cifra.className = 'agenda-detalle__cifra';
-        cifra.textContent = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(fila.importe);
-        filaNodo.appendChild(cifra);
-      }
-
-      envoltura.appendChild(filaNodo);
-    });
-  }
-
-  // --- Listado de recordatorios y eventos del día ---
-  const eventos = Array.isArray(datos.eventos) ? datos.eventos : [];
-
-  const titulo = document.createElement('h3');
-  titulo.className = 'agenda-detalle__titulo';
-  titulo.textContent = eventos.length === 1 ? 'Evento del día' : 'Eventos del día';
-  envoltura.appendChild(titulo);
-
-  if (eventos.length === 0) {
-    const sinEventos = document.createElement('p');
-    sinEventos.className = 'texto-secundario agenda-detalle__pie';
-    sinEventos.textContent = 'No hay recordatorios ni eventos capturados ese día.';
-    envoltura.appendChild(sinEventos);
-    return envoltura;
-  }
-
-  const listado = document.createElement('div');
-  listado.className = 'agenda-detalle__eventos';
-  eventos.forEach(function (evento) {
-    listado.appendChild(calendarioFilaEvento(datos, evento));
-  });
-  envoltura.appendChild(listado);
-
-  return envoltura;
-}
-
-/**
- * Una fila del listado de eventos: icono de importancia, nombre, hora y
- * negocio, y el botón «Ver» (icono de ojo) que abre la ficha del evento.
- */
-function calendarioFilaEvento(datos, evento) {
-  const fila = document.createElement('div');
-  fila.className = 'agenda-detalle__evento';
-
-  const icono = document.createElement('span');
-  icono.className = 'agenda-detalle__evento-icono agenda-detalle__evento-icono--' + (evento.importancia || 'medio');
-  icono.setAttribute('aria-hidden', 'true');
-  const iconoTexto = document.createElement('span');
-  iconoTexto.className = 'material-symbols-outlined';
-  iconoTexto.textContent = evento.importanciaIcono || 'event';
-  icono.appendChild(iconoTexto);
-  fila.appendChild(icono);
-
-  const cuerpo = document.createElement('div');
-  cuerpo.className = 'agenda-detalle__evento-cuerpo';
-
-  const nombre = document.createElement('strong');
-  nombre.className = 'agenda-detalle__evento-nombre';
-  nombre.textContent = evento.nombre || 'Evento sin nombre';
-  cuerpo.appendChild(nombre);
-
-  const meta = [];
-  if (evento.hora) {
-    meta.push(evento.hora);
-  }
-  if (evento.negocio) {
-    meta.push(evento.negocio);
-  }
-  if (meta.length > 0) {
-    const detalle = document.createElement('span');
-    detalle.className = 'agenda-detalle__evento-meta';
-    detalle.textContent = meta.join(' · ');
-    cuerpo.appendChild(detalle);
-  }
-  fila.appendChild(cuerpo);
-
-  const ver = document.createElement('button');
-  ver.type = 'button';
-  ver.className = 'btn btn--secundario btn--sm btn--icono agenda-detalle__evento-ver';
-  ver.title = 'Ver el detalle del evento';
-  ver.setAttribute('aria-label', 'Ver el detalle de ' + (evento.nombre || 'el evento'));
-  const verIcono = document.createElement('span');
-  verIcono.className = 'material-symbols-outlined';
-  verIcono.setAttribute('aria-hidden', 'true');
-  verIcono.textContent = 'visibility';
-  ver.appendChild(verIcono);
-  ver.addEventListener('click', function () {
-    calendarioVerEvento(datos, evento);
-  });
-  fila.appendChild(ver);
-
-  return fila;
-}
-
-/** Ficha completa de un evento, dentro del mismo modal. */
-function calendarioVerEvento(dia, evento) {
+/** Ficha completa de un recordatorio, dentro del modal de la aplicación. */
+function calendarioVerEvento(evento) {
   const cuerpo = document.createElement('div');
   cuerpo.className = 'agenda-evento-detalle';
 
@@ -1227,7 +1096,7 @@ function calendarioVerEvento(dia, evento) {
     lista.appendChild(dd);
   };
 
-  agregar('Fecha', dia.titulo);
+  agregar('Fecha', evento.fecha);
   agregar('Negocio', evento.negocio);
   agregar('Autor', evento.autor);
   cuerpo.appendChild(lista);
@@ -1237,73 +1106,18 @@ function calendarioVerEvento(dia, evento) {
   descripcion.textContent = evento.descripcion || 'Sin descripción.';
   cuerpo.appendChild(descripcion);
 
-  const volver = document.createElement('button');
-  volver.type = 'button';
-  volver.className = 'btn btn--secundario';
-  volver.textContent = 'Volver al día';
-  volver.addEventListener('click', function () {
-    calendarioVerDiaDatos(dia);
-  });
-
   const editar = document.createElement('a');
   editar.className = 'btn btn--primario';
   editar.href = evento.rutaEditar || '#';
   editar.textContent = 'Editar evento';
 
+  // El pie ya trae «Cerrar» (lo agrega abrirModal cuando no hay confirmación).
   abrirModal({
-    sobreTitulo: 'Evento del calendario',
+    sobreTitulo: 'Recordatorio',
     titulo: 'Detalle del evento',
     cuerpo: cuerpo,
-    acciones: [volver, editar],
+    acciones: [editar],
   });
-}
-
-/** Abre el detalle de un día de la Agenda en ventana modal. */
-function calendarioVerDiaDatos(datos) {
-  const enlaceDia = document.createElement('a');
-  enlaceDia.className = 'btn btn--secundario';
-  enlaceDia.href = datos.rutaDia;
-  enlaceDia.textContent = 'Ver en el calendario';
-
-  abrirModal({
-    sobreTitulo: datos.hoy ? 'Hoy' : 'Agenda del mes',
-    titulo: datos.titulo,
-    cuerpo: calendarioCuerpoDetalle(datos),
-    acciones: [enlaceDia],
-  });
-}
-
-/** Abre el detalle de un día de la Agenda en ventana modal. */
-function calendarioVerDia(tarjeta) {
-  const datos = calendarioDatosDia(tarjeta);
-  if (!datos) {
-    return;
-  }
-
-  calendarioVerDiaDatos(datos);
-}
-
-/**
- * Datos del día al que pertenece una fila de la Agenda. Se guardan una sola
- * vez en [data-agenda-datos] y aquí se resuelven por la fecha de la fila.
- */
-function calendarioDatosDia(nodo) {
-  const fila = nodo instanceof Element ? nodo.closest('[data-agenda-ref]') : null;
-  if (!fila) {
-    return null;
-  }
-
-  const fecha = fila.getAttribute('data-agenda-ref');
-  const fuente = document.getElementById('agenda-datos-' + fecha);
-  if (!fecha || !fuente) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(fuente.getAttribute('data-agenda-dia'));
-  } catch (error) {
-    return null;
-  }
 }
 
 /** Baja hasta las filas de la Agenda del día elegido y las resalta. */
@@ -1344,21 +1158,15 @@ function iniciarCalendario() {
     // «Ver» de un recordatorio: abre la ficha completa del evento.
     const botonEvento = objetivo.closest('[data-ver-evento]');
     if (botonEvento) {
-      const datos = calendarioDatosDia(botonEvento);
-      const id = botonEvento.getAttribute('data-ver-evento');
-      const evento = datos && Array.isArray(datos.eventos)
-        ? datos.eventos.find(function (item) { return String(item.id) === String(id); })
-        : null;
-      if (datos && evento) {
-        calendarioVerEvento(datos, evento);
+      let evento = null;
+      try {
+        evento = JSON.parse(botonEvento.getAttribute('data-evento') || 'null');
+      } catch (error) {
+        evento = null;
       }
-      return;
-    }
-
-    // «Ver» de un marcador del negocio: abre el detalle del día.
-    const botonVer = objetivo.closest('[data-ver-dia]');
-    if (botonVer) {
-      calendarioVerDia(botonVer);
+      if (evento) {
+        calendarioVerEvento(evento);
+      }
       return;
     }
 

@@ -350,12 +350,12 @@ class Analisis
         };
     }
 
-    /** Etiqueta de un producto en una gráfica o tabla: primero el código (SKU), después el nombre. */
+    /** Etiqueta de un producto en una gráfica o tabla: su código (SKU); el nombre sólo si no tiene. */
     private static function etiquetaProducto(array $x): string
     {
         $sku = (string) ($x['sku'] ?? '');
 
-        return $sku !== '' ? $sku . ' · ' . (string) $x['nombre'] : (string) $x['nombre'];
+        return $sku !== '' ? $sku : (string) $x['nombre'];
     }
 
     /**

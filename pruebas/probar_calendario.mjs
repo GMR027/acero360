@@ -85,9 +85,11 @@ try {
 
     // Sin mes en la URL, el día de HOY queda seleccionado por defecto.
     const hoySeleccionado = await page.locator('.calendario__dia--seleccionado[aria-current="date"]').count();
-    const agendaHoy = await page.locator('.agenda-dia--elegido, .agenda-dia--hoy').count();
-    prueba('el día de hoy viene seleccionado en el calendario y en la Agenda',
-        hoySeleccionado === 1 && agendaHoy >= 1, `calendario=${hoySeleccionado} agenda=${agendaHoy}`);
+    const columnasAgenda = (await page.locator('.agenda-tabla thead th').allTextContents()).map((x) => x.trim());
+    prueba('el día de hoy viene seleccionado en el calendario', hoySeleccionado === 1, `calendario=${hoySeleccionado}`);
+    prueba('la Agenda es una tabla con las 8 columnas pedidas',
+        JSON.stringify(columnasAgenda) === JSON.stringify(['Fecha', 'Icono', 'Nombre del evento', 'Núm. venta', 'Proveedor',
+            'Gasto por pagar', 'Venta por cobrar', 'Acciones']), columnasAgenda.join(' | '));
 
     /* ------------------------------------------- navegación por mes ------ */
     console.log('\nNavegación entre meses y años');
@@ -128,12 +130,12 @@ try {
     const urlDia = new URL(page.url());
     prueba('al hacer clic sobre un día se selecciona', urlDia.searchParams.get('dia') === '15', page.url());
     prueba('la Agenda resalta el día elegido',
-        await page.locator('.agenda-dia--elegido').count() >= 0);
-    const fechasAgenda = await page.locator('.agenda-dia__nombre').allTextContents();
-    prueba('la Agenda lista los días con movimiento (hoy aparece)',
-        fechasAgenda.some((t) => /hoy/i.test(t)), fechasAgenda.join(' | ').slice(0, 90));
+        await page.locator('.agenda-fila--elegido').count() >= 0);
+    const fechasAgenda = await page.locator('.agenda-tabla tbody .agenda-tabla__fecha-texto').allTextContents();
+    prueba('las fechas de la Agenda van en dd/mm/aaaa',
+        fechasAgenda.every((f) => /^\d{2}\/\d{2}\/\d{4}$/.test(f.trim())), fechasAgenda.slice(0, 5).join(' | '));
     prueba('y deja fuera los días sin nada (el 15 aún no tiene)',
-        !fechasAgenda.some((t) => /15 de octubre/.test(t)), fechasAgenda.join(' | ').slice(0, 90));
+        await page.locator('.agenda-tabla tbody tr[data-agenda-ref$="-15"]').count() === 0);
     prueba('el formulario de alta vive oculto, no en pantalla',
         await page.locator('[data-alta-calendario-contenedor] [data-formulario-alta]').count() === 1
         && !(await page.locator('[data-formulario-alta]').first().isVisible()));
@@ -152,7 +154,9 @@ try {
     prueba(`la fecha del formulario viene precargada (${fechaCampo})`,
         fechaCampo === `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-15`, fechaCampo);
     const tituloModal = await page.locator('#modal-titulo').textContent();
-    prueba('el título del modal nombra el día elegido', /15 de octubre/.test(tituloModal), tituloModal.trim());
+    const nombreMesActual = new Intl.DateTimeFormat('es-MX', { month: 'long' }).format(hoy);
+    prueba('el título del modal nombra el día elegido',
+        new RegExp('15 de ' + nombreMesActual).test(tituloModal), tituloModal.trim());
     prueba('los botones propios del formulario se ocultan: los da el modal',
         !(await page.locator('#modal-cuerpo .formulario__acciones').isVisible()));
     await page.screenshot({ path: '/tmp/opencode/calendario-modal.png' });
@@ -173,11 +177,21 @@ try {
     await page.waitForTimeout(300);
     const avisoAlta = (await page.locator('.alerta').allTextContents().catch(() => [])).join(' | ');
     prueba('guarda y confirma con una alerta visual', /guardado en el calendario/i.test(avisoAlta), avisoAlta.trim());
-    prueba('el evento aparece en el panel del día',
-        await page.locator('.agenda-dia .evento-tarjeta:has-text("T Calendario Visita con cliente")').count() === 1);
-    prueba('y también en la agenda del mes',
-        await page.locator('.calendario-agenda .evento-tarjeta:has-text("T Calendario Visita con cliente")').count() >= 1);
+    const filaRecordatorio = page.locator('.agenda-tabla tbody tr:has-text("T Calendario Visita con cliente")');
+    prueba('el recordatorio aparece en la Agenda del mes', await filaRecordatorio.count() === 1);
     prueba('se abre en el mismo día que se creó', new URL(page.url()).searchParams.get('dia') === '15', page.url());
+
+    // «Ver» del recordatorio: ficha completa en modal (las operaciones del
+    // negocio, en cambio, enlazan al detalle de su módulo).
+    await filaRecordatorio.locator('[data-ver-evento]').click();
+    await page.waitForSelector('#modal-principal:not([hidden])', { timeout: 8000 });
+    const ficha = await page.locator('#modal-cuerpo').textContent();
+    prueba('«Ver» del recordatorio abre su ficha completa',
+        /Llevar muestras de perfil/.test(ficha) && /10:30/.test(ficha), ficha.trim().replace(/\s+/g, ' ').slice(0, 120));
+    prueba('la ficha trae el botón «Cerrar»', await page.locator('#modal-pie [data-cerrar-modal]').count() === 1);
+    await page.locator('#modal-pie [data-cerrar-modal]').click();
+    await page.waitForTimeout(300);
+    prueba('el modal de la ficha se cierra', await page.locator('#modal-principal').isHidden());
 
     const enBD = Number(consulta("SELECT COUNT(*) FROM calendario_eventos WHERE nombre = 'T Calendario Visita con cliente'"));
     prueba('persiste en la base de datos', enBD === 1, `registros=${enBD}`);
@@ -210,7 +224,7 @@ try {
     /* ------------------------------------------------ edición ------------ */
     console.log('\nEdición');
     await page.goto(`${BASE}/admin/calendario?anio=${hoy.getFullYear()}&mes=${hoy.getMonth() + 1}&dia=15`, { waitUntil: 'networkidle' });
-    await page.locator('.agenda-dia--elegido .evento-tarjeta a:has-text("Editar")').click();
+    await page.locator('.agenda-fila--elegido a:has-text("Editar")').first().click();
     await page.waitForURL(/\/admin\/calendario\/editar/, { timeout: 8000 });
     prueba('el formulario viene precargado',
         await page.locator('#nombre').inputValue() === 'T Calendario Visita con cliente'
@@ -220,14 +234,14 @@ try {
     await page.waitForURL(/\/admin\/calendario\?/, { timeout: 10000 });
     await page.waitForTimeout(500);
     prueba('los cambios se guardan y regresan al calendario',
-        await page.locator('.agenda-dia .evento-tarjeta:has-text("T Calendario Visita reprogramada")').count() === 1);
+        await page.locator('.agenda-tabla tbody tr:has-text("T Calendario Visita reprogramada")').count() === 1);
     prueba('quedó en la base con el nuevo nombre',
         Number(consulta("SELECT COUNT(*) FROM calendario_eventos WHERE nombre = 'T Calendario Visita reprogramada'")) === 1);
 
     /* ------------------------------------------------ baja --------------- */
     console.log('\nBaja con confirmación modal');
-    await page.locator('.agenda-dia--elegido .evento-tarjeta:has-text("T Calendario Visita reprogramada")')
-        .locator('xpath=..').locator('button[title="Eliminar"]').click();
+    await page.locator('.agenda-tabla tbody tr:has-text("T Calendario Visita reprogramada")')
+        .locator('button[title="Eliminar"]').click();
     await page.waitForSelector('#modal-principal:not([hidden])', { timeout: 8000 });
     prueba('pide confirmación en el modal de la aplicación', true);
     // La navegación se engancha ANTES de confirmar: sólo así se captura la
@@ -238,8 +252,8 @@ try {
     await page.waitForTimeout(300);
     const avisoBaja = (await page.locator('.alerta').allTextContents().catch(() => [])).join(' | ');
     prueba('elimina y lo confirma con una alerta', /eliminado del calendario/i.test(avisoBaja), avisoBaja.trim());
-    prueba('ya no aparece en el día',
-        await page.locator('.agenda-dia .evento-tarjeta:has-text("T Calendario Visita reprogramada")').count() === 0);
+    prueba('ya no aparece en la Agenda',
+        await page.locator('.agenda-tabla tbody tr:has-text("T Calendario Visita reprogramada")').count() === 0);
     prueba('no quedan registros de la prueba',
         Number(consulta("SELECT COUNT(*) FROM calendario_eventos WHERE nombre LIKE 'T Calendario %'")) === 0);
 
@@ -311,41 +325,56 @@ try {
         ['Venta', 'Gasto', 'Recepción de proveedor', 'Factura por pagar', 'Factura por cobrar']
             .every((t) => leyenda.includes(t)), leyenda.trim().slice(0, 120));
 
-    // La Agenda sustituye al panel derecho: lista el día con sus marcadores.
-    // Se RECARGA y no se hace clic, porque hoy YA viene seleccionado al cargar
-    // y un clic sobre la casilla seleccionada abre el modal de alta (que
-    // taparía el botón «Ver» de la Agenda).
+    // La Agenda es la misma tabla para operaciones y recordatorios. Se RECARGA
+    // y no se hace clic, porque hoy YA viene seleccionado al cargar y un clic
+    // sobre la casilla seleccionada abre el modal de alta.
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForSelector('.agenda-dia__negocio', { timeout: 10000 });
-    const marcadoresHoy = await page.locator('.agenda-dia--hoy').textContent().catch(() => '');
-    prueba('la Agenda lista lo que pasó ese día con sus cifras',
-        /ventas/i.test(marcadoresHoy) && /\$/.test(marcadoresHoy), marcadoresHoy.trim().replace(/\s+/g, ' ').slice(0, 120));
-    const familiaAgenda = await page.locator('.agenda-dia__icono').first()
+    await page.waitForSelector('.agenda-tabla tbody tr', { timeout: 10000 });
+
+    const filaVenta = page.locator('.agenda-tabla tbody tr:has-text("Venta · T Calendario Cliente")');
+    const filaGasto = page.locator('.agenda-tabla tbody tr:has-text("Gasto · T Calendario gasto por pagar")');
+    const filaRecepcion = page.locator('.agenda-tabla tbody tr:has-text("Recepción de compra · T CAL-M")');
+    const filaIngreso = page.locator('.agenda-tabla tbody tr:has-text("Ingreso · T Calendario factura por cobrar")');
+    const celdas = (fila) => fila.locator('td').allTextContents();
+
+    prueba('la Agenda lista una fila por operación del día',
+        await filaVenta.count() === 1 && await filaGasto.count() === 1
+        && await filaRecepcion.count() === 1 && await filaIngreso.count() === 1);
+
+    const celdasVenta = await celdas(filaVenta);
+    prueba('la venta trae su número de venta', celdasVenta[3].trim() === 'T CAL-M', celdasVenta[3]);
+    prueba('la venta no inventa gasto por pagar', celdasVenta[5].trim() === '—', celdasVenta[5]);
+    const celdasGasto = await celdas(filaGasto);
+    prueba('el gasto pendiente muestra $400.00 en «Gasto por pagar»', celdasGasto[5].includes('$400.00'), celdasGasto[5]);
+    prueba('y su proveedor en la columna «Proveedor»', celdasGasto[4].includes('T Calendario Proveedor'), celdasGasto[4]);
+    const celdasRecepcion = await celdas(filaRecepcion);
+    prueba('la recepción de compra trae el proveedor y no duplica el saldo',
+        celdasRecepcion[4].includes('T Calendario Proveedor') && celdasRecepcion[5].trim() === '—');
+    const celdasIngreso = await celdas(filaIngreso);
+    prueba('la factura sin cobrar muestra $1,160.00 en «Venta por cobrar»', celdasIngreso[6].includes('$1,160.00'), celdasIngreso[6]);
+    prueba('la columna «Núm. venta» queda vacía cuando no aplica', celdasIngreso[3].trim() === '—', celdasIngreso[3]);
+
+    const familiaAgenda = await page.locator('.agenda-tabla .agenda-dia__icono').first()
         .evaluate((e) => getComputedStyle(e).fontFamily);
-    prueba('los marcadores de la Agenda usan el icono CLÁSICO relleno (Material Icons)',
+    prueba('los iconos de la Agenda usan el icono CLÁSICO relleno (Material Icons)',
         /Material Icons/.test(familiaAgenda), familiaAgenda);
-    prueba('cada día de la Agenda trae su botón «Ver»',
-        await page.locator('.agenda-dia [data-ver-dia]').count() >= 1);
+    prueba('cada operación trae su enlace «Ver» al módulo',
+        await page.locator('.agenda-tabla tbody a:has-text("Ver")').count() >= 4);
 
-    /* ------------------------------------------- botón «Ver» del día ----- */
-    console.log('\nVer el detalle de un día');
-    await page.locator('.agenda-dia--hoy [data-ver-dia]').click();
-    await page.waitForSelector('#modal-principal:not([hidden])', { timeout: 8000 });
-    const detalle = await page.locator('#modal-cuerpo').textContent().catch(() => '');
-    prueba('«Ver» abre el detalle del día en ventana modal',
-        /ventas/i.test(detalle) && /\$/.test(detalle), detalle.trim().replace(/\s+/g, ' ').slice(0, 120));
-    prueba('el modal nombra el día', /octubre/.test(await page.locator('#modal-titulo').textContent()),
-        (await page.locator('#modal-titulo').textContent()).trim());
-    prueba('el modal ofrece ir al calendario',
-        await page.locator('#modal-pie a:has-text("Ver en el calendario")').count() === 1);
-    await page.screenshot({ path: '/tmp/opencode/calendario-agenda-ver.png' });
-    await page.click('#modal-pie button[data-cerrar-modal]');
-    await page.waitForTimeout(300);
-    prueba('el modal se cierra', await page.locator('#modal-principal').isHidden());
-
-    // Nada de esto es un evento: no debe aparecer en la lista editable del día.
-    prueba('los marcadores NO entran en la lista de eventos editable',
-        await page.locator('.agenda-dia__eventos .evento-tarjeta').count() === 0);
+    /* ------------------------------------------- enlaces «Ver» ----------- */
+    console.log('\nEnlaces «Ver» de la Agenda');
+    const hrefVenta = await filaVenta.locator('a:has-text("Ver")').getAttribute('href');
+    prueba('«Ver» de una venta abre el detalle de Ventas',
+        /^\/admin\/ventas\/detalle\?id=\d+$/.test(hrefVenta || ''), hrefVenta);
+    const hrefGasto = await filaGasto.locator('a:has-text("Ver")').getAttribute('href');
+    prueba('«Ver» de un gasto abre el detalle de Gastos',
+        /^\/admin\/contabilidad\/gastos\/detalle\?id=\d+$/.test(hrefGasto || ''), hrefGasto);
+    const hrefRecepcion = await filaRecepcion.locator('a:has-text("Ver")').getAttribute('href');
+    prueba('«Ver» de una recepción abre el detalle de Compras',
+        /^\/admin\/compras\/detalle\?id=\d+$/.test(hrefRecepcion || ''), hrefRecepcion);
+    const hrefIngreso = await filaIngreso.locator('a:has-text("Ver")').getAttribute('href');
+    prueba('«Ver» de un ingreso abre el detalle de Ingresos',
+        /^\/admin\/contabilidad\/ingresos\/detalle\?id=\d+$/.test(hrefIngreso || ''), hrefIngreso);
 
     // Limpieza de lo sembrado para esta sección.
     consulta(`DELETE FROM recepciones WHERE id = ${recepMarc}`);

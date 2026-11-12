@@ -112,6 +112,9 @@ $prueba('si deja de estar vendida, sale de las estadísticas', Estadisticas::com
 echo "Rankings\n";
 $prod2 = Estadisticas::topProductos('2026-01-01', '2026-01-31');
 $prueba('producto más vendido en enero 2026: 37 con 3 pzas y $1,500', $prod2[0]['producto_id'] === 37 && $prod2[0]['unidades'] === 3 && $prod2[0]['importe'] === 150000 && $prod2[1]['producto_id'] === 36);
+$prueba('el importe con IVA reparte el total real de cada venta (1,740 y 696)',
+    $prod2[0]['importe_con_iva'] === 174000 && $prod2[1]['importe_con_iva'] === 69600,
+    json_encode([$prod2[0]['importe_con_iva'] ?? null, $prod2[1]['importe_con_iva'] ?? null]));
 $prodAnio = Estadisticas::topProductos('2026-01-01', '2026-12-31');
 $prueba('los productos salen separados por negocio y con su código (SKU)', $prodAnio[0]['negocio'] === 'Soluciones en Acero' && $prodAnio[0]['sku'] === 'RA-3'
     && $prodAnio[2]['empresa_id'] === 2 && $prodAnio[2]['producto_id'] === 36 && $prodAnio[2]['importe'] === 120000, json_encode($prodAnio));

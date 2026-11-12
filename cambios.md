@@ -1962,3 +1962,33 @@ En los gastos, una factura PPD (pago en parcialidades) solo se podía marcar com
 - `pruebas/php/etapa48.php`: coordenadas normalizadas, prioridad GPS/manual/dirección y descripción de la galería → **TODO OK**.
 - `pruebas/php/etapa43.php`: señal visual de pendientes y composición del acta PDF → **TODO OK**.
 - `pruebas/probar_operacion.mjs`: fechas EXIF (incluido IFD0), botón de geolocalización, galería con mapas, exportación del acta completa y por entrega → **52/52**.
+
+---
+
+## Ronda — Agenda detallada y estadísticas en el celular (2026-11-11)
+
+### Agenda del calendario: una fila por operación
+
+- **`clases/EventosCalendario.php`:** nuevo `operacionesMes($anio, $mes)` con caché por mes. Devuelve una fila por venta, gasto, recepción de compra, entrada de proveedor e ingreso sin venta, con fecha, tipo, nombre, número de venta, proveedor, saldo por pagar, saldo por cobrar y la URL del detalle de su módulo. Los saldos se calculan con los pagos y cobros vigentes; en las recepciones de compra el saldo sólo se muestra si la orden no generó un gasto (así no se duplica). `olvidarMarcadores()` limpia también esta caché.
+- **`views/admin/calendario/index.php`:** la Agenda pasa a una tabla de 8 columnas (Fecha en `dd/mm/aaaa`, Icono, Nombre del evento, Núm. venta, Proveedor, Gasto por pagar, Venta por cobrar, Acciones), con «—» cuando la columna no aplica. Los recordatorios son una fila más; su «Ver» abre la ficha en modal y las operaciones enlazan al detalle real de Ventas, Gastos, Compras, Ingresos o Proveedores. En el celular la tabla se desplaza horizontalmente en vez de convertirse en tarjetas de 8 campos.
+- **`src/js/modulos/calendario.js`:** se retiró el modal de resumen por día (`data-ver-dia`, `data-agenda-datos`); la ficha del recordatorio toma sus datos de `data-evento` y el pie conserva «Cerrar» y «Editar evento».
+
+### Estadísticas: distribución y móvil
+
+- **Tarjetas:** «Gastos por categoría» ocupa todo el ancho. En el celular se ocultan «Comparación entre semestres», la sección completa «Ingresos, cobros y facturación» y «Ventas por negocio · 2026».
+- **Comparación entre negocios:** en el celular quedan Negocio, Ventas del periodo y Participación; Operaciones, Mismo avance y Variación se ocultan.
+- **Ventas por negocio · productos de…:** columnas Código, Piezas, Importe sin IVA e Importe con IVA. La tabla del segundo negocio y siguientes se oculta en el celular.
+- **`clases/Estadisticas.php`:** `topProductos()` calcula `importe_con_iva` repartiendo el total real de cada venta (con IVA y descuentos) entre sus renglones en proporción a su importe sin IVA.
+- **`clases/Analisis.php`:** las gráficas de productos muestran sólo el código (SKU); el nombre queda como respaldo cuando el producto no tiene código.
+
+### Mapa de ventas: ubicaciones guardadas sólo como texto
+
+- **`clases/Estadisticas.php`:** si una entrega no tiene coordenadas en sus columnas pero su `ubicacion_maps` trae un enlace largo o coordenadas, el mapa las lee en PHP sin salir a la red. Así aparecen también las ubicaciones capturadas antes de la migración 049 y los enlaces que no se pudieron resolver al guardar.
+
+### Pruebas
+
+- `pruebas/php/etapa27.php`: agenda detallada (6 filas, saldos, factura ligada a la venta, baja al cancelar) → **TODO OK**.
+- `pruebas/probar_calendario.mjs`: 8 columnas, fechas `dd/mm/aaaa`, «—» donde no aplica, ficha del recordatorio y enlaces «Ver» de cada módulo → **65/65**.
+- `pruebas/php/etapa7.php`: `importe_con_iva` proporcional (1,740 y 696) → **TODO OK**.
+- `pruebas/probar_etapa7.mjs`: columnas nuevas, SKU sin nombre y visibilidad móvil de las tarjetas y tablas → **51/51**.
+- `pruebas/php/mapa_ventas.php` y `probar_mapa_ventas.mjs`: ubicación sólo como texto además de GPS y coordenadas → **TODO OK / 10/10**.

@@ -137,6 +137,22 @@ class EventosCalendario
     /** @var array<string, array<string, array{n: int, importe: float|null}>> Caché por mes: '2026-10' => marcadores. */
     protected static $cacheMarcadores = [];
 
+    /** @var array<string, array<int, array<string, mixed>>> Caché por mes de la Agenda detallada. */
+    protected static $cacheOperaciones = [];
+
+    /**
+     * Tipos de operación de la Agenda detallada, con el icono y color que ya
+     * usa el calendario. `entrada` es una entrada directa de proveedor (sin
+     * orden de compra) y `ingreso` un ingreso sin venta asociada.
+     */
+    public const TIPOS_AGENDA = [
+        'venta'     => ['icono' => 'trending_up',   'color' => 'verde',    'etiqueta' => 'Venta'],
+        'gasto'     => ['icono' => 'receipt_long',  'color' => 'rojo',     'etiqueta' => 'Gasto'],
+        'recepcion' => ['icono' => 'inventory_2',   'color' => 'azul',     'etiqueta' => 'Recepción de proveedor'],
+        'entrada'   => ['icono' => 'local_shipping', 'color' => 'azul',    'etiqueta' => 'Entrada de proveedor'],
+        'ingreso'   => ['icono' => 'request_quote', 'color' => 'naranja',  'etiqueta' => 'Ingreso'],
+    ];
+
     /**
      * Marcadores del negocio de cada día de un mes.
      *
@@ -270,7 +286,197 @@ class EventosCalendario
     }
 
     /**
-     * Borra la caché de marcadores.
+     * Operaciones del negocio de un mes, UNA fila por cada operación, para la
+     * Agenda detallada. No agrupa por día ni por tipo: cada venta, gasto,
+     * recepción, entrada de proveedor e ingreso sin venta es su propia fila.
+     *
+     * «Gasto por pagar» y «Venta por cobrar» son columnas, no filas aparte:
+     * llevan el saldo pendiente de la operación cuando lo tiene. En las
+     * recepciones de compra el saldo sólo se muestra si la orden no generó un
+     * gasto (si lo generó, el saldo va en la fila de ese gasto y no se duplica).
+     *
+     * @return array<int, array{
+     *     fecha: string, tipo: string, nombre: string, numero_venta: string,
+     *     proveedor: string, por_pagar: ?float, por_cobrar: ?float, url: string
+     * }>
+     */
+    public static function operacionesMes(int $anio, int $mes): array
+    {
+        $clave = sprintf('%04d-%02d', $anio, $mes);
+        if (isset(self::$cacheOperaciones[$clave])) {
+            return self::$cacheOperaciones[$clave];
+        }
+
+        $inicio = sprintf('%04d-%02d-01', $anio, $mes);
+        $fin    = ($mes === 12) ? sprintf('%04d-01-01', $anio + 1) : sprintf('%04d-%02d-01', $anio, $mes + 1);
+
+        $contribuyente = (int) Contabilidad::contribuyentePrincipal();
+        $empresas      = self::empresasDelContribuyente($contribuyente);
+        $filas         = [];
+
+        // Ventas registradas, con lo que falte por cobrar de sus facturas.
+        if ($empresas !== []) {
+            $lista = implode(',', array_fill(0, count($empresas), '?'));
+            $ventas = self::consultarFilas(
+                "SELECT v.id, v.fecha, v.folio,
+                        COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre) AS cliente,
+                        COALESCE(pc.saldo, 0) AS por_cobrar
+                   FROM ventas v
+                   JOIN clientes cl ON cl.id = v.cliente_id
+                   LEFT JOIN (SELECT i.venta_id,
+                                     SUM(ROUND(i.total * 100) - COALESCE(cb.cobrado, 0)) AS saldo
+                                FROM ingresos i
+                                LEFT JOIN (SELECT ingreso_id, SUM(ROUND(importe * 100)) AS cobrado
+                                             FROM cobros WHERE estado = 'vigente' GROUP BY ingreso_id) cb ON cb.ingreso_id = i.id
+                               WHERE i.estado = 'vigente' AND i.estado_facturacion = 'facturada' AND i.venta_id IS NOT NULL
+                               GROUP BY i.venta_id
+                              HAVING saldo > 0) pc ON pc.venta_id = v.id
+                  WHERE v.estado = 'registrada' AND v.fecha >= ? AND v.fecha < ?
+                    AND v.empresa_id IN ($lista)
+                  ORDER BY v.fecha, v.id",
+                'ss' . str_repeat('i', count($empresas)),
+                array_merge([$inicio, $fin], $empresas)
+            );
+
+            foreach ($ventas as $x) {
+                $filas[] = [
+                    'fecha'        => (string) $x['fecha'],
+                    'tipo'         => 'venta',
+                    'nombre'       => 'Venta · ' . (string) $x['cliente'],
+                    'numero_venta' => (string) $x['folio'],
+                    'proveedor'    => '',
+                    'por_pagar'    => null,
+                    'por_cobrar'   => (float) $x['por_cobrar'] > 0 ? round((float) $x['por_cobrar'] / 100, 2) : null,
+                    'url'          => '/admin/ventas/detalle?id=' . (int) $x['id'],
+                ];
+            }
+        }
+
+        // Gastos vigentes, con su saldo pendiente de pago.
+        foreach (self::consultarFilas(
+            "SELECT g.id, g.fecha, g.concepto,
+                    COALESCE(NULLIF(p.nombre, ''), g.beneficiario, '') AS proveedor,
+                    CASE WHEN g.estado_pago = 'pagado' THEN 0
+                         ELSE GREATEST(ROUND(g.total * 100) - COALESCE(pg.pagado, 0), 0) END AS saldo
+               FROM gastos g
+               LEFT JOIN proveedores p ON p.id = g.proveedor_id
+               LEFT JOIN (SELECT gasto_id, SUM(ROUND(importe * 100)) AS pagado
+                            FROM pagos_gasto WHERE estado = 'vigente' GROUP BY gasto_id) pg ON pg.gasto_id = g.id
+              WHERE g.estado = 'vigente' AND g.fecha >= ? AND g.fecha < ? AND g.contribuyente_id = ?
+              ORDER BY g.fecha, g.id",
+            'ssi', [$inicio, $fin, $contribuyente]
+        ) as $x) {
+            $concepto = trim((string) $x['concepto']);
+            $filas[] = [
+                'fecha'        => (string) $x['fecha'],
+                'tipo'         => 'gasto',
+                'nombre'       => 'Gasto · ' . ($concepto !== '' ? $concepto : 'sin concepto'),
+                'numero_venta' => '',
+                'proveedor'    => (string) $x['proveedor'],
+                'por_pagar'    => (float) $x['saldo'] > 0 ? round((float) $x['saldo'] / 100, 2) : null,
+                'por_cobrar'   => null,
+                'url'          => '/admin/contabilidad/gastos/detalle?id=' . (int) $x['id'],
+            ];
+        }
+
+        // Recepciones de órdenes de compra (el saldo sólo si la orden no tiene gasto).
+        foreach (self::consultarFilas(
+            "SELECT r.id, r.fecha, o.id AS orden_id, o.folio, o.gasto_id, p.nombre AS proveedor,
+                    ROUND(o.total_esperado * 100) + COALESCE(ROUND(o.iva * 100), 0) - COALESCE(pc.pagado, 0) AS saldo
+               FROM recepciones r
+               JOIN ordenes_compra o ON o.id = r.orden_id
+               LEFT JOIN proveedores p ON p.id = o.proveedor_id
+               LEFT JOIN (SELECT orden_id, SUM(ROUND(importe * 100)) AS pagado
+                            FROM pagos_compra WHERE estado = 'vigente' GROUP BY orden_id) pc ON pc.orden_id = o.id
+              WHERE r.fecha >= ? AND r.fecha < ? AND o.contribuyente_id = ?
+              ORDER BY r.fecha, r.id",
+            'ssi', [$inicio, $fin, $contribuyente]
+        ) as $x) {
+            $saldo = $x['gasto_id'] === null && (float) $x['saldo'] > 0 ? round((float) $x['saldo'] / 100, 2) : null;
+            $filas[] = [
+                'fecha'        => (string) $x['fecha'],
+                'tipo'         => 'recepcion',
+                'nombre'       => 'Recepción de compra · ' . (string) $x['folio'],
+                'numero_venta' => '',
+                'proveedor'    => trim((string) ($x['proveedor'] ?? '')),
+                'por_pagar'    => $saldo,
+                'por_cobrar'   => null,
+                'url'          => '/admin/compras/detalle?id=' . (int) $x['orden_id'],
+            ];
+        }
+
+        // Entradas directas de proveedor (sin orden de compra).
+        foreach (self::consultarFilas(
+            "SELECT pe.id, pe.fecha, pe.numero_pedido, pe.descripcion, pe.monto, pe.pagado,
+                    COALESCE(p.nombre, '') AS proveedor
+               FROM proveedor_entradas pe
+               LEFT JOIN proveedores p ON p.id = pe.proveedor_id
+              WHERE pe.fecha >= ? AND pe.fecha < ?
+              ORDER BY pe.fecha, pe.id",
+            'ss', [$inicio, $fin]
+        ) as $x) {
+            $detalle = trim((string) $x['numero_pedido']) !== '' ? trim((string) $x['numero_pedido']) : trim((string) $x['descripcion']);
+            $filas[] = [
+                'fecha'        => (string) $x['fecha'],
+                'tipo'         => 'entrada',
+                'nombre'       => 'Entrada de proveedor' . ($detalle !== '' ? ' · ' . $detalle : ''),
+                'numero_venta' => '',
+                'proveedor'    => (string) $x['proveedor'],
+                'por_pagar'    => (int) $x['pagado'] === 0 && (float) $x['monto'] > 0 ? (float) $x['monto'] : null,
+                'por_cobrar'   => null,
+                'url'          => '/admin/proveedores/entradas/detalle?id=' . (int) $x['id'],
+            ];
+        }
+
+        // Ingresos sin venta asociada: llevan su propio saldo por cobrar.
+        foreach (self::consultarFilas(
+            "SELECT i.id, i.fecha, i.folio, i.concepto,
+                    COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre, '') AS cliente,
+                    ROUND(i.total * 100) - COALESCE(cb.cobrado, 0) AS saldo
+               FROM ingresos i
+               LEFT JOIN clientes cl ON cl.id = i.cliente_id
+               LEFT JOIN (SELECT ingreso_id, SUM(ROUND(importe * 100)) AS cobrado
+                            FROM cobros WHERE estado = 'vigente' GROUP BY ingreso_id) cb ON cb.ingreso_id = i.id
+              WHERE i.estado = 'vigente' AND i.venta_id IS NULL AND i.fecha >= ? AND i.fecha < ? AND i.contribuyente_id = ?
+              ORDER BY i.fecha, i.id",
+            'ssi', [$inicio, $fin, $contribuyente]
+        ) as $x) {
+            $concepto = trim((string) $x['concepto']);
+            $cliente  = trim((string) $x['cliente']);
+            $detalle  = $concepto !== '' ? $concepto : ($cliente !== '' ? $cliente : 'folio ' . (string) $x['folio']);
+            $filas[] = [
+                'fecha'        => (string) $x['fecha'],
+                'tipo'         => 'ingreso',
+                'nombre'       => 'Ingreso · ' . $detalle,
+                'numero_venta' => '',
+                'proveedor'    => '',
+                'por_pagar'    => null,
+                'por_cobrar'   => (float) $x['saldo'] > 0 ? round((float) $x['saldo'] / 100, 2) : null,
+                'url'          => '/admin/contabilidad/ingresos/detalle?id=' . (int) $x['id'],
+            ];
+        }
+
+        // Fecha y, dentro del día, el orden de la leyenda. `_secuencia` conserva
+        // el orden de inserción cuando coinciden fecha y tipo.
+        $orden = array_flip(array_keys(self::TIPOS_AGENDA));
+        foreach ($filas as $i => $fila) {
+            $filas[$i]['_secuencia'] = $i;
+        }
+        usort($filas, static function (array $a, array $b) use ($orden): int {
+            return [$a['fecha'], $orden[$a['tipo']] ?? 99, $a['_secuencia']]
+                <=> [$b['fecha'], $orden[$b['tipo']] ?? 99, $b['_secuencia']];
+        });
+        foreach ($filas as $i => $fila) {
+            unset($filas[$i]['_secuencia']);
+        }
+
+        self::$cacheOperaciones[$clave] = $filas;
+
+        return $filas;
+    }
+
+    /**
+     * Borra la caché de marcadores y de la Agenda detallada.
      *
      * En una petición web no hace falta (la caché vive lo que dura la página),
      * pero en pruebas y en procesos largos, tras crear o modificar una
@@ -279,10 +485,17 @@ class EventosCalendario
     public static function olvidarMarcadores(): void
     {
         self::$cacheMarcadores = [];
+        self::$cacheOperaciones = [];
     }
 
     /** Ejecuta un GROUP BY fecha y devuelve las filas (vacío si no hay). */
     protected static function agruparPorFecha(string $sql, string $tipos, array $valores): array
+    {
+        return self::consultarFilas($sql, $tipos, $valores);
+    }
+
+    /** Ejecuta una consulta preparada y devuelve todas sus filas. */
+    protected static function consultarFilas(string $sql, string $tipos, array $valores): array
     {
         $consulta = self::$db->prepare($sql);
         $consulta->bind_param($tipos, ...$valores);

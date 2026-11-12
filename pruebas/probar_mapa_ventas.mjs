@@ -65,10 +65,10 @@ try {
 
   console.log('1. Mapa y pines');
   verifica('el mapa de Leaflet se creó', await pagina.locator('#mapa-ventas.leaflet-container').count() === 1);
-  verifica('hay 5 pines (los 5 lugares)', await pagina.locator('.mapa-ventas__pin').count() === esperados.puntos,
+  verifica('hay un pin por lugar', await pagina.locator('.mapa-ventas__pin').count() === esperados.puntos,
     String(await pagina.locator('.mapa-ventas__pin').count()));
   const numeros = await pagina.locator('.mapa-ventas__numero').allTextContents();
-  verifica('los números son 4, 2, 1, 1 y 1', numeros.join(',') === esperados.por_ventas.join(','), numeros.join(', '));
+  verifica('los números de cada pin coinciden', numeros.join(',') === esperados.por_ventas.join(','), numeros.join(', '));
   verifica('las teselas apuntan a OpenStreetMap',
     (await pagina.locator('.leaflet-tile').first().getAttribute('src') || '').includes('tile.openstreetmap.org'));
   verifica('se muestra la atribución de OpenStreetMap',
@@ -82,7 +82,7 @@ try {
 
   console.log('3. Resumen');
   const resumen = await pagina.locator('.mapa-ventas__resumen').textContent();
-  verifica('el resumen cuenta las 9 ventas ubicadas', resumen.includes('9 ventas ubicadas'), resumen);
+  verifica('el resumen cuenta las ventas ubicadas', resumen.includes(`${esperados.ventas_ubicadas} ventas ubicadas`), resumen);
   verifica('el resumen avisa de la venta sin ubicación', resumen.includes('1 sin ubicación'), resumen);
 
   console.log('4. Consola');

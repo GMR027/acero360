@@ -252,19 +252,65 @@ $prueba('el «por cobrar» muestra lo que falta por cobrar (1,160)',
 $prueba('los cinco tipos están en el catálogo, en el orden de la leyenda',
     array_keys(EventosCalendario::TIPOS_NEGOCIO) === ['venta', 'gasto', 'recepcion', 'por_pagar', 'por_cobrar']);
 
+echo "  Agenda detallada (una fila por operación)\n";
+$agenda = EventosCalendario::operacionesMes($anio, $mes);
+$delDia = array_values(array_filter($agenda, static fn (array $f): bool => $f['fecha'] === $fechaMarc));
+$porTipo = static function (string $tipo) use ($delDia): array {
+    return array_values(array_filter($delDia, static fn (array $f): bool => $f['tipo'] === $tipo));
+};
+
+$prueba('una fila por cada operación del día (6)', count($delDia) === 6, (string) count($delDia));
+$prueba('la venta trae su número y no tiene saldo por cobrar',
+    count($porTipo('venta')) === 1 && $porTipo('venta')[0]['numero_venta'] === 'T27-M'
+    && $porTipo('venta')[0]['por_cobrar'] === null, json_encode($porTipo('venta')));
+$prueba('el gasto pagado no trae saldo por pagar',
+    count($porTipo('gasto')) === 2 && $porTipo('gasto')[0]['por_pagar'] === null, json_encode($porTipo('gasto')));
+$prueba('el gasto pendiente trae 200 por pagar y su proveedor',
+    $porTipo('gasto')[1]['por_pagar'] === 200.0 && $porTipo('gasto')[1]['proveedor'] === 'T27 Proveedor marcadores',
+    json_encode($porTipo('gasto')[1]));
+$prueba('la entrada de proveedor trae 150 por pagar',
+    count($porTipo('entrada')) === 1 && $porTipo('entrada')[0]['por_pagar'] === 150.0, json_encode($porTipo('entrada')));
+$prueba('la recepción de compra no duplica el saldo de la orden',
+    count($porTipo('recepcion')) === 1 && $porTipo('recepcion')[0]['por_pagar'] === null
+    && $porTipo('recepcion')[0]['proveedor'] === 'T27 Proveedor marcadores', json_encode($porTipo('recepcion')));
+$prueba('el ingreso sin venta trae 1,160 por cobrar',
+    count($porTipo('ingreso')) === 1 && $porTipo('ingreso')[0]['por_cobrar'] === 1160.0, json_encode($porTipo('ingreso')));
+
+// Una factura ligada a una venta suma su saldo en la fila de la venta.
+$db->query("UPDATE ingresos SET venta_id = $ventaMarc WHERE id = $ingresoMarc");
+EventosCalendario::olvidarMarcadores();
+$agenda = EventosCalendario::operacionesMes($anio, $mes);
+$delDia = array_values(array_filter($agenda, static fn (array $f): bool => $f['fecha'] === $fechaMarc));
+$ventaFila = array_values(array_filter($delDia, static fn (array $f): bool => $f['tipo'] === 'venta'))[0] ?? [];
+$prueba('una factura ligada pone su saldo en la fila de la venta',
+    ($ventaFila['por_cobrar'] ?? null) === 1160.0, json_encode($ventaFila));
+$prueba('y ya no crea una fila aparte de ingreso',
+    count(array_filter($delDia, static fn (array $f): bool => $f['tipo'] === 'ingreso')) === 0);
+
 echo "  Marcadores al cambiar el estado de la operación\n";
 $db->query("UPDATE gastos SET estado_pago = 'pagado', fecha_pago = '$fechaMarc' WHERE id = $gastoPendiente");
 $db->query("INSERT INTO cobros (ingreso_id, fecha, importe, metodo, estado, usuario_id)
             VALUES ($ingresoMarc, '$fechaMarc', 1160, 'Efectivo', 'vigente', $usuario)");
+$db->query("INSERT INTO pagos_gasto (gasto_id, fecha, importe, metodo, estado, usuario_id)
+            VALUES ($gastoPendiente, '$fechaMarc', 200, 'Efectivo', 'vigente', $usuario)");
 EventosCalendario::olvidarMarcadores();
 $marcadores = EventosCalendario::marcadoresDia($fechaMarc);
 $prueba('al pagarse el gasto deja de estar «por pagar»', (int) ($marcadores['por_pagar']['n'] ?? 0) === 0, (string) ($marcadores['por_pagar']['n'] ?? 0));
 $prueba('pero sigue contando como gasto del día', (int) ($marcadores['gasto']['n'] ?? 0) === 2, (string) ($marcadores['gasto']['n'] ?? 0));
 $prueba('al cobrarse la factura deja de estar «por cobrar»', (int) ($marcadores['por_cobrar']['n'] ?? 0) === 0, (string) ($marcadores['por_cobrar']['n'] ?? 0));
 
+$agenda = EventosCalendario::operacionesMes($anio, $mes);
+$gastoAgenda = array_values(array_filter($agenda, static fn (array $f): bool =>
+    $f['fecha'] === $fechaMarc && $f['tipo'] === 'gasto' && str_ends_with($f['url'], '=' . $gastoPendiente)))[0] ?? [];
+$prueba('al pagarse el gasto, la Agenda deja la columna vacía',
+    array_key_exists('por_pagar', $gastoAgenda) && $gastoAgenda['por_pagar'] === null, json_encode($gastoAgenda));
+
 $db->query("UPDATE ventas SET estado = 'cancelada' WHERE id = $ventaMarc");
 EventosCalendario::olvidarMarcadores();
 $prueba('una venta cancelada deja de marcar (verde)', (int) (EventosCalendario::marcadoresDia($fechaMarc)['venta']['n'] ?? 0) === 0);
+$prueba('y también sale de la Agenda detallada',
+    count(array_filter(EventosCalendario::operacionesMes($anio, $mes), static fn (array $f): bool =>
+        $f['fecha'] === $fechaMarc && $f['tipo'] === 'venta')) === 0);
 
 $db->query("UPDATE gastos SET estado = 'cancelado' WHERE id = $gastoPagado");
 $db->query("DELETE FROM cobros WHERE ingreso_id = $ingresoMarc");
@@ -277,6 +323,7 @@ $db->query("DELETE FROM recepciones WHERE id = $recepcionMarc");
 $db->query("DELETE FROM ordenes_compra WHERE id = $ordenMarc");
 $db->query("DELETE FROM proveedor_entradas WHERE id = $entradaMarc");
 $db->query("DELETE FROM ingresos WHERE id = $ingresoMarc");
+$db->query("DELETE FROM pagos_gasto WHERE gasto_id IN ($gastoPagado, $gastoPendiente)");
 $db->query("DELETE FROM gastos WHERE id IN ($gastoPagado, $gastoPendiente)");
 $db->query("DELETE FROM ventas WHERE id = $ventaMarc");
 $db->query("DELETE FROM proveedores WHERE id = $proveedorMarc");

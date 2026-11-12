@@ -368,8 +368,10 @@
   }
 }
 
-/* --- Agenda en tabla: una fila por marcador del negocio o recordatorio --- */
+/* --- Agenda en tabla: una fila por operación del negocio o recordatorio --- */
 .agenda-tabla {
+  min-width: 54rem;
+
   /* La columna de acciones no se parte: «Ver», «Editar» y «Eliminar» en una fila. */
   th:last-child,
   td:last-child {
@@ -384,7 +386,8 @@
     gap: 0.35rem;
   }
 
-  &__fecha {
+  &__fecha,
+  &__folio {
     white-space: nowrap;
   }
 
@@ -397,7 +400,7 @@
   &__dia-semana {
     display: block;
     font-size: $fuente-xs;
-    color: $color-texto-secundario;
+    color: $color-primario-texto;
     text-transform: capitalize;
   }
 
@@ -419,20 +422,16 @@
     }
   }
 
+  &__proveedor {
+    max-width: 14rem;
+    overflow-wrap: anywhere;
+  }
+
   &__meta {
     display: block;
     font-size: $fuente-xs;
     color: $color-texto-secundario;
     overflow-wrap: anywhere;
-  }
-
-  &__importe {
-    display: inline-block;
-    margin-top: 0.1rem;
-    font-size: $fuente-xs;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: $color-texto-secundario;
   }
 }
 

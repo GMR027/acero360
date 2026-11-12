@@ -412,8 +412,10 @@ Cómo van tus ventas, cobros, facturas y gastos, con indicadores y gráficas int
 ### Las gráficas
 
 1. Ventas por mes, año contra año y por semestre; ingresos acumulados; ventas contra cobros; cobrado y saldo pendiente; facturadas y pendientes de facturar; gastos por año y categoría; comparación entre negocios; productos de mayor y menor movimiento y clientes.
-2. Productos y clientes salen SEPARADOS por negocio: cada negocio tiene su propia gráfica y sus propias filas, y cada producto trae su código (SKU) antes del nombre; en «Ventas por negocio» también ves los productos de cada negocio con su código.
-3. Pasa el cursor para ver la cifra exacta y la variación contra el año anterior; toca un nombre de la leyenda para ocultar o mostrar esa serie; el icono de la esquina guarda la gráfica como imagen.
+2. Productos y clientes salen SEPARADOS por negocio: cada negocio tiene su propia gráfica y sus propias filas. En las gráficas de mayor y menor movimiento el producto se identifica con su código (SKU).
+3. La tabla «Ventas por negocio · productos de…» muestra Código, Piezas, Importe sin IVA e Importe con IVA; el importe con IVA es la parte proporcional del total real de cada venta (con su IVA y sus descuentos).
+4. En el celular se ocultan la comparación entre semestres, toda la sección de ingresos y la gráfica de ventas por negocio; la comparación entre negocios deja Negocio, Ventas y Participación, y sólo se ve la tabla de productos del primer negocio. «Gastos por categoría» ocupa todo el ancho.
+5. Pasa el cursor para ver la cifra exacta y la variación contra el año anterior; toca un nombre de la leyenda para ocultar o mostrar esa serie; el icono de la esquina guarda la gráfica como imagen.
 
 ### Filtros y descargas
 
@@ -470,20 +472,20 @@ Un calendario del mes que junta dos cosas: lo que pasó en tus negocios cada dí
 
 ### La Agenda del mes
 
-1. Debajo del calendario está la «Agenda»: un listado, día por día y en orden, de todos los días con movimiento. En cada tarjeta ves la fecha, los marcadores con sus cifras (cuántas ventas y por cuánto, los gastos, las recepciones, lo que queda por pagar y por cobrar) y los recordatorios capturados ese día.
-2. El botón con forma de ojo («Ver») abre en una ventana el detalle completo de ese día.
-3. Sólo aparecen los días que tienen algo: operaciones o recordatorios.
+1. Debajo del calendario está la «Agenda»: una TABLA con una fila por cada operación y cada recordatorio, en orden de fecha. Las columnas son Fecha, Icono, Nombre del evento, Núm. venta, Proveedor, Gasto por pagar, Venta por cobrar y Acciones.
+2. Cada fila es una sola operación: una venta, un gasto, una recepción de proveedor, una entrada de proveedor, un ingreso sin venta o un recordatorio. Las columnas que no aplican muestran «—»; «Gasto por pagar» y «Venta por cobrar» traen el saldo pendiente cuando la operación lo tiene.
+3. Sólo aparecen las operaciones y los recordatorios del mes elegido.
 
-### Ver el detalle de un día
+### Ver el detalle
 
-1. Haz clic en el botón «Ver» de la tarjeta de ese día en la Agenda. Se abre una ventana con la fecha y cada tipo de marcador con su cantidad y su importe; debajo aparece el listado de recordatorios y eventos de ese día, cada uno con su icono, su nombre y un botón de ojo para ver su ficha completa.
-2. En la ficha del evento ves su importancia, hora, negocio, autor y descripción; puedes volver al listado del día o pasar a «Editar evento». El botón «Ver en el calendario» te lleva a esa fecha.
+1. El botón «Ver» de una operación abre el detalle de su módulo: Ventas, Gastos, Compras, Ingresos o Proveedores. Ahí ves la operación completa y puedes trabajar con ella.
+2. El «Ver» de un recordatorio abre su ficha en una ventana con su importancia, hora, negocio, autor y descripción; el botón «Cerrar» la cierra y «Editar evento» te lleva al formulario.
 
 ### Recordatorios y eventos
 
 1. Para crear uno, haz clic una SEGUNDA vez sobre la casilla del día que ya está seleccionada (la primera vez sólo la selecciona): se abre una ventana con el formulario. También puedes usar el botón «Nuevo recordatorio o evento» de arriba.
 2. La ventana trae la fecha ya cargada con el día elegido: nombre, hora opcional, descripción, negocio e importancia (Bajo, Medio o Alto). Pulsa «Guardar»; si falta algo, la ventana se queda abierta y avisa debajo del campo.
-3. Los eventos se listan en su tarjeta de la Agenda con puntos de color según su importancia: verde Bajo, amarillo Medio, rojo Alto. Cada uno se puede editar o eliminar; la baja pide confirmación.
+3. Los recordatorios aparecen como una fila más en la Agenda, con su punto de color según la importancia: verde Bajo, amarillo Medio, rojo Alto. Cada uno se puede editar o eliminar; la baja pide confirmación.
 
 > **Consejos**
 > - Lo que se vende, se gasta o se recibe se marca solo: no hay que capturarlo dos veces en el calendario.

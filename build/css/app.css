@@ -11463,8 +11463,9 @@ body:has(.ed-pagina) .principal,
   }
 }
 
-/* --- Agenda en tabla: una fila por marcador del negocio o recordatorio --- */
+/* --- Agenda en tabla: una fila por operación del negocio o recordatorio --- */
 .agenda-tabla {
+  min-width: 54rem;
   /* La columna de acciones no se parte: «Ver», «Editar» y «Eliminar» en una fila. */
 }
 .agenda-tabla th:last-child,
@@ -11478,7 +11479,7 @@ body:has(.ed-pagina) .principal,
   align-items: center;
   gap: 0.35rem;
 }
-.agenda-tabla__fecha {
+.agenda-tabla__fecha, .agenda-tabla__folio {
   white-space: nowrap;
 }
 .agenda-tabla__fecha-texto {
@@ -11489,7 +11490,7 @@ body:has(.ed-pagina) .principal,
 .agenda-tabla__dia-semana {
   display: block;
   font-size: 0.75rem;
-  color: var(--color-texto-secundario);
+  color: var(--color-primario-texto);
   text-transform: capitalize;
 }
 .agenda-tabla__icono {
@@ -11505,19 +11506,15 @@ body:has(.ed-pagina) .principal,
   color: var(--color-texto);
   overflow-wrap: anywhere;
 }
+.agenda-tabla__proveedor {
+  max-width: 14rem;
+  overflow-wrap: anywhere;
+}
 .agenda-tabla__meta {
   display: block;
   font-size: 0.75rem;
   color: var(--color-texto-secundario);
   overflow-wrap: anywhere;
-}
-.agenda-tabla__importe {
-  display: inline-block;
-  margin-top: 0.1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-texto-secundario);
 }
 
 /* Día de hoy y día elegido en el calendario: se distinguen en la tabla. */
