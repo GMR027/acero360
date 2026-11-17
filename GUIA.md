@@ -71,6 +71,13 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
 6. **Cada mes:** *Cierre del mes* (verificaciones, reconocer avisos, cerrar). Un mes cerrado bloquea cambios; se reabre solo con contraseña y motivo.
 7. **Fotografía del inventario:** *Inventario → Fotografías mensuales* (o automática con `scripts/foto_inventario.php`).
 
+### Pedidos y portal de clientes (migración 052)
+
+- **Pedidos** (`/admin/pedidos`): tabla `pedidos` + `pedido_detalles`, importes calculados igual que una cotización (`Cotizaciones::calcular`). Estados: `pendiente` → `cotizado` (crea una cotización) → `vendido` (vende esa cotización, o registra una venta directa si no tenía) / `cancelado`. Clase `App\Pedidos`.
+- **Contrato para el portal público** (otra aplicación sobre esta misma base):
+  - Inicio de sesión: `clientes.email` + `clientes.portal_contrasena`, que es un hash **bcrypt** (`password_hash(..., PASSWORD_BCRYPT)`, prefijo `$2y$`). Verificar con `password_verify()` en PHP o `bcrypt.checkpw()` en Python. `NULL` = sin acceso. Nunca guardar ni leer texto plano.
+  - Alta de pedido: `INSERT` en `pedidos` con `origen = 'portal'`, `usuario_id = NULL`, `estado = 'pendiente'`, folio `PED-<año>-<NNNN>` (máximo numérico del año + 1, reintentar si choca con la clave única) y renglones en `pedido_detalles` con `precio_unitario` = precio de lista (`productos.precio`) y `subtotal = cantidad × precio`. Llenar también `subtotal`, `iva` (16 % si `aplica_iva`) y `total` del encabezado. El administrador lo revisa y lo convierte desde el panel.
+
 ## 5. Respaldos y restauración
 
 ```bash

@@ -27,7 +27,10 @@ $etiquetaVip = static function ($cliente): string {
 template('header', [
     'titulo'    => 'Directorio de clientes',
     'subtitulo' => 'Gestión de clientes',
-    'acciones'  => '<a class="btn btn--primario movil-visible" href="/admin/clientes/crear">'
+    'acciones'  => '<a class="btn btn--secundario" href="/admin/clientes/ubicaciones">'
+        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">location_on</span>'
+        . '<span>Ubicaciones</span></a>'
+        . '<a class="btn btn--primario movil-visible" href="/admin/clientes/crear">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">person_add</span>'
         . '<span>Nuevo cliente</span></a>',
 ]);
@@ -121,7 +124,10 @@ template('header', [
                             <td class="tabla__col-secundaria tabla--centro">
                                 <?php if ($etiquetaVip($cliente) !== '') : ?>
                                     <span class="badge badge--vip"><?= $etiquetaVip($cliente) ?></span>
-                                <?php else : ?>
+                                <?php endif; ?>
+                                <?php if ((int) $cliente->distribuidor === 1) : ?>
+                                    <span class="badge badge--info">Distribuidor</span>
+                                <?php elseif ($etiquetaVip($cliente) === '') : ?>
                                     <span class="texto-sm texto-secundario">—</span>
                                 <?php endif; ?>
                             </td>

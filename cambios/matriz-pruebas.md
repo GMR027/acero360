@@ -48,6 +48,7 @@ Los 15 escenarios obligatorios del prompt de reestructuración. `php/etapa18.php
 | 13 | La limpieza de entradas de ejemplo no toca otros módulos (simula, exige respaldo verificado, se detiene ante dependencias) | `probar_limpieza_entradas.sh` |
 | 14 | Ventas, cotizaciones, inventario, gastos, contabilidad e impuestos siguen funcionando | regresión completa (`ejecutar_todo.sh`) |
 | 15 | Permisos y separación por entidad fiscal / periodos cerrados independientes | `probar_permisos.mjs` (recorre todas las rutas) · `etapa18` |
+| 16 | Pedidos: alta, pedido → cotización → venta sin duplicar, venta directa, cancelar; contraseña de portal en bcrypt | `php/etapa52.php` |
 
 ## Catálogo de semiterminados por proveedor (fases 2 y 3 del segundo prompt)
 

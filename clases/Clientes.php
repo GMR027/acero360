@@ -26,7 +26,8 @@ class Clientes
     /** Columnas que se persisten en la base de datos (sin el id). */
     protected static $columnasDB = [
         'id', 'nombre', 'nombre_empresa', 'alias', 'rfc', 'codigo_postal', 'regimen_fiscal', 'uso_cfdi',
-        'telefono', 'email', 'ubicacion', 'foto', 'vip', 'descuento_pct', 'notas',
+        'telefono', 'email', 'ubicacion', 'ubicacion_id', 'ubicacion_mapa', 'foto', 'vip', 'distribuidor',
+        'descuento_pct', 'notas',
     ];
 
     /** @var string[] Mensajes de validación de la última operación. */
@@ -44,8 +45,21 @@ class Clientes
     public $telefono;
     public $email;
     public $ubicacion;
+    /** Ubicación del catálogo ubicaciones_cliente (migración 051). */
+    public $ubicacion_id;
+    /** Enlace (o dirección) de Google Maps. */
+    public $ubicacion_mapa;
     public $foto;
     public $vip;
+    /** Cliente distribuidor (migración 051). */
+    public $distribuidor;
+    /** Hash bcrypt de la contraseña del portal de clientes (migración 052). Nunca texto plano. */
+    public $portal_contrasena;
+    public $portal_actualizada_en;
+    /** Contraseña nueva capturada en el formulario (no se persiste tal cual). */
+    public $portal_nueva = '';
+    /** true = quitar el acceso al portal. */
+    public $portal_quitar = false;
     public $descuento_pct;
     public $notas;
 
@@ -62,8 +76,12 @@ class Clientes
         $this->telefono       = $args['telefono'] ?? '';
         $this->email         = $args['email'] ?? '';
         $this->ubicacion     = $args['ubicacion'] ?? '';
+        $this->ubicacion_id  = !empty($args['ubicacion_id']) ? (int) $args['ubicacion_id'] : null;
+        $this->ubicacion_mapa = $args['ubicacion_mapa'] ?? '';
         $this->foto          = $args['foto'] ?? '';
         $this->vip           = isset($args['vip']) ? (int) $args['vip'] : 0;
+        $this->distribuidor  = isset($args['distribuidor']) ? (int) $args['distribuidor'] : 0;
+        $this->portal_nueva  = (string) ($args['portal_nueva'] ?? '');
         $this->descuento_pct = isset($args['descuento_pct']) ? (float) $args['descuento_pct'] : 0;
         $this->notas         = $args['notas'] ?? '';
     }
@@ -94,7 +112,57 @@ class Clientes
             $atributos[$columna] = $this->$columna;
         }
 
+        $atributos['ubicacion_id']   = (int) $atributos['ubicacion_id'] > 0 ? (int) $atributos['ubicacion_id'] : null;
+        $atributos['ubicacion_mapa'] = trim((string) $atributos['ubicacion_mapa']) !== '' ? trim((string) $atributos['ubicacion_mapa']) : null;
+        $atributos['distribuidor']   = (int) $atributos['distribuidor'] === 1 ? 1 : 0;
+
         return $atributos;
+    }
+
+    /** ¿El cliente tiene acceso al portal (contraseña asignada)? */
+    public function tienePortal(): bool
+    {
+        return trim((string) $this->portal_contrasena) !== '';
+    }
+
+    /**
+     * Escribe la contraseña del portal: sólo si se capturó una nueva (se guarda
+     * el hash bcrypt) o si se pidió quitar el acceso. Vacía = se conserva.
+     * El portal público valida con password_verify()/bcrypt contra este hash.
+     */
+    private function guardarPortal(): void
+    {
+        $nueva = (string) $this->portal_nueva;
+        if ($nueva === '' && !$this->portal_quitar) {
+            return;
+        }
+
+        $hash = $nueva !== '' ? password_hash($nueva, PASSWORD_BCRYPT) : null;
+        $id   = (int) $this->id;
+        $consulta = self::$db->prepare('UPDATE clientes SET portal_contrasena = ?, portal_actualizada_en = NOW() WHERE id = ?');
+        $consulta->bind_param('si', $hash, $id);
+        $consulta->execute();
+        $consulta->close();
+
+        $this->portal_contrasena = $hash;
+        $this->portal_nueva = '';
+    }
+
+    /**
+     * Enlace seguro para abrir la ubicación de Google Maps del cliente.
+     * Si se capturó una URL http(s) se usa tal cual; si es una dirección o
+     * coordenadas, se arma una búsqueda de Google Maps. '' si no hay dato.
+     */
+    public static function enlaceMapa(?string $mapa): string
+    {
+        $mapa = trim((string) $mapa);
+        if ($mapa === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $mapa) === 1) {
+            return $mapa;
+        }
+        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($mapa);
     }
 
     /** Escapa cada valor para su uso en consultas. */
@@ -142,6 +210,7 @@ class Clientes
             if ($correcto) {
                 $this->id = (int) self::$db->insert_id;
                 self::registrarRfcActivo();
+                $this->guardarPortal();
                 return true;
             }
         } catch (\mysqli_sql_exception $excepcion) {
@@ -178,6 +247,7 @@ class Clientes
 
             if ($correcto) {
                 self::registrarRfcActivo();
+                $this->guardarPortal();
                 return true;
             }
         } catch (\mysqli_sql_exception $excepcion) {
@@ -422,6 +492,27 @@ class Clientes
         }
         if (trim($this->email) !== '' && !filter_var($this->email, FILTER_VALIDATE_EMAIL)) {
             self::$errores[] = 'El correo electrónico no es válido.';
+        }
+        $nuevaPortal = (string) $this->portal_nueva;
+        if ($nuevaPortal !== '') {
+            if (mb_strlen($nuevaPortal) < 8) {
+                self::$errores[] = 'La contraseña para portal debe tener al menos 8 caracteres.';
+            } elseif (strlen($nuevaPortal) > 72) {
+                self::$errores[] = 'La contraseña para portal no puede pasar de 72 caracteres.';
+            }
+            if (trim((string) $this->email) === '') {
+                self::$errores[] = 'Para dar acceso al portal (contraseña) el cliente necesita correo electrónico.';
+            }
+        }
+        if ($this->ubicacion_id && !CatalogoTexto::existe('ubicaciones_cliente', (int) $this->ubicacion_id)) {
+            self::$errores[] = 'La ubicación elegida ya no existe; elige otra.';
+        }
+        $mapa = trim((string) $this->ubicacion_mapa);
+        if (mb_strlen($mapa) > 500) {
+            self::$errores[] = 'La ubicación de mapa no puede pasar de 500 caracteres.';
+        } elseif (preg_match('#^[a-z][a-z0-9+.-]*:#i', $mapa) === 1 && preg_match('#^https?://#i', $mapa) !== 1
+            && preg_match('/^-?\d/', $mapa) !== 1) {
+            self::$errores[] = 'La ubicación de mapa debe ser un enlace http(s) de Google Maps, coordenadas o una dirección.';
         }
         if ((float) $this->descuento_pct < 0 || (float) $this->descuento_pct > 100) {
             self::$errores[] = 'El descuento debe estar entre 0 y 100 por ciento.';

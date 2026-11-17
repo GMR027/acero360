@@ -42,7 +42,10 @@ $hayFiltros = $termino !== '' || $empresaId > 0 || $estado !== 'todos';
 template('header', [
     'titulo'    => 'Catálogo de productos',
     'subtitulo' => 'Módulo de productos',
-    'acciones'  => '<a class="btn btn--secundario" href="/admin/productos/pdf">'
+    'acciones'  => '<a class="btn btn--secundario" href="/admin/productos/categorias">'
+        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">category</span>'
+        . '<span>Categorías</span></a>'
+        . '<a class="btn btn--secundario" href="/admin/productos/pdf">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>'
         . '<span>Exportar catálogo de productos</span></a>'
         . '<a class="btn btn--primario" href="/admin/productos/crear">'

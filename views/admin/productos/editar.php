@@ -17,6 +17,7 @@ if (!$producto) {
 $errores     = [];
 $esEnvio     = $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST);
 $imagenPrevia = $producto->imagen;
+$imagenUsoPrevia = $producto->imagen_uso;
 $empresas    = \App\Empresas::mostrarTodos(100, 0);
 
 if ($esEnvio) {
@@ -29,7 +30,7 @@ if ($esEnvio) {
     $producto->stock_minimo = trim($_POST['stock_minimo'] ?? '') === '' ? null : (int) $_POST['stock_minimo'];
     $producto->nombre      = trim($_POST['nombre'] ?? '');
     $producto->sku         = trim($_POST['sku'] ?? '');
-    $producto->categoria   = trim($_POST['categoria'] ?? '');
+    $producto->categoria_id = (int) ($_POST['categoria_id'] ?? 0) ?: null;
     $producto->unidad      = $_POST['unidad'] ?? 'pza';
     $producto->descripcion = trim($_POST['descripcion'] ?? '');
     $producto->precio      = str_replace(',', '.', trim($_POST['precio'] ?? '0'));
@@ -48,10 +49,26 @@ if ($esEnvio) {
         }
     }
 
+    // Imagen de detalle de uso: nueva, quitar o conservar.
+    $archivoUso = $_FILES['imagen_uso'] ?? null;
+    if (empty($errores) && is_array($archivoUso) && !empty($archivoUso['tmp_name'])) {
+        $imagenUso = \App\Imagenes::subir($archivoUso, 'producto_uso', 'informe');
+        if ($imagenUso !== null) {
+            $producto->imagen_uso = $imagenUso;
+        } else {
+            $errores[] = 'Imagen de uso: ' . \App\Imagenes::ultimoError();
+        }
+    } elseif (!empty($_POST['quitar_imagen_uso'])) {
+        $producto->imagen_uso = '';
+    }
+
     if (empty($errores) && $producto->actualizar()) {
         // La imagen anterior sólo se borra cuando ya quedó sustituida.
         if ($producto->imagen !== $imagenPrevia) {
             \App\Imagenes::eliminar($imagenPrevia ?: null);
+        }
+        if ((string) $producto->imagen_uso !== (string) $imagenUsoPrevia) {
+            \App\Imagenes::eliminar($imagenUsoPrevia ?: null);
         }
         redirigir('/admin/productos', 'exito', 'Producto actualizado correctamente.');
     }

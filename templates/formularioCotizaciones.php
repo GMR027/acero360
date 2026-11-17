@@ -13,7 +13,7 @@
  *
  * Variables esperadas:
  *   $modo            — 'crear' | 'editar'
- *   $documento       — 'cotizacion' (por defecto) | 'venta' (venta directa)
+ *   $documento       — 'cotizacion' (por defecto) | 'venta' (venta directa) | 'pedido'
  *   $cotizacion      — instancia de App\Cotizaciones o App\Ventas (nueva o existente)
  *   $errores         — array de mensajes de validación del servidor
  *   $empresas        — negocios activos (App\Empresas)
@@ -29,7 +29,8 @@
 $modo             = $modo ?? 'crear';
 $documento        = $documento ?? 'cotizacion';
 $esVenta          = $documento === 'venta';
-$cotizacion       = $cotizacion ?? ($esVenta ? new \App\Ventas() : new \App\Cotizaciones());
+$esPedido         = $documento === 'pedido';
+$cotizacion       = $cotizacion ?? ($esPedido ? new \App\Pedidos() : ($esVenta ? new \App\Ventas() : new \App\Cotizaciones()));
 $errores          = $errores ?? [];
 $empresas         = $empresas ?? [];
 $clientes         = $clientes ?? [];
@@ -38,8 +39,13 @@ $lineasIniciales  = $lineasIniciales ?? [];
 $descuentoGlobal  = (float) ($descuentoGlobal ?? 0);
 
 $esEdicion = $modo === 'editar';
-$nombreDoc = $esVenta ? 'venta' : 'cotización';
-$estilosEstado = $esVenta ? \App\Ventas::ESTILOS_ESTADO : \App\Cotizaciones::ESTILOS_ESTADO;
+$nombreDoc = $esPedido ? 'pedido' : ($esVenta ? 'venta' : 'cotización');
+// Artículos: «la cotización / la venta» pero «el pedido».
+$docDe = $esPedido ? 'del pedido' : 'de la ' . $nombreDoc;
+$docEn = $esPedido ? 'en el pedido' : 'en la ' . $nombreDoc;
+$docA  = $esPedido ? 'al pedido' : 'a la ' . $nombreDoc;
+$docEl = $esPedido ? 'El pedido' : 'La ' . $nombreDoc;
+$estilosEstado = $esPedido ? \App\Pedidos::ESTILOS_ESTADO : ($esVenta ? \App\Ventas::ESTILOS_ESTADO : \App\Cotizaciones::ESTILOS_ESTADO);
 
 /** Devuelve el primer mensaje de error que menciona un campo concreto. */
 $errorDeCampo = static function (string $clave) use ($errores): string {
@@ -86,7 +92,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
 <fieldset class="cotizador-seccion">
     <legend class="cotizador-seccion__titulo">
         <span class="material-symbols-outlined" aria-hidden="true">badge</span>
-        Datos de la <?= $nombreDoc ?>
+        Datos <?= $docDe ?>
     </legend>
 
     <div class="formulario__rejilla">
@@ -150,7 +156,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
                    value="<?= escaparValores($cotizacion->fecha ?: date('Y-m-d')) ?>">
         </div>
 
-        <?php if (!$esVenta) : ?>
+        <?php if (!$esVenta && !$esPedido) : ?>
         <div class="campo">
             <label class="campo__etiqueta campo__etiqueta--obligatorio" for="vigencia_dias">Vigencia (días)</label>
             <select class="control" id="vigencia_dias" name="vigencia_dias" required>
@@ -163,7 +169,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
         </div>
         <?php endif; ?>
 
-        <?php if ($esEdicion) : ?>
+        <?php if ($esEdicion && !$esPedido) : ?>
             <div class="campo">
                 <label class="campo__etiqueta" for="estado">Estado</label>
                 <select class="control" id="estado" name="estado">
@@ -190,7 +196,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
 <fieldset class="cotizador-seccion">
     <legend class="cotizador-seccion__titulo">
         <span class="material-symbols-outlined" aria-hidden="true">list_alt</span>
-        Partidas de la <?= $nombreDoc ?>
+        Partidas <?= $docDe ?>
     </legend>
 
     <!-- Buscador del catálogo: filtra las tarjetas en el navegador.
@@ -232,7 +238,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
             <div class="vacio">
                 <span class="material-symbols-outlined vacio__icono" aria-hidden="true">inventory_2</span>
                 <p class="vacio__titulo">Sin productos activos</p>
-                <p>Carga productos en el catálogo para poder <?= $esVenta ? 'venderlos' : 'cotizarlos' ?>.</p>
+                <p>Carga productos en el catálogo para poder <?= $esVenta ? 'venderlos' : ($esPedido ? 'pedirlos' : 'cotizarlos') ?>.</p>
                 <a class="btn btn--primario" href="/admin/productos/crear">Nuevo producto</a>
             </div>
         <?php else : foreach ($catalogo as $producto) :
@@ -286,7 +292,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
     <!-- Renglones cargados: los construye src/js/modulos/cotizador.js -->
     <div class="tabla-contenedor">
         <table class="tabla cotizador-tabla" id="tabla-renglones">
-            <caption class="solo-lectores">Renglones cargados en la <?= $nombreDoc ?></caption>
+            <caption class="solo-lectores">Renglones cargados <?= $docEn ?></caption>
             <thead>
                 <tr>
                     <th scope="col" class="cotizador-tabla__num">#</th>
@@ -305,7 +311,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
             <tfoot>
                 <tr>
                     <td colspan="6" class="cotizador-tabla__pie">
-                        <span data-cotizador-vacio>La <?= $nombreDoc ?> todavía no tiene renglones.</span>
+                        <span data-cotizador-vacio><?= $docEl ?> todavía no tiene renglones.</span>
                     </td>
                     <td class="cotizador-tabla__derecha">
                         <strong data-cotizador-subtotal><?= formatoMoneda(0) ?></strong>
@@ -341,7 +347,7 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
         </div>
 
         <div class="campo campo--completo">
-            <label class="campo__etiqueta" for="comentarios">Comentarios adicionales<?= $esVenta ? '' : ' para el cliente' ?></label>
+            <label class="campo__etiqueta" for="comentarios">Comentarios adicionales<?= $esVenta || $esPedido ? '' : ' para el cliente' ?></label>
             <textarea class="control" id="comentarios" name="comentarios" rows="3"
                       placeholder="Notas especiales que aparecerán en el PDF…"><?= escaparValores($cotizacion->comentarios) ?></textarea>
         </div>
@@ -408,10 +414,10 @@ $estadoJson = $estadoJson === false ? '{"lineas":[],"descuento":0,"iva":true}' :
 <div id="cotizador-estado" hidden
      data-estado="<?= escaparValores($estadoJson) ?>"
      data-ruta-precios="/admin/cotizaciones/precios-cliente"
-     data-msg-agregado="Producto agregado a la <?= $nombreDoc ?>"
-     data-msg-duplicado="Ese producto ya está en la <?= $nombreDoc ?>"
+     data-msg-agregado="Producto agregado <?= $docA ?>"
+     data-msg-duplicado="Ese producto ya está <?= $docEn ?>"
      data-msg-sin-resultados="Ningún producto coincide con la búsqueda"
      data-msg-precios="Precios actualizados para el nuevo cliente"
-     data-msg-vacio="La <?= $nombreDoc ?> necesita al menos un renglón"
+     data-msg-vacio="<?= $docEl ?> necesita al menos un renglón"
      data-msg-precio="El precio del renglón no es válido"
      data-msg-cantidad="La cantidad debe ser al menos 1"></div>

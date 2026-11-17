@@ -70,11 +70,20 @@ $imagenActual = \App\Imagenes::url($producto->imagen ?: null);
                value="<?= escaparValores($producto->sku) ?>">
     </div>
 
-    <div class="campo">
-        <label class="campo__etiqueta" for="categoria">Categoría</label>
-        <input class="control" type="text" id="categoria" name="categoria" maxlength="80"
-               placeholder="Ej. Estantes, Canastillas, Accesorios"
-               value="<?= escaparValores($producto->categoria) ?>">
+    <div class="campo<?= $claseError('categoría') ?>">
+        <label class="campo__etiqueta" for="categoria_id">Categoría</label>
+        <select class="control" id="categoria_id" name="categoria_id">
+            <option value="">Sin categoría</option>
+            <?php foreach (\App\CatalogoTexto::mapa('categorias_producto') as $idCategoria => $nombreCategoria) : ?>
+                <option value="<?= (int) $idCategoria ?>"<?= (int) $producto->categoria_id === (int) $idCategoria ? ' selected' : '' ?>>
+                    <?= escaparValores($nombreCategoria) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda"><a href="/admin/productos/categorias">Administrar categorías</a></span>
+        <?php if ($errorDeCampo('categoría') !== '') : ?>
+            <p class="campo__error"><?= escaparValores($errorDeCampo('categoría')) ?></p>
+        <?php endif; ?>
     </div>
 
     <div class="campo campo--completo<?= $claseError('nombre') ?>">
@@ -168,6 +177,45 @@ $imagenActual = \App\Imagenes::url($producto->imagen ?: null);
                    accept="image/jpeg,image/png,image/webp" data-preview>
             <?php if ($errorDeCampo('imagen') !== '') : ?>
                 <p class="campo__error"><?= escaparValores($errorDeCampo('imagen')) ?></p>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Imagen del detalle de uso: segunda imagen, conserva su proporción -->
+    <div class="campo campo--completo<?= $claseError('uso') ?>">
+        <span class="campo__etiqueta">Imagen de detalle de uso del producto</span>
+        <div class="carga-imagen">
+            <div class="carga-imagen__zona">
+                <?php if (!empty($producto->imagen_uso)) : ?>
+                    <a href="<?= escaparValores(\App\Imagenes::url($producto->imagen_uso)) ?>" target="_blank" rel="noopener">
+                        <img class="carga-imagen__preview" style="object-fit:contain"
+                             src="<?= escaparValores(\App\Imagenes::url($producto->imagen_uso)) ?>"
+                             alt="Detalle de uso de <?= escaparValores($producto->nombre) ?>">
+                    </a>
+                <?php else : ?>
+                    <span class="carga-imagen__placeholder material-symbols-outlined" aria-hidden="true">handyman</span>
+                <?php endif; ?>
+
+                <span class="campo__ayuda">
+                    Muestra cómo se usa, arma o instala el producto. Conserva su proporción original
+                    (no se recorta). JPG, PNG o WebP de hasta 6 MB.
+                    <?php if (!empty($producto->imagen_uso)) : ?>
+                        <br>Deja el campo vacío para conservar la imagen actual.
+                    <?php endif; ?>
+                </span>
+            </div>
+
+            <label class="campo__etiqueta" for="imagen_uso">Archivo de imagen de uso</label>
+            <input class="control carga-imagen__input" type="file" id="imagen_uso" name="imagen_uso"
+                   accept="image/jpeg,image/png,image/webp" data-preview>
+            <?php if (!empty($producto->imagen_uso)) : ?>
+                <label class="comprobacion mt-sm" for="quitar_imagen_uso">
+                    <input type="checkbox" id="quitar_imagen_uso" name="quitar_imagen_uso" value="1">
+                    <span>Quitar la imagen de uso actual</span>
+                </label>
+            <?php endif; ?>
+            <?php if ($errorDeCampo('uso') !== '') : ?>
+                <p class="campo__error"><?= escaparValores($errorDeCampo('uso')) ?></p>
             <?php endif; ?>
         </div>
     </div>

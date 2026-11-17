@@ -26,7 +26,7 @@ class Documentos
     /**
      * HTML completo (documento entero) de una cotización.
      */
-    public static function html(Cotizaciones|Ventas $cotizacion, array $detalles): string
+    public static function html(Cotizaciones|Ventas|Pedidos $cotizacion, array $detalles): string
     {
         ob_start();
 
@@ -45,7 +45,7 @@ class Documentos
      *
      * @return string|null null si dompdf no pudo generarlo.
      */
-    public static function pdf(Cotizaciones|Ventas $cotizacion, array $detalles): ?string
+    public static function pdf(Cotizaciones|Ventas|Pedidos $cotizacion, array $detalles): ?string
     {
         $html = self::html($cotizacion, $detalles);
 
@@ -621,13 +621,13 @@ class Documentos
      *
      * La petición termina aquí mismo (exit), igual que un stream de dompdf.
      */
-    public static function descargar(Cotizaciones|Ventas $cotizacion, array $detalles): void
+    public static function descargar(Cotizaciones|Ventas|Pedidos $cotizacion, array $detalles): void
     {
         $bytes = self::pdf($cotizacion, $detalles);
 
         if ($bytes === null) {
             \redirigir(
-                ($cotizacion instanceof Ventas ? '/admin/ventas/detalle?id=' : '/admin/cotizaciones/detalle?id=')
+                ($cotizacion instanceof Pedidos ? '/admin/pedidos/detalle?id=' : ($cotizacion instanceof Ventas ? '/admin/ventas/detalle?id=' : '/admin/cotizaciones/detalle?id='))
                     . (int) $cotizacion->id,
                 'error',
                 self::$errores[0] ?? 'No fue posible generar el PDF.'

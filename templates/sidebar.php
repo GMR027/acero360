@@ -101,6 +101,15 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        // Pedidos de clientes por negocio: se convierten en cotización o venta.
+        'ruta'          => '/admin/pedidos',
+        'icono'         => 'shopping_bag',
+        'texto'         => 'Pedidos',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/productos',
         'icono'         => 'inventory_2',
         'texto'         => 'Catálogo de productos',

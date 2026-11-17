@@ -41,6 +41,7 @@ $activoImpuestos = $rutaNav !== '/admin/fiscal/configuracion'
 // (incluye el perfil del usuario, que se abre desde "Usuarios y perfil").
 $activoMas = (!$activoNueva && $coincide($rutaNav, '/admin/cotizaciones', '/admin/cotizaciones/'))
     || $coincide($rutaNav, '/admin/clientes', '/admin/clientes/')
+    || $coincide($rutaNav, '/admin/pedidos', '/admin/pedidos/')
     || $coincide($rutaNav, '/admin/notas', '/admin/notas/')
     || $coincide($rutaNav, '/admin/calendario', '/admin/calendario/')
     || $coincide($rutaNav, '/admin/productos', '/admin/productos/')

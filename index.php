@@ -87,6 +87,25 @@ $router->get('/admin/clientes/detalle', 'views/admin/clientes/detalle.php', 'sol
 $router->post('/admin/clientes/rfc-accion', 'views/admin/clientes/rfc-accion.php', 'soloAdmin');
 // El borrado sólo acepta POST: nunca se elimina con un simple enlace.
 $router->post('/admin/clientes/eliminar', 'views/admin/clientes/eliminar.php', 'soloAdmin');
+// Pedidos de clientes por negocio (migración 052).
+$router->get('/admin/pedidos',          'views/admin/pedidos/index.php',    'soloAdmin');
+$router->get('/admin/pedidos/crear',    'views/admin/pedidos/crear.php',    'soloAdmin');
+$router->post('/admin/pedidos/crear',   'views/admin/pedidos/crear.php',    'soloAdmin');
+$router->get('/admin/pedidos/editar',   'views/admin/pedidos/editar.php',   'soloAdmin');
+$router->post('/admin/pedidos/editar',  'views/admin/pedidos/editar.php',   'soloAdmin');
+$router->get('/admin/pedidos/detalle',  'views/admin/pedidos/detalle.php',  'soloAdmin');
+$router->get('/admin/pedidos/pdf',      'views/admin/pedidos/pdf.php',      'soloAdmin');
+$router->post('/admin/pedidos/cotizar', 'views/admin/pedidos/cotizar.php',  'soloAdmin');
+$router->post('/admin/pedidos/vender',  'views/admin/pedidos/vender.php',   'soloAdmin');
+$router->post('/admin/pedidos/cancelar','views/admin/pedidos/cancelar.php', 'soloAdmin');
+// Catálogo de ubicaciones de clientes (migración 051).
+$router->get('/admin/clientes/ubicaciones',           'views/admin/clientes/ubicaciones/index.php',   'soloAdmin');
+$router->post('/admin/clientes/ubicaciones',          'views/admin/clientes/ubicaciones/index.php',   'soloAdmin');
+$router->get('/admin/clientes/ubicaciones/crear',     'views/admin/clientes/ubicaciones/crear.php',   'soloAdmin');
+$router->post('/admin/clientes/ubicaciones/crear',    'views/admin/clientes/ubicaciones/crear.php',   'soloAdmin');
+$router->get('/admin/clientes/ubicaciones/editar',    'views/admin/clientes/ubicaciones/editar.php',  'soloAdmin');
+$router->post('/admin/clientes/ubicaciones/editar',   'views/admin/clientes/ubicaciones/editar.php',  'soloAdmin');
+$router->post('/admin/clientes/ubicaciones/eliminar', 'views/admin/clientes/ubicaciones/eliminar.php','soloAdmin');
 
 // Notas personales — bitácora única, compartida por todos los administradores.
 $router->get('/admin/notas',         'views/admin/notas/index.php',  'soloAdmin');
@@ -197,6 +216,14 @@ $router->post('/admin/productos/editar','views/admin/productos/editar.php', 'sol
 $router->post('/admin/productos/eliminar', 'views/admin/productos/eliminar.php', 'soloAdmin');
 // Exportación del catálogo completo (una tabla por negocio) a PDF.
 $router->get('/admin/productos/pdf', 'views/admin/productos/pdf.php', 'soloAdmin');
+// Catálogo de categorías de producto (migración 051).
+$router->get('/admin/productos/categorias',           'views/admin/productos/categorias/index.php',   'soloAdmin');
+$router->post('/admin/productos/categorias',          'views/admin/productos/categorias/index.php',   'soloAdmin');
+$router->get('/admin/productos/categorias/crear',     'views/admin/productos/categorias/crear.php',   'soloAdmin');
+$router->post('/admin/productos/categorias/crear',    'views/admin/productos/categorias/crear.php',   'soloAdmin');
+$router->get('/admin/productos/categorias/editar',    'views/admin/productos/categorias/editar.php',  'soloAdmin');
+$router->post('/admin/productos/categorias/editar',   'views/admin/productos/categorias/editar.php',  'soloAdmin');
+$router->post('/admin/productos/categorias/eliminar', 'views/admin/productos/categorias/eliminar.php','soloAdmin');
 
 // Cotizaciones: creación, edición, detalle e histórico.
 $router->get('/admin/cotizaciones',         'views/admin/cotizaciones/index.php',   'soloAdmin');

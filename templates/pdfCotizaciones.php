@@ -11,7 +11,7 @@
  * archivos del disco ni salir a Internet.
  *
  * Variables esperadas:
- *   $cotizacion — instancia de App\Cotizaciones o App\Ventas (con sus datos de unión)
+ *   $cotizacion — instancia de App\Cotizaciones, App\Ventas o App\Pedidos (con sus datos de unión)
  *   $detalles   — renglones de App\Cotizaciones::detalles()
  *
  * @var \App\Cotizaciones|\App\Ventas $cotizacion
@@ -71,11 +71,15 @@ $descuentoGlobal    = $desglose['global'];
 $pctGlobal          = $desglose['pct'];
 $base               = round((float) $cotizacion->subtotal - (float) $cotizacion->descuento, 2);
 
-$esVenta = $cotizacion instanceof \App\Ventas;
-$tipoDoc = $esVenta ? 'Venta' : 'Cotización';
-$estado  = $esVenta
-    ? \App\Ventas::datosEstado($cotizacion->estado)
-    : \App\Cotizaciones::datosEstado($cotizacion->estado);
+$esPedido = $cotizacion instanceof \App\Pedidos;
+// Un pedido se trata como la venta en el documento: sin vigencia.
+$esVenta = $cotizacion instanceof \App\Ventas || $esPedido;
+$tipoDoc = $esPedido ? 'Confirmación de pedido' : ($esVenta ? 'Venta' : 'Cotización');
+$estado  = $esPedido
+    ? \App\Pedidos::datosEstado($cotizacion->estado)
+    : ($esVenta
+        ? \App\Ventas::datosEstado($cotizacion->estado)
+        : \App\Cotizaciones::datosEstado($cotizacion->estado));
 $logo   = \App\Imagenes::logoPdfHtml($cotizacion->empresa_logo, (string) $cotizacion->empresa_nombre);
 
 $vence = '';

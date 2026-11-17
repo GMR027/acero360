@@ -33,6 +33,7 @@ class Seguimiento
     protected static $db;
 
     public const CATEGORIAS = [
+        'pedido'     => ['Pedidos', 'shopping_bag'],
         'cotizacion' => ['Cotizaciones', 'request_quote'],
         'cobro'      => ['Por cobrar', 'payments'],
         'factura'    => ['Facturas por definir', 'receipt_long'],
@@ -125,6 +126,23 @@ class Seguimiento
         $avisos = [];
         $moneda = static fn ($n) => '$' . number_format((float) $n, 2);
         $lim = self::LIMITE;
+
+        // Pedidos de clientes sin atender (ni cotizados ni vendidos).
+        $pedidos = self::$db->query(
+            "SELECT p.id, p.folio, p.fecha, p.total, p.origen, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa
+               FROM pedidos p JOIN clientes cl ON cl.id = p.cliente_id
+              WHERE p.estado = 'pendiente' ORDER BY p.fecha, p.id LIMIT $lim"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($pedidos as $f) {
+            $dias = self::dias($f['fecha']);
+            $avisos[] = [
+                'clave' => 'pedido:' . $f['id'], 'categoria' => 'pedido', 'prioridad' => $dias >= 2 ? 'alta' : 'normal',
+                'titulo' => 'Pedido sin atender · ' . $f['folio'] . ($f['origen'] === 'portal' ? ' (portal)' : ''),
+                'detalle' => self::nombreCliente($f) . ' · ' . $moneda($f['total']) . ' · recibido ' . self::antiguedad($dias),
+                'fecha' => $f['fecha'], 'dias' => $dias, 'enlace' => '/admin/pedidos/detalle?id=' . (int) $f['id'],
+                'huella' => 'pendiente',
+            ];
+        }
 
         // Cotizaciones pendientes de respuesta del cliente.
         $cotizaciones = self::$db->query(

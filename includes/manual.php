@@ -32,6 +32,13 @@ return [
      ],
      'consejos' => ['Estados: Pendiente (esperando respuesta), Vendido (ya es venta), Cancelado.', 'Para repetir una cotización parecida usa «Duplicar».']],
 
+    ['id' => 'pedidos', 'titulo' => 'Pedidos', 'icono' => 'shopping_bag',
+     'intro' => 'Aquí se anotan los pedidos que hacen los clientes, separados por negocio, antes de convertirlos en cotización o en venta.',
+     'pasos' => [
+        ['Anotar un pedido', ['Menú → «Pedidos» → «Crear pedido». Elige el negocio y el cliente (de tu directorio), carga los productos con la cantidad que pidió y guarda. Los precios salen de la lista o del precio especial del cliente.']],
+        ['Convertir un pedido', ['En la tabla, «Cotización» crea una cotización pendiente con los mismos productos.', '«Venta» lo vende: si ya tenía cotización, esa cotización pasa a vendida; si no, se registra una venta directa. En ambos casos se descuenta el inventario.', 'La columna «Existencias» avisa si no alcanza el inventario para surtirlo.']],
+     ],
+     'consejos' => ['Estados: Pendiente, Cotizado, Vendido, Cancelado.', 'Sólo un pedido pendiente se puede editar.']],
     ['id' => 'ventas', 'titulo' => 'Operación Comercial', 'icono' => 'point_of_sale',
      'intro' => 'Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene cuatro pestañas —Preparación de pedidos, Entregas por cliente, Seguimiento de entregas y Ventas— y cada venta tiene su propia hoja de seguimiento.',
      'pasos' => [

@@ -76,7 +76,13 @@ template('header', [
                 <div class="ficha__fila"><dt>RFC</dt><dd class="cifra"><?= escaparValores($cliente->rfc ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Teléfono</dt><dd class="cifra"><?= escaparValores($cliente->telefono ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Correo electrónico</dt><dd><?= escaparValores($cliente->email ?: '—') ?></dd></div>
+                <div class="ficha__fila"><dt>Portal de clientes</dt><dd><?= $cliente->tienePortal() ? '<span class="badge badge--aprobado">Acceso activo</span>' : '<span class="badge badge--neutro">Sin acceso</span>' ?></dd></div>
                 <div class="ficha__fila"><dt>Ubicación</dt><dd><?= escaparValores($cliente->ubicacion ?: '—') ?></dd></div>
+                <div class="ficha__fila"><dt>Ubicación (catálogo)</dt><dd><?= escaparValores(\App\CatalogoTexto::nombre('ubicaciones_cliente', (int) $cliente->ubicacion_id) ?: '—') ?></dd></div>
+                <?php $enlaceMapa = \App\Clientes::enlaceMapa($cliente->ubicacion_mapa); ?>
+                <div class="ficha__fila"><dt>Ubicación mapa</dt><dd><?= $enlaceMapa !== ''
+                    ? '<a href="' . escaparValores($enlaceMapa) . '" target="_blank" rel="noopener noreferrer">Abrir en Google Maps</a>'
+                    : '—' ?></dd></div>
                 <div class="ficha__fila"><dt>Nombre de la empresa</dt><dd><?= escaparValores($cliente->nombre_empresa ?: '—') ?></dd></div>
                 <div class="ficha__fila"><dt>Alias</dt><dd><?= escaparValores($cliente->alias ?: '—') ?></dd></div>
             </dl>
@@ -115,7 +121,8 @@ template('header', [
                 </div>
                 <div class="ficha__fila">
                     <dt>Condición</dt>
-                    <dd><?= $esVip ? '<span class="badge badge--vip">VIP</span>' : '<span class="badge badge--neutro">Normal</span>' ?></dd>
+                    <dd><?= $esVip ? '<span class="badge badge--vip">VIP</span>' : '<span class="badge badge--neutro">Normal</span>' ?>
+                        <?= (int) $cliente->distribuidor === 1 ? ' <span class="badge badge--info">Distribuidor</span>' : '' ?></dd>
                 </div>
             </dl>
 

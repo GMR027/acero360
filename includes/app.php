@@ -88,6 +88,8 @@ $clasesConectadas = [
     App\CoincidenciasFactura::class,
     App\EventosCalendario::class,
     App\PreliminarFiscal::class,
+    App\CatalogoTexto::class,
+    App\Pedidos::class,
 ];
 
 foreach ($clasesConectadas as $clase) {

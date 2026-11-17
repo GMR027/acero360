@@ -31,6 +31,11 @@ if ($esEnvio) {
     $cliente->email          = trim($_POST['email'] ?? '');
     $cliente->ubicacion      = trim($_POST['ubicacion'] ?? '');
     $cliente->vip            = isset($_POST['vip']) ? 1 : 0;
+    $cliente->ubicacion_id   = (int) ($_POST['ubicacion_id'] ?? 0) ?: null;
+    $cliente->ubicacion_mapa = trim($_POST['ubicacion_mapa'] ?? '');
+    $cliente->distribuidor   = isset($_POST['distribuidor']) ? 1 : 0;
+    $cliente->portal_nueva   = (string) ($_POST['portal_contrasena'] ?? '');
+    $cliente->portal_quitar  = !empty($_POST['portal_quitar']);
     $cliente->descuento_pct  = $_POST['descuento_pct'] !== '' ? (float) $_POST['descuento_pct'] : 0;
     $cliente->notas          = trim($_POST['notas'] ?? '');
 

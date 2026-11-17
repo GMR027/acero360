@@ -20,7 +20,7 @@ if ($esEnvio) {
         'stock_minimo' => trim($_POST['stock_minimo'] ?? ''),
         'nombre'      => trim($_POST['nombre'] ?? ''),
         'sku'         => trim($_POST['sku'] ?? ''),
-        'categoria'   => trim($_POST['categoria'] ?? ''),
+        'categoria_id' => (int) ($_POST['categoria_id'] ?? 0),
         'unidad'      => $_POST['unidad'] ?? 'pza',
         'descripcion' => trim($_POST['descripcion'] ?? ''),
         'precio'      => str_replace(',', '.', trim($_POST['precio'] ?? '0')),
@@ -37,6 +37,17 @@ if ($esEnvio) {
             $producto->imagen = $imagen;
         } else {
             $errores[] = \App\Imagenes::ultimoError();
+        }
+    }
+
+    // Imagen de detalle de uso: conserva su proporción (modo 'informe').
+    $archivoUso = $_FILES['imagen_uso'] ?? null;
+    if (empty($errores) && is_array($archivoUso) && !empty($archivoUso['tmp_name'])) {
+        $imagenUso = \App\Imagenes::subir($archivoUso, 'producto_uso', 'informe');
+        if ($imagenUso !== null) {
+            $producto->imagen_uso = $imagenUso;
+        } else {
+            $errores[] = 'Imagen de uso: ' . \App\Imagenes::ultimoError();
         }
     }
 

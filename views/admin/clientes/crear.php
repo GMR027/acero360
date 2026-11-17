@@ -24,6 +24,10 @@ if ($esEnvio) {
         'email'          => trim($_POST['email'] ?? ''),
         'ubicacion'      => trim($_POST['ubicacion'] ?? ''),
         'vip'            => isset($_POST['vip']) ? 1 : 0,
+        'ubicacion_id'   => (int) ($_POST['ubicacion_id'] ?? 0),
+        'ubicacion_mapa' => trim($_POST['ubicacion_mapa'] ?? ''),
+        'distribuidor'   => isset($_POST['distribuidor']) ? 1 : 0,
+        'portal_nueva'   => (string) ($_POST['portal_contrasena'] ?? ''),
         'descuento_pct'  => ($_POST['descuento_pct'] ?? '') !== '' ? (float) $_POST['descuento_pct'] : 0,
         'notas'          => trim($_POST['notas'] ?? ''),
     ]);

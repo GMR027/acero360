@@ -19,8 +19,8 @@ class Productos
 
     /** Columnas que se persisten (sin el id ni la fecha de alta). */
     protected static $columnasDB = [
-        'id', 'empresa_id', 'nombre', 'sku', 'categoria', 'unidad', 'descripcion',
-        'precio', 'costo_actual', 'stock_minimo', 'imagen', 'activo',
+        'id', 'empresa_id', 'nombre', 'sku', 'categoria', 'categoria_id', 'unidad', 'descripcion',
+        'precio', 'costo_actual', 'stock_minimo', 'imagen', 'imagen_uso', 'activo',
     ];
 
     /** @var string[] Mensajes de validación de la última operación. */
@@ -30,13 +30,18 @@ class Productos
     public $empresa_id;
     public $nombre;
     public $sku;
+    /** Copia del nombre de la categoría (se llena desde categoria_id al guardar). */
     public $categoria;
+    /** Id en categorias_producto (migración 051); null = sin categoría. */
+    public $categoria_id;
     public $unidad;
     public $descripcion;
     public $precio;
     public $costo_actual;
     public $stock_minimo;
     public $imagen;
+    /** Imagen del detalle de uso del producto (migración 051). */
+    public $imagen_uso;
     public $activo;
     public $creado_en;
 
@@ -50,6 +55,7 @@ class Productos
         $this->nombre      = $args['nombre'] ?? '';
         $this->sku         = $args['sku'] ?? '';
         $this->categoria   = $args['categoria'] ?? '';
+        $this->categoria_id = !empty($args['categoria_id']) ? (int) $args['categoria_id'] : null;
         $this->unidad      = $args['unidad'] ?? 'pza';
         $this->descripcion = $args['descripcion'] ?? '';
         $this->precio      = isset($args['precio']) ? (float) $args['precio'] : 0.0;
@@ -57,6 +63,7 @@ class Productos
         $this->stock_minimo = isset($args['stock_minimo']) && $args['stock_minimo'] !== '' ? (int) $args['stock_minimo'] : null;
         $this->negocios    = array_values(array_unique(array_map('intval', $args['negocios'] ?? [])));
         $this->imagen      = $args['imagen'] ?? '';
+        $this->imagen_uso  = $args['imagen_uso'] ?? '';
         $this->activo      = isset($args['activo']) ? (int) $args['activo'] : 1;
         $this->creado_en   = $args['creado_en'] ?? '';
     }
@@ -90,6 +97,12 @@ class Productos
         if (trim((string) $atributos['sku']) === '') {
             $atributos['sku'] = null;
         }
+
+        // La categoría se elige del catálogo; `categoria` guarda la copia del nombre.
+        $categoriaId = (int) $atributos['categoria_id'];
+        $atributos['categoria_id'] = $categoriaId > 0 ? $categoriaId : null;
+        $atributos['categoria']    = $categoriaId > 0 ? CatalogoTexto::nombre('categorias_producto', $categoriaId) : null;
+        $atributos['imagen_uso']   = trim((string) $atributos['imagen_uso']) !== '' ? $atributos['imagen_uso'] : null;
 
         return $atributos;
     }
@@ -186,6 +199,7 @@ class Productos
 
             if ($correcto) {
                 Imagenes::eliminar($this->imagen ?: null);
+                Imagenes::eliminar($this->imagen_uso ?: null);
                 return true;
             }
         } catch (\mysqli_sql_exception $excepcion) {
@@ -522,6 +536,9 @@ class Productos
                 self::$errores[] = 'El SKU «' . $this->sku . '» ya pertenece a otro producto.';
             }
             $consulta->close();
+        }
+        if ($this->categoria_id && !CatalogoTexto::existe('categorias_producto', (int) $this->categoria_id)) {
+            self::$errores[] = 'La categoría elegida ya no existe; elige otra.';
         }
         if (!is_numeric($this->precio) || (float) $this->precio < 0) {
             self::$errores[] = 'El precio de lista debe ser un número mayor o igual a cero.';

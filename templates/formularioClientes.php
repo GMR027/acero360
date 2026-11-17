@@ -136,11 +136,70 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
         <?php endif; ?>
     </div>
 
+    <div class="campo<?= $claseError('portal') ?>">
+        <label class="campo__etiqueta" for="portal_contrasena">Contraseña para portal</label>
+        <div class="campo__caja">
+            <input class="control" type="password" id="portal_contrasena" name="portal_contrasena"
+                   minlength="8" maxlength="72" autocomplete="new-password" value=""
+                   placeholder="<?= $cliente->tienePortal() ? 'Déjala vacía para no cambiarla' : 'Mínimo 8 caracteres' ?>"
+                   data-ver-contrasena>
+        </div>
+        <span class="campo__ayuda">
+            <?php if ($cliente->tienePortal()) : ?>
+                Acceso al portal activo<?= $cliente->portal_actualizada_en ? ' desde el ' . escaparValores(date('d/m/Y', strtotime((string) $cliente->portal_actualizada_en))) : '' ?>.
+                Escribe una nueva sólo para cambiarla.
+            <?php else : ?>
+                Con esta contraseña y su correo el cliente entra al portal. Se guarda cifrada (bcrypt).
+            <?php endif; ?>
+        </span>
+        <?php if ($cliente->tienePortal()) : ?>
+            <label class="comprobacion mt-sm" for="portal_quitar">
+                <input type="checkbox" id="portal_quitar" name="portal_quitar" value="1">
+                <span>Quitar el acceso al portal</span>
+            </label>
+        <?php endif; ?>
+        <?php if ($errorDeCampo('portal') !== '') : ?>
+            <p class="campo__error"><?= escaparValores($errorDeCampo('portal')) ?></p>
+        <?php endif; ?>
+    </div>
+
     <div class="campo formulario__rejilla--completo">
         <label class="campo__etiqueta" for="ubicacion">Ubicación</label>
         <input class="control" type="text" id="ubicacion" name="ubicacion" maxlength="255"
                placeholder="Calle, colonia, ciudad, estado"
                value="<?= escaparValores($cliente->ubicacion) ?>">
+    </div>
+
+    <div class="campo<?= $claseError('ubicación elegida') ?>">
+        <label class="campo__etiqueta" for="ubicacion_id">Ubicación (catálogo)</label>
+        <select class="control" id="ubicacion_id" name="ubicacion_id">
+            <option value="">Sin ubicación</option>
+            <?php foreach (\App\CatalogoTexto::mapa('ubicaciones_cliente') as $idUbicacion => $nombreUbicacion) : ?>
+                <option value="<?= (int) $idUbicacion ?>"<?= (int) $cliente->ubicacion_id === (int) $idUbicacion ? ' selected' : '' ?>>
+                    <?= escaparValores($nombreUbicacion) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <span class="campo__ayuda"><a href="/admin/clientes/ubicaciones">Administrar ubicaciones</a></span>
+        <?php if ($errorDeCampo('ubicación elegida') !== '') : ?>
+            <p class="campo__error"><?= escaparValores($errorDeCampo('ubicación elegida')) ?></p>
+        <?php endif; ?>
+    </div>
+
+    <div class="campo<?= $claseError('mapa') ?>">
+        <label class="campo__etiqueta" for="ubicacion_mapa">Ubicación mapa</label>
+        <input class="control" type="text" id="ubicacion_mapa" name="ubicacion_mapa" maxlength="500"
+               placeholder="Pega el enlace de Google Maps (https://maps.app.goo.gl/…)"
+               value="<?= escaparValores($cliente->ubicacion_mapa) ?>">
+        <?php $enlaceMapa = \App\Clientes::enlaceMapa($cliente->ubicacion_mapa); ?>
+        <?php if ($enlaceMapa !== '') : ?>
+            <span class="campo__ayuda"><a href="<?= escaparValores($enlaceMapa) ?>" target="_blank" rel="noopener noreferrer">Abrir en Google Maps</a></span>
+        <?php else : ?>
+            <span class="campo__ayuda">Enlace de Google Maps, coordenadas o dirección.</span>
+        <?php endif; ?>
+        <?php if ($errorDeCampo('mapa') !== '') : ?>
+            <p class="campo__error"><?= escaparValores($errorDeCampo('mapa')) ?></p>
+        <?php endif; ?>
     </div>
 </fieldset>
 
@@ -160,13 +219,22 @@ $claseError = static function (string $clave) use ($errorDeCampo): string {
 
     <div class="campo">
         <span class="campo__etiqueta">Condición</span>
-        <label class="comprobacion" for="vip">
+        <div style="display:flex;flex-wrap:wrap;gap:var(--espacio-md, 1rem);align-items:flex-start">
+        <label class="comprobacion" for="vip" style="flex:1 1 12rem">
             <input type="checkbox" id="vip" name="vip" value="1" <?= (int) $cliente->vip === 1 ? 'checked' : '' ?>>
             <span>
               <strong>Cliente VIP</strong><br>
               <span class="texto-xs texto-secundario">Marca a los clientes más frecuentes para identificarlos de un vistazo.</span>
             </span>
         </label>
+        <label class="comprobacion" for="distribuidor" style="flex:1 1 12rem">
+            <input type="checkbox" id="distribuidor" name="distribuidor" value="1" <?= (int) $cliente->distribuidor === 1 ? 'checked' : '' ?>>
+            <span>
+              <strong>Distribuidor</strong><br>
+              <span class="texto-xs texto-secundario">El cliente revende los productos.</span>
+            </span>
+        </label>
+        </div>
     </div>
 
     <div class="campo formulario__rejilla--completo">
