@@ -26,8 +26,6 @@ $prueba = function (string $n, bool $ok, string $d = '') use (&$fallos) {
     $fallos += $ok ? 0 : 1;
 };
 
-PortalFotos::setDB($db);
-
 /* --- Secreto ------------------------------------------------------------- */
 $original = getenv('PORTAL_FOTOS_SECRETO');
 putenv('PORTAL_FOTOS_SECRETO=');
@@ -65,6 +63,8 @@ if ($conArchivo) {
     $prueba('foto real sale como imagen', $imagen !== null && str_starts_with($imagen['mime'], 'image/'));
     $info = $imagen ? @getimagesizefromstring($imagen['contenido']) : false;
     $prueba('respeta el ancho pedido', is_array($info) && $info[0] <= 400, is_array($info) ? "ancho {$info[0]}" : 'sin imagen');
+    $porId = \App\Entregas::fotoDeEntregaPorId((int) $conArchivo[0]['id']);
+    $prueba('búsqueda por id = búsqueda por archivo', $porId == \App\Entregas::fotoDeEntrega($conArchivo[0]['archivo']));
 } else {
     echo "  --   sin fotos de entrega con archivo en esta base: se omite la prueba de imagen\n";
 }

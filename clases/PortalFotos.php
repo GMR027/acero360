@@ -27,13 +27,6 @@ class PortalFotos
 
     public const ANCHO_MIN = 200;
 
-    private static $db;
-
-    public static function setDB($db): void
-    {
-        self::$db = $db;
-    }
-
     /** Secreto compartido con el portal, o null si la función está apagada. */
     public static function secreto(): ?string
     {
@@ -66,26 +59,13 @@ class PortalFotos
         return max(self::ANCHO_MIN, min(FotosEntrega::ANCHO_MAX, $ancho));
     }
 
-    /** Nombre del archivo de una foto de entrega por su id. */
-    public static function archivo(int $id): ?string
-    {
-        $consulta = self::db()->prepare('SELECT archivo FROM entrega_fotos WHERE id = ? LIMIT 1');
-        $consulta->bind_param('i', $id);
-        $consulta->execute();
-        $fila = $consulta->get_result()->fetch_assoc();
-        $consulta->close();
-
-        return $fila ? (string) $fila['archivo'] : null;
-    }
-
     /**
      * Contenido listo para enviar: ['contenido' => bytes, 'mime' => tipo] o null.
      * Con marca de agua; si el dibujo falla se entrega el original (igual que el panel).
      */
     public static function imagen(int $id, int $ancho): ?array
     {
-        $archivo = self::archivo($id);
-        $foto    = $archivo !== null ? Entregas::fotoDeEntrega($archivo) : null;
+        $foto = Entregas::fotoDeEntregaPorId($id);
 
         if (!$foto) {
             return null;
@@ -102,14 +82,5 @@ class PortalFotos
         $datos   = $tipo !== '' ? @file_get_contents($ruta) : false;
 
         return $datos === false || $tipo === '' ? null : ['contenido' => $datos, 'mime' => $tipo];
-    }
-
-    private static function db()
-    {
-        if (self::$db === null) {
-            global $db;
-            self::$db = $db;
-        }
-        return self::$db;
     }
 }

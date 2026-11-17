@@ -1169,6 +1169,38 @@ class Entregas
         return $fila ?: null;
     }
 
+    /**
+     * Igual que fotoDeEntrega(), pero por el id de entrega_fotos (lo usa el
+     * portal de clientes: el id identifica la entrega aunque el archivo se repita).
+     */
+    public static function fotoDeEntregaPorId(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $consulta = self::$db->prepare(
+            'SELECT f.archivo, f.tomada_en, f.latitud, f.longitud,
+                    en.fecha, en.creado_en, en.ubicacion_maps AS entrega_ubicacion,
+                    en.ubicacion_lat AS entrega_lat, en.ubicacion_lon AS entrega_lon,
+                    e.logo AS empresa_logo, e.nombre AS empresa_nombre,
+                    cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
+                    cl.ubicacion AS cliente_ubicacion
+               FROM entrega_fotos f
+               JOIN entregas en ON en.id = f.entrega_id
+               JOIN ventas v    ON v.id = en.venta_id
+               JOIN empresas e  ON e.id = v.empresa_id
+               JOIN clientes cl ON cl.id = v.cliente_id
+              WHERE f.id = ? LIMIT 1'
+        );
+        $consulta->bind_param('i', $id);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $fila ?: null;
+    }
+
     /* --------------------------------------------------------------------
      * ENTREGAS POR CLIENTE / DESTINO
      * ------------------------------------------------------------------ */
