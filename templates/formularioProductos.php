@@ -229,6 +229,13 @@ $imagenActual = \App\Imagenes::url($producto->imagen ?: null);
               <span class="texto-xs texto-secundario">Sólo los productos activos aparecen en el formulario de cotización.</span>
             </span>
         </label>
+        <label class="comprobacion mt-sm" for="publicado_web">
+            <input type="checkbox" id="publicado_web" name="publicado_web" value="1" <?= (int) $producto->publicado_web === 1 ? 'checked' : '' ?>>
+            <span>
+              <strong>Publicar en el sitio web</strong><br>
+              <span class="texto-xs texto-secundario">Aparece en el catálogo público de Soluciones en Acero (si además está activo y se vende en ese negocio). Usa la descripción, la imagen y la imagen de uso de este formulario.</span>
+            </span>
+        </label>
     </div>
 </div>
 

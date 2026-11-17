@@ -13,6 +13,11 @@ namespace App;
  * puede borrar (se avisa), pero sí renombrar. En productos además se mantiene
  * `productos.categoria` como copia del nombre, para que la búsqueda, el
  * cotizador y los reportes que ya leían ese texto sigan funcionando igual.
+ *
+ * Las categorías de producto además tienen datos para el sitio público
+ * (migración 053, config 'web' => true): slug de la URL, descripción, portada
+ * y orden. El slug se genera al crear y NO cambia al renombrar (los enlaces
+ * publicados siguen funcionando); se puede editar a mano.
  */
 class CatalogoTexto
 {
@@ -50,6 +55,7 @@ class CatalogoTexto
             'buscarUso'  => '/admin/productos?q=',
             'ejemplo'    => 'Ej. Estantes, Canastillas, Accesorios',
             'icono'      => 'category',
+            'web'        => true,
         ],
         'ubicaciones_cliente' => [
             'tabla'      => 'ubicaciones_cliente',
@@ -68,6 +74,7 @@ class CatalogoTexto
             'buscarUso'  => null,
             'ejemplo'    => 'Ej. Guadalajara, Zona norte, Bodega centro',
             'icono'      => 'location_on',
+            'web'        => false,
         ],
     ];
 
@@ -75,6 +82,12 @@ class CatalogoTexto
     public $nombre;
     public $creado_en;
     public $usos = 0;
+
+    /* Sitio público (sólo catálogos con 'web' => true) */
+    public $slug = '';
+    public $descripcion = '';
+    public $imagen = '';
+    public $orden = 0;
 
     /** @var string Clave del catálogo (ver CATALOGOS). */
     public $catalogo;
@@ -87,6 +100,51 @@ class CatalogoTexto
         $this->nombre    = $args['nombre'] ?? '';
         $this->creado_en = $args['creado_en'] ?? '';
         $this->usos      = (int) ($args['usos'] ?? 0);
+        $this->slug        = (string) ($args['slug'] ?? '');
+        $this->descripcion = (string) ($args['descripcion'] ?? '');
+        $this->imagen      = (string) ($args['imagen'] ?? '');
+        $this->orden       = (int) ($args['orden'] ?? 0);
+    }
+
+    /** ¿El catálogo tiene datos para el sitio público? */
+    public static function esWeb(string $catalogo): bool
+    {
+        return !empty(self::config($catalogo)['web']);
+    }
+
+    /** Texto apto para URL: minúsculas, sin acentos, guiones. */
+    public static function slugificar(string $texto): string
+    {
+        $texto = strtr(mb_strtolower(trim($texto)), [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]);
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+        $texto = $ascii !== false ? strtolower($ascii) : $texto;
+        return trim(preg_replace('/[^a-z0-9]+/', '-', $texto), '-');
+    }
+
+    /** ¿Otro registro ya usa ese slug? */
+    private function slugOcupado(string $slug): bool
+    {
+        $c = self::config($this->catalogo);
+        $id = (int) $this->id;
+        $consulta = self::$db->prepare("SELECT id FROM {$c['tabla']} WHERE slug = ? AND id <> ? LIMIT 1");
+        $consulta->bind_param('si', $slug, $id);
+        $consulta->execute();
+        $ocupado = (bool) $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+        return $ocupado;
+    }
+
+    /** Slug libre a partir del nombre: base, base-2, base-3... */
+    private function slugDisponible(string $base): string
+    {
+        $base = $base !== '' ? mb_substr($base, 0, 80) : 'categoria';
+        $slug = $base;
+        for ($n = 2; $this->slugOcupado($slug); $n++) {
+            $slug = $base . '-' . $n;
+        }
+        return $slug;
     }
 
     public static function setDB($database): void
@@ -237,7 +295,79 @@ class CatalogoTexto
         }
 
         $this->nombre = $nombre;
+
+        if (self::esWeb($this->catalogo)) {
+            $this->descripcion = trim(preg_replace('/\s+/u', ' ', (string) $this->descripcion));
+            if (mb_strlen($this->descripcion) > 255) {
+                self::$errores[] = 'La descripción para el sitio no puede pasar de 255 caracteres.';
+            }
+            $this->orden = max(0, min(9999, (int) $this->orden));
+
+            $this->slug = trim((string) $this->slug);
+            if ($this->slug !== '') {
+                $this->slug = self::slugificar($this->slug);
+                if ($this->slug === '' || strlen($this->slug) > 90) {
+                    self::$errores[] = 'La dirección web sólo admite letras, números y guiones (máximo 90).';
+                } elseif ($this->slugOcupado($this->slug)) {
+                    self::$errores[] = 'Ya hay otra ' . $c['singular'] . ' con la dirección web «' . $this->slug . '».';
+                }
+            }
+        }
+
         return self::$errores;
+    }
+
+    /** Portada reemplazada o quitada: se borra del disco sólo si se guardó bien. */
+    private $imagenAnterior = '';
+
+    /** Portada recién subida: se borra si al final no se guarda. */
+    private $imagenNueva = '';
+
+    /**
+     * Toma del formulario los campos del sitio público (descripción, orden,
+     * dirección web y portada). Devuelve errores de la imagen, si los hay.
+     */
+    public function tomarFormularioWeb(array $post, array $archivos): array
+    {
+        if (!self::esWeb($this->catalogo)) {
+            return [];
+        }
+
+        $this->descripcion = (string) ($post['descripcion'] ?? '');
+        $this->orden = (int) ($post['orden'] ?? 0);
+        $this->slug = (string) ($post['slug'] ?? $this->slug);
+
+        if (!empty($post['quitar_imagen']) && $this->imagen !== '') {
+            $this->imagenAnterior = $this->imagen;
+            $this->imagen = '';
+        }
+
+        $archivo = $archivos['imagen'] ?? null;
+        if (is_array($archivo) && !empty($archivo['tmp_name'])) {
+            $nueva = Imagenes::subir($archivo, 'categoria', 'cuadrada');
+            if ($nueva === null) {
+                return ['Portada: ' . Imagenes::ultimoError()];
+            }
+            if ($this->imagen !== '' && $this->imagenAnterior === '') {
+                $this->imagenAnterior = $this->imagen;
+            }
+            $this->imagen = $this->imagenNueva = $nueva;
+        }
+
+        return [];
+    }
+
+    /** Después de intentar guardar: limpia la portada que ya no se usa. */
+    public function cerrarFormularioWeb(bool $guardado): void
+    {
+        if ($guardado && $this->imagenAnterior !== '') {
+            Imagenes::eliminar($this->imagenAnterior);
+        }
+        if (!$guardado && $this->imagenNueva !== '') {
+            Imagenes::eliminar($this->imagenNueva);
+            $this->imagen = $this->imagenAnterior;
+        }
+        $this->imagenAnterior = $this->imagenNueva = '';
     }
 
     public function guardar(): bool
@@ -249,8 +379,21 @@ class CatalogoTexto
     {
         $c = self::config($this->catalogo);
         try {
-            $consulta = self::$db->prepare("INSERT INTO {$c['tabla']} (nombre) VALUES (?)");
-            $consulta->bind_param('s', $this->nombre);
+            if (self::esWeb($this->catalogo)) {
+                if ($this->slug === '') {
+                    $this->slug = $this->slugDisponible(self::slugificar($this->nombre));
+                }
+                $descripcion = $this->descripcion !== '' ? $this->descripcion : null;
+                $imagen = $this->imagen !== '' ? $this->imagen : null;
+                $orden = (int) $this->orden;
+                $consulta = self::$db->prepare(
+                    "INSERT INTO {$c['tabla']} (nombre, slug, descripcion, imagen, orden) VALUES (?, ?, ?, ?, ?)"
+                );
+                $consulta->bind_param('ssssi', $this->nombre, $this->slug, $descripcion, $imagen, $orden);
+            } else {
+                $consulta = self::$db->prepare("INSERT INTO {$c['tabla']} (nombre) VALUES (?)");
+                $consulta->bind_param('s', $this->nombre);
+            }
             $correcto = $consulta->execute();
             $consulta->close();
             if ($correcto) {
@@ -276,8 +419,22 @@ class CatalogoTexto
         $id = (int) $this->id;
         self::$db->begin_transaction();
         try {
-            $consulta = self::$db->prepare("UPDATE {$c['tabla']} SET nombre = ? WHERE id = ?");
-            $consulta->bind_param('si', $this->nombre, $id);
+            if (self::esWeb($this->catalogo)) {
+                // El slug no se recalcula con el nombre: sólo cambia si se edita a mano.
+                if ($this->slug === '') {
+                    $this->slug = $this->slugDisponible(self::slugificar($this->nombre));
+                }
+                $descripcion = $this->descripcion !== '' ? $this->descripcion : null;
+                $imagen = $this->imagen !== '' ? $this->imagen : null;
+                $orden = (int) $this->orden;
+                $consulta = self::$db->prepare(
+                    "UPDATE {$c['tabla']} SET nombre = ?, slug = ?, descripcion = ?, imagen = ?, orden = ? WHERE id = ?"
+                );
+                $consulta->bind_param('ssssii', $this->nombre, $this->slug, $descripcion, $imagen, $orden, $id);
+            } else {
+                $consulta = self::$db->prepare("UPDATE {$c['tabla']} SET nombre = ? WHERE id = ?");
+                $consulta->bind_param('si', $this->nombre, $id);
+            }
             $consulta->execute();
             $consulta->close();
 
@@ -321,6 +478,9 @@ class CatalogoTexto
             $consulta->close();
             if ($correcto) {
                 unset(self::$mapas[$this->catalogo]);
+                if (self::esWeb($this->catalogo) && $this->imagen !== '') {
+                    Imagenes::eliminar($this->imagen);
+                }
                 return true;
             }
         } catch (\mysqli_sql_exception $e) {

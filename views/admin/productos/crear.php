@@ -25,6 +25,7 @@ if ($esEnvio) {
         'descripcion' => trim($_POST['descripcion'] ?? ''),
         'precio'      => str_replace(',', '.', trim($_POST['precio'] ?? '0')),
         'activo'      => isset($_POST['activo']) ? 1 : 0,
+        'publicado_web' => isset($_POST['publicado_web']) ? 1 : 0,
     ]);
 
     $errores = $producto->validar();

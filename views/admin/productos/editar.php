@@ -35,6 +35,7 @@ if ($esEnvio) {
     $producto->descripcion = trim($_POST['descripcion'] ?? '');
     $producto->precio      = str_replace(',', '.', trim($_POST['precio'] ?? '0'));
     $producto->activo      = isset($_POST['activo']) ? 1 : 0;
+    $producto->publicado_web = isset($_POST['publicado_web']) ? 1 : 0;
 
     $errores = $producto->validar();
 

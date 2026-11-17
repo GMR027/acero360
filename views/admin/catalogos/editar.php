@@ -12,8 +12,11 @@ if (!$registro) {
 $errores = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     $registro->nombre = trim($_POST['nombre'] ?? '');
-    $errores = $registro->validar();
-    if (empty($errores) && $registro->actualizar()) {
+    $errores = $registro->tomarFormularioWeb($_POST, $_FILES);
+    $errores = array_merge($errores, $registro->validar());
+    $guardado = empty($errores) && $registro->actualizar();
+    $registro->cerrarFormularioWeb($guardado);
+    if ($guardado) {
         redirigir($c['ruta'], 'exito', ucfirst($c['singular']) . ' actualizada.');
     }
     $errores = $errores ?: \App\CatalogoTexto::getErrores();
@@ -37,7 +40,7 @@ template('header', [
 </section>
 <?php endif; ?>
 <section class="tarjeta">
-    <form class="formulario" action="<?= $c['ruta'] ?>/editar?id=<?= (int) $registro->id ?>" method="post" data-validar novalidate>
+    <form class="formulario" action="<?= $c['ruta'] ?>/editar?id=<?= (int) $registro->id ?>" method="post"<?= \App\CatalogoTexto::esWeb($catalogo) ? ' enctype="multipart/form-data"' : '' ?> data-validar novalidate>
         <?php require __DIR__ . '/formulario.php'; ?>
     </form>
 </section>

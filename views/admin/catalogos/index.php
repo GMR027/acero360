@@ -97,6 +97,9 @@ template('header', [
                                     <strong><?= escaparValores($fila->nombre) ?></strong>
                                     <span class="texto-xs texto-secundario texto-una-linea">
                                         Alta <?= escaparValores(substr((string) $fila->creado_en, 0, 10)) ?>
+                                        <?php if (!empty($c['web']) && $fila->slug !== '') : ?>
+                                            · web: /productos/<?= escaparValores($fila->slug) ?>
+                                        <?php endif; ?>
                                     </span>
                                 </div>
                             </td>

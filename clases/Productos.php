@@ -20,7 +20,7 @@ class Productos
     /** Columnas que se persisten (sin el id ni la fecha de alta). */
     protected static $columnasDB = [
         'id', 'empresa_id', 'nombre', 'sku', 'categoria', 'categoria_id', 'unidad', 'descripcion',
-        'precio', 'costo_actual', 'stock_minimo', 'imagen', 'imagen_uso', 'activo',
+        'precio', 'costo_actual', 'stock_minimo', 'imagen', 'imagen_uso', 'activo', 'publicado_web',
     ];
 
     /** @var string[] Mensajes de validación de la última operación. */
@@ -43,6 +43,8 @@ class Productos
     /** Imagen del detalle de uso del producto (migración 051). */
     public $imagen_uso;
     public $activo;
+    /** 1 = aparece en el catálogo del sitio público (migración 053). */
+    public $publicado_web;
     public $creado_en;
 
     /** @var int[] Negocios a los que se asigna (producto_empresa); el primero es el principal. */
@@ -65,6 +67,7 @@ class Productos
         $this->imagen      = $args['imagen'] ?? '';
         $this->imagen_uso  = $args['imagen_uso'] ?? '';
         $this->activo      = isset($args['activo']) ? (int) $args['activo'] : 1;
+        $this->publicado_web = isset($args['publicado_web']) ? (int) $args['publicado_web'] : 0;
         $this->creado_en   = $args['creado_en'] ?? '';
     }
 
@@ -103,6 +106,7 @@ class Productos
         $atributos['categoria_id'] = $categoriaId > 0 ? $categoriaId : null;
         $atributos['categoria']    = $categoriaId > 0 ? CatalogoTexto::nombre('categorias_producto', $categoriaId) : null;
         $atributos['imagen_uso']   = trim((string) $atributos['imagen_uso']) !== '' ? $atributos['imagen_uso'] : null;
+        $atributos['publicado_web'] = (int) $atributos['publicado_web'] === 1 ? 1 : 0;
 
         return $atributos;
     }

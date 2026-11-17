@@ -9,8 +9,11 @@ $registro = new \App\CatalogoTexto($catalogo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
     $registro->nombre = trim($_POST['nombre'] ?? '');
-    $errores = $registro->validar();
-    if (empty($errores) && $registro->crear()) {
+    $errores = $registro->tomarFormularioWeb($_POST, $_FILES);
+    $errores = array_merge($errores, $registro->validar());
+    $guardado = empty($errores) && $registro->crear();
+    $registro->cerrarFormularioWeb($guardado);
+    if ($guardado) {
         redirigir($c['ruta'], 'exito', ucfirst($c['singular']) . ' «' . $registro->nombre . '» creada.');
     }
     $errores = $errores ?: \App\CatalogoTexto::getErrores();
@@ -24,7 +27,7 @@ template('header', [
 ]);
 ?>
 <section class="tarjeta">
-    <form class="formulario" action="<?= $c['ruta'] ?>/crear" method="post" data-validar novalidate>
+    <form class="formulario" action="<?= $c['ruta'] ?>/crear" method="post"<?= \App\CatalogoTexto::esWeb($catalogo) ? ' enctype="multipart/form-data"' : '' ?> data-validar novalidate>
         <?php require __DIR__ . '/formulario.php'; ?>
     </form>
 </section>

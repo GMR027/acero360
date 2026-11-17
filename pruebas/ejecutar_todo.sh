@@ -63,6 +63,7 @@ for n in 2 3 4 5 6 7 9 10 11 12 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 
 ejecutar "php descuentos en PDF" php pruebas/probar_descuento_pdf.php
 ejecutar "php mapa de ventas" php pruebas/php/mapa_ventas.php
 ejecutar "php portal: fotos firmadas" php pruebas/php/portal_foto.php
+ejecutar "php catálogo web" php pruebas/php/catalogo_web.php
 
 echo "==> Navegador (flujos completos)"
 for t in probar_etapa2 probar_etapa3 probar_etapa4 probar_etapa5 probar_etapa7 probar_etapa9 probar_etapa10 probar_etapa12 probar_campana probar_devoluciones probar_operacion probar_etapa13 probar_compras probar_catalogo probar_compra_catalogo probar_catalogo_proveedor probar_reportes probar_ronda probar_ronda2 probar_categorias probar_herramientas probar_sheetflow_celdas probar_permisos probar_categorias_gasto probar_proveedor_gasto probar_duplicados probar_gastos_masivos probar_calendario probar_ver_contrasena probar_csrf probar_mapa_ventas probar_facturacion probar_gastos_pago; do

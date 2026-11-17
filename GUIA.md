@@ -78,6 +78,13 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
   - Inicio de sesión: `clientes.email` + `clientes.portal_contrasena`, que es un hash **bcrypt** (`password_hash(..., PASSWORD_BCRYPT)`, prefijo `$2y$`). Verificar con `password_verify()` en PHP o `bcrypt.checkpw()` en Python. `NULL` = sin acceso. Nunca guardar ni leer texto plano.
   - Alta de pedido: `INSERT` en `pedidos` con `origen = 'portal'`, `usuario_id = NULL`, `estado = 'pendiente'`, folio `PED-<año>-<NNNN>` (máximo numérico del año + 1, reintentar si choca con la clave única) y renglones en `pedido_detalles` con `precio_unitario` = precio de lista (`productos.precio`) y `subtotal = cantidad × precio`. Llenar también `subtotal`, `iva` (16 % si `aplica_iva`) y `total` del encabezado. El administrador lo revisa y lo convierte desde el panel.
 
+### Catálogo del sitio público (migración 053)
+
+- **Qué se publica:** productos con `publicado_web = 1`, `activo = 1` y del negocio Soluciones en Acero (principal o en `producto_empresa`). Casilla «Publicar en el sitio web» en el formulario del producto; los productos nuevos NO se publican por omisión.
+- **Qué muestra el sitio:** nombre, SKU, `descripcion` (la ficha técnica se arma con frases «Clave: valor.» y la línea «Tipo de uso: …»), `imagen` e `imagen_uso`. Nunca precio, costo ni existencias en el catálogo público.
+- **Categorías** (`/admin/productos/categorias`): `slug` para la URL `/productos/<slug>` (se genera al crear y no cambia al renombrar), `descripcion`, `imagen` (portada) y `orden`. Una categoría sale en el sitio si tiene al menos un producto publicado.
+- **Imágenes:** el sitio las pide por el servicio interno (`/public/image/<archivo>`) y sólo sirve las que pertenecen a productos o categorías publicados. Carga en bloque: `php scripts/importar_imagenes_web.php <carpeta con mapa.txt>`.
+
 ## 5. Respaldos y restauración
 
 ```bash

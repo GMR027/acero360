@@ -7,6 +7,8 @@
 # fiscales ni contabilidad. Es idempotente: se puede volver a ejecutar para
 # rotar la contraseña o reaplicar permisos.
 #
+# Requiere las migraciones 052 y 053 aplicadas (los permisos son por columna).
+#
 # Uso local:
 #   PORTAL_DB_PASSWORD='...' scripts/crear_usuario_portal.sh [base]
 #
@@ -49,9 +51,11 @@ GRANT SELECT (id, nombre, nombre_empresa, email, telefono, portal_contrasena, po
       UPDATE (portal_contrasena, portal_actualizada_en)
    ON \`$BASE\`.clientes TO '$USUARIO'@'%';
 
--- Catálogo con precio de lista (sin costo ni existencias)
-GRANT SELECT (id, empresa_id, nombre, sku, categoria, unidad, descripcion, precio, imagen, activo)
+-- Catálogo con precio de lista (sin costo ni existencias) y catálogo público (053)
+GRANT SELECT (id, empresa_id, nombre, sku, categoria, categoria_id, unidad, descripcion, precio,
+              imagen, imagen_uso, activo, publicado_web)
    ON \`$BASE\`.productos TO '$USUARIO'@'%';
+GRANT SELECT (id, nombre, slug, descripcion, imagen, orden) ON \`$BASE\`.categorias_producto TO '$USUARIO'@'%';
 GRANT SELECT ON \`$BASE\`.producto_empresa TO '$USUARIO'@'%';
 GRANT SELECT (id, nombre, rfc, direccion, ciudad, estado, cp, telefono, email, logo, condiciones_envio, condiciones_compra, activa)
    ON \`$BASE\`.empresas TO '$USUARIO'@'%';
