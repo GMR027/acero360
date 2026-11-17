@@ -166,6 +166,18 @@ $versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
         </script>
 
         <main class="principal" id="contenido-principal">
+            <?php
+            // Aplicación Android: anota qué versión trae este teléfono y avisa si hay una más nueva.
+            $appAndroid = \App\AppAndroid::desdeApp();
+            if ($appAndroid) {
+                \App\AppAndroid::registrarVisita(isset($_SESSION['id']) ? (int) $_SESSION['id'] : null);
+                if (\App\AppAndroid::desactualizada($appAndroid['version']) && strpos($_SERVER['REQUEST_URI'] ?? '', '/admin/android') !== 0) : ?>
+                <p class="nota nota--advertencia mb-md" role="status">
+                    <span class="material-symbols-outlined nota__icono" aria-hidden="true">system_update</span>
+                    <span>Hay una versión nueva de la app Android. <a href="/admin/android">Ver y actualizar</a></span>
+                </p>
+            <?php endif;
+            } ?>
             <?php if ($mostrarEncabezado && $titulo !== '') : ?>
                 <div class="encabezado-pagina">
                     <div class="encabezado-pagina__texto">

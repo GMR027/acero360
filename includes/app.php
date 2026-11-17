@@ -64,6 +64,7 @@ $clasesConectadas = [
     App\Analisis::class,
     App\AnalisisFinanciero::class,
     App\PaquetesEscritorio::class,
+    App\AppAndroid::class,
     App\InventarioReportes::class,
     App\ResumenFiscal::class,
     App\Seguimiento::class,

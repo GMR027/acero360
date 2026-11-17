@@ -20,7 +20,7 @@ if (PHP_SAPI === 'cli-server') {
     $archivoEstatico = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     // Nunca se sirven directamente carpetas internas (documentos fiscales, código, configuración).
     $interno = is_string($archivoEstatico)
-        && preg_match('#^/(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop)(/|$)|^/\.|\.(env|md|sql|lock|log|sh|json|ya?ml|ini|example)$|^/(Dockerfile|Router\.php|gulpfile\.js|deploy\.sh)$#', $archivoEstatico);
+        && preg_match('#^/(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop|android)(/|$)|^/\.|\.(env|md|sql|lock|log|sh|json|ya?ml|ini|example)$|^/(Dockerfile|Router\.php|gulpfile\.js|deploy\.sh)$#', $archivoEstatico);
 
     if (is_string($archivoEstatico) && !$interno && $archivoEstatico !== '/' && file_exists(__DIR__ . $archivoEstatico)) {
         return false;
@@ -45,6 +45,11 @@ $router->get('/login',      'views/login.php');
 $router->post('/login',     'views/login.php');
 $router->get('/logout',     'views/logout.php');
 $router->get('/s',          'views/publico/sheetflow.php');
+
+// Aplicación Android: consulta de versión, descarga del APK vigente y entrada desde la app.
+$router->get('/app/android/version.json', 'views/publico/android/version.php');
+$router->get('/app/android/descargar',    'views/publico/android/descargar.php');
+$router->get('/app/android/entrar',       'views/publico/android/entrar.php');
 
 // Registro de nuevos administradores. Cerrado por defecto:
 // requiere la variable de entorno REGISTRO_ABIERTO=1.
@@ -296,6 +301,11 @@ $router->get('/admin/contabilidad/periodos',                'views/admin/contabi
 $router->get('/admin/escritorio',            'views/admin/escritorio/index.php',      'soloAdmin');
 $router->get('/admin/escritorio/descargar',  'views/admin/escritorio/descargar.php',  'soloAdmin');
 $router->post('/admin/escritorio/retirar',   'views/admin/escritorio/retirar.php',    'soloAdmin');
+
+// --- Aplicación Android (Tauri 2) ---
+$router->get('/admin/android',            'views/admin/android/index.php',      'soloAdmin');
+$router->get('/admin/android/descargar',  'views/admin/android/descargar.php',  'soloAdmin');
+$router->post('/admin/android/retirar',   'views/admin/android/retirar.php',    'soloAdmin');
 
 // --- Estadísticas (Etapa 7) ---
 $router->post('/admin/ajustes/tema', 'views/admin/ajustes-tema.php', 'soloAdmin');

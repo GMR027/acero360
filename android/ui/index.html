@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Acero 360</title>
+  <style>
+    :root { --fondo: #ededed; --tarjeta: #fff; --texto: #4d4c53; --suave: #6b6b70; --borde: #e4e6ea; --primario: #4679a6; --primario-osc: #1b4f80; --titulo: #3d6d99; --aviso: #fff6e0; --aviso-borde: #e8c46a; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fondo: #15171b; --tarjeta: #1f2329; --texto: #e3e5e8; --suave: #a3a8b0; --borde: #30353d; --primario: #5b8fbf; --primario-osc: #9cc3e6; --titulo: #8fb8de; --aviso: #3a3220; --aviso-borde: #8a7330; }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--fondo); color: var(--texto); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    body { min-height: 100vh; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+    main { width: 100%; max-width: 26rem; text-align: center; }
+    img { width: 96px; height: 96px; border-radius: 22px; }
+    h1 { margin: .75rem 0 .25rem; font-size: 1.5rem; color: var(--titulo); }
+    .version { margin: 0 0 1.5rem; font-size: .875rem; color: var(--suave); }
+    .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: .75rem; padding: 1.25rem; text-align: left; margin-top: 1rem; }
+    .tarjeta--aviso { background: var(--aviso); border-color: var(--aviso-borde); }
+    .tarjeta h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
+    p { line-height: 1.5; margin: .5rem 0; }
+    .detalle { font-size: .8125rem; color: var(--suave); overflow-wrap: anywhere; }
+    .acciones { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; }
+    button { min-height: 3rem; padding: 0 1.25rem; font-size: 1rem; font-weight: 600; border-radius: .5rem; border: 1px solid transparent; cursor: pointer; font-family: inherit; }
+    .primario { color: #fff; background: var(--primario); }
+    .secundario { color: var(--primario-osc); background: transparent; border-color: var(--borde); }
+    button:focus-visible, input:focus-visible { outline: 3px solid var(--primario-osc); outline-offset: 2px; }
+    label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .25rem; }
+    input { width: 100%; min-height: 3rem; padding: 0 .75rem; font-size: 1rem; border-radius: .5rem; border: 1px solid var(--borde); background: var(--fondo); color: var(--texto); }
+    .girando { width: 32px; height: 32px; margin: 1rem auto; border: 3px solid var(--borde); border-top-color: var(--primario); border-radius: 50%; animation: g 0.9s linear infinite; }
+    @keyframes g { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .girando { animation-duration: 3s; } }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="logo.png" alt="">
+    <h1>Acero 360</h1>
+    <p class="version" id="version">Versión —</p>
+
+    <section id="cargando" aria-live="polite">
+      <div class="girando" aria-hidden="true"></div>
+      <p id="estado">Revisando actualizaciones…</p>
+    </section>
+
+    <section class="tarjeta tarjeta--aviso" id="actualizacion" hidden aria-labelledby="t-act">
+      <h2 id="t-act">Hay una versión nueva</h2>
+      <p>Tienes la <strong id="act-actual"></strong> y ya está disponible la <strong id="act-nueva"></strong> (<span id="act-tamano"></span>).</p>
+      <p class="detalle" id="act-notas"></p>
+      <p class="detalle">Se descargará el instalador; ábrelo desde las notificaciones y toca «Actualizar». No pierdes tu sesión ni tus datos.</p>
+      <div class="acciones">
+        <button class="primario" id="btn-actualizar" type="button">Actualizar ahora</button>
+        <button class="secundario" id="btn-despues" type="button">Ahora no, entrar</button>
+      </div>
+    </section>
+
+    <section class="tarjeta" id="error" hidden role="alert">
+      <h2>No se pudo conectar con la plataforma</h2>
+      <p>Revisa tu conexión a Internet. Tus datos viven en el servidor; la app no guarda una copia.</p>
+      <p class="detalle">Servidor: <span id="err-servidor"></span><br>Motivo: <span id="err-motivo"></span></p>
+      <div class="acciones">
+        <button class="primario" id="btn-reintentar" type="button">Reintentar</button>
+        <button class="secundario" id="btn-config" type="button">Cambiar servidor</button>
+      </div>
+    </section>
+
+    <form class="tarjeta" id="config" hidden>
+      <h2>Servidor</h2>
+      <label for="cfg-url">Dirección de la plataforma</label>
+      <input id="cfg-url" type="url" inputmode="url" autocomplete="url" required>
+      <p class="detalle">Debe empezar con https:// (http solo para localhost, en pruebas con adb reverse).</p>
+      <div class="acciones">
+        <button class="primario" type="submit">Guardar y entrar</button>
+        <button class="secundario" id="btn-predeterminado" type="button">Usar el predeterminado</button>
+      </div>
+    </form>
+  </main>
+
+  <script>
+  (function () {
+    'use strict';
+    const PREDETERMINADO = 'https://cotizaciones.iguzman.com.mx';
+    const T = window.__TAURI__;
+    const $ = (id) => document.getElementById(id);
+    const mostrar = (id) => ['cargando', 'actualizacion', 'error', 'config'].forEach((s) => { $(s).hidden = s !== id; });
+
+    const leer = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sin almacenamiento */ } };
+
+    // Mismo cálculo que Tauri usa para el versionCode de Android.
+    const codigo = (v) => { const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v || ''); return m ? (+m[1]) * 1e6 + (+m[2]) * 1e3 + (+m[3]) : 0; };
+    const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
+
+    let instalacion = leer('instalacion');
+    if (!instalacion) { instalacion = crypto.randomUUID(); guardar('instalacion', instalacion); }
+
+    let version = '0.0.0';
+    let origen = null;
+    let info = null;
+
+    function entrar() {
+      $('estado').textContent = 'Abriendo la plataforma…';
+      mostrar('cargando');
+      // Sin sección Android en el servidor (versión vieja de la plataforma) se entra directo al inicio.
+      location.replace(info ? origen + '/app/android/entrar?v=' + encodeURIComponent(version) + '&id=' + encodeURIComponent(instalacion) : origen + '/');
+    }
+
+    function fallo(motivo) {
+      $('err-servidor').textContent = leer('servidor') || PREDETERMINADO;
+      $('err-motivo').textContent = motivo;
+      mostrar('error');
+      $('btn-reintentar').focus();
+    }
+
+    async function iniciar() {
+      mostrar('cargando');
+      $('estado').textContent = 'Revisando actualizaciones…';
+      try {
+        version = await T.app.getVersion();
+        $('version').textContent = 'Versión ' + version;
+        origen = await T.core.invoke('fijar_servidor', { url: leer('servidor') || PREDETERMINADO });
+      } catch (e) {
+        return fallo(String(e));
+      }
+
+      const corte = new AbortController();
+      const reloj = setTimeout(() => corte.abort(), 10000);
+      try {
+        const r = await fetch(origen + '/app/android/version.json', { cache: 'no-store', signal: corte.signal });
+        // Un servidor sin la sección Android (404) no impide entrar.
+        info = r.ok ? await r.json() : null;
+      } catch (e) {
+        if (e.name === 'AbortError') { clearTimeout(reloj); return fallo('el servidor tardó demasiado en responder'); }
+        // Un servidor sin la sección Android responde sin CORS: si contesta (respuesta opaca), se entra igual.
+        try { await fetch(origen + '/', { mode: 'no-cors', cache: 'no-store' }); info = null; }
+        catch (e2) { clearTimeout(reloj); return fallo('sin conexión (' + e.message + ')'); }
+      } finally {
+        clearTimeout(reloj);
+      }
+
+      if (info && info.disponible && info.version_code > codigo(version)) {
+        $('act-actual').textContent = version;
+        $('act-nueva').textContent = info.version;
+        $('act-tamano').textContent = mb(info.tamano);
+        $('act-notas').textContent = info.notas || '';
+        mostrar('actualizacion');
+        $('btn-actualizar').focus();
+        return;
+      }
+      entrar();
+    }
+
+    $('btn-actualizar').addEventListener('click', async () => {
+      try { await T.core.invoke('abrir_actualizacion', { url: info.url }); } catch (e) { fallo('no se pudo abrir la descarga: ' + e); return; }
+      $('btn-actualizar').textContent = 'Descargando… revisa las notificaciones';
+    });
+    $('btn-despues').addEventListener('click', entrar);
+    $('btn-reintentar').addEventListener('click', iniciar);
+    $('btn-config').addEventListener('click', () => { $('cfg-url').value = leer('servidor') || PREDETERMINADO; mostrar('config'); $('cfg-url').focus(); });
+    $('btn-predeterminado').addEventListener('click', () => { try { localStorage.removeItem('servidor'); } catch (e) {} iniciar(); });
+    $('config').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const url = $('cfg-url').value.trim().replace(/\/+$/, '');
+      try { await T.core.invoke('fijar_servidor', { url }); } catch (e) { $('cfg-url').setCustomValidity(String(e)); $('cfg-url').reportValidity(); return; }
+      $('cfg-url').setCustomValidity('');
+      guardar('servidor', url);
+      iniciar();
+    });
+    $('cfg-url').addEventListener('input', () => $('cfg-url').setCustomValidity(''));
+
+    // /admin/android enlaza a index.html?servidor=1 para cambiar de servidor desde la app.
+    if (new URLSearchParams(location.search).has('servidor')) {
+      T.app.getVersion().then((v) => { version = v; $('version').textContent = 'Versión ' + v; });
+      $('btn-config').click();
+    } else {
+      iniciar();
+    }
+  })();
+  </script>
+</body>
+</html>

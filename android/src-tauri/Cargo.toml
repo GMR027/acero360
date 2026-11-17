@@ -1,0 +1,29 @@
+[package]
+name = "acero360"
+version = "1.0.0"
+description = "Acero 360 para Android: ventana segura hacia la plataforma de cotizaciones"
+authors = ["Edgar Guzman"]
+edition = "2021"
+publish = false
+
+[lib]
+# Tauri móvil compila la app como biblioteca que carga la actividad de Android.
+name = "acero360_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+url = "2"
+
+[profile.release]
+# APK pequeño: optimiza tamaño, sin símbolos y con LTO.
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

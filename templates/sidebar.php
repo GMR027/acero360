@@ -225,7 +225,7 @@ $enlaces = [
         'excluir'       => [],
         'grupo'         => 'Ajustes',
         // Usuarios, perfil, empresas, datos fiscales, app de escritorio y ayuda son pestañas de Ajustes.
-        'prefijos'      => ['/admin/usuarios', '/admin/perfil', '/admin/empresas', '/admin/escritorio', '/admin/fiscal/configuracion', '/admin/ayuda'],
+        'prefijos'      => ['/admin/usuarios', '/admin/perfil', '/admin/empresas', '/admin/escritorio', '/admin/android', '/admin/fiscal/configuracion', '/admin/ayuda'],
         'soloEscritorio' => false,
     ],
 ];

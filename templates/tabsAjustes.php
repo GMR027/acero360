@@ -1,6 +1,6 @@
 <?php
 /**
- * templates/tabsAjustes.php — Pestañas de Ajustes. Variable: $tab (general | usuarios | perfil | empresas | fiscal | escritorio | version | novedades | papelera | ayuda).
+ * templates/tabsAjustes.php — Pestañas de Ajustes. Variable: $tab (general | usuarios | perfil | empresas | fiscal | escritorio | android | version | novedades | papelera | ayuda).
  */
 $secciones = [
     'general'    => ['/admin/ajustes', 'Configuración general', 'settings'],
@@ -9,6 +9,7 @@ $secciones = [
     'empresas'   => ['/admin/empresas', 'Empresas y razones sociales', 'corporate_fare'],
     'fiscal'     => ['/admin/fiscal/configuracion', 'Datos fiscales', 'tune'],
     'escritorio' => ['/admin/escritorio', 'Aplicación de escritorio', 'desktop_windows'],
+    'android'    => ['/admin/android', 'Aplicación Android', 'phone_android'],
     'almacenamiento' => ['/admin/ajustes/almacenamiento', 'Almacenamiento y respaldos', 'hard_drive'],
     'version'    => ['/admin/ajustes?seccion=version', 'Versión y actualizaciones', 'info'],
     'novedades'  => ['/admin/ajustes?seccion=novedades', 'Novedades de la plataforma', 'campaign'],

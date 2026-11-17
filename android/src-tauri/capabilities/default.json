@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "default",
+  "description": "Solo la pantalla local (index.html) puede llamar a Rust; las páginas del servidor no tienen acceso.",
+  "windows": ["main"],
+  "local": true,
+  "permissions": [
+    "core:app:allow-version"
+  ]
+}
