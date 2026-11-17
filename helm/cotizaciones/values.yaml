@@ -30,6 +30,8 @@ mysql:
 secrets:
   dbPassword: CAMBIAR-EN-VALUES-LOCAL
   mysqlRootPassword: CAMBIAR-EN-VALUES-LOCAL
+  # Secreto compartido con el portal de Soluciones en Acero (fotos de entrega). Vacío = desactivado.
+  portalFotosSecreto: ""
 
 persistence:
   images:

@@ -51,6 +51,10 @@ $router->get('/app/android/version.json', 'views/publico/android/version.php');
 $router->get('/app/android/descargar',    'views/publico/android/descargar.php');
 $router->get('/app/android/entrar',       'views/publico/android/entrar.php');
 
+// Portal de clientes (sitio de Soluciones en Acero): fotos de entrega con URL firmada.
+// Sin PORTAL_FOTOS_SECRETO responde 404. Ver clases/PortalFotos.php.
+$router->get('/portal/entregas/foto',     'views/publico/portal-foto.php');
+
 // Registro de nuevos administradores. Cerrado por defecto:
 // requiere la variable de entorno REGISTRO_ABIERTO=1.
 $router->get('/registro',   'views/registro.php',   'soloRegistroAbierto');

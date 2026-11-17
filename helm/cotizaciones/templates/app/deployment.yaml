@@ -107,6 +107,13 @@ spec:
                   key: MYSQL_ROOT_PASSWORD
             - name: REGISTRO_ABIERTO
               value: {{ .Values.app.registroAbierto | quote }}
+            # Firma de las fotos de entrega que pide el portal de clientes (opcional).
+            - name: PORTAL_FOTOS_SECRETO
+              valueFrom:
+                secretKeyRef:
+                  name: cotizaciones
+                  key: PORTAL_FOTOS_SECRETO
+                  optional: true
           ports:
             - containerPort: 80
           resources:
