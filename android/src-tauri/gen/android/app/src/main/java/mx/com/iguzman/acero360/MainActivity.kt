@@ -38,6 +38,9 @@ import androidx.core.view.WindowInsetsCompat
  *    `Acero360Android` y se guardan en Descargas.
  *  • `Acero360Android.imprimir()` abre el cuadro de impresión de Android (el WebView ignora
  *    window.print()).
+ *  • Desbloqueo con huella opcional (ver [BloqueoHuella]); la página lo consulta y lo cambia con
+ *    `huellaDisponible()`, `huellaActiva()` y `cambiarHuella(bool)`, y recibe el resultado en el
+ *    evento `acero360:huella` de window.
  */
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,9 +62,30 @@ class MainActivity : TauriActivity() {
       WindowInsetsCompat.CONSUMED
     }
     ViewCompat.requestApplyInsets(raiz)
+
+    bloqueo.alCrear()
+  }
+
+  override fun onStart() {
+    super.onStart()
+    bloqueo.alIniciar()
+  }
+
+  override fun onStop() {
+    bloqueo.alDetener()
+    super.onStop()
   }
 
   private var webViewPrincipal: WebView? = null
+
+  private val bloqueo by lazy {
+    BloqueoHuella(this) { activa, mensaje ->
+      val detalle = JSONObject().put("activa", activa).put("mensaje", mensaje).toString()
+      webViewPrincipal?.evaluateJavascript(
+        "window.dispatchEvent(new CustomEvent('acero360:huella',{detail:$detalle}));", null
+      )
+    }
+  }
 
   /** Puente que ve la página: solo guarda archivos en Descargas e imprime la vista actual. */
   inner class Puente {
@@ -83,6 +107,19 @@ class MainActivity : TauriActivity() {
         val impresion = getSystemService(PRINT_SERVICE) as PrintManager
         impresion.print(nombre, vista.createPrintDocumentAdapter(nombre), null)
       }
+    }
+
+    /** ¿El teléfono tiene huella registrada? (si no, la página no ofrece la opción). */
+    @JavascriptInterface
+    fun huellaDisponible(): Boolean = bloqueo.disponible()
+
+    @JavascriptInterface
+    fun huellaActiva(): Boolean = bloqueo.activa()
+
+    /** Pide la huella para confirmar y responde con el evento `acero360:huella`. */
+    @JavascriptInterface
+    fun cambiarHuella(activar: Boolean) {
+      runOnUiThread { bloqueo.cambiar(activar) }
     }
   }
 
@@ -151,6 +188,7 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     webViewPrincipal = webView
     webView.addJavascriptInterface(Puente(), "Acero360Android")
+    bloqueo.reforzarAtras()
 
     webView.setDownloadListener { url, agente, disposicion, tipo, _ ->
       try {

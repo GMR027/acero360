@@ -318,6 +318,9 @@ function inicializarAplicacion() {
   // 17. «Usar mi ubicación actual» en los formularios de entrega.
   prepararUbicacionActual();
 
+  // 18. Interruptor de desbloqueo con huella (solo dentro de la app Android).
+  prepararHuellaApp();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

@@ -318,6 +318,9 @@ function inicializarAplicacion() {
   // 17. «Usar mi ubicación actual» en los formularios de entrega.
   prepararUbicacionActual();
 
+  // 18. Interruptor de desbloqueo con huella (solo dentro de la app Android).
+  prepararHuellaApp();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element
@@ -5010,6 +5013,65 @@ document.addEventListener('DOMContentLoaded', function () {
   }, { rootMargin: '200px' });
   figuras.forEach(function (figura) { observador.observe(figura); });
 });
+
+/**
+ * modulos/huellaApp.js
+ * ---------------------------------------------------------------------------
+ * Interruptor «Desbloqueo con huella» de Ajustes → Aplicación Android.
+ *
+ * El bloqueo vive en la app Android (BloqueoHuella.kt); aquí solo se consulta
+ * y se cambia por el puente `Acero360Android`. La tarjeta queda oculta en el
+ * navegador, en versiones de la app sin el puente y en teléfonos sin huella.
+ * La app confirma cada cambio con la huella y responde con el evento
+ * `acero360:huella` ({ activa, mensaje }).
+ */
+(function () {
+  'use strict';
+
+  function puente() {
+    const p = window.Acero360Android;
+    return p && typeof p.huellaDisponible === 'function' && typeof p.cambiarHuella === 'function' ? p : null;
+  }
+
+  function prepararHuellaApp() {
+    const tarjeta = document.querySelector('[data-huella-app]');
+    const app = puente();
+    if (!tarjeta || !app) {
+      return;
+    }
+    let disponible = false;
+    try {
+      disponible = app.huellaDisponible() === true;
+    } catch (e) {
+      disponible = false;
+    }
+    if (!disponible) {
+      return;
+    }
+
+    const casilla = tarjeta.querySelector('#huella-activa');
+    const estado = tarjeta.querySelector('[data-huella-estado]');
+    casilla.checked = app.huellaActiva() === true;
+    tarjeta.hidden = false;
+
+    casilla.addEventListener('change', function () {
+      const pedido = casilla.checked;
+      casilla.checked = !pedido;   // se confirma hasta que la app responda
+      casilla.disabled = true;
+      estado.textContent = 'Confirma con tu huella…';
+      app.cambiarHuella(pedido);
+    });
+
+    window.addEventListener('acero360:huella', function (evento) {
+      const detalle = evento.detail || {};
+      casilla.checked = detalle.activa === true;
+      casilla.disabled = false;
+      estado.textContent = detalle.mensaje || '';
+    });
+  }
+
+  window.prepararHuellaApp = prepararHuellaApp;
+})();
 
 /**
  * modulos/inteligente.js

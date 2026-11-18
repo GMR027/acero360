@@ -52,6 +52,20 @@ template('tabsAjustes', ['tab' => 'android']);
 </section>
 <?php endif; ?>
 
+<!-- Desbloqueo con huella: solo se muestra dentro de la app 1.0.3+ y si el teléfono tiene huella (lo revela huellaApp.js). -->
+<section class="tarjeta mb-lg" aria-labelledby="t-huella" data-huella-app hidden>
+    <h2 class="titulo-5 mb-md" id="t-huella">Desbloqueo con huella</h2>
+    <label class="interruptor" for="huella-activa">
+        <span>
+            <strong>Pedir mi huella al abrir la app</strong><br>
+            <span class="texto-xs texto-secundario">Solo en este teléfono. Al abrir Acero 360, o al volver a ella después de un minuto, se pide la huella digital (o el PIN del teléfono) antes de mostrar la información. Para activarlo o quitarlo se confirma con tu huella.</span>
+        </span>
+        <input type="checkbox" id="huella-activa">
+        <span class="interruptor__pista" aria-hidden="true"></span>
+    </label>
+    <p class="campo__ayuda mt-sm" data-huella-estado role="status" aria-live="polite"></p>
+</section>
+
 <section class="tarjeta mb-lg" aria-labelledby="t-vigente">
     <h2 class="titulo-5 mb-md" id="t-vigente">Versión disponible</h2>
     <?php if ($vigente) : ?>
