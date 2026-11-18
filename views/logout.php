@@ -15,5 +15,6 @@ $_SESSION['alertas'][] = [
     'texto' => 'Sesión cerrada correctamente.',
 ];
 
-header('Location: /login');
+// «salio=1»: la app no vuelve a entrar sola con la huella justo después de cerrar sesión.
+header('Location: /login?salio=1');
 exit;

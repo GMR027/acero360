@@ -50,6 +50,10 @@ $router->get('/s',          'views/publico/sheetflow.php');
 $router->get('/app/android/version.json', 'views/publico/android/version.php');
 $router->get('/app/android/descargar',    'views/publico/android/descargar.php');
 $router->get('/app/android/entrar',       'views/publico/android/entrar.php');
+// Huella de la app: emitir/revocar la llave (con sesión) y cambiarla por una sesión (sin sesión).
+$router->post('/app/android/huella/registrar', 'views/publico/android/huella-registrar.php');
+$router->post('/app/android/huella/revocar',   'views/publico/android/huella-revocar.php');
+$router->post('/app/android/huella/entrar',    'views/publico/android/huella-entrar.php');
 
 // Portal de clientes (sitio de Soluciones en Acero): fotos de entrega con URL firmada.
 // Sin PORTAL_FOTOS_SECRETO responde 404. Ver clases/PortalFotos.php.

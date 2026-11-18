@@ -40,7 +40,8 @@ import androidx.core.view.WindowInsetsCompat
  *    window.print()).
  *  • Desbloqueo con huella opcional (ver [BloqueoHuella]); la página lo consulta y lo cambia con
  *    `huellaDisponible()`, `huellaActiva()` y `cambiarHuella(bool)`, y recibe el resultado en el
- *    evento `acero360:huella` de window.
+ *    evento `acero360:huella` de window. Para iniciar sesión con la huella: `huellaTieneLlave()`,
+ *    `guardarLlaveHuella(llave)`, `olvidarLlaveHuella()` y `entrarConHuella(csrf)`.
  */
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,6 +122,73 @@ class MainActivity : TauriActivity() {
     fun cambiarHuella(activar: Boolean) {
       runOnUiThread { bloqueo.cambiar(activar) }
     }
+
+    @JavascriptInterface
+    fun huellaTieneLlave(): Boolean {
+      val origen = origenActual ?: return false
+      return bloqueo.llave(origen) != null
+    }
+
+    @JavascriptInterface
+    fun guardarLlaveHuella(llave: String) {
+      origenActual?.let { bloqueo.guardarLlave(llave, it) }
+    }
+
+    @JavascriptInterface
+    fun olvidarLlaveHuella() {
+      bloqueo.olvidarLlave()
+    }
+
+    /** Desde la pantalla de acceso: confirma la huella y envía la llave al mismo servidor. */
+    @JavascriptInterface
+    fun entrarConHuella(csrf: String) {
+      runOnUiThread {
+        val vista = webViewPrincipal ?: return@runOnUiThread
+        val origen = origenDe(vista.url) ?: return@runOnUiThread
+        val llave = bloqueo.llave(origen)
+        if (llave == null) {
+          avisarEntrada(false, "No hay acceso con huella guardado. Entra con tu contraseña.")
+          return@runOnUiThread
+        }
+        bloqueo.confirmar({
+          avisarEntrada(true, "Entrando…")
+          val cuerpo = "_csrf=" + Uri.encode(csrf) + "&llave=" + Uri.encode(llave)
+          vista.postUrl("$origen/app/android/huella/entrar", cuerpo.toByteArray())
+        }, { error -> avisarEntrada(false, error) })
+      }
+    }
+  }
+
+  /**
+   * Origen (esquema://servidor) de la página que muestra el WebView. Los métodos del puente corren
+   * en el hilo de JavaBridge y la URL solo se lee en el de la interfaz: se pide ahí y se espera.
+   */
+  private val origenActual: String?
+    get() {
+      var origen: String? = null
+      val listo = java.util.concurrent.CountDownLatch(1)
+      runOnUiThread {
+        origen = origenDe(webViewPrincipal?.url)
+        listo.countDown()
+      }
+      listo.await(2, java.util.concurrent.TimeUnit.SECONDS)
+      return origen
+    }
+
+  private fun origenDe(url: String?): String? {
+    val uri = Uri.parse(url ?: return null)
+    val esquema = uri.scheme ?: return null
+    if (esquema != "https" && !(esquema == "http" && BuildConfig.DEBUG)) return null
+    val servidor = uri.authority ?: return null
+    if (servidor.startsWith("tauri.localhost")) return null
+    return "$esquema://$servidor"
+  }
+
+  private fun avisarEntrada(entrando: Boolean, mensaje: String) {
+    val detalle = JSONObject().put("entrando", entrando).put("mensaje", mensaje).toString()
+    webViewPrincipal?.evaluateJavascript(
+      "window.dispatchEvent(new CustomEvent('acero360:entrada',{detail:$detalle}));", null
+    )
   }
 
   /** Nombre seguro con la extensión que corresponde al tipo. */

@@ -37,14 +37,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $consulta->close();
 
         if ($usuario && password_verify($contrasena, $usuario['contrasena'])) {
-            session_regenerate_id(true); // Evita el secuestro de sesión.
-
-            $_SESSION['id']       = (int) $usuario['id'];
-            $_SESSION['nombre']   = $usuario['nombre'];
-            $_SESSION['email']    = $usuario['email'];
-            $_SESSION['rol']      = (int) $usuario['rol'];
-            $_SESSION['login']    = true;
-            $_SESSION['huella']   = hash('sha256', (string) $usuario['contrasena']);
+            abrirSesionUsuario($usuario);
 
             redirigir('/admin', 'exito', 'Bienvenido, ' . $usuario['nombre'] . '.');
         }
@@ -96,6 +89,14 @@ template('header', [
 
         <button class="btn btn--primario btn--bloque" type="submit">Iniciar sesión</button>
     </form>
+
+    <!-- Solo en la app Android con huella activa y llave guardada (lo revela huellaApp.js). -->
+    <div class="mt-md" data-entrar-huella hidden>
+        <button class="btn btn--secundario btn--bloque" type="button">
+            <span class="material-symbols-outlined" aria-hidden="true">fingerprint</span><span>Entrar con mi huella</span>
+        </button>
+        <p class="campo__ayuda mt-sm" data-entrar-huella-estado role="status" aria-live="polite"></p>
+    </div>
 
     <p class="auth__enlace">
         ¿Aún no tienes cuenta?

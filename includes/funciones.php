@@ -78,6 +78,23 @@ function validarID($id, string $ruta = '/admin')
     return $id;
 }
 
+/**
+ * Abre la sesión del usuario ya autenticado (contraseña o huella de la app Android).
+ * Regenera el id para evitar el secuestro de sesión.
+ */
+function abrirSesionUsuario(array $usuario): void
+{
+    sesionActiva();
+    session_regenerate_id(true);
+
+    $_SESSION['id']       = (int) $usuario['id'];
+    $_SESSION['nombre']   = $usuario['nombre'];
+    $_SESSION['email']    = $usuario['email'];
+    $_SESSION['rol']      = (int) $usuario['rol'];
+    $_SESSION['login']    = true;
+    $_SESSION['huella']   = hash('sha256', (string) $usuario['contrasena']);
+}
+
 /** Inicia la sesión de PHP si aún no está activa. */
 function sesionActiva(): void
 {

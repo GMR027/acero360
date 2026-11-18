@@ -90,6 +90,7 @@ $clasesConectadas = [
     App\PreliminarFiscal::class,
     App\CatalogoTexto::class,
     App\Pedidos::class,
+    App\HuellaAndroid::class,
 ];
 
 foreach ($clasesConectadas as $clase) {

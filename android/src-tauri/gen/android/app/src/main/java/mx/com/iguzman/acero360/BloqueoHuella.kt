@@ -36,6 +36,10 @@ import androidx.core.content.ContextCompat
  *    tras [GRACIA_MS] en segundo plano (el margen evita pedir la huella después de tomar una foto o
  *    elegir un archivo). Si la huella falla, Android ofrece el PIN o patrón del teléfono.
  *  • Si después se borran todas las huellas del teléfono, la app ya no se bloquea: nadie queda fuera.
+ *  • Inicio de sesión: la sesión del sitio se pierde cuando Android cierra la app. Con el bloqueo
+ *    activo, el sitio entrega una llave para esta instalación ([guardarLlave]); al llegar a la
+ *    pantalla de acceso, la app la envía tras confirmar la huella ([confirmar]). La llave solo se
+ *    envía al mismo servidor que la emitió y se borra al quitar el bloqueo.
  */
 class BloqueoHuella(private val actividad: AppCompatActivity, private val alCambiar: (Boolean, String) -> Unit) {
 
@@ -43,6 +47,9 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
     private const val PREFERENCIAS = "acero360_bloqueo"
     private const val CLAVE_ACTIVA = "huella_activa"
     private const val CLAVE_PREGUNTADA = "huella_preguntada"
+    private const val CLAVE_LLAVE = "huella_llave"
+    private const val CLAVE_ORIGEN = "huella_origen"
+    private const val RECIENTE_MS = 120_000L
     private const val GRACIA_MS = 60_000L
     private const val AUTENTICADORES = BIOMETRIC_WEAK or DEVICE_CREDENTIAL
   }
@@ -53,6 +60,7 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
   private var bloqueada = false
   private var autenticando = false
   private var salioEn = 0L
+  private var desbloqueadaEn = 0L
   private val atrasBloqueado = object : OnBackPressedCallback(false) {
     override fun handleOnBackPressed() {
       actividad.moveTaskToBack(true)
@@ -64,6 +72,35 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
     BiometricManager.from(actividad).canAuthenticate(BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
 
   fun activa(): Boolean = preferencias.getBoolean(CLAVE_ACTIVA, false)
+
+  /** Llave de inicio de sesión guardada para ese servidor (solo con el bloqueo activo). */
+  fun llave(origen: String): String? {
+    if (!activa()) return null
+    val guardada = preferencias.getString(CLAVE_LLAVE, null) ?: return null
+    return if (preferencias.getString(CLAVE_ORIGEN, null) == origen) guardada else null
+  }
+
+  fun guardarLlave(llave: String, origen: String) {
+    if (activa() && Regex("^[0-9a-f]{64}$").matches(llave)) {
+      preferencias.edit().putString(CLAVE_LLAVE, llave).putString(CLAVE_ORIGEN, origen).apply()
+    }
+  }
+
+  fun olvidarLlave() {
+    preferencias.edit().remove(CLAVE_LLAVE).remove(CLAVE_ORIGEN).apply()
+  }
+
+  /** Confirma que es el dueño: si acaba de desbloquear la app no vuelve a pedir la huella. */
+  fun confirmar(alExito: () -> Unit, alFallar: (String) -> Unit) {
+    if (desbloqueadaEn != 0L && SystemClock.elapsedRealtime() - desbloqueadaEn < RECIENTE_MS) {
+      alExito()
+      return
+    }
+    autenticar("Entrar a Acero 360", "Usa tu huella digital", {
+      desbloqueadaEn = SystemClock.elapsedRealtime()
+      alExito()
+    }, alFallar)
+  }
 
   /** Al crear la actividad: tapa la plataforma antes de que se vea y, si toca, ofrece activarlo. */
   fun alCrear() {
@@ -122,6 +159,8 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
 
   private fun guardar(activar: Boolean) {
     preferencias.edit().putBoolean(CLAVE_ACTIVA, activar).putBoolean(CLAVE_PREGUNTADA, true).apply()
+    if (!activar) olvidarLlave()
+    desbloqueadaEn = SystemClock.elapsedRealtime()
     ocultarEnRecientes(activar)
   }
 
@@ -162,6 +201,7 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
 
   private fun desbloquear() {
     bloqueada = false
+    desbloqueadaEn = SystemClock.elapsedRealtime()
     atrasBloqueado.isEnabled = false
     pantalla?.visibility = View.GONE
     contenido()?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
