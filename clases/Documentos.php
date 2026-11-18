@@ -461,23 +461,42 @@ class Documentos
      * ACTA DE ENTREGA (seguimiento de una venta)
      * ------------------------------------------------------------------ */
 
+    /** Área útil de la hoja carta del acta (márgenes de 1.3 cm × 1.1 cm), en puntos. */
+    private const ACTA_ALTO_UTIL  = 792 - 2 * 36.85;
+    private const ACTA_ANCHO_UTIL = 612 - 2 * 31.18;
+    /** Separación entre fotos (horizontal y vertical) y tope de alto de cada foto, en puntos. */
+    private const ACTA_HUECO      = 6.0;
+    private const ACTA_ALTO_MAX   = 380.0;
+    private const ACTA_ALTO_MIN   = 42.0;
+    /** Lado mayor de las fotos incrustadas: de sobra para la hoja y el PDF pesa y tarda menos. */
+    private const ACTA_LADO_FOTO  = 1100;
+
     /**
      * HTML del acta: datos del negocio emisor y del cliente, cada entrega con
      * sus productos, incidencias, comentarios, fotos y ubicación.
      *
-     * @param Ventas              $venta       Venta de la que se emite el acta.
-     * @param array<int, array>   $entregas    Entregas::entregasDeVenta().
-     * @param array<int, array>   $incidencias IncidenciasEntrega::deVenta().
+     * @param Ventas              $venta        Venta de la que se emite el acta.
+     * @param array<int, array>   $entregas     Entregas::entregasDeVenta().
+     * @param array<int, array>   $incidencias  IncidenciasEntrega::deVenta().
+     * @param array<string,mixed> $distribucion columnas, alto (pt) de cada foto y
+     *                                          medir (true = sin fotos, para medir el texto).
      */
-    public static function htmlActaEntrega(Ventas $venta, array $entregas, array $incidencias): string
+    public static function htmlActaEntrega(Ventas $venta, array $entregas, array $incidencias, array $distribucion = []): string
     {
         ob_start();
 
         \template('pdfActaEntrega', [
-            'venta'       => $venta,
-            'entregas'    => $entregas,
-            'incidencias' => $incidencias,
-            'fecha'       => date('d/m/Y H:i'),
+            'venta'        => $venta,
+            'entregas'     => self::fotosParaActa($entregas),
+            'incidencias'  => $incidencias,
+            'fecha'        => date('d/m/Y H:i'),
+            'distribucion' => $distribucion + [
+                'columnas' => 2,
+                'alto'     => 220.0,
+                'medir'    => false,
+                'ancho'    => self::ACTA_ANCHO_UTIL,
+                'hueco'    => self::ACTA_HUECO,
+            ],
         ]);
 
         $html = ob_get_clean();
@@ -485,17 +504,303 @@ class Documentos
         return is_string($html) ? $html : '';
     }
 
-    /** PDF del acta de entrega como cadena de bytes. */
+    /**
+     * PDF del acta de entrega como cadena de bytes, en UNA sola hoja.
+     *
+     * 1. Se compone el acta sin fotos para medir cuánto ocupa el texto.
+     * 2. Con el espacio que sobra se elige cuántas columnas y qué alto llevan
+     *    las fotos (la combinación que las muestra más grandes).
+     * 3. Se compone de verdad y se comprueba que salga una sola página; si el
+     *    cálculo se quedó corto, se reducen las fotos y se vuelve a intentar.
+     * Si ni el texto cabe en una hoja (muchas entregas o productos), el acta
+     * fluye en varias hojas sin dejar huecos: ninguna entrega salta completa
+     * a la página siguiente.
+     */
     public static function pdfActaEntrega(Ventas $venta, array $entregas, array $incidencias): ?string
     {
-        $html = self::htmlActaEntrega($venta, $entregas, $incidencias);
+        \liberarSesion();
 
-        if ($html === '') {
+        $entregas = self::fotosParaActa($entregas);
+        $medicion = self::htmlActaEntrega($venta, $entregas, $incidencias, ['medir' => true]);
+        if ($medicion === '') {
             self::$errores[] = 'No se pudo componer el acta de entrega.';
             return null;
         }
 
-        return self::componer($html, 'el acta de entrega');
+        // El PDF depende del texto y de las fotos (nombre y fecha de cada archivo).
+        $huella = [];
+        foreach ($entregas as $entrega) {
+            foreach ($entrega['fotos'] ?? [] as $foto) {
+                $huella[] = ($foto['archivo'] ?? '') . '@' . ($foto['_pdf']['firma'] ?? '');
+            }
+        }
+        $clave = \Classes\CachePdf::clave($medicion . '|acta-v4|' . implode(',', $huella), self::ANCHO_PAGINA, self::ORIENTACION);
+        $guardado = \Classes\CachePdf::obtener($clave);
+        if ($guardado !== null) {
+            return $guardado;
+        }
+
+        $medida = self::renderizarActa($medicion);
+        if ($medida === null) {
+            return null;
+        }
+
+        $conFotos = $huella !== [];
+        if (!$conFotos) {
+            $bytes = $medida['bytes'];
+        } elseif ($medida['paginas'] > 1 || $medida['fin'] === null) {
+            // El texto solo ya no cabe: varias hojas con fotos a tamaño normal.
+            $final = self::renderizarActa(self::htmlActaEntrega($venta, $entregas, $incidencias));
+            $bytes = $final['bytes'] ?? null;
+        } else {
+            // Pie de cada foto (fecha + ubicación recortada a 72 letras, como en la plantilla).
+            foreach ($entregas as $i => $entrega) {
+                $manual = (string) ($entrega['ubicacion_maps'] ?? '');
+                $lat = $manual !== '' && ($entrega['ubicacion_lat'] ?? null) !== null ? (float) $entrega['ubicacion_lat'] : null;
+                $lon = $manual !== '' && ($entrega['ubicacion_lon'] ?? null) !== null ? (float) $entrega['ubicacion_lon'] : null;
+                foreach ($entrega['fotos'] ?? [] as $j => $foto) {
+                    if (!empty($foto['_pdf'])) {
+                        $texto = FotosEntrega::descripcionUbicacion($foto, (string) $venta->cliente_ubicacion, $manual, $lat, $lon)['texto'];
+                        $entregas[$i]['fotos'][$j]['_pdf']['pie'] = "Fecha de registro de la entrega: 00/00/0000 00:00\n"
+                            . mb_strimwidth($texto, 0, 72, '…');
+                    }
+                }
+            }
+            $libre = self::ACTA_ALTO_UTIL - $medida['fin'] - 4;
+            $dist  = self::distribucionActa($entregas, $libre);
+            $bytes = null;
+            $buena = null; // última composición que cupo en una hoja
+
+            for ($intento = 0; $intento < 7; $intento++) {
+                $final = self::renderizarActa(self::htmlActaEntrega($venta, $entregas, $incidencias, $dist));
+                if ($final === null) {
+                    return null;
+                }
+
+                if ($final['paginas'] <= 1) {
+                    $buena = $final['bytes'];
+                    // ¿Sobra espacio abajo? Se agrandan las fotos para aprovecharlo.
+                    $sobra = self::ACTA_ALTO_UTIL - (float) ($final['fin'] ?? self::ACTA_ALTO_UTIL) - 4;
+                    $tope  = min(self::ACTA_ALTO_MAX, $dist['tope']);
+                    if ($sobra < 12 || $dist['alto'] >= $tope - 1) {
+                        break;
+                    }
+                    $dist['anterior'] = $dist['alto'];
+                    $dist['alto'] = round(min($tope, $dist['alto'] + $sobra / $dist['filas'] * 0.97), 1);
+                    continue;
+                }
+
+                if ($buena !== null) {
+                    break; // el agrandado ya no cupo: se queda la anterior
+                }
+                $bytes = $final['bytes'];
+                if ($dist['alto'] <= self::ACTA_ALTO_MIN) {
+                    break;
+                }
+                $dist['alto'] = max(self::ACTA_ALTO_MIN, round($dist['alto'] * 0.85, 1));
+            }
+            $bytes = $buena ?? $bytes;
+        }
+
+        if (!is_string($bytes) || $bytes === '') {
+            self::$errores[] = 'El PDF del acta de entrega quedó vacío.';
+            return null;
+        }
+
+        \Classes\CachePdf::guardar($clave, $bytes);
+
+        return $bytes;
+    }
+
+    /**
+     * Compone un HTML del acta y devuelve los bytes, las páginas y dónde
+     * termina el contenido de la primera hoja (pt desde el borde del área útil).
+     *
+     * @return array{bytes: string, paginas: int, fin: float|null}|null
+     */
+    private static function renderizarActa(string $html): ?array
+    {
+        try {
+            $opciones = new \Dompdf\Options();
+            $opciones->set('isRemoteEnabled', false);
+            $opciones->set('isHtml5ParserEnabled', true);
+            $opciones->set('defaultFont', 'DejaVu Sans');
+            $opciones->set('chroot', dirname(__DIR__, 2) . '/public');
+
+            $dompdf = new \Dompdf\Dompdf($opciones);
+            $dompdf->loadHtml($html, 'UTF-8');
+            $dompdf->setPaper(self::ANCHO_PAGINA, self::ORIENTACION);
+
+            // dompdf libera el árbol al terminar: la posición de la marca final
+            // se toma mientras dibuja (solo cuenta si cae en la primera hoja).
+            $fin = null;
+            $dompdf->setCallbacks([[
+                'event' => 'begin_frame',
+                'f'     => static function ($frame, $canvas) use (&$fin): void {
+                    $nodo = $frame->get_node();
+                    if ($nodo instanceof \DOMElement && $nodo->getAttribute('id') === 'acta-fin'
+                        && (int) $canvas->get_page_number() === 1) {
+                        $y = $frame->get_position('y');
+                        $fin = is_numeric($y) ? (float) $y - 36.85 : null;
+                    }
+                },
+            ]]);
+            $dompdf->render();
+
+            return [
+                'bytes'   => (string) $dompdf->output(),
+                'paginas' => (int) $dompdf->getCanvas()->get_page_count(),
+                'fin'     => $fin,
+            ];
+        } catch (\Throwable $excepcion) {
+            error_log('[Documentos::renderizarActa] ' . $excepcion->getMessage());
+            self::$errores[] = 'No fue posible generar el PDF del acta de entrega.';
+            return null;
+        }
+    }
+
+    /**
+     * Columnas y alto de las fotos que mejor llenan $libre puntos de alto.
+     * Se prueba de 1 a 6 columnas y gana la que deja las fotos con más área
+     * visible (respetando la proporción de cada una).
+     *
+     * @return array{columnas: int, alto: float, filas: int, tope: float}
+     */
+    private static function distribucionActa(array $entregas, float $libre): array
+    {
+        $grupos = [];
+        foreach ($entregas as $entrega) {
+            $fotos = array_values(array_filter($entrega['fotos'] ?? [], static fn ($f) => !empty($f['_pdf'])));
+            if ($fotos) {
+                $grupos[] = $fotos;
+            }
+        }
+        $total = array_sum(array_map('count', $grupos));
+        $mejor = ['columnas' => min(6, max(2, $total)), 'alto' => self::ACTA_ALTO_MIN, 'puntos' => -1.0, 'filas' => 1, 'tope' => self::ACTA_ALTO_MAX];
+
+        for ($columnas = 1; $columnas <= 6; $columnas++) {
+            if ($columnas > max(1, $total)) {
+                break;
+            }
+            $ancho = (self::ACTA_ANCHO_UTIL - ($columnas - 1) * self::ACTA_HUECO) / $columnas;
+            $fuente = $columnas >= 3 ? 7.0 : 7.5;
+            $filas = 0;
+            $pies = 0.0;
+            foreach ($grupos as $fotos) {
+                foreach (array_chunk($fotos, $columnas) as $fila) {
+                    $filas++;
+                    $lineas = 1;
+                    foreach ($fila as $foto) {
+                        $lineas = max($lineas, self::lineasPie((string) ($foto['_pdf']['pie'] ?? ''), $ancho, $fuente));
+                    }
+                    $pies += $lineas * $fuente * 1.25 + self::ACTA_HUECO;
+                }
+                $pies += 6; // margen de cada tabla de fotos
+            }
+            if ($filas === 0) {
+                break;
+            }
+
+            $alto = min(self::ACTA_ALTO_MAX, $ancho * 1.4, ($libre - $pies) / $filas);
+            if ($alto < self::ACTA_ALTO_MIN) {
+                continue;
+            }
+
+            $puntos = 0.0;
+            foreach ($grupos as $fotos) {
+                foreach ($fotos as $foto) {
+                    $w = (float) $foto['_pdf']['ancho'];
+                    $h = (float) $foto['_pdf']['alto'];
+                    $escala = min($ancho / $w, $alto / $h);
+                    $puntos += $w * $h * $escala * $escala;
+                }
+            }
+            if ($puntos > $mejor['puntos'] * 1.02) {
+                $mejor = ['columnas' => $columnas, 'alto' => $alto, 'puntos' => $puntos, 'filas' => $filas, 'tope' => $ancho * 1.4];
+            }
+        }
+
+        return [
+            'columnas' => $mejor['columnas'],
+            'alto'     => round($mejor['alto'], 1),
+            'filas'    => max(1, $mejor['filas']),
+            'tope'     => $mejor['tope'],
+        ];
+    }
+
+    /** Líneas que ocupa el pie de una foto en una columna de $ancho puntos. */
+    private static function lineasPie(string $texto, float $ancho, float $fuente): int
+    {
+        $porLinea = max(8, (int) floor($ancho / ($fuente * 0.52)));
+        $lineas = 0;
+        foreach (explode("\n", $texto) as $renglon) {
+            $lineas += max(1, (int) ceil(mb_strlen($renglon) / $porLinea));
+        }
+        return max(1, $lineas);
+    }
+
+    /**
+     * Añade a cada foto `_pdf` = {src, ancho, alto, firma}: la imagen reducida
+     * e incrustada en base64 y su proporción. Se calcula una vez por archivo.
+     */
+    private static function fotosParaActa(array $entregas): array
+    {
+        static $memoria = [];
+
+        foreach ($entregas as $i => $entrega) {
+            foreach (($entrega['fotos'] ?? []) as $j => $foto) {
+                if (isset($foto['_pdf'])) {
+                    continue;
+                }
+                $archivo = basename(trim((string) ($foto['archivo'] ?? '')));
+                $ruta = Imagenes::CARPETA . '/' . $archivo;
+                if ($archivo === '' || !is_file($ruta)) {
+                    $entregas[$i]['fotos'][$j]['_pdf'] = null;
+                    continue;
+                }
+                $firma = $archivo . ':' . (int) filemtime($ruta) . ':' . (int) filesize($ruta);
+                $memoria[$firma] ??= self::fotoReducida($ruta);
+                $datos = $memoria[$firma];
+                $entregas[$i]['fotos'][$j]['_pdf'] = $datos ? $datos + ['firma' => $firma] : null;
+            }
+        }
+
+        return $entregas;
+    }
+
+    /** @return array{src: string, ancho: int, alto: int}|null */
+    private static function fotoReducida(string $ruta): ?array
+    {
+        $contenido = (string) @file_get_contents($ruta);
+        $medidas = @getimagesizefromstring($contenido);
+        if ($contenido === '' || !$medidas || $medidas[0] < 1 || $medidas[1] < 1) {
+            return null;
+        }
+        [$ancho, $alto] = $medidas;
+        $mime = (string) ($medidas['mime'] ?? 'image/jpeg');
+
+        $lado = max($ancho, $alto);
+        if (($lado > self::ACTA_LADO_FOTO || $mime === 'image/webp') && function_exists('imagecreatefromstring')) {
+            $imagen = @imagecreatefromstring($contenido);
+            if ($imagen !== false) {
+                $escala = min(1, self::ACTA_LADO_FOTO / $lado);
+                $nuevo = imagescale($imagen, max(1, (int) round($ancho * $escala)), max(1, (int) round($alto * $escala)));
+                if ($nuevo !== false) {
+                    ob_start();
+                    imagejpeg($nuevo, null, 82);
+                    $reducido = (string) ob_get_clean();
+                    if ($reducido !== '') {
+                        [$contenido, $mime, $ancho, $alto] = [$reducido, 'image/jpeg', imagesx($nuevo), imagesy($nuevo)];
+                    }
+                }
+            }
+        }
+
+        return [
+            'src'   => 'data:' . $mime . ';base64,' . base64_encode($contenido),
+            'ancho' => (int) $ancho,
+            'alto'  => (int) $alto,
+        ];
     }
 
     /**

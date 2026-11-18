@@ -76,7 +76,7 @@ $versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
     <link rel="stylesheet" href="<?= escaparValores($estiloPagina) ?>">
     <?php endforeach; ?>
 </head>
-<body data-movil="<?= modoMovil() ?>">
+<body>
 <!-- Primera parada del teclado: permite saltarse el menú lateral.
      Sólo se ve cuando recibe foco (ver .saltar-contenido en _utilidades). -->
 <a class="saltar-contenido" href="#contenido-principal">Saltar al contenido</a>

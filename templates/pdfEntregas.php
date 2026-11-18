@@ -112,7 +112,7 @@ $pie        = static function (array $ventasCliente): string {
 <body>
 <?php if ($imprimir) : ?>
     <div class="barra">
-        <button type="button" onclick="window.print()">Imprimir</button>
+        <button type="button" onclick="if (window.Acero360Android &amp;&amp; window.Acero360Android.imprimir) { window.Acero360Android.imprimir(document.title); } else { window.print(); }">Imprimir</button>
         <a href="javascript:window.close()" onclick="if(history.length>1){history.back();return false;}">Cerrar</a>
         <span class="chico">Imprimir no cambia existencias ni estados de las ventas.</span>
     </div>

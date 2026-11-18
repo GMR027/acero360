@@ -10,7 +10,11 @@
  * Las imágenes se incrustan en base64: dompdf se configura con
  * isRemoteEnabled = false y nunca sale a Internet.
  *
- * Variables: $venta (App\Ventas), $entregas, $incidencias, $fecha.
+ * Una sola hoja: Documentos::pdfActaEntrega() mide el texto y pasa en
+ * $distribucion cuántas columnas y qué alto (pt) llevan las fotos para que
+ * todo quepa. Con medir = true las fotos se omiten (solo se mide el texto).
+ *
+ * Variables: $venta (App\Ventas), $entregas, $incidencias, $fecha, $distribucion.
  */
 $venta       = $venta ?? null;
 $entregas    = is_array($entregas ?? null) ? $entregas : [];
@@ -25,18 +29,20 @@ foreach ($entregas as $entrega) {
 }
 $abiertas = count(array_filter($incidencias, static fn (array $i): bool => ($i['estado'] ?? '') === 'abierta'));
 
-/** Imagen incrustada como data URI ('' si el archivo ya no existe). */
-$fotoData = static function (string $archivo): string {
-    $archivo = basename(trim($archivo));
-    if ($archivo === '') {
-        return '';
-    }
-    $ruta = \App\Imagenes::CARPETA . '/' . $archivo;
-    if (!is_file($ruta)) {
-        return '';
-    }
-    $mime = function_exists('mime_content_type') ? (string) mime_content_type($ruta) : 'image/jpeg';
-    return 'data:' . ($mime !== '' ? $mime : 'image/jpeg') . ';base64,' . base64_encode((string) file_get_contents($ruta));
+$distribucion = is_array($distribucion ?? null) ? $distribucion : [];
+$columnas  = max(1, min(6, (int) ($distribucion['columnas'] ?? 2)));
+$altoFoto  = max(30.0, (float) ($distribucion['alto'] ?? 220));
+$medir     = !empty($distribucion['medir']);
+$hueco     = (float) ($distribucion['hueco'] ?? 6);
+$anchoCelda = (((float) ($distribucion['ancho'] ?? 549.6)) - ($columnas - 1) * $hueco) / $columnas;
+$fuentePie = $columnas >= 3 ? 7.0 : 7.5;
+
+/** Medidas de la foto dentro de su caja (sin deformarla). */
+$medidasFoto = static function (array $datos) use ($anchoCelda, $altoFoto): array {
+    $w = max(1, (float) $datos['ancho']);
+    $h = max(1, (float) $datos['alto']);
+    $escala = min($anchoCelda / $w, $altoFoto / $h);
+    return [round($w * $escala, 1), round($h * $escala, 1)];
 };
 
 /** Fecha de la toma o, si la foto no trae EXIF, la de registro de la entrega. */
@@ -74,7 +80,7 @@ $fechaFoto = static function (array $foto, array $entrega): string {
         .bloque { border: 1px solid #d9dde3; background: #f7f9fb; padding: .45rem .6rem; margin-top: .5rem; }
         .bloque strong { color: #2f5f8c; }
         .chico { color: #6b6b70; font-size: 9px; }
-        .entrega { page-break-inside: avoid; margin-top: .7rem; border-top: 1px solid #c7dcef; padding-top: .4rem; }
+        .entrega { margin-top: .55rem; border-top: 1px solid #c7dcef; padding-top: .4rem; }
         th { padding: .25rem .35rem; background: #eaf1f8; border: 1px solid #c7dcef; font-size: 8.5px; text-transform: uppercase; color: #2f5f8c; text-align: left; }
         td { padding: .25rem .35rem; border: 1px solid #e0e3e8; font-size: 10px; vertical-align: top; }
         .num { text-align: right; }
@@ -83,11 +89,13 @@ $fechaFoto = static function (array $foto, array $entrega): string {
         .estado--resuelta { color: #1c6b3c; border-color: #1c6b3c; background: #f0faf3; }
         .estado--cancelada { color: #555; background: #f3f3f3; }
         .incidencia { margin-top: .35rem; padding: .35rem .5rem; border-left: 3px solid #c7a24b; background: #fffbea; }
-        .fotos { width: 100%; margin-top: .4rem; }
-        .fotos td { border: 0; padding: 0 .3rem .45rem 0; width: 50%; vertical-align: top; }
-        .foto { width: 100%; max-height: 240px; }
-        .foto-pie { font-size: 8.5px; color: #555; margin-top: 2px; }
-        .firma { margin-top: 1.6rem; width: 55%; border-top: 1px solid #33343a; padding-top: 3px; font-size: 9px; }
+        .fotos { width: 100%; margin-top: 4pt; border-collapse: separate; border-spacing: 0; }
+        .fotos tr { page-break-inside: avoid; }
+        .fotos td { border: 0; padding: 0 0 <?= $hueco ?>pt 0; vertical-align: top; text-align: center; }
+        .fotos td.hueco { width: <?= $hueco ?>pt; padding: 0; }
+        .foto-caja { text-align: center; }
+        .foto-pie { font-size: <?= $fuentePie ?>pt; line-height: 1.2; color: #555; margin-top: 1pt; text-align: center; }
+        .firma { margin-top: 1.2rem; width: 55%; border-top: 1px solid #33343a; padding-top: 3px; font-size: 9px; }
         .pie { margin-top: .9rem; font-size: 8px; color: #8a8a90; text-align: center; }
     </style>
 </head>
@@ -219,11 +227,12 @@ $fechaFoto = static function (array $foto, array $entrega): string {
 
             <?php if ($fotos) : ?>
                 <h3>Fotos del acta</h3>
+                <?php if (!$medir) : ?>
                 <table class="fotos">
-                    <?php foreach (array_chunk($fotos, 2) as $par) : ?>
+                    <?php foreach (array_chunk($fotos, $columnas) as $fila) : ?>
                         <tr>
-                            <?php foreach ($par as $foto) :
-                                $src = $fotoData((string) ($foto['archivo'] ?? ''));
+                            <?php foreach ($fila as $k => $foto) :
+                                $datos = $foto['_pdf'] ?? null;
                                 $detalle = \App\FotosEntrega::descripcionUbicacion(
                                     $foto,
                                     (string) $venta->cliente_ubicacion,
@@ -232,20 +241,26 @@ $fechaFoto = static function (array $foto, array $entrega): string {
                                     $manualLon
                                 );
                             ?>
-                                <td>
-                                    <?php if ($src !== '') : ?>
-                                        <img class="foto" src="<?= $src ?>" alt="Foto de la entrega del <?= escaparValores($fechaEntrega) ?>">
-                                    <?php else : ?>
-                                        <span class="chico">La foto ya no está disponible.</span>
-                                    <?php endif; ?>
+                                <?php if ($k > 0) : ?><td class="hueco"></td><?php endif; ?>
+                                <td style="width:<?= round($anchoCelda, 1) ?>pt">
+                                    <div class="foto-caja">
+                                        <?php if (is_array($datos)) : [$fw, $fh] = $medidasFoto($datos); ?>
+                                            <img src="<?= $datos['src'] ?>" style="width:<?= $fw ?>pt;height:<?= $fh ?>pt" alt="Foto de la entrega del <?= escaparValores($fechaEntrega) ?>">
+                                        <?php else : ?>
+                                            <span class="chico">La foto ya no está disponible.</span>
+                                        <?php endif; ?>
+                                    </div>
                                     <p class="foto-pie"><?= escaparValores($fechaFoto($foto, $entrega)) ?><br>
-                                        <?= escaparValores($detalle['texto']) ?></p>
+                                        <?= escaparValores(mb_strimwidth($detalle['texto'], 0, 72, '…')) ?></p>
                                 </td>
                             <?php endforeach; ?>
-                            <?php if (count($par) === 1) : ?><td></td><?php endif; ?>
+                            <?php for ($k = count($fila); $k < $columnas; $k++) : ?>
+                                <td class="hueco"></td><td style="width:<?= round($anchoCelda, 1) ?>pt"></td>
+                            <?php endfor; ?>
                         </tr>
                     <?php endforeach; ?>
                 </table>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     <?php endforeach; ?>
@@ -280,5 +295,6 @@ $fechaFoto = static function (array $foto, array $entrega): string {
         Acta generada desde el seguimiento de entregas de <?= escaparValores((string) $venta->empresa_nombre) ?>.
         Las fechas de las fotos sin EXIF corresponden al registro de la entrega; no se inventan fechas de toma.
     </p>
+    <div id="acta-fin" style="height:0"></div>
 </body>
 </html>

@@ -30,7 +30,7 @@ template('header', [
     'acciones'  => '<a class="btn btn--secundario" href="/admin/clientes/ubicaciones">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">location_on</span>'
         . '<span>Ubicaciones</span></a>'
-        . '<a class="btn btn--primario movil-visible" href="/admin/clientes/crear">'
+        . '<a class="btn btn--primario" href="/admin/clientes/crear">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">person_add</span>'
         . '<span>Nuevo cliente</span></a>',
 ]);
@@ -75,7 +75,7 @@ template('header', [
             <p><?= $termino !== ''
                     ? 'Ningún cliente coincide con "' . escaparValores($termino) . '".'
                     : 'Registra tu primer cliente para poder cotizarle.' ?></p>
-            <a class="btn btn--primario movil-visible" href="/admin/clientes/crear">Nuevo cliente</a>
+            <a class="btn btn--primario" href="/admin/clientes/crear">Nuevo cliente</a>
         </div>
     <?php else : ?>
         <!-- Listado -->

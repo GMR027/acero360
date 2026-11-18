@@ -3535,7 +3535,27 @@
     // ------------------------------------------------------------------
     // Exportar
     // ------------------------------------------------------------------
+    /** App Android: el WebView no descarga blob:/data:, la app los guarda por su puente. */
+    function puenteAndroid() {
+        return window.Acero360Android && typeof window.Acero360Android.guardar === 'function'
+            ? window.Acero360Android : null;
+    }
+
+    function guardarEnApp(dataUrl, archivo, tipo) {
+        var puente = puenteAndroid();
+        var coma = String(dataUrl).indexOf(',');
+        if (!puente || coma < 0) return false;
+        puente.guardar(String(dataUrl).substring(coma + 1), archivo, tipo);
+        return true;
+    }
+
     function descargarBlob(blob, archivo) {
+        if (puenteAndroid()) {
+            var lector = new FileReader();
+            lector.onload = function () { guardarEnApp(lector.result, archivo, blob.type || 'application/octet-stream'); };
+            lector.readAsDataURL(blob);
+            return;
+        }
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href = url;
@@ -3653,6 +3673,7 @@
                     return url || renderUrl(paginas[actual].json, 1);
                 }).then(function (url) {
                     if (!url) { estado('No se pudo generar el PNG', true); return; }
+                    if (guardarEnApp(url, nombreArchivo('png'), 'image/png')) { estado('PNG generado'); return; }
                     var a = document.createElement('a');
                     a.href = url;
                     a.download = nombreArchivo('png');

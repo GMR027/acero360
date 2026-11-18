@@ -615,36 +615,6 @@
   }
 }
 
-/* ==========================================================================
-   Modo informativo en celular (body[data-movil="info"], lo fija modoMovil()).
-   Inventario, Cotizaciones, Ventas, Entrega y Ajustes se ven completos; el resto solo informa:
-   se ocultan filtros, altas, ediciones y bajas. Solo CSS: en pantalla grande todo sigue igual.
-   Un botón con la clase .movil-visible se conserva (p. ej. «Nuevo cliente»).
-   ========================================================================== */
-@include hasta-movil {
-  body[data-movil='info'] #contenido-principal {
-    /* Filtros: se conservan siempre para poder encontrar registros en el celular. */
-    .chip-grupo:not(.entregas-tabs),
-    .estadisticas-periodos,
-    /* Altas, ediciones y bajas */
-    form[method='post' i],
-    .btn--peligro,
-    a[href*='/crear']:not(.movil-visible),
-    a[href*='/editar'],
-    a[href*='/nueva'],
-    a[href*='/nuevo'],
-    .encabezado-pagina__acciones .btn--primario:not(.movil-visible),
-    .tabla__acciones .btn--icono:not([href*='/detalle']) {
-      display: none !important;
-    }
-
-    /* En la cabecera solo quedan las descargas (PDF, Excel, CSV): lo demás son altas y atajos de captura. */
-    .encabezado-pagina__acciones a:not([href*='pdf']):not([href*='export']):not([href*='zip']):not(.movil-visible) {
-      display: none !important;
-    }
-  }
-}
-
 /* Cliente en celular: foto y nombre arriba, sin la etiqueta «Cliente» repetida; abajo las acciones. */
 @include hasta-movil {
   .tabla-contenedor > .tabla.tabla--clientes tbody td:first-child::before {
