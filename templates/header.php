@@ -80,6 +80,13 @@ $versionCss = @filemtime(__DIR__ . '/../build/css/app.css');
 <!-- Primera parada del teclado: permite saltarse el menú lateral.
      Sólo se ve cuando recibe foco (ver .saltar-contenido en _utilidades). -->
 <a class="saltar-contenido" href="#contenido-principal">Saltar al contenido</a>
+<?php
+// Bienvenida tras iniciar sesión (contraseña o huella): una sola vez y sólo en páginas del panel.
+if ($mostrarSidebar && !empty($_SESSION['abrir_boveda'])) {
+    unset($_SESSION['abrir_boveda']);
+    template('boveda', ['saludo' => strtok((string) ($_SESSION['nombre'] ?? ''), ' ') ?: '']);
+}
+?>
 <?php if ($mostrarSidebar) : ?>
 <div class="app">
     <?php template('sidebar'); ?>

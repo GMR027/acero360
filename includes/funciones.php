@@ -93,6 +93,8 @@ function abrirSesionUsuario(array $usuario): void
     $_SESSION['rol']      = (int) $usuario['rol'];
     $_SESSION['login']    = true;
     $_SESSION['huella']   = hash('sha256', (string) $usuario['contrasena']);
+    // La primera página del panel muestra la bóveda abriéndose (templates/boveda.php).
+    $_SESSION['abrir_boveda'] = true;
 }
 
 /** Inicia la sesión de PHP si aún no está activa. */
