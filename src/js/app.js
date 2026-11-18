@@ -320,7 +320,6 @@ function inicializarAplicacion() {
 
   // 18. Interruptor de desbloqueo con huella (solo dentro de la app Android).
   prepararHuellaApp();
-  prepararBoveda();
 
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {

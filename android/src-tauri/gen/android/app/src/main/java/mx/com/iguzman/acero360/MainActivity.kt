@@ -80,12 +80,15 @@ class MainActivity : TauriActivity() {
   private var webViewPrincipal: WebView? = null
 
   private val bloqueo by lazy {
-    BloqueoHuella(this) { activa, mensaje ->
+    BloqueoHuella(this, { activa, mensaje ->
       val detalle = JSONObject().put("activa", activa).put("mensaje", mensaje).toString()
       webViewPrincipal?.evaluateJavascript(
         "window.dispatchEvent(new CustomEvent('acero360:huella',{detail:$detalle}));", null
       )
-    }
+    }, {
+      // La página espera este aviso para abrir la bóveda de bienvenida a la vista.
+      webViewPrincipal?.evaluateJavascript("window.dispatchEvent(new CustomEvent('acero360:desbloqueada'));", null)
+    })
   }
 
   /** Puente que ve la página: solo guarda archivos en Descargas e imprime la vista actual. */
@@ -116,6 +119,9 @@ class MainActivity : TauriActivity() {
 
     @JavascriptInterface
     fun huellaActiva(): Boolean = bloqueo.activa()
+
+    @JavascriptInterface
+    fun appBloqueada(): Boolean = bloqueo.estaBloqueada()
 
     /** Pide la huella para confirmar y responde con el evento `acero360:huella`. */
     @JavascriptInterface

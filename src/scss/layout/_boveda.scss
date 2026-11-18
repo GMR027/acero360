@@ -20,9 +20,13 @@ $bv-puerta-tam: 66%;
   overflow: hidden;
   background: radial-gradient(circle at 50% 45%, #2a333d 0%, #151a20 55%, #0a0d10 100%);
   color: #e9edf1;
-  animation:
-    boveda-entrada .3s ease-out both,
-    boveda-salida .6s ease-in 3s forwards;
+  animation: boveda-salida .6s ease-in 3s forwards;
+
+  // En pausa hasta que boveda.js confirme que se ve (app desbloqueada, pestaña visible).
+  &--espera,
+  &--espera * {
+    animation-play-state: paused !important;
+  }
 
   &__escena {
     position: relative;
@@ -30,7 +34,9 @@ $bv-puerta-tam: 66%;
     aspect-ratio: 1;
     perspective: 1400px;
     filter: drop-shadow(0 1.5rem 2.5rem rgba(0, 0, 0, .55));
-    animation: boveda-acercar .65s cubic-bezier(.55, 0, .9, .4) 2.95s forwards;
+    animation:
+      boveda-entrada .3s ease-out both,
+      boveda-acercar .65s cubic-bezier(.55, 0, .9, .4) 2.95s forwards;
   }
 
   &__marco,
@@ -136,7 +142,7 @@ $bv-puerta-tam: 66%;
    vuelven a poner sólo las de opacidad para que la bienvenida siga durando ≥ 3 s. */
 @media (prefers-reduced-motion: reduce) {
   .boveda {
-    animation: boveda-entrada .3s ease-out both, boveda-salida .6s ease-in 3s forwards !important;
+    animation: boveda-salida .6s ease-in 3s forwards !important;
   }
   .boveda * {
     animation: none !important;

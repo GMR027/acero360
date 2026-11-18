@@ -41,7 +41,11 @@ import androidx.core.content.ContextCompat
  *    pantalla de acceso, la app la envía tras confirmar la huella ([confirmar]). La llave solo se
  *    envía al mismo servidor que la emitió y se borra al quitar el bloqueo.
  */
-class BloqueoHuella(private val actividad: AppCompatActivity, private val alCambiar: (Boolean, String) -> Unit) {
+class BloqueoHuella(
+  private val actividad: AppCompatActivity,
+  private val alCambiar: (Boolean, String) -> Unit,
+  private val alDesbloquear: () -> Unit = {},
+) {
 
   companion object {
     private const val PREFERENCIAS = "acero360_bloqueo"
@@ -57,7 +61,9 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
   private val preferencias = actividad.getSharedPreferences(PREFERENCIAS, Context.MODE_PRIVATE)
   private var pantalla: FrameLayout? = null
   private var mensaje: TextView? = null
-  private var bloqueada = false
+  @Volatile private var bloqueada = false
+  /** Entradas con huella pedidas mientras la pantalla de bloqueo estaba puesta: una sola huella basta. */
+  private val pendientes = mutableListOf<() -> Unit>()
   private var autenticando = false
   private var salioEn = 0L
   private var desbloqueadaEn = 0L
@@ -72,6 +78,9 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
     BiometricManager.from(actividad).canAuthenticate(BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
 
   fun activa(): Boolean = preferencias.getBoolean(CLAVE_ACTIVA, false)
+
+  /** ¿La pantalla de bloqueo tapa la plataforma? (la página espera para animar la bienvenida). */
+  fun estaBloqueada(): Boolean = bloqueada
 
   /** Llave de inicio de sesión guardada para ese servidor (solo con el bloqueo activo). */
   fun llave(origen: String): String? {
@@ -92,6 +101,11 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
 
   /** Confirma que es el dueño: si acaba de desbloquear la app no vuelve a pedir la huella. */
   fun confirmar(alExito: () -> Unit, alFallar: (String) -> Unit) {
+    if (bloqueada) {
+      // La huella ya se está pidiendo para desbloquear: al confirmarla se sigue con la entrada.
+      pendientes.add(alExito)
+      return
+    }
     if (desbloqueadaEn != 0L && SystemClock.elapsedRealtime() - desbloqueadaEn < RECIENTE_MS) {
       alExito()
       return
@@ -205,6 +219,10 @@ class BloqueoHuella(private val actividad: AppCompatActivity, private val alCamb
     atrasBloqueado.isEnabled = false
     pantalla?.visibility = View.GONE
     contenido()?.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+    val enEspera = pendientes.toList()
+    pendientes.clear()
+    enEspera.forEach { it() }
+    alDesbloquear()
   }
 
   private fun contenido(): View? = actividad.findViewById(android.R.id.content)

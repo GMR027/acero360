@@ -11863,7 +11863,10 @@ body:has(.ed-pagina) .principal,
   overflow: hidden;
   background: radial-gradient(circle at 50% 45%, #2a333d 0%, #151a20 55%, #0a0d10 100%);
   color: #e9edf1;
-  animation: boveda-entrada 0.3s ease-out both, boveda-salida 0.6s ease-in 3s forwards;
+  animation: boveda-salida 0.6s ease-in 3s forwards;
+}
+.boveda--espera, .boveda--espera * {
+  animation-play-state: paused !important;
 }
 .boveda__escena {
   position: relative;
@@ -11871,7 +11874,7 @@ body:has(.ed-pagina) .principal,
   aspect-ratio: 1;
   perspective: 1400px;
   filter: drop-shadow(0 1.5rem 2.5rem rgba(0, 0, 0, 0.55));
-  animation: boveda-acercar 0.65s cubic-bezier(0.55, 0, 0.9, 0.4) 2.95s forwards;
+  animation: boveda-entrada 0.3s ease-out both, boveda-acercar 0.65s cubic-bezier(0.55, 0, 0.9, 0.4) 2.95s forwards;
 }
 .boveda__marco, .boveda__cara {
   position: absolute;
@@ -12014,7 +12017,7 @@ body:has(.ed-pagina) .principal,
    vuelven a poner sólo las de opacidad para que la bienvenida siga durando ≥ 3 s. */
 @media (prefers-reduced-motion: reduce) {
   .boveda {
-    animation: boveda-entrada 0.3s ease-out both, boveda-salida 0.6s ease-in 3s forwards !important;
+    animation: boveda-salida 0.6s ease-in 3s forwards !important;
   }
   .boveda * {
     animation: none !important;

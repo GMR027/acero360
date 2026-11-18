@@ -9,8 +9,9 @@
  *   1.5–1.8 s  se retraen los pestillos
  *   1.8–3.0 s  la puerta gira sobre sus bisagras y deja ver el logo
  *   3.0–3.6 s  acercamiento y se desvanece (≥ 3 s en total)
- * Sin JS también desaparece (la animación termina en visibility:hidden); boveda.js
- * sólo retira el nodo al acabar.
+ * Empieza en pausa (boveda--espera) y opaca, para que no se vea el panel debajo: boveda.js
+ * la arranca cuando la página está a la vista (en la app, cuando ya no hay pantalla de
+ * bloqueo) y retira el nodo al acabar. Sin JS no se muestra.
  *
  * Variables: $saludo — nombre de pila para el saludo (opcional).
  */
@@ -27,7 +28,8 @@ $remaches = static function (float $r, int $cuantos, float $tam, string $clase):
     return $salida;
 };
 ?>
-<div class="boveda" data-boveda role="status" aria-live="polite">
+<noscript><style>.boveda{display:none}</style></noscript>
+<div class="boveda boveda--espera" data-boveda role="status" aria-live="polite">
     <span class="solo-lectores">Acceso concedido<?= $saludo !== '' ? ', bienvenido ' . escaparValores($saludo) : '' ?>.</span>
     <div class="boveda__escena" aria-hidden="true">
         <svg class="boveda__marco" viewBox="0 0 400 400" focusable="false">
