@@ -394,7 +394,7 @@ class Imagenes
      *
      * @param array    $archivo Elemento de $_FILES.
      * @param string   $prefijo Nombre inicial del archivo (ej. 'producto').
-     * @param string   $modo    'cuadrada', 'logo', 'retrato' o 'informe'.
+     * @param string   $modo    'cuadrada', 'fachada', 'logo', 'retrato' o 'informe'.
      * @param int|null $maximo  Tope propio en bytes; null usa TAMANO_MAXIMO.
      *
      * @return string|null Nombre del archivo generado, o null si no hay
@@ -438,6 +438,24 @@ class Imagenes
                 $gerenciador->read($archivo['tmp_name'])
                     ->cover(300, 300)
                     ->encodeByMediaType('image/jpeg', 85)
+                    ->save(self::CARPETA . '/' . $miniatura);
+
+                return $principal;
+            }
+
+            if ($modo === 'fachada') {
+                // Fachada de un distribuidor: horizontal 800×520 (la tarjeta
+                // del sitio es 400×260) y miniatura 400×260 para listados.
+                $principal = self::nombreUnico($prefijo, 'jpg');
+                $gerenciador->read($archivo['tmp_name'])->orient()
+                    ->cover(800, 520)
+                    ->encodeByMediaType('image/jpeg', 82)
+                    ->save(self::CARPETA . '/' . $principal);
+
+                $miniatura = preg_replace('/\.jpg$/', '_mini.jpg', $principal);
+                $gerenciador->read($archivo['tmp_name'])->orient()
+                    ->cover(400, 260)
+                    ->encodeByMediaType('image/jpeg', 82)
                     ->save(self::CARPETA . '/' . $miniatura);
 
                 return $principal;

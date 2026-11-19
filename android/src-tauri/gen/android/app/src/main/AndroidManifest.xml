@@ -4,6 +4,8 @@
     <!-- Ubicación: el formulario de entregas la pide cuando la foto no trae GPS. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Avisos del Centro de seguimiento como notificaciones del teléfono (Android 13+ lo pide). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />

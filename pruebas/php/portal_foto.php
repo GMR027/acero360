@@ -53,6 +53,15 @@ $prueba('sin secreto nada valida', PortalFotos::validar(7, 800, $exp, $sig, null
 $prueba('el ancho se acota al máximo',
     PortalFotos::validar(7, 9000, $exp, PortalFotos::firma(7, 9000, $exp, $secreto), $secreto, $ahora) === FotosEntrega::ANCHO_MAX);
 
+/* --- Modo galería ------------------------------------------------------- */
+$sigGaleria = PortalFotos::firma(7, 800, $exp, $secreto, 'galeria');
+$prueba('la firma de galería es distinta', $sigGaleria !== $sig);
+$prueba('firma de galería válida en modo galería', PortalFotos::validar(7, 800, $exp, $sigGaleria, $secreto, $ahora, 'galeria') === 800);
+$prueba('firma de galería no sirve para la marca completa', PortalFotos::validar(7, 800, $exp, $sigGaleria, $secreto, $ahora) === null);
+$prueba('firma del portal no sirve en modo galería', PortalFotos::validar(7, 800, $exp, $sig, $secreto, $ahora, 'galeria') === null);
+$prueba('modo desconocido se rechaza',
+    PortalFotos::validar(7, 800, $exp, PortalFotos::firma(7, 800, $exp, $secreto, 'otro'), $secreto, $ahora, 'otro') === null);
+
 /* --- Imagen -------------------------------------------------------------- */
 $prueba('foto inexistente → null', PortalFotos::imagen(999999999, 400) === null);
 
@@ -63,6 +72,10 @@ if ($conArchivo) {
     $prueba('foto real sale como imagen', $imagen !== null && str_starts_with($imagen['mime'], 'image/'));
     $info = $imagen ? @getimagesizefromstring($imagen['contenido']) : false;
     $prueba('respeta el ancho pedido', is_array($info) && $info[0] <= 400, is_array($info) ? "ancho {$info[0]}" : 'sin imagen');
+    $galeria = PortalFotos::imagen((int) $conArchivo[0]['id'], 400, 'galeria');
+    $prueba('modo galería sale como JPEG recodificado (sin EXIF)', $galeria !== null && $galeria['mime'] === 'image/jpeg'
+        && !str_contains(substr($galeria['contenido'], 0, 4096), 'Exif'));
+    $prueba('modo galería no es igual a la marca completa', $galeria !== null && $imagen !== null && $galeria['contenido'] !== $imagen['contenido']);
     $porId = \App\Entregas::fotoDeEntregaPorId((int) $conArchivo[0]['id']);
     $prueba('búsqueda por id = búsqueda por archivo', $porId == \App\Entregas::fotoDeEntrega($conArchivo[0]['archivo']));
 } else {

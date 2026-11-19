@@ -1,9 +1,11 @@
 package mx.com.iguzman.acero360
 
+import android.Manifest
 import android.app.DownloadManager
 import android.content.ContentValues
 import android.content.Intent
 import android.content.res.Configuration
+import android.media.RingtoneManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -23,6 +25,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 import org.json.JSONObject
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -42,6 +45,10 @@ import androidx.core.view.WindowInsetsCompat
  *    `huellaDisponible()`, `huellaActiva()` y `cambiarHuella(bool)`, y recibe el resultado en el
  *    evento `acero360:huella` de window. Para iniciar sesión con la huella: `huellaTieneLlave()`,
  *    `guardarLlaveHuella(llave)`, `olvidarLlaveHuella()` y `entrarConHuella(csrf)`.
+ *  • Avisos del Centro de seguimiento como notificaciones del teléfono (ver [AvisosAndroid]):
+ *    `avisosEstado()`, `activarAvisos(llave, instalacion)`, `desactivarAvisos()`, `elegirTonoAvisos()`,
+ *    `tonoDelTelefonoAvisos()`, `probarAviso()`, `ajustesAvisos()` y `avisoPendiente()`; los cambios
+ *    llegan a la página con el evento `acero360:avisos` ({ activas, conectadas, permitidas, tono, tonoPropio }).
  */
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,6 +72,45 @@ class MainActivity : TauriActivity() {
     ViewCompat.requestApplyInsets(raiz)
 
     bloqueo.alCrear()
+    AvisosAndroid.programar(this)
+    AvisosAndroid.guardarEnlace(this, intent)
+  }
+
+  /** Notificación tocada con la app abierta: la página abre el aviso (si no está bloqueada). */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    if (AvisosAndroid.guardarEnlace(this, intent)) {
+      webViewPrincipal?.evaluateJavascript("window.dispatchEvent(new CustomEvent('acero360:abrir-aviso'));", null)
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    // El usuario pudo cambiar el permiso o el tono en los ajustes de Android.
+    avisarAvisos()
+  }
+
+  private fun avisarAvisos() {
+    val detalle = AvisosAndroid.estado(this).toString()
+    webViewPrincipal?.evaluateJavascript("window.dispatchEvent(new CustomEvent('acero360:avisos',{detail:$detalle}));", null)
+  }
+
+  /** Android 13+: permiso para mostrar notificaciones (se pide al activar los avisos). */
+  private val pedirPermisoAvisos = registerForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
+    if (!concedido) {
+      Toast.makeText(this, "Sin permiso, Android no mostrará los avisos. Puedes darlo en «Más ajustes».", Toast.LENGTH_LONG).show()
+    }
+    avisarAvisos()
+  }
+
+  private val elegirTono = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { resultado ->
+    if (resultado.resultCode == RESULT_OK) {
+      @Suppress("DEPRECATION")
+      val tono = resultado.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+      AvisosAndroid.cambiarTono(this, tono)
+      Toast.makeText(this, "Tono de los avisos: " + AvisosAndroid.nombreTono(this), Toast.LENGTH_SHORT).show()
+    }
+    avisarAvisos()
   }
 
   override fun onStart() {
@@ -144,6 +190,85 @@ class MainActivity : TauriActivity() {
     fun olvidarLlaveHuella() {
       bloqueo.olvidarLlave()
     }
+
+    /* ------------------------------------------------ Avisos (notificaciones del teléfono) */
+
+    @JavascriptInterface
+    fun avisosEstado(): String = AvisosAndroid.estado(this@MainActivity).toString()
+
+    /** El sitio emitió la llave de avisos de esta instalación: se guarda y empieza la revisión. */
+    @JavascriptInterface
+    fun activarAvisos(llave: String, instalacion: String) {
+      val origen = origenActual ?: return
+      runOnUiThread {
+        if (!AvisosAndroid.activar(this@MainActivity, llave, instalacion, origen)) {
+          avisarAvisos()
+          return@runOnUiThread
+        }
+        if (Build.VERSION.SDK_INT >= 33 && !AvisosAndroid.permitidas(this@MainActivity)) {
+          pedirPermisoAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+          avisarAvisos()
+        }
+      }
+    }
+
+    @JavascriptInterface
+    fun desactivarAvisos() {
+      runOnUiThread {
+        AvisosAndroid.desactivar(this@MainActivity)
+        avisarAvisos()
+      }
+    }
+
+    @JavascriptInterface
+    fun elegirTonoAvisos() {
+      runOnUiThread {
+        try {
+          elegirTono.launch(AvisosAndroid.intentElegirTono(this@MainActivity))
+        } catch (_: Exception) {
+          // Algunos teléfonos no traen el selector: se usan los ajustes del canal.
+          startActivity(AvisosAndroid.intentAjustes(this@MainActivity))
+        }
+      }
+    }
+
+    @JavascriptInterface
+    fun tonoDelTelefonoAvisos() {
+      runOnUiThread {
+        AvisosAndroid.cambiarTono(this@MainActivity, null)
+        avisarAvisos()
+      }
+    }
+
+    @JavascriptInterface
+    fun probarAviso() {
+      runOnUiThread {
+        if (AvisosAndroid.permitidas(this@MainActivity)) {
+          AvisosAndroid.probar(this@MainActivity)
+        } else if (Build.VERSION.SDK_INT >= 33) {
+          pedirPermisoAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+          startActivity(AvisosAndroid.intentAjustes(this@MainActivity))
+        }
+      }
+    }
+
+    /** Ajustes de Android del canal: tono (incluye archivos propios), vibración, «No molestar»… */
+    @JavascriptInterface
+    fun ajustesAvisos() {
+      runOnUiThread {
+        try {
+          startActivity(AvisosAndroid.intentAjustes(this@MainActivity))
+        } catch (_: Exception) {
+          Toast.makeText(this@MainActivity, "Abre Ajustes → Aplicaciones → Acero 360 → Notificaciones.", Toast.LENGTH_LONG).show()
+        }
+      }
+    }
+
+    /** Ruta del aviso que se tocó en la bandeja (vacío si no hay); se entrega una sola vez. */
+    @JavascriptInterface
+    fun avisoPendiente(): String = AvisosAndroid.tomarEnlace(this@MainActivity)
 
     /** Desde la pantalla de acceso: confirma la huella y envía la llave al mismo servidor. */
     @JavascriptInterface

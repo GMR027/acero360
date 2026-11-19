@@ -28,4 +28,8 @@ publicar actualizaciones que se instalen sobre la app existente.
   `abrir_actualizacion`. Las páginas del servidor no tienen acceso a Rust.
 - `gen/android/.../MainActivity.kt`: márgenes de borde a borde (Android 15+) y descargas
   (PDF/Excel/CSV) al gestor de descargas con la cookie de sesión.
+- `gen/android/.../AvisosAndroid.kt`: avisos del Centro de seguimiento como notificaciones del
+  teléfono. WorkManager consulta `GET /app/android/avisos.json` cada ~15 min con una llave de solo
+  lectura (`llaves_avisos_android`); suenan con el tono de notificación del teléfono o con uno
+  elegido en Ajustes → Aplicación Android (cada cambio de tono crea un canal nuevo `avisos_N`).
 - `gen/android/app/build.gradle.kts`: firma de publicación; `res/xml/network_security_config.xml`.

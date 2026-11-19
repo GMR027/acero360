@@ -321,6 +321,9 @@ function inicializarAplicacion() {
   // 18. Interruptor de desbloqueo con huella (solo dentro de la app Android).
   prepararHuellaApp();
 
+  // 19. Notificaciones del Centro de seguimiento en el teléfono (solo dentro de la app Android).
+  prepararAvisosApp();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

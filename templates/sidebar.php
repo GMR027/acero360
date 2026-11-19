@@ -110,6 +110,15 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        // Puntos de venta que el sitio público muestra en /distribuidores.
+        'ruta'          => '/admin/distribuidores',
+        'icono'         => 'storefront',
+        'texto'         => 'Distribuidores',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/productos',
         'icono'         => 'inventory_2',
         'texto'         => 'Catálogo de productos',

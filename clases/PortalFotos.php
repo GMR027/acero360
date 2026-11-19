@@ -19,6 +19,14 @@ namespace App;
  * aceptan vigencias de más de VIGENCIA_MAX segundos hacia adelante.
  *
  * La imagen sale con la misma marca de agua que el panel (FotosEntrega::marcada).
+ *
+ * Modo «galeria» (&modo=galeria): la galería pública del sitio muestra las
+ * últimas fotos de entrega. Ahí la foto sale SOLO con el logo: sin fecha ni
+ * ubicación del cliente, y nunca el original (su EXIF puede traer el GPS).
+ * La firma incluye el modo, así que una firma de galería no sirve para pedir
+ * la foto con la marca completa y viceversa:
+ *
+ *   sig = hash_hmac('sha256', "id|w|exp|galeria", PORTAL_FOTOS_SECRETO)
  */
 class PortalFotos
 {
@@ -27,6 +35,9 @@ class PortalFotos
 
     public const ANCHO_MIN = 200;
 
+    /** Modos aceptados: '' (portal del cliente) y 'galeria' (sitio público). */
+    public const MODOS = ['', 'galeria'];
+
     /** Secreto compartido con el portal, o null si la función está apagada. */
     public static function secreto(): ?string
     {
@@ -34,25 +45,26 @@ class PortalFotos
         return strlen($secreto) >= 32 ? $secreto : null;
     }
 
-    public static function firma(int $id, int $ancho, int $expira, string $secreto): string
+    public static function firma(int $id, int $ancho, int $expira, string $secreto, string $modo = ''): string
     {
-        return hash_hmac('sha256', "{$id}|{$ancho}|{$expira}", $secreto);
+        $datos = "{$id}|{$ancho}|{$expira}" . ($modo !== '' ? "|{$modo}" : '');
+        return hash_hmac('sha256', $datos, $secreto);
     }
 
     /**
      * Comprueba la firma y la vigencia. Devuelve el ancho normalizado o null.
      */
-    public static function validar(int $id, int $ancho, int $expira, string $firma, ?string $secreto, ?int $ahora = null): ?int
+    public static function validar(int $id, int $ancho, int $expira, string $firma, ?string $secreto, ?int $ahora = null, string $modo = ''): ?int
     {
         $ahora ??= time();
 
-        if ($secreto === null || $id <= 0 || $firma === '') {
+        if ($secreto === null || $id <= 0 || $firma === '' || !in_array($modo, self::MODOS, true)) {
             return null;
         }
         if ($expira < $ahora || $expira > $ahora + self::VIGENCIA_MAX) {
             return null;
         }
-        if (!hash_equals(self::firma($id, $ancho, $expira, $secreto), $firma)) {
+        if (!hash_equals(self::firma($id, $ancho, $expira, $secreto, $modo), $firma)) {
             return null;
         }
 
@@ -62,8 +74,9 @@ class PortalFotos
     /**
      * Contenido listo para enviar: ['contenido' => bytes, 'mime' => tipo] o null.
      * Con marca de agua; si el dibujo falla se entrega el original (igual que el panel).
+     * En modo galería sólo lleva el logo y, si falla, no se entrega nada.
      */
-    public static function imagen(int $id, int $ancho): ?array
+    public static function imagen(int $id, int $ancho, string $modo = ''): ?array
     {
         $foto = Entregas::fotoDeEntregaPorId($id);
 
@@ -71,8 +84,9 @@ class PortalFotos
             return null;
         }
 
-        $marcada = FotosEntrega::marcada($foto, $ancho);
-        if ($marcada !== null) {
+        $galeria = $modo === 'galeria';
+        $marcada = FotosEntrega::marcada($foto, $ancho, !$galeria);
+        if ($marcada !== null || $galeria) {
             return $marcada;
         }
 

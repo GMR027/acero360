@@ -66,6 +66,38 @@ template('tabsAjustes', ['tab' => 'android']);
     <p class="campo__ayuda mt-sm" data-huella-estado role="status" aria-live="polite"></p>
 </section>
 
+<!-- Notificaciones del Centro de seguimiento: solo dentro de la app 1.0.6+ (lo revela avisosApp.js). -->
+<section class="tarjeta mb-lg" aria-labelledby="t-avisos" data-avisos-app hidden>
+    <h2 class="titulo-5 mb-md" id="t-avisos">Notificaciones en este teléfono</h2>
+    <label class="interruptor" for="avisos-activos">
+        <span>
+            <strong>Avisarme de lo nuevo en el Centro de seguimiento</strong><br>
+            <span class="texto-xs texto-secundario">Pedidos, cobros, entregas, inventario y demás avisos llegan como notificación del teléfono, con sonido, aunque la app esté cerrada. Se revisa cada 15 minutos aproximadamente (Android decide el momento exacto para cuidar la batería).</span>
+        </span>
+        <input type="checkbox" id="avisos-activos">
+        <span class="interruptor__pista" aria-hidden="true"></span>
+    </label>
+    <div data-avisos-opciones hidden>
+        <p class="mt-md">Tono: <strong data-avisos-tono>El del teléfono</strong></p>
+        <p class="campo__ayuda">Por omisión suena el tono de notificación que tienes configurado en el teléfono. Puedes elegir otro solo para Acero 360; en el selector, «Agregar tono» permite usar un archivo de audio propio.</p>
+        <p class="nota nota--advertencia mt-sm" data-avisos-permiso hidden role="note">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">notifications_off</span>
+            <span>Android tiene bloqueadas las notificaciones de Acero 360. Tócalo en <button type="button" class="btn btn--secundario btn--sm" data-avisos-ajustes>Más ajustes</button> para permitirlas.</span>
+        </p>
+        <div class="encabezado-pagina__acciones mt-md">
+            <button type="button" class="btn btn--secundario" data-avisos-elegir>
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">music_note</span><span>Elegir tono</span></button>
+            <button type="button" class="btn btn--secundario" data-avisos-tono-telefono hidden>
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">restart_alt</span><span>Usar el del teléfono</span></button>
+            <button type="button" class="btn btn--secundario" data-avisos-probar>
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">notifications_active</span><span>Probar</span></button>
+            <button type="button" class="btn btn--secundario" data-avisos-ajustes>
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">tune</span><span>Más ajustes</span></button>
+        </div>
+    </div>
+    <p class="campo__ayuda mt-sm" data-avisos-estado role="status" aria-live="polite"></p>
+</section>
+
 <section class="tarjeta mb-lg" aria-labelledby="t-vigente">
     <h2 class="titulo-5 mb-md" id="t-vigente">Versión disponible</h2>
     <?php if ($vigente) : ?>

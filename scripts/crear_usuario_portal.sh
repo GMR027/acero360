@@ -7,7 +7,7 @@
 # fiscales ni contabilidad. Es idempotente: se puede volver a ejecutar para
 # rotar la contraseña o reaplicar permisos.
 #
-# Requiere las migraciones 052 y 053 aplicadas (los permisos son por columna).
+# Requiere las migraciones 052, 053 y 056 aplicadas (los permisos son por columna).
 #
 # Uso local:
 #   PORTAL_DB_PASSWORD='...' scripts/crear_usuario_portal.sh [base]
@@ -60,12 +60,17 @@ GRANT SELECT ON \`$BASE\`.producto_empresa TO '$USUARIO'@'%';
 GRANT SELECT (id, nombre, rfc, direccion, ciudad, estado, cp, telefono, email, logo, condiciones_envio, condiciones_compra, activa)
    ON \`$BASE\`.empresas TO '$USUARIO'@'%';
 
+-- Distribuidores del sitio público (056)
+GRANT SELECT (id, empresa_id, nombre, sucursal, municipio, direccion, telefono, maps, imagen, publicado, orden)
+   ON \`$BASE\`.distribuidores TO '$USUARIO'@'%';
+
 -- Pedidos del portal (alta, consulta y cancelación mientras están pendientes)
 GRANT SELECT, INSERT, UPDATE (estado, cancelado_en) ON \`$BASE\`.pedidos TO '$USUARIO'@'%';
 GRANT SELECT, INSERT ON \`$BASE\`.pedido_detalles TO '$USUARIO'@'%';
 
--- Seguimiento de la venta y fotos de entrega (los archivos se piden firmados a /portal/entregas/foto)
-GRANT SELECT (id, folio, estado, cliente_id, entrega_estado, entrega_fecha) ON \`$BASE\`.ventas TO '$USUARIO'@'%';
+-- Seguimiento de la venta y fotos de entrega (los archivos se piden firmados a /portal/entregas/foto).
+-- empresa_id: la galería pública del sitio muestra sólo las entregas de su negocio.
+GRANT SELECT (id, folio, estado, empresa_id, cliente_id, entrega_estado, entrega_fecha) ON \`$BASE\`.ventas TO '$USUARIO'@'%';
 GRANT SELECT (id, venta_id, fecha) ON \`$BASE\`.entregas TO '$USUARIO'@'%';
 GRANT SELECT (id, entrega_id, tomada_en) ON \`$BASE\`.entrega_fotos TO '$USUARIO'@'%';
 

@@ -13,6 +13,9 @@ class HuellaAndroid
 {
     private const DIAS_VIGENCIA = 90;
 
+    /** Tabla de llaves. AvisosAndroid reutiliza esta lógica con su propia tabla (static::TABLA). */
+    protected const TABLA = 'llaves_huella_android';
+
     /** @var \mysqli */
     protected static $db;
 
@@ -45,7 +48,7 @@ class HuellaAndroid
         $firma = self::firma((string) $usuario['contrasena']);
         $dias = self::DIAS_VIGENCIA;
         $alta = self::$db->prepare(
-            "INSERT INTO llaves_huella_android (usuario_id, instalacion, llave_hash, firma_contrasena, expira_en)
+            "INSERT INTO " . static::TABLA . " (usuario_id, instalacion, llave_hash, firma_contrasena, expira_en)
              VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL $dias DAY))"
         );
         $alta->bind_param('isss', $usuarioId, $instalacion, $hash, $firma);
@@ -67,7 +70,7 @@ class HuellaAndroid
         $hash = hash('sha256', $llave);
         $consulta = self::$db->prepare(
             'SELECT l.id AS llave_id, l.firma_contrasena, u.id, u.nombre, u.email, u.contrasena, u.rol
-               FROM llaves_huella_android l
+               FROM ' . static::TABLA . ' l
                JOIN usuarios u ON u.id = l.usuario_id
               WHERE l.llave_hash = ? AND l.instalacion = ? AND l.revocada_en IS NULL AND l.expira_en > NOW()
               LIMIT 1'
@@ -83,7 +86,7 @@ class HuellaAndroid
 
         $dias = self::DIAS_VIGENCIA;
         $idLlave = (int) $fila['llave_id'];
-        $uso = self::$db->prepare("UPDATE llaves_huella_android SET usada_en = NOW(), expira_en = DATE_ADD(NOW(), INTERVAL $dias DAY) WHERE id = ?");
+        $uso = self::$db->prepare("UPDATE " . static::TABLA . " SET usada_en = NOW(), expira_en = DATE_ADD(NOW(), INTERVAL $dias DAY) WHERE id = ?");
         $uso->bind_param('i', $idLlave);
         $uso->execute();
         $uso->close();
@@ -96,7 +99,7 @@ class HuellaAndroid
     public static function revocar(int $usuarioId, string $instalacion): void
     {
         $consulta = self::$db->prepare(
-            'UPDATE llaves_huella_android SET revocada_en = NOW() WHERE usuario_id = ? AND instalacion = ? AND revocada_en IS NULL'
+            'UPDATE ' . static::TABLA . ' SET revocada_en = NOW() WHERE usuario_id = ? AND instalacion = ? AND revocada_en IS NULL'
         );
         $consulta->bind_param('is', $usuarioId, $instalacion);
         $consulta->execute();

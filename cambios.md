@@ -1992,3 +1992,44 @@ En los gastos, una factura PPD (pago en parcialidades) solo se podía marcar com
 - `pruebas/php/etapa7.php`: `importe_con_iva` proporcional (1,740 y 696) → **TODO OK**.
 - `pruebas/probar_etapa7.mjs`: columnas nuevas, SKU sin nombre y visibilidad móvil de las tarjetas y tablas → **51/51**.
 - `pruebas/php/mapa_ventas.php` y `probar_mapa_ventas.mjs`: ubicación sólo como texto además de GPS y coordenadas → **TODO OK / 10/10**.
+
+---
+
+## App Android 1.0.6 — Avisos del Centro de seguimiento como notificaciones del teléfono
+
+Los avisos del Centro de seguimiento llegan al teléfono como notificación normal de Android, con sonido, aunque la app esté cerrada. Por omisión suenan con el tono de notificación configurado en el teléfono; desde la app se puede elegir otro tono solo para Acero 360 (el selector de Android incluye «Agregar tono» para un archivo propio).
+
+- **Servidor — llave de solo lectura:** en segundo plano no hay sesión de PHP, así que al activar las notificaciones el sitio emite una llave por instalación (`POST /app/android/avisos/registrar`, con sesión y desde la app). Solo sirve para `GET /app/android/avisos.json` (cabeceras `X-Acero360-Llave` y `X-Acero360-Instalacion`); no abre sesión. Mismas reglas que la llave de huella: solo se guarda el SHA-256, ligada a la instalación y a la contraseña vigente, 90 días sin uso. `POST /app/android/avisos/revocar` la anula al apagarlas.
+- **`clases/AvisosAndroid.php`:** extiende `HuellaAndroid` con su propia tabla (`HuellaAndroid` ahora usa `static::TABLA`). `pendientes()` entrega hasta 50 avisos sin leer (`id` = clave|huella, categoría, prioridad, título, detalle y enlace interno `/admin…`).
+- **Migración `055_llaves_avisos.sql`:** tabla `llaves_avisos_android` (reversión en `055_reversion.sql`).
+- **App — `AvisosAndroid.kt`:** WorkManager revisa cada ~15 min (mínimo de Android) con red. La primera revisión tras activar resume lo pendiente en una sola notificación; después, cada aviso nuevo es una notificación (máximo 5 por tanda + resumen, un solo sonido por tanda). Lo que se lee en la plataforma se quita de la bandeja. Un 401 borra la llave y el sitio pide otra en la siguiente página con sesión. Canal «Avisos de seguimiento» con importancia alta; como Android fija el sonido al crear el canal, cambiar el tono crea un canal nuevo (`avisos_N`). Android 13+ pide el permiso `POST_NOTIFICATIONS` al activar.
+- **Tocar la notificación** abre la app en el registro del aviso (si la sesión se perdió, se abre después de iniciar sesión).
+- **Ajustes → Aplicación Android:** tarjeta «Notificaciones en este teléfono» (solo dentro de la app 1.0.6+): interruptor, tono actual, «Elegir tono», «Usar el del teléfono», «Probar» y «Más ajustes» (ajustes del canal en Android). Módulo `src/js/modulos/avisosApp.js`.
+- **Pruebas:** `pruebas/php/etapa55.php` (14 casos: llave, instalación, contraseña, revocación, independencia de la llave de huella, avisos sin leer y enlaces internos), agregada a `pruebas/ejecutar_todo.sh`.
+
+---
+
+## Distribuidores: CRUD en Acero 360 y página del sitio desde la base
+
+Los puntos de venta que el sitio de Soluciones en Acero muestra en `/distribuidores` dejan de ser una lista fija en el código del sitio y se administran desde Acero 360 (menú **Distribuidores**, debajo de «Pedidos»).
+
+- **Migración `056_distribuidores.sql`:** tabla `distribuidores` (negocio, nombre, sucursal, municipio, dirección, teléfono, enlace de Maps, fachada, publicado, orden). Carga los 42 distribuidores de la lista fija, en el mismo orden, asignados a «Soluciones en Acero». Reversión en `056_reversion.sql`.
+- **`clases/Distribuidores.php` y `views/admin/distribuidores/`:** listado con búsqueda y filtro por municipio, alta, edición, publicar/ocultar desde el listado y baja con confirmación. Validación: nombre, municipio y dirección obligatorios; Maps sólo `https://`; teléfono sólo números y signos. Sin orden, el distribuidor queda al final. El municipio sugiere los existentes para no partir grupos.
+- **Fachada:** nuevo modo `fachada` en `Imagenes::subir` (800×520 + miniatura 400×260). Las fotos heredadas quedan como ruta del sitio (`distribuidores/…`) y se ven en el panel desde el sitio público (agregado a `img-src` de la CSP). `scripts/importar_imagenes_distribuidores.php [--origen=CARPETA|URL] [--confirmar]` las convierte en archivos propios (por omisión las descarga del sitio público; es idempotente).
+- **Sitio (`solucionesEnAcero`):** `Model\Distribuidor` lee de la tabla (sólo los publicados de `EMPRESA_ID`, en su orden); se eliminan `data/distribuidores.php` y `models/Modelo.php`. El proxy de imágenes sirve también las fachadas de distribuidores publicados. Si la base no responde, la página lo avisa.
+- **`scripts/crear_usuario_portal.sh`:** `SELECT` por columnas sobre `distribuidores` para el usuario del portal (hay que volver a ejecutarlo en el clúster).
+- **Pruebas:** `pruebas/php/etapa56.php` (27 casos) y `pruebas/probar_distribuidores.mjs` (23 casos: menú, filtros, validación, alta con foto, reemplazo de foto, publicar/ocultar, baja, móvil), agregadas a `pruebas/ejecutar_todo.sh`.
+
+---
+
+## Galería de entregas en el sitio de Soluciones en Acero
+
+La sección «Blog y novedades» de la página de inicio del sitio se reemplazó por una galería en acordeón con las últimas 10 fotos de entrega de Soluciones en Acero. Si no hay fotos, la sección no aparece.
+
+- **Fotos sin datos del cliente:** la marca de agua normal lleva la fecha y la dirección o las coordenadas GPS de la entrega. Para la galería, `/portal/entregas/foto` acepta `&modo=galeria`: la foto sale solo con el logo (`FotosEntrega::marcada(..., conTexto: false)`), recodificada (sin EXIF) y, si el dibujo falla, no se entrega el original.
+- **Firma separada:** en modo galería la firma es `hmac("id|w|exp|galeria")`, así que una firma de la galería no sirve para pedir la foto con la marca completa ni al revés (`PortalFotos::firma/validar/imagen` con `$modo`).
+- **Permiso nuevo:** `scripts/crear_usuario_portal.sh` agrega `empresa_id` a las columnas de `ventas` que puede leer `portal_soluciones`.
+- **Sitio:** `Model\Galeria` (últimas 10 de ventas registradas de `EMPRESA_ID`); `/img/entregas/{id}` solo sirve esas 10, las pide firmadas a 1200 px y las guarda en caché en el pod.
+- **Pruebas:** `pruebas/php/portal_foto.php` suma 5 casos del modo galería → **todas pasan**. En local, contra `soluciones_portal_dev`: la galería muestra las 2 fotos de la empresa 1; una foto de otro negocio da 404; con un negocio sin fotos la sección no aparece; la imagen sale sin texto ni EXIF; no hay desbordamiento en móvil.
+
+**Al desplegar:** volver a ejecutar `scripts/crear_usuario_portal.sh` (permiso `ventas.empresa_id`) y desplegar cotizaciones **antes** que el sitio; si el sitio sale antes, la galería pide fotos en un modo que cotizaciones aún no conoce y se ve vacía (404 en las imágenes).

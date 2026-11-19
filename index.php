@@ -54,6 +54,10 @@ $router->get('/app/android/entrar',       'views/publico/android/entrar.php');
 $router->post('/app/android/huella/registrar', 'views/publico/android/huella-registrar.php');
 $router->post('/app/android/huella/revocar',   'views/publico/android/huella-revocar.php');
 $router->post('/app/android/huella/entrar',    'views/publico/android/huella-entrar.php');
+// Notificaciones del Centro de seguimiento: emitir/revocar la llave (con sesión) y leer los avisos (con la llave).
+$router->post('/app/android/avisos/registrar', 'views/publico/android/avisos-registrar.php');
+$router->post('/app/android/avisos/revocar',   'views/publico/android/avisos-revocar.php');
+$router->get('/app/android/avisos.json',       'views/publico/android/avisos.php');
 
 // Portal de clientes (sitio de Soluciones en Acero): fotos de entrega con URL firmada.
 // Sin PORTAL_FOTOS_SECRETO responde 404. Ver clases/PortalFotos.php.
@@ -106,6 +110,15 @@ $router->get('/admin/pedidos/pdf',      'views/admin/pedidos/pdf.php',      'sol
 $router->post('/admin/pedidos/cotizar', 'views/admin/pedidos/cotizar.php',  'soloAdmin');
 $router->post('/admin/pedidos/vender',  'views/admin/pedidos/vender.php',   'soloAdmin');
 $router->post('/admin/pedidos/cancelar','views/admin/pedidos/cancelar.php', 'soloAdmin');
+
+// Distribuidores autorizados del sitio público (migración 056)
+$router->get('/admin/distribuidores',           'views/admin/distribuidores/index.php',    'soloAdmin');
+$router->get('/admin/distribuidores/crear',     'views/admin/distribuidores/crear.php',    'soloAdmin');
+$router->post('/admin/distribuidores/crear',    'views/admin/distribuidores/crear.php',    'soloAdmin');
+$router->get('/admin/distribuidores/editar',    'views/admin/distribuidores/editar.php',   'soloAdmin');
+$router->post('/admin/distribuidores/editar',   'views/admin/distribuidores/editar.php',   'soloAdmin');
+$router->post('/admin/distribuidores/publicar', 'views/admin/distribuidores/publicar.php', 'soloAdmin');
+$router->post('/admin/distribuidores/eliminar', 'views/admin/distribuidores/eliminar.php', 'soloAdmin');
 // Catálogo de ubicaciones de clientes (migración 051).
 $router->get('/admin/clientes/ubicaciones',           'views/admin/clientes/ubicaciones/index.php',   'soloAdmin');
 $router->post('/admin/clientes/ubicaciones',          'views/admin/clientes/ubicaciones/index.php',   'soloAdmin');

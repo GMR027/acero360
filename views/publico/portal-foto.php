@@ -5,6 +5,8 @@
  * Ruta pública SIN sesión, protegida por una URL firmada (HMAC) que sólo puede
  * generar el portal con PORTAL_FOTOS_SECRETO. Ver clases/PortalFotos.php.
  *
+ * Con &modo=galeria (galería pública del sitio) la foto sale sólo con el logo.
+ *
  * Cualquier fallo (secreto ausente, firma inválida o vencida, foto inexistente)
  * responde 404 para no revelar si la foto existe.
  */
@@ -15,9 +17,10 @@ $id     = (int) ($_GET['id'] ?? 0);
 $ancho  = (int) ($_GET['w'] ?? 0);
 $expira = (int) ($_GET['exp'] ?? 0);
 $firma  = (string) ($_GET['sig'] ?? '');
+$modo   = (string) ($_GET['modo'] ?? '');
 
-$anchoValido = PortalFotos::validar($id, $ancho, $expira, $firma, PortalFotos::secreto());
-$imagen      = $anchoValido !== null ? PortalFotos::imagen($id, $anchoValido) : null;
+$anchoValido = PortalFotos::validar($id, $ancho, $expira, $firma, PortalFotos::secreto(), null, $modo);
+$imagen      = $anchoValido !== null ? PortalFotos::imagen($id, $anchoValido, $modo) : null;
 
 if ($imagen === null) {
     paginaNoEncontrada();

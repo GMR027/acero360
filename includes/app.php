@@ -91,6 +91,8 @@ $clasesConectadas = [
     App\CatalogoTexto::class,
     App\Pedidos::class,
     App\HuellaAndroid::class,
+    App\AvisosAndroid::class,
+    App\Distribuidores::class,
 ];
 
 foreach ($clasesConectadas as $clase) {

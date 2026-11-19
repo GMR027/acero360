@@ -548,9 +548,10 @@ class FotosEntrega
      *
      * @param array $foto Fila de Entregas::fotoDeEntrega() (logo, fechas, GPS…).
      * @param int|null $anchoMax Ancho máximo de salida (null = tamaño original).
+     * @param bool $conTexto false = sólo el logo (galería pública: sin fecha ni ubicación).
      * @return array{contenido: string, mime: string}|null
      */
-    public static function marcada(array $foto, ?int $anchoMax = null): ?array
+    public static function marcada(array $foto, ?int $anchoMax = null, bool $conTexto = true): ?array
     {
         $archivo = basename((string) ($foto['archivo'] ?? ''));
         $ruta    = Imagenes::CARPETA . '/' . $archivo;
@@ -568,7 +569,9 @@ class FotosEntrega
             }
 
             self::ponerLogo($gerenciador, $imagen, $foto);
-            self::ponerTexto($imagen, $foto);
+            if ($conTexto) {
+                self::ponerTexto($imagen, $foto);
+            }
 
             $codificada = $imagen->toJpeg(88);
             return [

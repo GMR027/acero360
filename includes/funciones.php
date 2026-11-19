@@ -235,7 +235,8 @@ function cabecerasSeguridad(): void
     header('Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=()');
     header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; "
         . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; "
-        . "img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; frame-src 'self'; "
+        // El sitio público sirve las fachadas heredadas de los distribuidores (migración 056).
+        . "img-src 'self' data: blob: https://tile.openstreetmap.org " . \App\Distribuidores::SITIO_URL . "; connect-src 'self'; object-src 'none'; frame-src 'self'; "
         . "base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
 
     if (conexionSegura()) {
