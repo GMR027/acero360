@@ -160,25 +160,33 @@ try {
   verifica('desapareció «Seguimiento de entregas» del menú', !textosMenu.some((t) => t.includes('Seguimiento de entregas')));
   verifica('desapareció «Ventas y devoluciones»', !textosMenu.some((t) => t.includes('Ventas y devoluciones')));
 
-  console.log('2. Pestañas de la sección (4 vistas hermanas)');
+  console.log('2. Pestañas de la sección (3 vistas hermanas)');
   await pagina.goto(`${BASE}/admin/entregas`, { waitUntil: 'domcontentloaded' });
   const chips = await pagina.locator('.entregas-tabs .chip').allTextContents();
-  verifica('cuatro pestañas en preparación', chips.length === 4, chips.join(' | '));
+  verifica('tres pestañas en preparación', chips.length === 3, chips.join(' | '));
+  verifica('ya no hay pestaña «Seguimiento de entregas»',
+    !chips.some((t) => t.includes('Seguimiento de entregas')), chips.join(' | '));
   verifica('la pestaña activa es Preparación', (await pagina.locator('.entregas-tabs .chip[aria-current="page"]').textContent()).includes('Preparación'));
   await pagina.goto(`${BASE}/admin/ventas`, { waitUntil: 'domcontentloaded' });
-  verifica('las ventas también llevan la barra', await pagina.locator('.entregas-tabs .chip').count() === 4);
+  verifica('las ventas también llevan la barra', await pagina.locator('.entregas-tabs .chip').count() === 3);
   verifica('la pestaña activa es Ventas', (await pagina.locator('.entregas-tabs .chip[aria-current="page"]').textContent()).includes('Ventas'));
   verifica('el menú resalta Operación Comercial en /admin/ventas',
     await pagina.locator('.sidebar__enlace--activo .sidebar__texto', { hasText: 'Operación Comercial' }).count() === 1);
 
-  console.log('3. El detalle de venta apunta al hub');
+  console.log('3. El detalle de venta es el expediente único');
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${venta}`, { waitUntil: 'domcontentloaded' });
-  verifica('botón «Operación de esta venta»', (await pagina.locator(`a[href*="entregas-seguimiento/venta?id=${venta}"]`).count()) >= 1);
-  verifica('ya NO trae el bloque #cambios (evita dos vías)', await pagina.locator('#cambios').count() === 0);
+  for (const seccion of ['resumen', 'entrega', 'fotos-entrega', 'incidencias', 'cambios', 'facturacion', 'historial']) {
+    verifica(`el expediente trae #${seccion}`, await pagina.locator(`#${seccion}`).count() === 1);
+  }
+  const pestanasExpediente = await pagina.locator('.expediente-tabs .chip').allTextContents();
+  verifica('el expediente tiene sus 5 pestañas', pestanasExpediente.length === 5, pestanasExpediente.join(' | '));
+  verifica('el detalle ya no manda a otra pantalla de seguimiento',
+    await pagina.locator(`a[href*="entregas-seguimiento/venta?id=${venta}"]`).count() === 0);
 
   console.log('4. Modales del hub');
   await pagina.goto(`${BASE}/admin/entregas-seguimiento/venta?id=${venta}`, { waitUntil: 'domcontentloaded' });
-  verifica('el hub muestra las tres acciones', await pagina.locator('[data-modal-form]').count() === 3,
+  verifica('el expediente ofrece las acciones en modal (entrega, incidencia, devolución)',
+    await pagina.locator('[data-modal-form]').count() >= 3,
     String(await pagina.locator('[data-modal-form]').count()));
 
   await pagina.click(`a[data-modal-form="tpl-entrega"]`);

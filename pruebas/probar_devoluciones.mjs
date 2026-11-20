@@ -51,6 +51,13 @@ try {
   await pagina.fill('#contrasena', CLAVE);
   await Promise.all([pagina.waitForURL('**/admin'), pagina.click('button[type=submit]')]);
 
+  // Deja la campana en cero: el aviso de esta prueba debe quedar entre los
+  // primeros aunque la base de pruebas ya traiga muchos avisos anteriores.
+  await postCsrf(pagina, `${BASE}/admin/seguimiento/campana`, {
+    headers: { 'X-Requested-With': 'campana' },
+    form: { todas: '1' },
+  });
+
   console.log('Formulario');
   await pagina.goto(`${BASE}/admin/ventas/devolucion?id=${venta}`);
   verifica('no pide motivo obligatorio', (await pagina.locator('#motivo').count()) === 0 && (await pagina.locator('#nota[required]').count()) === 0);

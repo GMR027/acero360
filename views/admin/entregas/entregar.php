@@ -23,7 +23,7 @@ if (!$venta) {
 
 $alSeguimiento = (string) ($_GET['volver'] ?? $_POST['volver'] ?? '') === 'seguimiento';
 $volver = $alSeguimiento
-    ? '/admin/entregas-seguimiento/venta?id=' . $ventaId
+    ? '/admin/entregas-seguimiento/venta?id=' . $ventaId . '#entrega'
     : ($prepId ? '/admin/entregas/detalle?id=' . $prepId : '/admin/entregas/clientes');
 
 if ($venta->estado !== 'registrada') {

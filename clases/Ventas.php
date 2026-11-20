@@ -310,9 +310,20 @@ class Ventas
                        v.id AS venta_id, v.folio AS venta_folio,
                        IF(v.cotizacion_id IS NULL, v.folio, c.folio) AS folio,
                        v.fecha, v.empresa_id, v.cliente_id, v.total, v.estado, v.creado_en,
+                       v.entrega_estado, v.entrega_cerrada_en,
                        e.nombre AS empresa_nombre,
                        cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
-                       cl.alias AS cliente_alias, cl.rfc AS cliente_rfc
+                       cl.alias AS cliente_alias, cl.rfc AS cliente_rfc,
+                       (SELECT COALESCE(SUM(d.cantidad), 0) FROM venta_detalles d
+                         WHERE d.venta_id = v.id) AS piezas_vendidas,
+                       (SELECT COALESCE(SUM(er.cantidad), 0) FROM entrega_renglones er
+                          JOIN entregas ent ON ent.id = er.entrega_id
+                         WHERE ent.venta_id = v.id) AS piezas_entregadas,
+                       (SELECT i.estado_facturacion FROM ingresos i
+                         WHERE i.venta_id = v.id AND i.estado = "vigente"
+                         ORDER BY i.id DESC LIMIT 1) AS estado_facturacion,
+                       (SELECT COUNT(*) FROM entrega_incidencias ii
+                         WHERE ii.venta_id = v.id AND ii.estado = "abierta") AS incidencias_abiertas
                   FROM ventas v
                   JOIN empresas e  ON e.id  = v.empresa_id
                   JOIN clientes cl ON cl.id = v.cliente_id
@@ -357,6 +368,17 @@ class Ventas
             $donde[]   = 't.origen = ?';
             $tipos    .= 's';
             $valores[] = $origen;
+        }
+
+        // Estado de entrega (el mismo que usa «Operación Comercial») o
+        // «incidencias» para las que tienen alguna incidencia abierta.
+        $entrega = (string) ($filtros['entrega'] ?? '');
+        if (in_array($entrega, ['pendiente', 'entregado', 'entregado_con_incidencias', 'entregado_incidencias_resueltas'], true)) {
+            $donde[]   = 't.entrega_estado = ?';
+            $tipos    .= 's';
+            $valores[] = $entrega;
+        } elseif ($entrega === 'incidencias') {
+            $donde[] = 't.incidencias_abiertas > 0';
         }
 
         $desde = (string) ($filtros['desde'] ?? '');

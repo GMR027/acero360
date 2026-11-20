@@ -2033,3 +2033,44 @@ La sección «Blog y novedades» de la página de inicio del sitio se reemplazó
 - **Pruebas:** `pruebas/php/portal_foto.php` suma 5 casos del modo galería → **todas pasan**. En local, contra `soluciones_portal_dev`: la galería muestra las 2 fotos de la empresa 1; una foto de otro negocio da 404; con un negocio sin fotos la sección no aparece; la imagen sale sin texto ni EXIF; no hay desbordamiento en móvil.
 
 **Al desplegar:** volver a ejecutar `scripts/crear_usuario_portal.sh` (permiso `ventas.empresa_id`) y desplegar cotizaciones **antes** que el sitio; si el sitio sale antes, la galería pide fotos en un modo que cotizaciones aún no conoce y se ve vacía (404 en las imágenes).
+
+---
+
+## Ronda — Operación Comercial: un solo expediente y acciones en la fila (2026-11-19)
+
+El flujo post-venta estaba partido en dos pantallas —el detalle de la venta y el hub de seguimiento— y obligaba a saltar entre ellas para el acta, las fotos, las incidencias o la factura. Además, los listados sólo ofrecían «Ver» y «Editar»: entregar o descargar el acta exigía entrar primero a la venta. Esta ronda junta todo sin cambiar datos, reglas ni rutas.
+
+### Un solo expediente por venta
+
+- **`views/admin/ventas/expediente.php`:** nueva vista única con cinco secciones enlazadas por ancla: Resumen (documento), Entrega y acta, Incidencias y devoluciones, Facturación y cobro, e Historial. Arriba van el estado (entrega, incidencias, facturación, cobrado y saldo) y las acciones: registrar entrega, acta, incidencia, devolución, facturar o cobrar, PDF y editar.
+- **`views/admin/ventas/detalle.php`** y **`views/admin/entregas-seguimiento/venta.php`** quedan como envoltorios de la misma vista: las dos rutas siguen funcionando y muestran exactamente el mismo expediente. No se rompen enlaces, avisos, formularios ni marcadores.
+- **`templates/venta/`:** el documento, la entrega y el acta, las incidencias y devoluciones, la facturación y el historial se separaron en plantillas (`documento.php`, `entrega.php`, `incidencias.php`, `facturacion.php`, `historial.php`, `eliminar.php`). Se eliminó la duplicación de fotos y de facturación que había entre las dos pantallas.
+- **POST:** los formularios de fecha/observaciones, ubicación, fotos, entrega, incidencia y devolución siguen en sus rutas y con sus tokens; sólo cambia a dónde regresan (al expediente, en la sección correspondiente).
+
+### Acciones rápidas en los listados
+
+- **Ventas:** cada fila trae **Entregar** (si faltan piezas), **Expediente**, **Acta** (si ya hay entregas), **Facturar/Facturación**, y conserva Editar/Eliminar o Cotización. Los enlaces profundos (`?accion=entrega`) abren el expediente con el modal ya abierto.
+- **Preparación de pedidos:** botón **Entregar** en cada fila, además de la selección múltiple.
+- **Entregas por cliente:** «Registrar entrega» abre el mismo modal en el expediente.
+- **Inicio:** las ventas pendientes por entregar llevan a **Entregar** directamente.
+
+### El seguimiento ahora es un filtro de Ventas
+
+- **`views/admin/ventas/index.php`:** filtros **Todas · Por entregar · Entregadas · Con incidencias · Incidencias abiertas**, columna de estado de entrega y piezas entregadas.
+- **`clases/Ventas.php`:** la consulta unificada agrega `entrega_estado`, `piezas_vendidas`, `piezas_entregadas`, `estado_facturacion` e `incidencias_abiertas`, y acepta el filtro `entrega` (incluido `incidencias`).
+- **`views/admin/entregas-seguimiento/index.php`:** la ruta vieja redirige a `/admin/ventas` con el filtro equivalente.
+- **`templates/tabsEntregas.php`:** la sección queda con **tres pestañas** (Preparación, Entregas por cliente y Ventas).
+
+### JavaScript
+
+- **`src/js/modulos/operacionComercial.js`:** abre solo el modal que pida la URL (`?accion=entrega|incidencia|devolucion`) y resalta la pestaña del expediente según el ancla.
+
+### Sin migraciones
+
+- No se agregan ni cambian columnas ni datos. Todo es presentación, navegación y consultas de lectura.
+
+### Pruebas
+
+- `pruebas/probar_operacion.mjs`: expediente único, 5 pestañas, mismas acciones y mismas reglas → **60/60**.
+- `pruebas/probar_operacion_rapida.mjs` (nueva): acciones en la fila, modal desde el listado, filtros de entrega, redirección del seguimiento y móvil → **29/29**.
+- `pruebas/probar_facturacion.mjs` → **36/36**; `pruebas/probar_duplicados.mjs` → **22/22**; `pruebas/probar_devoluciones.mjs` → **16/16** (la prueba de la campana marca como leídos los avisos previos para que el aviso nuevo quede arriba).

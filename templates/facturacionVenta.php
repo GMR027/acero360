@@ -43,7 +43,7 @@ if ($revisionFiscal !== null && (int) ($revisionFiscal['cliente']['id'] ?? 0) > 
  * se hace desde una incidencia de entrega, que da de baja el documento anterior. */
 $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
 ?>
-<section class="tarjeta mb-lg" id="facturacion">
+<section class="tarjeta mb-lg" id="facturacion" style="scroll-margin-top:5rem">
     <div class="flex-entre mb-md">
         <h2 class="titulo-5">Facturación y cobro
             <span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span>

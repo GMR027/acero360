@@ -123,4 +123,37 @@ function prepararOperacionComercial() {
 
   // La página suelta de incidencias (sin modal) comparte el mismo comportamiento.
   document.querySelectorAll('form[data-incidencia]').forEach(ligarIncidencia);
+
+  prepararExpedienteVenta();
+}
+
+/**
+ * Expediente de la venta: abre solo el modal que pida la URL
+ * (?accion=entrega|incidencia|devolucion) y resalta la pestaña del ancla.
+ */
+function prepararExpedienteVenta() {
+  document.querySelectorAll('[data-abrir-modal-al-cargar]').forEach(function (enlace) {
+    abrirModalFormulario(enlace);
+  });
+
+  const tabs = Array.from(document.querySelectorAll('.expediente-tabs .chip'));
+  if (!tabs.length) {
+    return;
+  }
+
+  const marcar = function (destino) {
+    tabs.forEach(function (tab) {
+      tab.classList.toggle('chip--activo', tab.getAttribute('href') === destino);
+    });
+  };
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      marcar(tab.getAttribute('href'));
+    });
+  });
+  window.addEventListener('hashchange', function () {
+    marcar(window.location.hash);
+  });
+  marcar(window.location.hash || tabs[0].getAttribute('href'));
 }

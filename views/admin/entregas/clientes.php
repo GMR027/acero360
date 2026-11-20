@@ -67,7 +67,13 @@ template('tabsEntregas', ['tab' => 'clientes']);
                             </td>
                             <td class="tabla--numerica cifra"><?= (int) $v['piezas'] - (int) $v['entregadas'] ?></td>
                             <td><?= $v['en_preparaciones'] ? escaparValores($v['en_preparaciones']) : '—' ?></td>
-                            <td class="tabla--numerica"><a class="btn btn--primario btn--sm" href="/admin/entregas-seguimiento/venta?id=<?= (int) $v['id'] ?>">Registrar entrega</a></td>
+                            <td class="tabla__acciones">
+                                <a class="btn btn--primario btn--sm" href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>&accion=entrega&volver=clientes">Registrar entrega</a>
+                                <?php if ((int) $v['entregadas'] > 0) : ?>
+                                    <a class="btn btn--texto btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= (int) $v['id'] ?>"
+                                       target="_blank" rel="noopener">Acta</a>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

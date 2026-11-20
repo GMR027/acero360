@@ -51,7 +51,7 @@ $entregaHaciaSeguimiento = (bool) ($entregaHaciaSeguimiento ?? false);
                 <th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
             <tbody>
                 <?php foreach ($ventas as $v) : $hrefEntrega = $entregaHaciaSeguimiento
-                    ? '/admin/entregas-seguimiento/venta?id=' . (int) $v['id']
+                    ? '/admin/ventas/detalle?id=' . (int) $v['id'] . '&accion=entrega&volver=preparacion'
                     : '/admin/entregas/entregar?venta=' . (int) $v['id'] . ($prepId ? '&prep=' . $prepId : ''); ?>
                     <tr>
                         <td><a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a></td>

@@ -57,6 +57,7 @@ $debe = array_filter($cambios, static fn ($c) => $c['pendiente'] > 0);
     <?php if ($historial) : ?>
     <div class="tabla-contenedor mt-md">
         <table class="tabla">
+            <caption class="solo-lectores">Devoluciones y cambios de la venta</caption>
             <thead><tr>
                 <th scope="col">Fecha</th><th scope="col">Producto</th>
                 <th scope="col" class="tabla--numerica">Devueltas</th><th scope="col" class="tabla--numerica">A cambiar</th>

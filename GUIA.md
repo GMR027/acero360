@@ -12,10 +12,10 @@ escritorio Linux (`.deb`). Una sola base de datos: web y escritorio ven siempre 
 | Módulo | Ruta | Qué hace |
 |---|---|---|
 | Cotizaciones | `/admin/cotizaciones` | Folio, precio especial por cliente (no altera el catálogo), descuentos por renglón y global, IVA y PDF |
-| Ventas | `/admin/ventas` | Una sola tabla de ventas: directas y cotizaciones vendidas (una cotización = una venta). Pestaña de Operación Comercial; devoluciones e incidencias viven en la hoja de seguimiento de la venta |
+| Ventas | `/admin/ventas` | Una sola tabla de ventas: directas y cotizaciones vendidas (una cotización = una venta). Cada fila trae Entregar, Expediente, Acta y Facturar, y los filtros de entrega (por entregar, entregadas, con incidencias) |
 | Inventario | `/admin/inventario` | Existencias únicas compartidas, alertas de mínimo, historial de movimientos, fotografías mensuales, exportación PDF/Excel/CSV |
 | Órdenes de compra | `/admin/compras` | Orden → recepciones parciales (suman solo lo recibido) → cierre con faltantes → reporte antes del pago |
-| Operación Comercial | `/admin/entregas` | Sección única con 4 pestañas: Preparación de pedidos (productos agrupados), Entregas por cliente, Seguimiento de entregas y Ventas. La hoja por venta concentra entrega, incidencias, devoluciones y corrección de factura en ventanas modales |
+| Operación Comercial | `/admin/entregas` | Sección única con 3 pestañas: Preparación de pedidos (productos agrupados), Entregas por cliente y Ventas. Cada venta tiene un expediente único con pestañas (Resumen, Entrega y acta, Incidencias y devoluciones, Facturación y cobro, Historial) y acciones en la fila |
 | Contabilidad | `/admin/contabilidad` | Ingresos automáticos, cobros, gastos (compartidos una sola vez), documentos PDF/imagen/XML, ZIP mensual, ventas sin facturar, cierre mensual |
 | Fiscal | `/admin/fiscal` | Catálogo de reglas versionado (ISR art. 106, IVA), motor por flujo de efectivo, retenciones, ajustes, pagos reales |
 | Estadísticas | `/admin/estadisticas` | Comparaciones entre años, tendencias, rankings, gráficas, exportación PDF/Excel/CSV |
@@ -66,7 +66,7 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
 1. **Vender:** cotización → *Vendido* (o venta directa). El inventario baja una vez y se crea el ingreso contable solo.
 2. **Cobrar y facturar:** *Ventas → abrir la venta* → en «Facturación y cobro» (arriba) registras cada cobro y, en un solo formulario, capturas los datos fiscales, adjuntas el CFDI y pulsas **«Facturar y guardar»**. Si no se va a facturar, usa «Otras opciones → No se facturará». *Contabilidad → Ingresos* lleva a esa misma pantalla.
 3. **Comprar:** *Órdenes de compra* → registrar recepción (parcial o total) → cerrar → PDF «solicitado vs recibido».
-4. **Entregar y seguir:** *Operación Comercial* → «Preparación de pedidos» para alistar; en la venta, «Operación de esta venta» abre su hoja con entregas, incidencias, devoluciones y la corrección de factura (todo en ventanas modales).
+4. **Entregar y seguir:** *Operación Comercial* → «Preparación de pedidos» para alistar; en la fila del pedido, «Entregar» abre el formulario en modal. «Expediente» (o el folio de la venta) abre la ventana única con entrega y acta, incidencias, devoluciones, facturación e historial. El acta se descarga desde la misma fila con «Acta».
 5. **Gastos:** *Contabilidad → Egresos*; adjunta CFDI (XML) y comprobantes; marca como pagado lo que ya pagaste (sólo eso entra en la estimación fiscal; el CFDI es el respaldo para tu contador).
 6. **Cada mes:** *Cierre del mes* (verificaciones, reconocer avisos, cerrar). Un mes cerrado bloquea cambios; se reabre solo con contraseña y motivo.
 7. **Fotografía del inventario:** *Inventario → Fotografías mensuales* (o automática con `scripts/foto_inventario.php`).

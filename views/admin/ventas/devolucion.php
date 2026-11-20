@@ -23,8 +23,8 @@ if (!$venta) {
 
 $alSeguimiento = (string) ($_GET['volver'] ?? $_POST['volver'] ?? '') === 'seguimiento';
 $volver = $alSeguimiento
-    ? '/admin/entregas-seguimiento/venta?id=' . $id
-    : '/admin/ventas/detalle?id=' . $id;
+    ? '/admin/entregas-seguimiento/venta?id=' . $id . '#cambios'
+    : '/admin/ventas/detalle?id=' . $id . '#cambios';
 
 if ($venta->estado !== 'registrada') {
     redirigir($volver, 'error', 'Solo se pueden devolver piezas de una venta registrada.');

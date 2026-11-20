@@ -515,14 +515,15 @@ template('header', [
                     <?php foreach ($entregasPendientes as $f) :
                         $faltan = max(0, (int) $f['piezas'] - (int) $f['entregadas']);
                         $enPreparacion = trim((string) ($f['en_preparaciones'] ?? '')) !== '';
-                        $rutaSeguimiento = '/admin/entregas-seguimiento/venta?id=' . (int) $f['id']; ?>
+                        $rutaSeguimiento = '/admin/ventas/detalle?id=' . (int) $f['id'] . '&volver=inicio';
+                        $rutaEntrega = '/admin/ventas/detalle?id=' . (int) $f['id'] . '&accion=entrega&volver=inicio'; ?>
                         <li class="actividad__item">
                             <a class="actividad__fila" href="<?= escaparValores($rutaSeguimiento) ?>">
                                 <span><span class="actividad__titulo"><?= escaparValores($f['folio']) ?></span>
                                     <span class="actividad__detalle"><?= escaparValores($f['cliente_empresa'] ?: $f['cliente_nombre']) ?> · venta del <?= escaparValores(date('d/m/Y', strtotime($f['fecha']))) ?><?= $enPreparacion ? ' · en preparación' : '' ?></span></span>
                                 <span class="actividad__importe">faltan <?= $plural($faltan, 'pza', 'pzas') ?></span>
                             </a>
-                            <?= $botonFila($rutaSeguimiento, 'local_shipping', 'Seguimiento') ?>
+                            <?= $botonFila($rutaEntrega, 'local_shipping', 'Entregar') ?>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -537,7 +538,7 @@ template('header', [
                     <span class="badge <?= $nIncidencias > 0 ? 'badge--error' : 'badge--aprobado' ?>"><?= number_format($nIncidencias) ?> abierta<?= $nIncidencias === 1 ? '' : 's' ?></span>
                 </h3>
                 <div class="fila">
-                    <a class="btn btn--texto btn--sm" href="/admin/entregas-seguimiento">Ver seguimiento</a>
+                    <a class="btn btn--texto btn--sm" href="/admin/ventas?entrega=incidencias">Ver seguimiento</a>
                 </div>
             </div>
             <?php if (!$incidenciasAbiertas) : ?>

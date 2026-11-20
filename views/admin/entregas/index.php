@@ -70,6 +70,7 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                         </th>
                         <th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col" class="movil-oculto">Negocio</th>
                         <th scope="col" class="tabla--numerica movil-oculto">Por entregar</th>
+                        <th scope="col"><span class="solo-lectores">Acciones</span></th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($ventas as $v) :
@@ -97,6 +98,16 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                                     <span class="texto-xs texto-secundario movil-oculto"><br><?= escaparValores((string) $v['cliente_ubicacion']) ?></span></td>
                                 <td class="movil-oculto"><?= escaparValores($v['empresa_nombre']) ?></td>
                                 <td class="tabla--numerica cifra movil-oculto"><?= $pendiente ?> <?= (int) $v['entregadas'] > 0 ? '<span class="texto-xs texto-secundario">de ' . (int) $v['piezas'] . '</span>' : '' ?></td>
+                                <td class="tabla__acciones">
+                                    <?php if ($pendiente > 0) : ?>
+                                        <a class="btn btn--secundario btn--sm" href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>&accion=entrega&volver=preparacion">
+                                            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">local_shipping</span>
+                                            <span>Entregar</span>
+                                        </a>
+                                    <?php else : ?>
+                                        <span class="badge badge--aprobado">Completa</span>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

@@ -105,7 +105,7 @@ Una cotización es el precio que le das a un cliente antes de que compre.
 
 ## 4. Operación Comercial
 
-Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene cuatro pestañas —Preparación de pedidos, Entregas por cliente, Seguimiento de entregas y Ventas— y cada venta tiene su propia hoja de seguimiento.
+Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene tres pestañas —Preparación de pedidos, Entregas por cliente y Ventas— y cada venta tiene un expediente único con todo lo que pasó después de venderla.
 
 ### Anotar una venta directa
 
@@ -116,23 +116,33 @@ Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene
 
 1. Pestaña «Preparación de pedidos» → marca los pedidos que quieras (o «seleccionar todas») y pulsa «Mostrar en pantalla».
 2. Verás juntos los productos agrupados (por ejemplo 5 + 2 = 7 piezas del mismo producto) y los pedidos por cliente. No hay fases que controlar: es solo para ver y alistar.
-3. Si quieres volver a abrir esa selección, «Guardar esta vista»; aparece en «Vistas guardadas».
+3. Cada fila trae «Entregar» para ir directo al formulario, sin pasar por la pantalla completa.
+4. Si quieres volver a abrir esa selección, «Guardar esta vista»; aparece en «Vistas guardadas».
 
 ### Registrar una entrega
 
-1. Desde la hoja de seguimiento de la venta pulsa «Registrar entrega» (se abre en ventana modal): escribe cuántas piezas entregaste, puede ser parcial, y confirma. Lo que quede en cero sigue pendiente.
-2. Si quieres dejar constancia, adjunta una o varias FOTOS DEL ACTA (JPG, PNG o WebP, hasta 15 MB cada una y un máximo de 8): se comprimen antes de enviarlas cuando el navegador puede y el servidor vuelve a reducirlas; se guardan con la entrega y se ven en la hoja de seguimiento, en la sección «Fotos de la entrega», donde se abren en una ventana modal y se cierran con el botón X. Si las fotos no traen GPS, en esa sección puedes pegar el enlace de Google Maps, coordenadas o la dirección de la entrega; el GPS de la foto siempre tiene prioridad.
+1. Desde la fila del pedido pulsa «Entregar» (en Preparación, en Ventas o en Entregas por cliente): se abre el formulario en ventana modal. También puedes hacerlo desde el expediente de la venta, con «Registrar entrega».
+2. Escribe cuántas piezas entregaste, puede ser parcial, y confirma. Lo que quede en cero sigue pendiente.
+3. Si quieres dejar constancia, adjunta una o varias FOTOS DEL ACTA (JPG, PNG o WebP, hasta 15 MB cada una y un máximo de 8): se comprimen antes de enviarlas cuando el navegador puede y el servidor vuelve a reducirlas; se guardan con la entrega y se ven en la pestaña «Entrega y acta».
+4. Si las fotos no traen GPS, en esa misma sección puedes pegar el enlace de Google Maps, unas coordenadas o la dirección de la entrega. La ubicación de los metadatos de la foto siempre tiene prioridad.
+
+### El acta de entrega
+
+1. En la fila de Ventas, el botón «Acta» descarga el PDF de todas las entregas de esa venta.
+2. Dentro del expediente, «Acta de entrega» descarga todas y «Acta de esta entrega» descarga solo una entrega.
 
 ### Seguir una venta (incidencias y devoluciones)
 
-1. En el detalle de la venta, «Operación de esta venta» abre su hoja: estado, productos vendido vs. entregado, incidencias, facturación, devoluciones e historial — todo en un lugar.
-2. «Producto faltante» o «incompleto» (p. ej. se vendieron 10 y se entregaron 8): las piezas que faltan REGRESAN AL INVENTARIO y, si ya hay factura, hay que cancelarla y subir la correcta sólo por lo entregado.
-3. «Producto dañado», «cambio» o «devolución»: sólo quedan notificados, NO mueven el inventario; el sistema lleva la cuenta de lo que se le debe al cliente y lo marca como entregado cuando lo entregues.
-4. Si hay que corregir la factura, se hace desde la misma incidencia: se dan de baja los documentos actuales y los nuevos traen folio, UUID, fecha y montos a contabilidad (si el cobrado quedó de más, se avisa).
+1. En Ventas, «Expediente» abre la ventana única de la venta con cinco pestañas: Resumen (el documento), Entrega y acta, Incidencias y devoluciones, Facturación y cobro, e Historial.
+2. Arriba están las acciones: registrar entrega, acta, incidencia, devolución, facturar o cobrar, PDF de la venta y editar. Cada una lleva a la sección o abre el formulario en modal.
+3. «Producto faltante» o «incompleto» (p. ej. se vendieron 10 y se entregaron 8): las piezas que faltan REGRESAN AL INVENTARIO y, si ya hay factura, hay que cancelarla y subir la correcta sólo por lo entregado.
+4. «Producto dañado», «cambio» o «devolución»: sólo quedan notificados, NO mueven el inventario; el sistema lleva la cuenta de lo que se le debe al cliente y lo marca como entregado cuando lo entregues.
+5. Si hay que corregir la factura, se hace desde la misma incidencia: se dan de baja los documentos actuales y los nuevos traen folio, UUID, fecha y montos a contabilidad (si el cobrado quedó de más, se avisa).
 
 > **Consejos**
+> - El seguimiento de entregas ya no es otra pantalla: en Ventas usa los filtros «Todas», «Por entregar», «Entregadas», «Con incidencias» e «Incidencias abiertas».
 > - Se puede vender aunque el inventario esté en cero: queda en negativo y se corrige al recibir mercancía.
-> - La factura manda en contabilidad: si la venta y la factura quedaron con importes distintos, la hoja de seguimiento y el listado de ingresos lo marcan.
+> - La factura manda en contabilidad: si la venta y la factura quedaron con importes distintos, el expediente y el listado de ingresos lo marcan.
 
 ---
 

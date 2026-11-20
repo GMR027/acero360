@@ -59,6 +59,8 @@ class Seguimiento
 
     /** Novedades de la plataforma: [clave/versión, fecha, título, texto, enlace]. */
     public const NOVEDADES = [
+        ['1.6.0', '2026-11-19', 'Operación Comercial: un solo expediente y acciones en la fila',
+         'Cada venta reúne en una sola pantalla su documento, entrega y acta, incidencias, devoluciones, facturación e historial. Desde el listado de Ventas puedes entregar, descargar el acta o facturar sin entrar primero a la venta, y el seguimiento de entregas ahora es un filtro de Ventas.', '/admin/ventas'],
         ['1.5.0', '2026-10-25', 'Operación Comercial: un solo apartado',
          'Preparación de pedidos, seguimiento de entregas y ventas ahora viven en un mismo menú con cuatro pestañas, y cada venta tiene su propia hoja para registrar entregas, incidencias y devoluciones en ventanas modales. Producto faltante o incompleto corrige inventario y factura; cambio o devolución sólo queda notificado.', '/admin/entregas'],
         ['1.4.0', '2026-10-23', 'Uso del CFDI y método de pago en los gastos',
