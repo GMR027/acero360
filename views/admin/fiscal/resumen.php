@@ -44,6 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST)) {
 
 $r = \App\ResumenFiscal::anual($contrib, $anio);
 $t = $r['total'];
+
+// ¿Ya se capturó la declaración de este mes? Sirve para el «siguiente paso».
+$declaracionesMes = \App\RegistrosFiscales::declaraciones($contrib, $anio);
+$tieneDeclaracion = isset($declaracionesMes['IVA-' . $mes]) || isset($declaracionesMes['ISR-' . $mes]);
 $actual = $r['meses'][$mes];
 $m = static fn (?float $v): string => $v === null ? '—' : ($v < 0 ? '−' : '') . formatoMoneda(abs($v));
 $aPagar = $actual['impuestos'];
@@ -95,6 +99,41 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
     <button class="btn btn--secundario btn--sm" type="submit">Ver</button>
 </form>
 
+<!-- El mes fiscal, con sus otras vistas a un clic. -->
+<nav class="chip-grupo mb-lg" aria-label="Mes fiscal">
+    <span class="chip chip--activo"><span class="material-symbols-outlined" aria-hidden="true">request_quote</span><span>Estimación</span></span>
+    <a class="chip" href="/admin/fiscal/movimientos?<?= escaparValores($consultaExp) ?>">
+        <span class="material-symbols-outlined" aria-hidden="true">table_view</span><span>Ventas y gastos</span>
+    </a>
+    <a class="chip" href="/admin/fiscal/documentos?<?= escaparValores($consultaExp) ?>">
+        <span class="material-symbols-outlined" aria-hidden="true">fact_check</span><span>Documentos fiscales</span>
+    </a>
+    <a class="chip" href="/admin/fiscal/registros?<?= escaparValores($consultaExp) ?>">
+        <span class="material-symbols-outlined" aria-hidden="true">gavel</span>
+        <span>Declaración: <?= $tieneDeclaracion ? 'registrada' : 'pendiente' ?></span>
+    </a>
+</nav>
+
+<?php if ($r['habilitado'] && $aPagar > 0 && !$tieneDeclaracion) : ?>
+    <p class="nota nota--advertencia mb-lg" role="status">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">event_upcoming</span>
+        <span>
+            <strong>Siguiente paso: falta registrar la declaración de <?= escaparValores(nombreMes($mes)) ?>.</strong>
+            La estimación es <?= $m($aPagar) ?>. Captura lo declarado y lo pagado para que los pagos provisionales
+            del ISR queden al día.
+            <a class="btn btn--secundario btn--sm" href="/admin/fiscal/registros?<?= escaparValores($consultaExp) ?>">Registrar declaración</a>
+        </span>
+    </p>
+<?php elseif ($r['habilitado'] && $tieneDeclaracion) : ?>
+    <p class="nota nota--info mb-lg" role="status">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">check_circle</span>
+        <span>
+            La declaración de <?= escaparValores(nombreMes($mes)) ?> ya está registrada.
+            <a href="/admin/fiscal/registros?<?= escaparValores($consultaExp) ?>">Revisar o corregir</a>.
+        </span>
+    </p>
+<?php endif; ?>
+
 <?php if (!$r['habilitado']) : ?>
     <div class="nota nota--error mb-lg" role="alert">
         <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
@@ -119,6 +158,12 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
 
     
 </section>
+
+<div class="encabezado-pagina__acciones mb-lg solo-movil">
+    <a class="btn btn--secundario btn--sm" href="/admin/fiscal/movimientos?<?= escaparValores($consultaExp) ?>">Ventas y gastos</a>
+    <a class="btn btn--secundario btn--sm" href="/admin/fiscal/documentos?<?= escaparValores($consultaExp) ?>">Documentos fiscales</a>
+    <a class="btn btn--secundario btn--sm" href="/admin/fiscal/registros?<?= escaparValores($consultaExp) ?>">Declaración</a>
+</div>
 
 <?php /* FASE 9: mini-calendario de captura: qué meses del año ya tienen ventas y
              gastos registrados (datos crudos, no cálculo). A simple vista se ve qué falta. */
@@ -164,6 +209,8 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
         <a class="btn btn--primario" href="/admin/fiscal/exportar?<?= $consultaExp ?>&amp;tipo=impuestos&amp;formato=pdf"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span><span>Reporte del mes en PDF</span></a>
         <a class="btn btn--secundario" href="/admin/fiscal/exportar?anio=<?= $anio ?>&amp;mes=0&amp;tipo=impuestos&amp;formato=pdf">Reporte del año en PDF</a>
         <a class="btn btn--secundario" href="/admin/fiscal/movimientos?<?= $consultaExp ?>">Ver ventas y gastos del mes</a>
+        <a class="btn btn--secundario" href="/admin/fiscal/registros?<?= $consultaExp ?>">Declaración</a>
+        <a class="btn btn--secundario" href="/admin/fiscal/documentos?<?= $consultaExp ?>">Documentos fiscales</a>
     </div>
 </section>
 

@@ -2074,3 +2074,42 @@ El flujo post-venta estaba partido en dos pantallas —el detalle de la venta y 
 - `pruebas/probar_operacion.mjs`: expediente único, 5 pestañas, mismas acciones y mismas reglas → **60/60**.
 - `pruebas/probar_operacion_rapida.mjs` (nueva): acciones en la fila, modal desde el listado, filtros de entrega, redirección del seguimiento y móvil → **29/29**.
 - `pruebas/probar_facturacion.mjs` → **36/36**; `pruebas/probar_duplicados.mjs` → **22/22**; `pruebas/probar_devoluciones.mjs` → **16/16** (la prueba de la campana marca como leídos los avisos previos para que el aviso nuevo quede arriba).
+
+---
+
+## Ronda — Contabilidad e Impuestos: acciones en la fila y mes fiscal (2026-11-19)
+
+El mismo problema de Operación Comercial se repetía en Contabilidad e Impuestos: los listados sólo ofrecían «Abrir» y las tareas del día (cobrar, facturar, pagar, declarar) obligaban a entrar a otra pantalla, bajar a una sección y volver. Esta ronda acerca las acciones a la fila, sin cambiar datos, reglas, formularios, tokens ni rutas. **Sin migraciones.**
+
+### Contabilidad
+
+- **`views/admin/contabilidad/ingresos/index.php`:** cada fila trae **Cobrar** (abre el formulario de abono en modal), **Facturar** (o «Ver factura») y **Abrir**. Chips **Todas · Por facturar · Por cobrar · Facturadas · Cobradas** sobre los parámetros que ya existían. La tabla se compactó (cliente, alias, negocio y documentos dentro de la celda de la venta) para que las acciones se vean sin desplazamiento horizontal.
+- **`templates/formCobroIngreso.php` (nuevo):** el formulario de abono que vivía dentro de «Facturación y cobro» se extrajo para compartirlo entre el detalle y el modal del listado. Los `id` conservan `cobro-*` en el detalle y llevan sufijo por fila en el listado.
+- **`views/admin/contabilidad/gastos/index.php`:** cada fila trae **Pagar** (modal con `templates/formPagoGasto.php`), **Documentos**, **Editar** y **Abrir**. Chips **Todos · Por pagar · Parciales · Pagados · Sin comprobante**. La tabla compacta categoría y negocio en la celda del proveedor.
+- **`clases/Gastos.php`:** la consulta del listado agrega `de_compra` (subconsulta de lectura) para no ofrecer «Pagar» en gastos que se pagan desde la compra.
+- **`views/admin/contabilidad/index.php`:** «Cerrar el mes» en el encabezado (y en «Lo que te falta hacer»), tarjetas del resumen enlazadas a su lista o al mes fiscal, y **Pagar** en las tablas de gastos del mes.
+- **`templates/resumenReporte.php`:** las tarjetas aceptan `enlace` opcional y se dibujan como enlace sin cambiar su aspecto.
+- **`views/admin/contabilidad/sin-facturar/index.php`:** «Clasificar» pasa a **Facturar** y se agrega **Abrir venta**.
+- **`views/admin/contabilidad/mas.php`:** la tarjeta de Cierre muestra si el mes está abierto o cerrado.
+
+### Impuestos
+
+- **`templates/tabsFiscal.php`:** **Documentos fiscales** pasa a ser pestaña de Impuestos (la ruta no cambia; Contabilidad → Más opciones sigue enlazando).
+- **`views/admin/fiscal/resumen.php`:** chips **Estimación · Ventas y gastos · Documentos fiscales · Declaración**; aviso de **siguiente paso** cuando hay impuestos por pagar y falta la declaración; botones de Declaración y Documentos fiscales en la tarjeta del mes; los mismos accesos en móvil.
+- **`clases/ResumenFiscal.php`:** `movimientos()` agrega `ingreso_id`, `venta_id` y `gasto_id`, y acepta filtros de tipo, pago, facturación y búsqueda. Los filtros se aplican antes de sumar, así que los totales y la exportación corresponden a lo visible.
+- **`views/admin/fiscal/movimientos.php`:** acciones por fila (**Cobrar/Pagar**, **Abrir**, **Documentos**) y filtros de tipo, pago, facturación y búsqueda; la tabla compacta tipo, negocio y cliente para que las acciones se vean.
+- **`views/admin/fiscal/exportar.php`:** la exportación de movimientos respeta los mismos filtros.
+- **`views/admin/fiscal/documentos.php`:** pestaña activa y acciones **Abrir venta**, **Documentos** y **Facturar/Revisar CFDI** según el grupo.
+- **`views/admin/fiscal/registros.php`:** chips de los 12 meses con «OK» o «—», el mes consultado queda activo y el formulario de declaración lo preselecciona; cada declaración enlaza a su mes.
+- **`views/admin/fiscal/preliminar.php`:** aviso de que es un simulador y enlace a la estimación oficial del mes.
+
+### Sin migraciones
+
+- No se agregan ni cambian columnas ni datos. `de_compra`, los IDs de movimientos y los filtros son consultas de lectura.
+
+### Pruebas
+
+- `pruebas/probar_contabilidad_rapida.mjs` (nueva): acciones de Ventas y cobros y Gastos, modales de cobro y pago, filtros, resumen, cierre y móvil → **26/26**.
+- `pruebas/probar_impuestos_rapida.mjs` (nueva): pestaña de Documentos fiscales, acciones y filtros de Ventas y gastos, exportación filtrada, meses de declaración y móvil → **23/23**.
+- `pruebas/probar_gastos_pago.mjs` → **19/19**; `pruebas/probar_facturacion.mjs` → **36/36**; `pruebas/probar_gastos_masivos.mjs` → **30/30**; `pruebas/probar_duplicados.mjs` → **22/22**; `pruebas/probar_operacion.mjs` → **60/60**; `pruebas/probar_devoluciones.mjs` → **16/16**.
+- `auditar_ui` → **0 hallazgos**; `auditar_movil` → **0 desbordes, 0 tablas con scroll**; `auditar_consola` → **0 problemas**.

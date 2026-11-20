@@ -22,7 +22,9 @@ soloAdmin();
 $contrib = \App\Contabilidad::contribuyentePrincipal();
 $anio = (int) ($_GET['anio'] ?? $_POST['anio'] ?? date('Y'));
 $anio = ($anio >= 2000 && $anio <= 2100) ? $anio : (int) date('Y');
-$destino = '/admin/fiscal/registros?anio=' . $anio;
+$mesSel = (int) ($_GET['mes'] ?? $_POST['mes'] ?? 0);
+$mesSel = ($mesSel >= 1 && $mesSel <= 12) ? $mesSel : 0;
+$destino = '/admin/fiscal/registros?anio=' . $anio . ($mesSel > 0 ? '&mes=' . $mesSel : '');
 $usuario = (int) ($_SESSION['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -73,6 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $retenciones    = \App\RegistrosFiscales::retenciones($contrib, $anio);
 $ajustes        = \App\RegistrosFiscales::ajustes($contrib, $anio);
 $declaraciones  = \App\RegistrosFiscales::declaraciones($contrib, $anio);
+$mesesDeclarados = [];
+foreach ($declaraciones as $declaracion) {
+    $mesesDeclarados[(int) $declaracion['mes']] = true;
+}
 $ingresosAnio   = \App\Contabilidad::listarIngresos(['anio' => $anio], 400, 0);
 $conceptosAjuste = \App\RegistrosFiscales::CONCEPTOS_AJUSTE;
 $hoy = date('Y-m-d');
@@ -85,6 +91,18 @@ template('tabsFiscal', ['tab' => 'registros', 'periodo' => ['anio' => $anio, 'me
     lo que registres aquí <strong>sí cambia los números</strong> del <a href="/admin/fiscal?anio=<?= $anio ?>">resumen de impuestos</a>,
     por eso todo queda con auditoría y lo cancelado se conserva con su motivo. Si una situación requiere criterio
     profesional, regístrala con su nota en lugar de forzar el cálculo.</p>
+
+<!-- Qué meses ya tienen declaración: un clic para ver el mes o capturarlo. -->
+<nav class="chip-grupo mb-lg" aria-label="Declaraciones por mes">
+    <?php for ($i = 1; $i <= 12; $i++) : $registrada = isset($mesesDeclarados[$i]); ?>
+        <a class="chip<?= $mesSel === $i ? ' chip--activo' : '' ?>"
+           href="/admin/fiscal/registros?anio=<?= $anio ?>&amp;mes=<?= $i ?>"
+           title="<?= $registrada ? 'Declaración registrada' : 'Sin declaración registrada' ?>">
+            <span><?= escaparValores(mb_substr(nombreMes($i), 0, 3)) ?></span>
+            <span class="badge <?= $registrada ? 'badge--aprobado' : 'badge--neutro' ?> badge--sin-punto"><?= $registrada ? 'OK' : '—' ?></span>
+        </a>
+    <?php endfor; ?>
+</nav>
 
 <form class="buscador mb-lg" action="/admin/fiscal/registros" method="get" aria-label="Elegir año">
     <label class="solo-lectores" for="sel-anio">Año</label>
@@ -252,7 +270,7 @@ template('tabsFiscal', ['tab' => 'registros', 'periodo' => ['anio' => $anio, 'me
         <div class="formulario__rejilla">
             <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="dec-mes">Mes</label>
                 <select class="control" id="dec-mes" name="mes">
-                    <?php for ($i = 1; $i <= 12; $i++) : ?><option value="<?= $i ?>"><?= escaparValores(nombreMes($i)) ?></option><?php endfor; ?>
+                    <?php for ($i = 1; $i <= 12; $i++) : ?><option value="<?= $i ?>"<?= $mesSel === $i ? ' selected' : '' ?>><?= escaparValores(nombreMes($i)) ?></option><?php endfor; ?>
                 </select></div>
             <div class="campo"><label class="campo__etiqueta campo__etiqueta--obligatorio" for="dec-impuesto">Impuesto</label>
                 <select class="control" id="dec-impuesto" name="impuesto"><option value="ISR">ISR</option><option value="IVA">IVA</option></select></div>
@@ -283,7 +301,7 @@ template('tabsFiscal', ['tab' => 'registros', 'periodo' => ['anio' => $anio, 'me
             <tbody>
             <?php foreach ($declaraciones as $d) : ?>
                 <tr>
-                    <td><?= escaparValores(nombreMes((int) $d['mes'])) ?> <?= (int) $d['anio'] ?></td>
+                    <td><a href="/admin/fiscal?anio=<?= (int) $d['anio'] ?>&amp;mes=<?= (int) $d['mes'] ?>"><?= escaparValores(nombreMes((int) $d['mes'])) ?> <?= (int) $d['anio'] ?></a></td>
                     <td><span class="badge <?= $d['impuesto'] === 'IVA' ? 'badge--info' : 'badge--pendiente' ?>"><?= escaparValores($d['impuesto']) ?></span></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda((float) $d['importe_declarado']) ?></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda((float) $d['saldo_favor']) ?></td>

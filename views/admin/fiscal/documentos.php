@@ -14,6 +14,7 @@ $datos    = \App\Contabilidad::documentosFiscales($periodo['anio'], $periodo['me
 $consulta = http_build_query(array_filter($periodo + ['cliente' => $cliente], static fn ($v) => $v !== 0));
 
 template('header', ['titulo' => 'Documentos fiscales', 'subtitulo' => 'Impuestos', 'rutaActiva' => '/admin/fiscal']);
+template('tabsFiscal', ['tab' => 'documentos', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/fiscal/documentos', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true,
     'extra' => ['grupo' => $grupo], 'clientes' => \App\Clientes::paraSelector(), 'cliente' => $cliente]);
 ?>
@@ -48,7 +49,18 @@ template('selectorPeriodo', ['accion' => '/admin/fiscal/documentos', 'periodo' =
                             <td><?= escaparValores(trim((string) $f['uuid_fiscal'] . ' ' . (string) $f['factura_folio'])) ?: '—' ?></td>
                             <td class="tabla--numerica cifra"><strong><?= formatoMoneda($f['total']) ?></strong></td>
                             <td><?= escaparValores($f['nota']) ?></td>
-                            <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'documentos')) ?>">Ver</a></td></tr>
+                            <td class="tabla__acciones">
+                                <a class="btn btn--primario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f)) ?>">
+                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">open_in_new</span>
+                                    <span>Abrir venta</span>
+                                </a>
+                                <a class="btn btn--texto btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'documentos')) ?>">Documentos</a>
+                                <?php if (in_array($grupo, ['pendientes', 'por_validar', 'sin_factura'], true)) : ?>
+                                    <a class="btn btn--texto btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'facturacion')) ?>">
+                                        <?= $grupo === 'por_validar' ? 'Revisar CFDI' : 'Facturar' ?>
+                                    </a>
+                                <?php endif; ?>
+                            </td></tr>
                     <?php endforeach; ?>
                 </tbody>
                 <tfoot><tr><td colspan="5"><strong>Total</strong></td>

@@ -16,8 +16,8 @@ escritorio Linux (`.deb`). Una sola base de datos: web y escritorio ven siempre 
 | Inventario | `/admin/inventario` | Existencias únicas compartidas, alertas de mínimo, historial de movimientos, fotografías mensuales, exportación PDF/Excel/CSV |
 | Órdenes de compra | `/admin/compras` | Orden → recepciones parciales (suman solo lo recibido) → cierre con faltantes → reporte antes del pago |
 | Operación Comercial | `/admin/entregas` | Sección única con 3 pestañas: Preparación de pedidos (productos agrupados), Entregas por cliente y Ventas. Cada venta tiene un expediente único con pestañas (Resumen, Entrega y acta, Incidencias y devoluciones, Facturación y cobro, Historial) y acciones en la fila |
-| Contabilidad | `/admin/contabilidad` | Ingresos automáticos, cobros, gastos (compartidos una sola vez), documentos PDF/imagen/XML, ZIP mensual, ventas sin facturar, cierre mensual |
-| Fiscal | `/admin/fiscal` | Catálogo de reglas versionado (ISR art. 106, IVA), motor por flujo de efectivo, retenciones, ajustes, pagos reales |
+| Contabilidad | `/admin/contabilidad` | Ingresos automáticos, cobros y gastos con acciones en la fila (Cobrar, Facturar, Pagar, Abrir), filtros rápidos, documentos PDF/imagen/XML, ZIP mensual, cierre mensual desde el encabezado |
+| Fiscal | `/admin/fiscal` | Mes fiscal con chips (Estimación, Ventas y gastos, Documentos fiscales, Declaración); acciones por fila (Cobrar/Pagar, Abrir, Documentos), filtros que respeta la exportación, catálogo de reglas versionado (ISR art. 106, IVA), motor por flujo de efectivo, retenciones, ajustes y pagos reales |
 | Estadísticas | `/admin/estadisticas` | Comparaciones entre años, tendencias, rankings, gráficas, exportación PDF/Excel/CSV |
 | App de escritorio | `/admin/escritorio` | Descarga controlada del paquete `.deb` |
 
@@ -64,11 +64,11 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
 ## 4. Operación diaria
 
 1. **Vender:** cotización → *Vendido* (o venta directa). El inventario baja una vez y se crea el ingreso contable solo.
-2. **Cobrar y facturar:** *Ventas → abrir la venta* → en «Facturación y cobro» (arriba) registras cada cobro y, en un solo formulario, capturas los datos fiscales, adjuntas el CFDI y pulsas **«Facturar y guardar»**. Si no se va a facturar, usa «Otras opciones → No se facturará». *Contabilidad → Ingresos* lleva a esa misma pantalla.
+2. **Cobrar y facturar:** desde *Contabilidad → Ventas y cobros*, pulsa **«Cobrar»** o **«Facturar»** en la fila (el cobro abre en modal); si prefieres el detalle, *Ventas → abrir la venta* → en «Facturación y cobro» registras cada cobro y, en un solo formulario, capturas los datos fiscales, adjuntas el CFDI y pulsas **«Facturar y guardar»**. Si no se va a facturar, usa «Otras opciones → No se facturará».
 3. **Comprar:** *Órdenes de compra* → registrar recepción (parcial o total) → cerrar → PDF «solicitado vs recibido».
 4. **Entregar y seguir:** *Operación Comercial* → «Preparación de pedidos» para alistar; en la fila del pedido, «Entregar» abre el formulario en modal. «Expediente» (o el folio de la venta) abre la ventana única con entrega y acta, incidencias, devoluciones, facturación e historial. El acta se descarga desde la misma fila con «Acta».
-5. **Gastos:** *Contabilidad → Egresos*; adjunta CFDI (XML) y comprobantes; marca como pagado lo que ya pagaste (sólo eso entra en la estimación fiscal; el CFDI es el respaldo para tu contador).
-6. **Cada mes:** *Cierre del mes* (verificaciones, reconocer avisos, cerrar). Un mes cerrado bloquea cambios; se reabre solo con contraseña y motivo.
+5. **Gastos:** *Contabilidad → Egresos*; pulsa **«Pagar»** en la fila (modal con el saldo) o abre el gasto, adjunta CFDI (XML) y comprobantes; marca como pagado lo que ya pagaste (sólo eso entra en la estimación fiscal; el CFDI es el respaldo para tu contador).
+6. **Cada mes:** **«Cerrar el mes»** desde el encabezado de Contabilidad (verificaciones, reconocer avisos, cerrar). Un mes cerrado bloquea cambios; se reabre solo con contraseña y motivo.
 7. **Fotografía del inventario:** *Inventario → Fotografías mensuales* (o automática con `scripts/foto_inventario.php`).
 
 ### Pedidos y portal de clientes (migración 052)

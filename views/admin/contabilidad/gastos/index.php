@@ -34,6 +34,22 @@ $var = static fn (string $k): ?float => $ant ? \App\Contabilidad::variacion($tot
 $parametros = array_filter($filtros + ['todos' => $filtros['anio'] ? '' : '1'], static fn ($v) => $v !== '' && $v !== 0);
 $rutaBase = '/admin/contabilidad/gastos' . ($parametros ? '?' . http_build_query($parametros) : '');
 
+/** Enlace a esta lista cambiando sólo el filtro de pago o de comprobante. */
+$urlFiltro = static function (array $cambios) use ($filtros, $periodo): string {
+    $base = [
+        'anio' => $filtros['anio'], 'mes' => $filtros['mes'], 'empresa' => $periodo['empresa'],
+        'q' => $filtros['q'], 'estado' => $filtros['estado'], 'desde' => $filtros['desde'], 'hasta' => $filtros['hasta'],
+        'pago' => $filtros['pago'], 'complemento' => $filtros['complemento'], 'sin_comprobante' => $filtros['sin_comprobante'],
+        'todos' => $filtros['anio'] ? '' : '1',
+    ];
+    foreach ($cambios as $clave => $valor) {
+        $base[$clave] = $valor;
+    }
+    $base = array_filter($base, static fn ($v) => $v !== '' && $v !== 0 && $v !== null);
+
+    return '/admin/contabilidad/gastos' . ($base ? '?' . http_build_query($base) : '');
+};
+
 template('header', [
     'titulo' => 'Egresos y gastos', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad',
     'acciones' => '<a class="btn btn--secundario" href="/admin/contabilidad/lectura?destino=gasto">'
@@ -54,6 +70,20 @@ template('resumenReporte', [
     'exportar' => '/admin/contabilidad/gastos/exportar' . ($parametros ? '?' . http_build_query($parametros) : ''),
 ]);
 ?>
+
+<!-- Filtros rápidos: los mismos parámetros de la consulta, a un clic. -->
+<nav class="chip-grupo mb-lg" aria-label="Filtrar gastos">
+    <a class="chip<?= $filtros['pago'] === '' && $filtros['sin_comprobante'] === '' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['pago' => '', 'sin_comprobante' => '']) ?>">Todos</a>
+    <a class="chip<?= $filtros['pago'] === 'pendiente' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['pago' => 'pendiente', 'sin_comprobante' => '']) ?>">Por pagar</a>
+    <a class="chip<?= $filtros['pago'] === 'parcial' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['pago' => 'parcial', 'sin_comprobante' => '']) ?>">Parciales</a>
+    <a class="chip<?= $filtros['pago'] === 'pagado' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['pago' => 'pagado', 'sin_comprobante' => '']) ?>">Pagados</a>
+    <a class="chip<?= $filtros['sin_comprobante'] === '1' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['pago' => '', 'sin_comprobante' => '1']) ?>">Sin comprobante</a>
+</nav>
 
 <section class="tarjeta tarjeta--sin-relleno">
     <div class="tabla-toolbar">
@@ -115,9 +145,9 @@ template('resumenReporte', [
                             <label class="solo-lectores" for="gastos-todas">Seleccionar todos los gastos de esta página</label>
                             <input class="tabla__casilla" type="checkbox" id="gastos-todas" data-marcar-todas>
                         </th>
-                        <th scope="col">Fecha</th><th scope="col">Proveedor / concepto</th><th scope="col">Categoría</th><th scope="col">Negocio</th>
+                        <th scope="col">Fecha</th><th scope="col">Proveedor / concepto</th>
                         <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th><th scope="col" class="tabla--numerica">Total</th>
-                        <th scope="col" class="tabla--centro">Pago</th><th scope="col" class="tabla--centro">Comprobante</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+                        <th scope="col" class="tabla--centro">Pago y comprobante</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                     <tbody>
                         <?php foreach ($gastos as $g) : ?>
                             <?php
@@ -127,6 +157,11 @@ template('resumenReporte', [
                             $pagoClase = $esPagado ? 'badge--aprobado' : 'badge--pendiente';
                             $metodoG = strtoupper(trim((string) ($g['metodo_pago_sat'] ?? '')));
                             $conComplemento = ((int) ($g['complementos_registrados'] ?? 0) + (int) ($g['complementos_adjuntos'] ?? 0)) > 0;
+                            $rutaGasto = '/admin/contabilidad/gastos/detalle?id=' . (int) $g['id'];
+                            $saldoGasto = (float) $g['total'] - ((int) ($g['pagado_centavos'] ?? 0) / 100);
+                            // Los gastos que nacieron de una compra se pagan desde la compra.
+                            $puedePagar = $g['estado'] === 'vigente' && $saldoGasto > 0
+                                && (string) $g['estado_pago'] !== 'pagado' && (int) ($g['de_compra'] ?? 0) === 0;
                             ?>
                             <tr>
                                 <td class="tabla--centro">
@@ -135,31 +170,61 @@ template('resumenReporte', [
                                            value="<?= (int) $g['id'] ?>" data-documentos="<?= (int) $g['documentos'] ?>">
                                 </td>
                                 <td><?= date('d/m/Y', strtotime($g['fecha'])) ?></td>
-                                <td><strong><?= escaparValores($g['beneficiario']) ?></strong><span class="texto-xs texto-secundario"><br><?= escaparValores($g['concepto']) ?></span></td>
-                                <td><?= escaparValores((string) $g['categoria_nombre']) ?: '—' ?></td>
-                                <td><?= (int) $g['compartido'] === 1 ? '<span class="badge badge--info">Compartido</span>' : escaparValores((string) ($g['empresa_nombre'] ?? 'General')) ?></td>
+                                <td>
+                                    <strong><?= escaparValores($g['beneficiario']) ?></strong>
+                                    <span class="texto-xs texto-secundario"><br><?= escaparValores($g['concepto']) ?></span>
+                                    <span class="texto-xs texto-secundario"><br><?= escaparValores((string) $g['categoria_nombre']) ?: '—' ?> ·
+                                        <?= (int) $g['compartido'] === 1 ? 'Compartido' : escaparValores((string) ($g['empresa_nombre'] ?? 'General')) ?></span>
+                                </td>
                                 <td class="tabla--numerica cifra"><?= formatoMoneda($g['subtotal']) ?></td>
                                 <td class="tabla--numerica cifra"><?= formatoMoneda($g['iva']) ?></td>
                                 <td class="tabla--numerica cifra"><strong><?= formatoMoneda($g['total']) ?></strong></td>
-                                <td class="tabla--centro"><span class="badge <?= $pagoClase ?>"><?= escaparValores($pagoEtiqueta) ?></span>
+                                <td class="tabla--centro">
+                                    <span class="badge <?= $pagoClase ?>"><?= escaparValores($pagoEtiqueta) ?></span>
                                     <?php if ($pagadoCent > 0 && !$esPagado) : ?>
                                         <span class="texto-xs texto-secundario"><br><?= formatoMoneda($pagadoCent / 100) ?> abonado</span>
-                                    <?php endif; ?></td>
-                                <td class="tabla--centro"><?= (int) $g['comprobante_fiscal'] === 1 ? '<span class="badge badge--aprobado">Sí</span>' : '<span class="badge badge--neutro">No</span>' ?>
+                                    <?php endif; ?>
+                                    <br><?= (int) $g['comprobante_fiscal'] === 1 ? '<span class="badge badge--aprobado">Factura sí</span>' : '<span class="badge badge--neutro">Sin factura</span>' ?>
                                     <?php if ((int) $g['comprobante_fiscal'] === 1 && $metodoG !== '' && $metodoG !== 'PUE') : ?>
                                         <span class="badge <?= $conComplemento ? 'badge--aprobado' : 'badge--pendiente' ?>">
                                             <?= $conComplemento ? 'Complemento' : 'Falta complemento' ?></span>
                                     <?php elseif ($metodoG === 'PUE') : ?>
                                         <span class="badge badge--neutro">PUE</span>
                                     <?php endif; ?>
-                                    <br><a class="texto-xs" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>#documentos" aria-label="Ver los documentos del gasto"><?= (int) $g['documentos'] ?> doc.</a></td>
-                                <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>">Abrir</a></td>
+                                    <br><a class="texto-xs" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $g['id'] ?>#documentos" aria-label="Ver los documentos del gasto"><?= (int) $g['documentos'] ?> doc.</a>
+                                </td>
+                                <td class="tabla__acciones" style="max-width:13rem">
+                                    <?php if ($puedePagar) : ?>
+                                        <a class="btn btn--primario btn--sm" href="/admin/contabilidad/gastos/pagar?id=<?= (int) $g['id'] ?>"
+                                           data-modal-form="tpl-pago-<?= (int) $g['id'] ?>"
+                                           data-modal-sobre-titulo="Gasto: <?= escaparValores($g['beneficiario']) ?>"
+                                           data-modal-titulo="Pagar gasto"
+                                           data-modal-confirmar="Guardar abono">
+                                            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">payments</span>
+                                            <span>Pagar</span>
+                                        </a>
+                                    <?php endif; ?>
+                                    <a class="btn btn--texto btn--sm" href="<?= $rutaGasto ?>#documentos">
+                                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">attach_file</span>
+                                        <span>Documentos</span>
+                                    </a>
+                                    <?php if ($g['estado'] === 'vigente') : ?>
+                                        <a class="btn btn--texto btn--sm" href="/admin/contabilidad/gastos/editar?id=<?= (int) $g['id'] ?>">
+                                            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>
+                                            <span>Editar</span>
+                                        </a>
+                                    <?php endif; ?>
+                                    <a class="btn btn--texto btn--sm" href="<?= $rutaGasto ?>">
+                                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">open_in_new</span>
+                                        <span>Abrir</span>
+                                    </a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
-                    <tfoot><tr><td colspan="5"><strong>Total de los <?= number_format($tot['n']) ?> gastos filtrados</strong></td>
+                    <tfoot><tr><td colspan="3"><strong>Total de los <?= number_format($tot['n']) ?> gastos filtrados</strong></td>
                         <td class="tabla--numerica cifra"><?= formatoMoneda($tot['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($tot['iva']) ?></td>
-                        <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="4"></td></tr></tfoot>
+                        <td class="tabla--numerica cifra"><strong><?= formatoMoneda($tot['total']) ?></strong></td><td colspan="2"></td></tr></tfoot>
                 </table>
             </div>
 
@@ -183,5 +248,23 @@ template('resumenReporte', [
         <?php template('paginacion', ['pagina' => $pagina, 'rutaBase' => $rutaBase, 'total' => $total]); ?>
     <?php endif; ?>
 </section>
+
+<?php
+// Formulario de pago de cada fila: «Pagar» lo abre en el modal y, sin
+// JavaScript, el enlace cae en la página suelta de abono.
+foreach ($gastos as $gastoPago) :
+    $saldoPago = (float) $gastoPago['total'] - ((int) ($gastoPago['pagado_centavos'] ?? 0) / 100);
+    if ($gastoPago['estado'] !== 'vigente' || $saldoPago <= 0
+        || (string) $gastoPago['estado_pago'] === 'pagado' || (int) ($gastoPago['de_compra'] ?? 0) > 0) {
+        continue;
+    } ?>
+    <template id="tpl-pago-<?= (int) $gastoPago['id'] ?>">
+        <?php template('formPagoGasto', [
+            'gasto'  => $gastoPago,
+            'token'  => tokenFormulario(),
+            'volver' => $rutaBase,
+        ]); ?>
+    </template>
+<?php endforeach; ?>
 
 <?php template('footer'); ?>

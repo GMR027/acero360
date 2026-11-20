@@ -59,6 +59,8 @@ class Seguimiento
 
     /** Novedades de la plataforma: [clave/versión, fecha, título, texto, enlace]. */
     public const NOVEDADES = [
+        ['1.7.0', '2026-11-19', 'Contabilidad e Impuestos: acciones en la fila y mes fiscal',
+         'En Ventas y cobros puedes cobrar o facturar desde la fila, y en Gastos pagar sin abrir el detalle. Impuestos reúne el mes con chips (Estimación, Ventas y gastos, Documentos fiscales, Declaración), cada venta o gasto se abre desde su fila y los filtros de la exportación coinciden con lo que ves.', '/admin/contabilidad'],
         ['1.6.0', '2026-11-19', 'Operación Comercial: un solo expediente y acciones en la fila',
          'Cada venta reúne en una sola pantalla su documento, entrega y acta, incidencias, devoluciones, facturación e historial. Desde el listado de Ventas puedes entregar, descargar el acta o facturar sin entrar primero a la venta, y el seguimiento de entregas ahora es un filtro de Ventas.', '/admin/ventas'],
         ['1.5.0', '2026-10-25', 'Operación Comercial: un solo apartado',

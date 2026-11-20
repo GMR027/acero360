@@ -275,8 +275,8 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 
 ### Pagarlo después (total o en parcialidades)
 
-1. Abre el gasto y busca la tarjeta **«Facturación y pago»**: muestra el ciclo **Factura → Pago → Complemento**, con el total, lo abonado y el saldo.
-2. Pulsa **«Registrar abono»**. El importe viene con el saldo completo; si pagas una parte, escribe el importe y el gasto queda en **«Pago parcial»** con su saldo pendiente. Puedes registrar tantos abonos como haga falta.
+1. En la lista de Gastos pulsa **«Pagar»** en su fila: el formulario se abre en una ventana con el saldo precargado. También puedes abrir el gasto y usar la tarjeta **«Facturación y pago»**, que muestra el ciclo **Factura → Pago → Complemento**, con el total, lo abonado y el saldo.
+2. Pulsa **«Registrar abono»**. El importe viene con el saldo completo; si pagas una parte, escribe el importe y el gasto queda en **«Pago parcial»** con su saldo pendiente. Puedes registrar tantos abonos como haga falta. Los chips «Todos · Por pagar · Parciales · Pagados · Sin comprobante» filtran la lista; los gastos que vienen de una compra se pagan desde la compra.
 3. El gasto solo pasa a **«Pagado»** cuando la suma de abonos cubre el total. Un abono se puede cancelar con motivo: el saldo vuelve a subir y el abono queda en el historial.
 4. Si la factura es **PPD** (pago en parcialidades) o su método está por definir, la misma tarjeta te avisa de que falta el **complemento de pago**.
 
@@ -317,7 +317,7 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 
 ### Anotar un pago del cliente
 
-1. Abre la venta (Ventas → su folio; también desde Contabilidad → Ingresos → «Abrir», desde los avisos del panel o desde «Pendientes de facturar») y busca «Facturación y cobro».
+1. Desde Contabilidad → «Ventas y cobros», pulsa «Cobrar» en la fila: el formulario se abre en una ventana y el importe viene con el saldo. También puedes abrir la venta (su folio) y usar «Facturación y cobro → Pago».
 2. En «Pago»: pulsa «Ya me pagaron todo» si ya te pagaron completo, o pulsa «Registrar un abono» y escribe cuándo, cuánto y cómo te pagaron. Si paga en partes, anota cada pago: queda «Pago parcial» hasta completar. La barra de avance muestra el porcentaje cobrado, los abonos y el saldo.
 3. Si la factura es PPD y hay abonos sin complemento de pago, la misma sección te avisa y enlaza para cargar el XML; si es PUE con abonos parciales, te avisa de la incoherencia.
 
@@ -342,13 +342,14 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 
 ### Pendientes de facturar
 
-- La pestaña «Pendientes de facturar» lista las ventas sin factura para que no se te pase ninguna y su botón «Clasificar» abre esta misma sección. Se puede exportar.
+- La pestaña «Pendientes de facturar» lista las ventas sin factura para que no se te pase ninguna; su botón «Facturar» abre la sección de facturación de esa venta y «Abrir venta» lleva a su expediente. Se puede exportar.
 
 ### Ver todas tus ventas
 
 1. Contabilidad → «Ventas y cobros» muestra DOS tablas: arriba las ventas con factura o pendientes de facturar, y abajo las que ya marcaste como «No facturada» (esas ya no se van a facturar).
-2. Cada tabla tiene su propio total y se pagina por su lado; los filtros de arriba (búsqueda, facturación, cobro y periodo) aplican a las dos. El filtro de cobro separa «sin pagar», «pago parcial», «pagada» y «por cobrar».
-3. El interruptor de la columna «Facturación» mueve una venta de una tabla a la otra: si un día llega la factura, márcala como facturada y sube a la tabla de arriba.
+2. Cada fila trae «Cobrar», «Facturar» (o «Ver factura») y «Abrir», sin tener que entrar primero a la venta. Los chips «Todas · Por facturar · Por cobrar · Facturadas · Cobradas» filtran de un clic.
+3. Cada tabla tiene su propio total y se pagina por su lado; los filtros de arriba (búsqueda, facturación, cobro y periodo) aplican a las dos. El filtro de cobro separa «sin pagar», «pago parcial», «pagada» y «por cobrar».
+4. El interruptor de la columna «Facturación y cobro» mueve una venta de una tabla a la otra: si un día llega la factura, márcala como facturada y sube a la tabla de arriba.
 
 > **Consejos**
 > - Cancelar un pago o una venta pide un motivo y queda registrado; nada se borra en silencio.
@@ -362,7 +363,7 @@ La pantalla principal de Contabilidad te dice, sin tecnicismos, cómo vas.
 
 ### Leer el resumen
 
-1. «Vendiste», «Gastaste» y «Te queda» (ventas menos gastos, antes de impuestos).
+1. «Vendiste», «Gastaste» y «Te queda» (ventas menos gastos, antes de impuestos). Las tres tarjetas de arriba llevan a su lista (ventas, gastos o impuestos) con un clic.
 2. «Lo que te falta hacer» te avisa de ventas sin cobrar, sin indicar si se facturaron, gastos por pagar y gastos sin factura; cada aviso tiene un botón para ir a resolverlo.
 3. «Ver el detalle completo» muestra el IVA y el desglose por negocio.
 
@@ -376,7 +377,7 @@ La pantalla principal de Contabilidad te dice, sin tecnicismos, cómo vas.
 
 ### Cerrar el mes
 
-- Cuando el mes está completo, «Revisar y cerrar el mes». La plataforma verifica pendientes y, al cerrar, nadie puede cambiar ventas, gastos ni archivos de ese mes sin reabrirlo (con motivo y contraseña).
+- Cuando el mes está completo, pulsa «Cerrar el mes» en el encabezado (o en «Lo que te falta hacer»). La plataforma verifica pendientes y, al cerrar, nadie puede cambiar ventas, gastos ni archivos de ese mes sin reabrirlo (con motivo y contraseña).
 
 > **Consejos**
 > - Cierra el mes después de presentar tu declaración.
@@ -392,6 +393,12 @@ Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT 
 1. Impuestos → arriba: «deberías separar aproximadamente $X», con el IVA y el ISR por separado.
 2. Solo cuenta las facturas que ya te pagaron al 100 % y los gastos ya pagados.
 3. Una factura en parcialidades o sin cobrar, o un gasto por pagar, NO se cuenta hasta que se confirme el pago: la misma pantalla te dice cuántos quedaron fuera y por cuánto.
+
+### Ver y actuar en el mes
+
+1. Arriba, los chips «Estimación · Ventas y gastos · Documentos fiscales · Declaración» llevan a cada parte del mes sin cambiar de sección. Si el mes tiene impuestos por pagar y aún no registraste la declaración, la pantalla te lo avisa con el botón «Registrar declaración».
+2. En «Ventas y gastos», cada fila trae «Cobrar» o «Pagar», «Abrir» y «Documentos»; los filtros separan ventas, gastos, pagados, pendientes y facturación, y la exportación respeta los filtros.
+3. «Documentos fiscales» es una pestaña de Impuestos: muestra pendientes, CFDI emitidos, cancelados, por validar y ventas sin facturación, con «Abrir venta» y «Facturar».
 
 ### Qué significa el método de pago
 

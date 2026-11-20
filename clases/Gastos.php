@@ -307,7 +307,9 @@ class Gastos
                       WHERE cd.gasto_id = g.id AND cp.estado = 'vigente') AS complementos_registrados,
                     (SELECT COUNT(*) FROM documentos dc
                       WHERE dc.entidad = 'gasto' AND dc.entidad_id = g.id AND dc.activo = 1
-                        AND dc.tipo = 'complemento_pago') AS complementos_adjuntos
+                        AND dc.tipo = 'complemento_pago') AS complementos_adjuntos,
+                    (SELECT COUNT(*) FROM ordenes_compra oc
+                      WHERE oc.gasto_id = g.id AND oc.estado <> 'cancelada') AS de_compra
                FROM gastos g
                LEFT JOIN empresas e ON e.id = g.empresa_id
                LEFT JOIN categorias_gasto c ON c.id = g.categoria_id

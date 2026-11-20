@@ -95,7 +95,13 @@ if ($tipo === 'impuestos' && $mes > 0) {
     $nombre = "impuestos-$anio";
     $horizontal = true;
 } else {
-    $d   = \App\ResumenFiscal::movimientos($contrib, $anio, $mes);
+    // La exportación respeta los mismos filtros de la pantalla «Ventas y gastos».
+    $d   = \App\ResumenFiscal::movimientos($contrib, $anio, $mes, [
+        'tipo'        => in_array($_GET['tipo_mov'] ?? '', ['Venta', 'Gasto'], true) ? (string) $_GET['tipo_mov'] : '',
+        'estado'      => in_array($_GET['estado'] ?? '', ['pagado', 'pendiente'], true) ? (string) $_GET['estado'] : '',
+        'facturacion' => in_array($_GET['facturacion'] ?? '', ['facturada', 'pendiente'], true) ? (string) $_GET['facturacion'] : '',
+        'q'           => trim((string) ($_GET['q'] ?? '')),
+    ]);
     $imp = $mes > 0 ? $r['meses'][$mes] : $r['total'];
     $titulo = 'Ventas y gastos · ' . $periodo;
     $enc    = ['Fecha', 'Tipo', 'Folio o concepto', 'Cliente o proveedor', 'Negocio', 'Detalle', 'Subtotal', 'IVA', 'Total'];

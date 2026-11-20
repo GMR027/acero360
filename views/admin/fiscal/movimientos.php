@@ -13,11 +13,25 @@ $anio    = ($anio >= 2000 && $anio <= 2100) ? $anio : (int) date('Y');
 $mes     = (int) ($_GET['mes'] ?? date('n'));
 $mes     = ($mes >= 0 && $mes <= 12) ? $mes : (int) date('n');
 
-$d   = \App\ResumenFiscal::movimientos($contrib, $anio, $mes);
+// Filtros de la lista. «tipo_mov» se llama así para no chocar con el «tipo»
+// del enlace de exportación (movimientos/impuestos/preliminar).
+$filtrosMov = [
+    'tipo'        => in_array($_GET['tipo_mov'] ?? '', ['Venta', 'Gasto'], true) ? (string) $_GET['tipo_mov'] : '',
+    'estado'      => in_array($_GET['estado'] ?? '', ['pagado', 'pendiente'], true) ? (string) $_GET['estado'] : '',
+    'facturacion' => in_array($_GET['facturacion'] ?? '', ['facturada', 'pendiente'], true) ? (string) $_GET['facturacion'] : '',
+    'q'           => trim((string) ($_GET['q'] ?? '')),
+];
+$d   = \App\ResumenFiscal::movimientos($contrib, $anio, $mes, $filtrosMov);
 $imp = \App\ResumenFiscal::impuestosDelPeriodo($contrib, $anio, $mes);
 $m   = static fn (?float $v): string => $v === null ? '—' : ($v < 0 ? '−' : '') . formatoMoneda(abs($v));
 $periodoTexto = ($mes > 0 ? nombreMes($mes) . ' ' : '') . $anio;
-$consulta = http_build_query(['anio' => $anio, 'mes' => $mes]);
+$consulta = http_build_query(array_filter([
+    'anio' => $anio, 'mes' => $mes,
+    'tipo_mov' => $filtrosMov['tipo'], 'estado' => $filtrosMov['estado'],
+    'facturacion' => $filtrosMov['facturacion'], 'q' => $filtrosMov['q'],
+], static fn ($v) => $v !== '' && $v !== 0));
+$hayFiltrosMov = $filtrosMov['tipo'] !== '' || $filtrosMov['estado'] !== ''
+    || $filtrosMov['facturacion'] !== '' || $filtrosMov['q'] !== '';
 
 template('header', ['titulo' => 'Ventas y gastos', 'subtitulo' => 'Ambos negocios · ' . $periodoTexto, 'rutaActiva' => '/admin/fiscal']);
 template('tabsFiscal', ['tab' => 'movimientos', 'periodo' => ['anio' => $anio, 'mes' => max(1, $mes)]]);
@@ -38,6 +52,39 @@ template('tabsFiscal', ['tab' => 'movimientos', 'periodo' => ['anio' => $anio, '
         <?php endfor; ?>
     </select>
     <button class="btn btn--secundario btn--sm" type="submit">Ver</button>
+</form>
+
+<form class="buscador mb-lg" action="/admin/fiscal/movimientos" method="get" role="search" aria-label="Filtrar ventas y gastos">
+    <input type="hidden" name="anio" value="<?= $anio ?>">
+    <input type="hidden" name="mes" value="<?= $mes ?>">
+    <div class="buscador__campo">
+        <span class="material-symbols-outlined buscador__icono" aria-hidden="true">search</span>
+        <label class="solo-lectores" for="mov-q">Buscar en ventas y gastos</label>
+        <input class="control" type="search" id="mov-q" name="q" maxlength="80"
+               placeholder="Folio, cliente, proveedor o concepto…" value="<?= escaparValores($filtrosMov['q']) ?>">
+    </div>
+    <label class="solo-lectores" for="mov-tipo">Tipo</label>
+    <select class="control control--compacto" id="mov-tipo" name="tipo_mov">
+        <option value="">Ventas y gastos</option>
+        <option value="Venta"<?= $filtrosMov['tipo'] === 'Venta' ? ' selected' : '' ?>>Solo ventas</option>
+        <option value="Gasto"<?= $filtrosMov['tipo'] === 'Gasto' ? ' selected' : '' ?>>Solo gastos</option>
+    </select>
+    <label class="solo-lectores" for="mov-estado">Pago</label>
+    <select class="control control--compacto" id="mov-estado" name="estado">
+        <option value="">Pagadas y pendientes</option>
+        <option value="pagado"<?= $filtrosMov['estado'] === 'pagado' ? ' selected' : '' ?>>Pagadas</option>
+        <option value="pendiente"<?= $filtrosMov['estado'] === 'pendiente' ? ' selected' : '' ?>>Pendientes</option>
+    </select>
+    <label class="solo-lectores" for="mov-facturacion">Facturación</label>
+    <select class="control control--compacto" id="mov-facturacion" name="facturacion">
+        <option value="">Toda la facturación</option>
+        <option value="facturada"<?= $filtrosMov['facturacion'] === 'facturada' ? ' selected' : '' ?>>Facturadas</option>
+        <option value="pendiente"<?= $filtrosMov['facturacion'] === 'pendiente' ? ' selected' : '' ?>>Pendientes de facturar</option>
+    </select>
+    <button class="btn btn--secundario btn--sm" type="submit">Filtrar</button>
+    <?php if ($hayFiltrosMov) : ?>
+        <a class="btn btn--texto btn--sm" href="/admin/fiscal/movimientos?anio=<?= $anio ?>&amp;mes=<?= $mes ?>">Limpiar</a>
+    <?php endif; ?>
 </form>
 
 <section class="estadisticas-resumen" aria-label="Resumen del periodo">
@@ -85,20 +132,48 @@ if ((int) ($imp['gastos_no_pagados_n'] ?? 0) > 0) {
         <div class="tabla-contenedor">
             <table class="tabla">
                 <caption class="solo-lectores">Ventas y gastos de <?= escaparValores($periodoTexto) ?></caption>
-                <thead><tr><th scope="col">Fecha</th><th scope="col">Tipo</th><th scope="col">Folio o concepto</th><th scope="col">Cliente o proveedor</th>
-                    <th scope="col">Negocio</th><th scope="col">Detalle</th><th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th><th scope="col" class="tabla--numerica">Total</th></tr></thead>
+                <thead><tr><th scope="col">Fecha</th><th scope="col">Folio o concepto</th><th scope="col">Cliente o proveedor</th>
+                    <th scope="col">Detalle</th><th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th><th scope="col" class="tabla--numerica">Total</th>
+                    <th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
                 <tbody>
-                    <?php foreach ($d['filas'] as $f) : ?>
+                    <?php foreach ($d['filas'] as $f) :
+                        $esVenta = $f['tipo'] === 'Venta';
+                        $rutaOperacion = $esVenta
+                            ? (!empty($f['venta_id'])
+                                ? '/admin/ventas/detalle?id=' . (int) $f['venta_id']
+                                : '/admin/contabilidad/ingresos/detalle?id=' . (int) $f['ingreso_id'])
+                            : '/admin/contabilidad/gastos/detalle?id=' . (int) $f['gasto_id'];
+                        $rutaPago = $esVenta
+                            ? $rutaOperacion . '#cobros'
+                            : '/admin/contabilidad/gastos/pagar?id=' . (int) $f['gasto_id'];
+                        $pagado = $esVenta ? $f['cobro'] === 'Pagada' : $f['pago'] === 'Pagado';
+                        // Los gastos de una compra se pagan desde la compra.
+                        $puedePagar = !$pagado && ($esVenta || (int) ($f['de_compra'] ?? 0) === 0);
+                        ?>
                         <tr>
                             <td><?= date('d/m/Y', strtotime($f['fecha'])) ?></td>
-                            <td><span class="badge <?= $f['tipo'] === 'Venta' ? 'badge--exito' : 'badge--info' ?>"><?= $f['tipo'] ?></span></td>
-                            <td><?= escaparValores($f['referencia']) ?></td>
-                            <td><?= escaparValores($f['contraparte']) ?></td>
-                            <td><?= escaparValores($f['negocio']) ?></td>
+                            <td>
+                                <strong><?= escaparValores($f['referencia']) ?></strong><br>
+                                <span class="badge <?= $f['tipo'] === 'Venta' ? 'badge--exito' : 'badge--info' ?>"><?= $f['tipo'] ?></span>
+                            </td>
+                            <td>
+                                <?= escaparValores($f['contraparte']) ?>
+                                <span class="texto-xs texto-secundario"><br><?= escaparValores($f['negocio']) ?></span>
+                            </td>
                             <td><?= escaparValores($f['detalle']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($f['subtotal']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($f['iva']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($f['total']) ?></td>
+                            <td class="tabla__acciones" style="max-width:12rem">
+                                <?php if ($puedePagar) : ?>
+                                    <a class="btn btn--primario btn--sm" href="<?= escaparValores($rutaPago) ?>">
+                                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">payments</span>
+                                        <span><?= $esVenta ? 'Cobrar' : 'Pagar' ?></span>
+                                    </a>
+                                <?php endif; ?>
+                                <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaOperacion) ?>">Abrir</a>
+                                <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaOperacion) ?>#documentos">Documentos</a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

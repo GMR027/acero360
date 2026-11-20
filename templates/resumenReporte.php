@@ -17,8 +17,12 @@ $ocrDisponible = $ocrDisponible ?? null;
 <section class="rejilla-stats mb-lg" aria-label="Resumen del reporte">
     <?php foreach ($tarjetas as $t) :
         $v = $t['variacion'] ?? null;
-        $bueno = $v === null ? null : (($v >= 0) === ($t['subeEsBueno'] ?? true)); ?>
-        <div class="stat"><span class="stat__etiqueta"><?= escaparValores($t['etiqueta']) ?></span>
+        $bueno = $v === null ? null : (($v >= 0) === ($t['subeEsBueno'] ?? true));
+        // Con «enlace» la tarjeta entera lleva a su lista (o al mes fiscal).
+        $enlace = trim((string) ($t['enlace'] ?? ''));
+        $etiqueta = $enlace !== '' ? 'a' : 'div';
+        $atributos = $enlace !== '' ? ' href="' . escaparValores($enlace) . '" style="text-decoration:none;color:inherit"' : ''; ?>
+        <<?= $etiqueta ?> class="stat"<?= $atributos ?>><span class="stat__etiqueta"><?= escaparValores($t['etiqueta']) ?></span>
             <span class="stat__valor"><?= escaparValores((string) $t['valor']) ?></span>
             <span class="stat__pie"><?= escaparValores((string) ($t['pie'] ?? '')) ?></span>
             <?php if ($etiquetaComparativa !== '') : ?>
@@ -31,7 +35,7 @@ $ocrDisponible = $ocrDisponible ?? null;
                     <?php endif; ?>
                 </span>
             <?php endif; ?>
-        </div>
+        </<?= $etiqueta ?>>
     <?php endforeach; ?>
 </section>
 <?php if ($exportar !== '' || $accionesExtra) : ?>

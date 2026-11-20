@@ -73,6 +73,15 @@ template('tabsFiscal', ['tab' => 'preliminar', 'periodo' => ['anio' => $anio, 'm
     <button class="btn btn--secundario btn--sm" type="submit">Ver</button>
 </form>
 
+<p class="nota nota--info mb-lg" role="status">
+    <span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
+    <span>
+        Este es un <strong>simulador básico</strong> con las facturas registradas (32 % plano, sin cobros ni pagos).
+        La estimación oficial con catálogos versionados y flujo de efectivo está en
+        <a href="/admin/fiscal?anio=<?= $anio ?>&amp;mes=<?= $mes ?>">Impuestos</a>.
+    </span>
+</p>
+
 <section class="estadisticas-resumen" aria-label="Resumen del mes">
     <div class="tarjeta"><span class="stat__etiqueta">Ventas facturadas · <?= escaparValores(nombreMes($mes)) ?></span>
         <span class="estadisticas-resumen__valor"><?= $m($actual['ventas']) ?></span>

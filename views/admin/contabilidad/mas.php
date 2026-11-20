@@ -17,6 +17,12 @@ $opciones = [
     ['/admin/fiscal', 'request_quote', 'Impuestos', 'Cuánto separar este mes para el SAT (estimado).'],
 ];
 
+// Estado real del cierre del mes: evita entrar a la pantalla sólo para saberlo.
+$estadoCierre = \App\CierrePeriodo::periodo(\App\Contabilidad::contribuyentePrincipal(), $periodo['anio'], $periodo['mes']);
+$opciones[1][3] .= ($estadoCierre && $estadoCierre['estado'] === 'cerrado')
+    ? ' Este mes ya está cerrado.'
+    : ' Este mes está abierto.';
+
 template('header', ['titulo' => 'Más opciones', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 template('tabsContabilidad', ['tab' => 'mas', 'periodo' => $periodo]);
 ?>

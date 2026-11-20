@@ -68,6 +68,22 @@ $conmutador = static function (array $i, string $accion, bool $activo, string $e
 };
 $rutaBase = '/admin/contabilidad/ingresos' . ($parametros ? '?' . http_build_query($parametros) : '');
 
+/** Enlace a esta lista cambiando sólo los filtros de facturación/cobro. */
+$urlFiltro = static function (array $cambios) use ($filtros, $periodo): string {
+    $base = [
+        'anio' => $filtros['anio'], 'mes' => $filtros['mes'], 'empresa' => $periodo['empresa'],
+        'q' => $filtros['q'], 'estado' => $filtros['estado'], 'desde' => $filtros['desde'], 'hasta' => $filtros['hasta'],
+        'facturacion' => $filtros['facturacion'], 'cobro' => $filtros['cobro'],
+        'todos' => $filtros['anio'] ? '' : '1',
+    ];
+    foreach ($cambios as $clave => $valor) {
+        $base[$clave] = $valor;
+    }
+    $base = array_filter($base, static fn ($v) => $v !== '' && $v !== 0 && $v !== null);
+
+    return '/admin/contabilidad/ingresos' . ($base ? '?' . http_build_query($base) : '');
+};
+
 /** Una fila de ingreso: las mismas columnas en las dos tablas. */
 $filaTabla = static function (array $i) use ($conmutador): string {
     $fact = \App\Contabilidad::FACTURACION[$i['estado_facturacion']];
@@ -75,10 +91,16 @@ $filaTabla = static function (array $i) use ($conmutador): string {
     ob_start(); ?>
     <tr>
         <td><?= date('d/m/Y', strtotime($i['fecha'])) ?></td>
-        <td><strong><?= escaparValores($i['folio']) ?></strong></td>
-        <td><?= escaparValores($i['cliente_empresa'] ?: $i['cliente_nombre']) ?></td>
-        <td><?= escaparValores(trim((string) $i['cliente_alias']) !== '' ? $i['cliente_alias'] : '—') ?></td>
-        <td><?= escaparValores($i['empresa_nombre']) ?></td>
+        <td>
+            <strong><?= escaparValores($i['folio']) ?></strong><br>
+            <span class="texto-xs texto-secundario"><?= escaparValores($i['cliente_empresa'] ?: $i['cliente_nombre']) ?></span>
+            <?php if (trim((string) $i['cliente_alias']) !== '') : ?>
+                <span class="texto-xs texto-secundario"> · <?= escaparValores($i['cliente_alias']) ?></span>
+            <?php endif; ?>
+            <span class="texto-xs texto-secundario"><br><?= escaparValores($i['empresa_nombre']) ?> ·
+                <a href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i, 'documentos')) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : 'Sin documentos' ?></a>
+            </span>
+        </td>
         <td class="tabla--numerica cifra"><?= formatoMoneda((float) $i['subtotal'] - (float) $i['descuento']) ?></td>
         <td class="tabla--numerica cifra"><?= formatoMoneda($i['iva']) ?></td>
         <td class="tabla--numerica cifra">
@@ -91,31 +113,60 @@ $filaTabla = static function (array $i) use ($conmutador): string {
                 <br><span class="badge badge--pendiente" title="La venta <?= escaparValores($i['folio']) ?> es por <?= formatoMoneda((float) $i['venta_total']) ?>; la factura es la que se registra">≠ venta <?= formatoMoneda((float) $i['venta_total']) ?></span>
             <?php endif; ?>
         </td>
-        <td class="tabla--centro"><div class="celda-estado"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span>
-            <?php if ($i['estado'] === 'vigente') :
-                $facturada = $i['estado_facturacion'] === 'facturada';
-                echo $conmutador($i, 'facturacion_alterna', $facturada, 'Facturada', $facturada ? '¿Marcar como pendiente de facturar?' : '¿Marcar como facturada?',
-                    $facturada ? 'Se quitan el folio y el UUID guardados de la factura.' : 'Si no hay un CFDI adjunto, queda como confirmación manual de que ya se emitió la factura.',
-                    $facturada ? 'Sí, pendiente' : 'Sí, facturada');
-            endif; ?></div></td>
-        <td class="tabla--centro"><div class="celda-estado"><span class="badge <?= $cobro['clase'] ?>"><?= escaparValores($cobro['etiqueta']) ?></span>
-            <?php if ($i['estado'] === 'vigente' && ($i['estado_cobro'] === 'cobrado' || (float) $i['saldo'] > 0)) :
-                $pagada = $i['estado_cobro'] === 'cobrado';
-                echo $conmutador($i, 'cobro_alterna', $pagada, 'Pagada', $pagada ? '¿Marcar como sin pagar?' : '¿Marcar como pagada?',
-                    $pagada ? 'Se cancelan los cobros registrados y el saldo vuelve a ser el total.' : 'Se registra hoy un cobro por el saldo pendiente (' . formatoMoneda($i['saldo']) . ').',
-                    $pagada ? 'Sí, sin pagar' : 'Sí, pagada');
-            endif; ?></div></td>
-        <td class="tabla--numerica cifra"><?= formatoMoneda($i['saldo']) ?></td>
-        <td class="tabla--centro"><a href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i, 'documentos')) ?>" aria-label="Ver los documentos de la venta <?= escaparValores($i['folio']) ?>"><?= (int) $i['documentos'] > 0 ? (int) $i['documentos'] . ' doc.' : '<span class="badge badge--neutro badge--sin-punto">Sin documentos</span>' ?></a></td>
-        <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($i)) ?>">Abrir</a></td>
+        <td class="tabla--centro">
+            <div class="celda-estado" style="justify-content:center">
+                <span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span>
+                <?php if ($i['estado'] === 'vigente') :
+                    $facturada = $i['estado_facturacion'] === 'facturada';
+                    echo $conmutador($i, 'facturacion_alterna', $facturada, 'Facturada', $facturada ? '¿Marcar como pendiente de facturar?' : '¿Marcar como facturada?',
+                        $facturada ? 'Se quitan el folio y el UUID guardados de la factura.' : 'Si no hay un CFDI adjunto, queda como confirmación manual de que ya se emitió la factura.',
+                        $facturada ? 'Sí, pendiente' : 'Sí, facturada');
+                endif; ?>
+            </div>
+            <div class="celda-estado" style="justify-content:center">
+                <span class="badge <?= $cobro['clase'] ?>"><?= escaparValores($cobro['etiqueta']) ?></span>
+                <?php if ($i['estado'] === 'vigente' && ($i['estado_cobro'] === 'cobrado' || (float) $i['saldo'] > 0)) :
+                    $pagada = $i['estado_cobro'] === 'cobrado';
+                    echo $conmutador($i, 'cobro_alterna', $pagada, 'Pagada', $pagada ? '¿Marcar como sin pagar?' : '¿Marcar como pagada?',
+                        $pagada ? 'Se cancelan los cobros registrados y el saldo vuelve a ser el total.' : 'Se registra hoy un cobro por el saldo pendiente (' . formatoMoneda($i['saldo']) . ').',
+                        $pagada ? 'Sí, sin pagar' : 'Sí, pagada');
+                endif; ?>
+            </div>
+            <span class="texto-xs texto-secundario">Saldo <?= formatoMoneda($i['saldo']) ?></span>
+        </td>
+        <td class="tabla__acciones" style="max-width:12rem">
+            <?php
+            $rutaVenta    = \App\Contabilidad::rutaDetalle($i);
+            $rutaFactura  = \App\Contabilidad::rutaDetalle($i, 'facturacion');
+            $esFacturada  = $i['estado_facturacion'] === 'facturada';
+            $puedeCobrar  = $i['estado'] === 'vigente' && (float) $i['saldo'] > 0;
+            ?>
+            <?php if ($puedeCobrar) : ?>
+                <a class="btn btn--primario btn--sm" href="<?= escaparValores($rutaVenta) ?>#cobros"
+                   data-modal-form="tpl-cobro-<?= (int) $i['id'] ?>"
+                   data-modal-sobre-titulo="Venta <?= escaparValores($i['folio']) ?>"
+                   data-modal-titulo="Cobrar venta"
+                   data-modal-confirmar="Anotar pago recibido">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">payments</span>
+                    <span>Cobrar</span>
+                </a>
+            <?php endif; ?>
+            <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaFactura) ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">receipt_long</span>
+                <span><?= $esFacturada ? 'Ver factura' : 'Facturar' ?></span>
+            </a>
+            <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaVenta) ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">open_in_new</span>
+                <span>Abrir</span>
+            </a>
+        </td>
     </tr>
     <?php return (string) ob_get_clean();
 };
-$encabezados = '<th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Alias</th><th scope="col">Negocio</th>'
+$encabezados = '<th scope="col">Fecha</th><th scope="col">Venta</th>'
     . '<th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th>'
-    . '<th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Facturación</th>'
-    . '<th scope="col" class="tabla--centro">Cobro</th><th scope="col" class="tabla--numerica">Saldo</th>'
-    . '<th scope="col" class="tabla--centro">Documentos</th><th scope="col"><span class="solo-lectores">Acciones</span></th>';
+    . '<th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Facturación y cobro</th>'
+    . '<th scope="col"><span class="solo-lectores">Acciones</span></th>';
 
 template('header', ['titulo' => 'Ventas y cobros', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad']);
 template('tabsContabilidad', ['tab' => 'ingresos', 'periodo' => $periodo]);
@@ -131,6 +182,20 @@ template('resumenReporte', [
     'exportar' => '/admin/contabilidad/ingresos/exportar' . ($parametros ? '?' . http_build_query($parametros) : ''),
 ]);
 ?>
+
+<!-- Filtros rápidos: los mismos parámetros de la consulta, a un clic. -->
+<nav class="chip-grupo mb-lg" aria-label="Filtrar ventas y cobros">
+    <a class="chip<?= $filtros['facturacion'] === '' && $filtros['cobro'] === '' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['facturacion' => '', 'cobro' => '']) ?>">Todas</a>
+    <a class="chip<?= $filtros['facturacion'] === 'sin_clasificar' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['facturacion' => 'sin_clasificar', 'cobro' => '']) ?>">Por facturar</a>
+    <a class="chip<?= $filtros['cobro'] === 'pendiente' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['facturacion' => '', 'cobro' => 'pendiente']) ?>">Por cobrar</a>
+    <a class="chip<?= $filtros['facturacion'] === 'facturada' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['facturacion' => 'facturada', 'cobro' => '']) ?>">Facturadas</a>
+    <a class="chip<?= $filtros['cobro'] === 'cobrado' ? ' chip--activo' : '' ?>"
+       href="<?= $urlFiltro(['facturacion' => '', 'cobro' => 'cobrado']) ?>">Cobradas</a>
+</nav>
 
 <section class="tarjeta tarjeta--sin-relleno mb-lg">
     <div class="tabla-toolbar">
@@ -184,10 +249,10 @@ template('resumenReporte', [
                 <tbody>
                     <?php foreach ($ingresos as $i) : ?><?= $filaTabla($i) ?><?php endforeach; ?>
                 </tbody>
-                <tfoot><tr><td colspan="5"><strong>Total de los <?= number_format($totCon['n']) ?> ingresos filtrados</strong></td>
+                <tfoot><tr><td colspan="2"><strong>Total de los <?= number_format($totCon['n']) ?> ingresos filtrados</strong></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda($totCon['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($totCon['iva']) ?></td>
-                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($totCon['total']) ?></strong></td><td colspan="2"></td>
-                    <td class="tabla--numerica cifra"><?= formatoMoneda($totCon['saldo']) ?></td><td colspan="2"></td></tr></tfoot>
+                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($totCon['total']) ?></strong></td>
+                    <td class="tabla--numerica cifra">Saldo <?= formatoMoneda($totCon['saldo']) ?></td><td></td></tr></tfoot>
             </table>
         </div>
         <?php template('paginacion', ['pagina' => $pagina, 'rutaBase' => $rutaBase, 'total' => $totalCon]); ?>
@@ -214,15 +279,32 @@ template('resumenReporte', [
                 <tbody>
                     <?php foreach ($ingresosSin as $i) : ?><?= $filaTabla($i) ?><?php endforeach; ?>
                 </tbody>
-                <tfoot><tr><td colspan="5"><strong>Total de las <?= number_format($totSin['n']) ?> ventas sin factura</strong></td>
+                <tfoot><tr><td colspan="2"><strong>Total de las <?= number_format($totSin['n']) ?> ventas sin factura</strong></td>
                     <td class="tabla--numerica cifra"><?= formatoMoneda($totSin['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($totSin['iva']) ?></td>
-                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($totSin['total']) ?></strong></td><td colspan="2"></td>
-                    <td class="tabla--numerica cifra"><?= formatoMoneda($totSin['saldo']) ?></td><td colspan="2"></td></tr></tfoot>
+                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($totSin['total']) ?></strong></td>
+                    <td class="tabla--numerica cifra">Saldo <?= formatoMoneda($totSin['saldo']) ?></td><td></td></tr></tfoot>
             </table>
         </div>
-        <p class="campo__ayuda">Estas ventas ya no se van a facturar: no cuentan como CFDI emitido. Si alguna vez sí se factura, usa el interruptor de la columna «Facturación» y pasa a la tabla de arriba.</p>
+        <p class="campo__ayuda">Estas ventas ya no se van a facturar: no cuentan como CFDI emitido. Si alguna vez sí se factura, usa el interruptor de «Facturación y cobro» y pasa a la tabla de arriba.</p>
         <?php template('paginacion', ['pagina' => $paginaSin, 'rutaBase' => $rutaBase, 'total' => $totalSin, 'parametro' => 'pagina_sin']); ?>
     <?php endif; ?>
 </section>
+
+<?php
+// Formulario de cobro de cada fila: el botón «Cobrar» abre esta copia en el
+// modal y, sin JavaScript, el enlace cae en la venta (#cobros).
+foreach (array_merge($ingresos, $ingresosSin) as $ingresoCobro) :
+    if ($ingresoCobro['estado'] !== 'vigente' || (float) $ingresoCobro['saldo'] <= 0) {
+        continue;
+    } ?>
+    <template id="tpl-cobro-<?= (int) $ingresoCobro['id'] ?>">
+        <?php template('formCobroIngreso', [
+            'ingreso'     => $ingresoCobro,
+            'retorno'     => $volverLista,
+            'sufijo'      => '-' . (int) $ingresoCobro['id'],
+            'conAcciones' => false,
+        ]); ?>
+    </template>
+<?php endforeach; ?>
 
 <?php template('footer'); ?>

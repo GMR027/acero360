@@ -14,7 +14,16 @@ $gasto    = static fn (int $centavos): float => $centavos / 100;
 $contrib  = \App\Contabilidad::contribuyente(\App\Contabilidad::contribuyentePrincipal());
 $cerrado  = $contrib && \App\Contabilidad::periodoCerrado((int) $contrib['id'], sprintf('%04d-%02d-01', $periodo['anio'], $periodo['mes']));
 
-template('header', ['titulo' => 'Contabilidad', 'subtitulo' => nombreMes($periodo['mes']) . ' ' . $periodo['anio'], 'rutaActiva' => '/admin/contabilidad']);
+template('header', [
+    'titulo'     => 'Contabilidad',
+    'subtitulo'  => nombreMes($periodo['mes']) . ' ' . $periodo['anio'],
+    'rutaActiva' => '/admin/contabilidad',
+    'acciones'   => $cerrado
+        ? '<span class="badge badge--neutro">Mes cerrado</span>'
+        : '<a class="btn btn--secundario" href="/admin/contabilidad/cierre?' . escaparValores(http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes']])) . '">'
+            . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">lock</span>'
+            . '<span>Cerrar el mes</span></a>',
+]);
 template('tabsContabilidad', ['tab' => 'resumen', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/contabilidad', 'periodo' => $periodo, 'empresas' => $empresas]);
 ?>
@@ -56,6 +65,8 @@ $gastosSinFactura = array_values(array_filter($todosGastos, static fn ($x) => (i
 $sumar = static fn (array $lista): float => array_sum(array_map(static fn ($x) => (float) $x['total'], $lista));
 $mesTexto = mb_strtolower(nombreMes($periodo['mes'])) . ' ' . $periodo['anio'];
 $enlaceGastos = '/admin/contabilidad/gastos?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'empresa' => $periodo['empresa']]);
+$enlaceIngresos = '/admin/contabilidad/ingresos?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'empresa' => $periodo['empresa']]);
+$enlaceImpuestos = '/admin/fiscal?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes']]);
 ?>
 <?php if ($cerrado) : ?>
     <p class="nota nota--advertencia mb-lg" role="note"><span class="material-symbols-outlined nota__icono" aria-hidden="true">lock</span>
@@ -84,12 +95,12 @@ $comprasSinGasto = (int) $db->query(
 template('resumenReporte', [
     'tarjetas' => [
         ['etiqueta' => 'Lo que vendiste', 'valor' => formatoMoneda($entra), 'pie' => number_format($operacionesFacturables) . ' ventas con factura · ya cobraste ' . formatoMoneda($r['cobrado_en_periodo']),
-            'variacion' => \App\Contabilidad::variacion($entra, $entraAnt)],
+            'variacion' => \App\Contabilidad::variacion($entra, $entraAnt), 'enlace' => $enlaceIngresos],
         ['etiqueta' => 'Lo que gastaste', 'valor' => formatoMoneda($sale), 'pie' => number_format($g['operaciones']) . ' gastos · ya pagaste ' . formatoMoneda($gasto($g['pagado'])),
-            'variacion' => \App\Contabilidad::variacion($sale, $saleAnt), 'subeEsBueno' => false],
+            'variacion' => \App\Contabilidad::variacion($sale, $saleAnt), 'subeEsBueno' => false, 'enlace' => $enlaceGastos],
         ['etiqueta' => $impAPagar >= 0 ? 'Impuestos que debes pagar' : 'Impuestos a tu favor', 'valor' => formatoMoneda(abs($impAPagar)),
             'pie' => $pieImpuesto,
-            'variacion' => \App\Contabilidad::variacion($impAPagar, $impAnt), 'subeEsBueno' => false],
+            'variacion' => \App\Contabilidad::variacion($impAPagar, $impAnt), 'subeEsBueno' => false, 'enlace' => $enlaceImpuestos],
     ],
     'etiquetaComparativa' => 'vs. ' . nombreMes($mesAnt) . ' ' . $anioAnt,
     'exportar' => '/admin/fiscal/exportar?' . http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes'], 'tipo' => 'movimientos']),
@@ -139,7 +150,19 @@ $tablaGastos = static function (array $lista, string $pie, bool $conIva): void {
                         echo '<span class="badge badge--pendiente">Falta pagar</span>';
                     }
                 ?></td>
-                <td class="tabla--numerica"><a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $x['id'] ?>">Abrir</a></td>
+                <td class="tabla__acciones">
+                    <?php
+                    $saldoX = (float) $x['total'] - ((int) ($x['pagado_centavos'] ?? 0) / 100);
+                    $puedePagarX = (string) $x['estado_pago'] !== 'pagado' && $saldoX > 0 && (int) ($x['de_compra'] ?? 0) === 0;
+                    ?>
+                    <?php if ($puedePagarX) : ?>
+                        <a class="btn btn--primario btn--sm" href="/admin/contabilidad/gastos/pagar?id=<?= (int) $x['id'] ?>">
+                            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">payments</span>
+                            <span>Pagar</span>
+                        </a>
+                    <?php endif; ?>
+                    <a class="btn btn--texto btn--sm" href="/admin/contabilidad/gastos/detalle?id=<?= (int) $x['id'] ?>">Abrir</a>
+                </td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -228,7 +251,12 @@ if ($pend['gastos_sin_factura'] > 0) {
     <div class="encabezado-pagina__acciones mt-lg">
         <a class="btn btn--primario" href="/admin/contabilidad/gastos/crear"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span><span>Anotar un gasto</span></a>
         <a class="btn btn--secundario" href="/admin/ventas/crear"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">point_of_sale</span><span>Anotar una venta</span></a>
-        <a class="btn btn--secundario" href="/admin/fiscal"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">request_quote</span><span>¿Cuánto separo para impuestos?</span></a>
+        <a class="btn btn--secundario" href="<?= escaparValores($enlaceImpuestos) ?>"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">request_quote</span><span>¿Cuánto separo para impuestos?</span></a>
+        <?php if (!$cerrado) : ?>
+            <a class="btn btn--secundario" href="/admin/contabilidad/cierre?<?= escaparValores(http_build_query(['anio' => $periodo['anio'], 'mes' => $periodo['mes']])) ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">lock</span><span>Cerrar el mes</span>
+            </a>
+        <?php endif; ?>
     </div>
 </section>
 

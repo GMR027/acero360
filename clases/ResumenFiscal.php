@@ -196,6 +196,68 @@ class ResumenFiscal
     }
 
     /**
+     * Filtra las filas de movimientos() con los criterios de la pantalla.
+     *
+     * Acepta: tipo (Venta|Gasto), estado (pagado|pendiente), facturacion
+     * (facturada|pendiente; implica ventas) y q (folio, contraparte, negocio o
+     * detalle). No toca la base: se aplica sobre las filas ya leídas para que
+     * los totales y la exportación correspondan exactamente a lo visible.
+     */
+    private static function filtrarMovimientos(array $filas, array $filtros): array
+    {
+        $tipo = in_array($filtros['tipo'] ?? '', ['Venta', 'Gasto'], true) ? (string) $filtros['tipo'] : '';
+        $estado = in_array($filtros['estado'] ?? '', ['pagado', 'pendiente'], true) ? (string) $filtros['estado'] : '';
+        $facturacion = in_array($filtros['facturacion'] ?? '', ['facturada', 'pendiente'], true) ? (string) $filtros['facturacion'] : '';
+        $buscar = self::textoPlano((string) ($filtros['q'] ?? ''));
+
+        return array_values(array_filter($filas, static function (array $f) use ($tipo, $estado, $facturacion, $buscar): bool {
+            if ($tipo !== '' && $f['tipo'] !== $tipo) {
+                return false;
+            }
+
+            if ($facturacion !== '') {
+                if ($f['tipo'] !== 'Venta') {
+                    return false;
+                }
+                $esFacturada = ($f['facturacion'] ?? '') === 'facturada';
+                if (($facturacion === 'facturada') !== $esFacturada) {
+                    return false;
+                }
+            }
+
+            if ($estado !== '') {
+                $pagado = in_array($f['tipo'] === 'Venta' ? $f['cobro'] : $f['pago'], ['Pagada', 'Pagado'], true);
+                if (($estado === 'pagado') !== $pagado) {
+                    return false;
+                }
+            }
+
+            if ($buscar !== '') {
+                $texto = self::textoPlano(implode(' ', [
+                    (string) $f['referencia'], (string) $f['contraparte'],
+                    (string) $f['negocio'], (string) $f['detalle'],
+                ]));
+                if (!str_contains($texto, $buscar)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+    }
+
+    /** Minúsculas y sin acentos, para que «facturación» encuentre «facturacion». */
+    private static function textoPlano(string $texto): string
+    {
+        $texto = mb_strtolower(trim($texto));
+
+        return strtr($texto, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            'à' => 'a', 'è' => 'e', 'ì' => 'i', 'ò' => 'o', 'ù' => 'u',
+        ]);
+    }
+
+    /**
      * Todas las ventas y todos los gastos del periodo (ambos negocios), de la fecha más antigua a la más reciente.
      * $mes = 0 → el año completo. Solo lectura.
      * El «Detalle» de cada fila añade su estado: las ventas su cobro (Pagada · Pago parcial · Sin pagar) y los
@@ -205,7 +267,7 @@ class ResumenFiscal
      *
      * @return array{filas: array<int, array<string, mixed>>, totales: array<string, float>}
      */
-    public static function movimientos(int $contribuyente, int $anio, int $mes = 0): array
+    public static function movimientos(int $contribuyente, int $anio, int $mes = 0, array $filtros = []): array
     {
         $filtroMes = $mes > 0 ? ' AND MONTH(%s) = ' . (int) $mes : '';
 
@@ -221,7 +283,9 @@ class ResumenFiscal
                        '' AS pago,
                        '' AS metodo,
                        i.estado_facturacion AS facturacion,
-                       i.subtotal - i.descuento AS subtotal, i.iva AS iva, i.total AS total
+                       i.subtotal - i.descuento AS subtotal, i.iva AS iva, i.total AS total,
+                       i.id AS ingreso_id, i.venta_id AS venta_id, NULL AS gasto_id,
+                       0 AS de_compra
                   FROM ingresos i
                   JOIN clientes c ON c.id = i.cliente_id
                   JOIN empresas e ON e.id = i.empresa_id
@@ -232,7 +296,10 @@ class ResumenFiscal
                        COALESCE(k.nombre, 'Sin tipo'), '',
                        CASE g.estado_pago WHEN 'pagado' THEN 'Pagado' ELSE 'Por pagar' END,
                        COALESCE(g.metodo_pago_sat, ''),
-                       '', g.subtotal, g.iva, g.total
+                       '', g.subtotal, g.iva, g.total,
+                       NULL AS ingreso_id, NULL AS venta_id, g.id AS gasto_id,
+                       (SELECT COUNT(*) FROM ordenes_compra oc
+                         WHERE oc.gasto_id = g.id AND oc.estado <> 'cancelada') AS de_compra
                   FROM gastos g
                   LEFT JOIN empresas e ON e.id = g.empresa_id
                   LEFT JOIN categorias_gasto k ON k.id = g.categoria_id
@@ -243,6 +310,10 @@ class ResumenFiscal
         $consulta->execute();
         $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
         $consulta->close();
+
+        // Los filtros de la pantalla se aplican antes de sumar: el total que se
+        // muestra siempre corresponde a las filas visibles (y a su exportación).
+        $filas = self::filtrarMovimientos($filas, $filtros);
 
         $totales = ['ventas' => 0.0, 'ventas_facturadas' => 0.0, 'ventas_facturadas_pagadas' => 0.0, 'gastos' => 0.0,
             'gastos_pagados' => 0.0, 'iva_ventas' => 0.0, 'iva_gastos' => 0.0,
