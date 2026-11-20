@@ -87,9 +87,13 @@ try {
     const hoySeleccionado = await page.locator('.calendario__dia--seleccionado[aria-current="date"]').count();
     const columnasAgenda = (await page.locator('.agenda-tabla thead th').allTextContents()).map((x) => x.trim());
     prueba('el día de hoy viene seleccionado en el calendario', hoySeleccionado === 1, `calendario=${hoySeleccionado}`);
-    prueba('la Agenda es una tabla con las 8 columnas pedidas',
-        JSON.stringify(columnasAgenda) === JSON.stringify(['Fecha', 'Icono', 'Nombre del evento', 'Núm. venta', 'Proveedor',
-            'Gasto por pagar', 'Venta por cobrar', 'Acciones']), columnasAgenda.join(' | '));
+    // La tabla sólo se pinta si el mes tiene algo; su estructura se comprueba
+    // más abajo, cuando la prueba siembra operaciones.
+    if (columnasAgenda.length) {
+        prueba('la Agenda es una tabla con las 8 columnas pedidas',
+            JSON.stringify(columnasAgenda) === JSON.stringify(['Fecha', 'Icono', 'Nombre del evento', 'Núm. venta', 'Proveedor',
+                'Gasto por pagar', 'Venta por cobrar', 'Acciones']), columnasAgenda.join(' | '));
+    }
 
     /* ------------------------------------------- navegación por mes ------ */
     console.log('\nNavegación entre meses y años');
@@ -270,7 +274,7 @@ try {
     consulta("DELETE FROM ingresos WHERE folio = 'T CAL-M'");
     consulta("DELETE FROM recepciones WHERE token = MD5('T CAL marcador')");
     consulta("DELETE FROM ordenes_compra WHERE folio = 'T CAL-M'");
-    consulta("DELETE FROM gastos WHERE concepto = 'T Calendario gasto por pagar'");
+    consulta("DELETE FROM gastos WHERE concepto IN ('T Calendario gasto por pagar', 'T Calendario gasto antiguo')");
     consulta("DELETE FROM ventas WHERE folio = 'T CAL-M'");
     consulta("DELETE FROM proveedores WHERE nombre = 'T Calendario Proveedor'");
     consulta("DELETE FROM clientes WHERE nombre = 'T Calendario Cliente'");
@@ -297,6 +301,16 @@ try {
               VALUES (${contrib}, ${empresaMarc}, ${cliMarc}, '${hoyISO}', 'T CAL-M', 'T Calendario factura por cobrar',
                       1000, 1160, 'vigente', 'facturada')`);
     const ingresoMarc = Number(consulta("SELECT MAX(id) FROM ingresos"));
+
+    // Un gasto de otro día del mismo mes, para comprobar el orden de la Agenda
+    // (del más reciente al más antiguo). Si hoy es día 1, se usa el 2.
+    const diaOtro = hoy.getDate() > 1 ? 1 : 2;
+    const fechaOtro = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(diaOtro).padStart(2, '0')}`;
+    consulta(`INSERT INTO gastos (contribuyente_id, empresa_id, fecha, beneficiario, concepto, subtotal, total,
+                                  estado_pago, estado, usuario_id)
+              VALUES (${contrib}, ${empresaMarc}, '${fechaOtro}', 'T Calendario Proveedor', 'T Calendario gasto antiguo',
+                      100, 100, 'pendiente', 'vigente', ${usuarioMarc})`);
+    const gastoOtro = Number(consulta("SELECT MAX(id) FROM gastos"));
 
     await page.goto(`${BASE}/admin/calendario`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(400);
@@ -341,6 +355,30 @@ try {
         await filaVenta.count() === 1 && await filaGasto.count() === 1
         && await filaRecepcion.count() === 1 && await filaIngreso.count() === 1);
 
+    const encabezadosAgenda = (await page.locator('.agenda-tabla thead th').allTextContents()).map((x) => x.trim());
+    prueba('la Agenda es una tabla con las 8 columnas pedidas',
+        JSON.stringify(encabezadosAgenda) === JSON.stringify(['Fecha', 'Icono', 'Nombre del evento', 'Núm. venta', 'Proveedor',
+            'Gasto por pagar', 'Venta por cobrar', 'Acciones']), encabezadosAgenda.join(' | '));
+
+    // Orden de la Agenda: primero el día más reciente del mes.
+    const fechasOrden = await page.locator('.agenda-tabla tbody .agenda-tabla__fecha-texto').allTextContents();
+    const aDia = (texto) => {
+        const [d, m, a] = texto.trim().split('/').map(Number);
+        return new Date(a, m - 1, d).getTime();
+    };
+    const fechasOrdenadas = fechasOrden.map(aDia);
+    prueba('la Agenda va del día más reciente al más antiguo',
+        fechasOrdenadas.length >= 2 && fechasOrdenadas.every((v, i) => i === 0 || fechasOrdenadas[i - 1] >= v),
+        fechasOrden.join(' | '));
+    const dosDigitos = (n) => String(n).padStart(2, '0');
+    const hoyTexto = `${dosDigitos(hoy.getDate())}/${dosDigitos(hoy.getMonth() + 1)}`;
+    const otroTexto = `${dosDigitos(diaOtro)}/${dosDigitos(hoy.getMonth() + 1)}`;
+    const primero = diaOtro < hoy.getDate() ? hoyTexto : otroTexto;
+    const ultimo = diaOtro < hoy.getDate() ? otroTexto : hoyTexto;
+    prueba('el día más reciente encabeza la Agenda y el más antiguo queda al final',
+        fechasOrden[0].startsWith(primero) && fechasOrden[fechasOrden.length - 1].startsWith(ultimo),
+        fechasOrden.join(' | '));
+
     const celdasVenta = await celdas(filaVenta);
     prueba('la venta trae su número de venta', celdasVenta[3].trim() === 'T CAL-M', celdasVenta[3]);
     prueba('la venta no inventa gasto por pagar', celdasVenta[5].trim() === '—', celdasVenta[5]);
@@ -381,6 +419,7 @@ try {
     consulta(`DELETE FROM ordenes_compra WHERE id = ${ordenMarc}`);
     consulta(`DELETE FROM ingresos WHERE id = ${ingresoMarc}`);
     consulta(`DELETE FROM gastos WHERE id = ${gastoMarc}`);
+    consulta(`DELETE FROM gastos WHERE id = ${gastoOtro}`);
     consulta(`DELETE FROM ventas WHERE id = ${ventaMarc}`);
     consulta(`DELETE FROM proveedores WHERE id = ${provMarc}`);
     consulta(`DELETE FROM clientes WHERE id = ${cliMarc}`);

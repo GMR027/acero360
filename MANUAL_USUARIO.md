@@ -472,7 +472,7 @@ Un calendario del mes que junta dos cosas: lo que pasó en tus negocios cada dí
 
 ### La Agenda del mes
 
-1. Debajo del calendario está la «Agenda»: una TABLA con una fila por cada operación y cada recordatorio, en orden de fecha. Las columnas son Fecha, Icono, Nombre del evento, Núm. venta, Proveedor, Gasto por pagar, Venta por cobrar y Acciones.
+1. Debajo del calendario está la «Agenda»: una TABLA con una fila por cada operación y cada recordatorio, del día más reciente al más antiguo del mes. Las columnas son Fecha, Icono, Nombre del evento, Núm. venta, Proveedor, Gasto por pagar, Venta por cobrar y Acciones.
 2. Cada fila es una sola operación: una venta, un gasto, una recepción de proveedor, una entrada de proveedor, un ingreso sin venta o un recordatorio. Las columnas que no aplican muestran «—»; «Gasto por pagar» y «Venta por cobrar» traen el saldo pendiente cuando la operación lo tiene.
 3. Sólo aparecen las operaciones y los recordatorios del mes elegido.
 

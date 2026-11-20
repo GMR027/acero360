@@ -20,11 +20,11 @@
  *
  * VER: la Agenda del mes es una TABLA con una fila por cada operación listada
  * (venta, gasto, recepción de proveedor, entrada de proveedor o ingreso sin
- * venta) y por cada recordatorio. Las columnas «Gasto por pagar» y «Venta por
- * cobrar» muestran el saldo pendiente de la operación cuando lo tiene. El
- * botón «Ver» de una operación abre el detalle de su módulo; el de un
- * recordatorio abre su ficha en modal. Los datos del recordatorio viajan en el
- * atributo data-evento del propio botón.
+ * venta) y por cada recordatorio, del día más reciente al más antiguo del mes.
+ * Las columnas «Gasto por pagar» y «Venta por cobrar» muestran el saldo
+ * pendiente de la operación cuando lo tiene. El botón «Ver» de una operación
+ * abre el detalle de su módulo; el de un recordatorio abre su ficha en modal.
+ * Los datos del recordatorio viajan en el atributo data-evento del propio botón.
  *
  * El alta se envía a /admin/calendario/crear (sólo POST); aquí sólo se lee.
  * Ruta protegida por el middleware "soloAdmin".
@@ -345,14 +345,15 @@ template('header', [
     <div class="calendario-agenda__cabecera">
         <h2 class="titulo-4">Agenda de <?= escaparValores(nombreMes($mes)) ?> de <?= $anio ?></h2>
         <p class="texto-secundario">
-            Una fila por cada operación y cada recordatorio, en orden de fecha.
-            «Ver» abre el detalle del módulo correspondiente.
+            Una fila por cada operación y cada recordatorio, del más reciente al
+            más antiguo del mes. «Ver» abre el detalle del módulo correspondiente.
         </p>
     </div>
 
     <?php
-    // Operaciones del negocio (una fila por cada una) y recordatorios, en orden
-    // de fecha. Las operaciones ya vienen ordenadas por fecha y tipo.
+    // Operaciones del negocio (una fila por cada una) y recordatorios, del día
+    // más reciente al más antiguo del mes. Dentro de cada día las operaciones
+    // conservan el orden de la leyenda (venta, gasto, recepción…).
     $operacionesMes = \App\EventosCalendario::operacionesMes($anio, $mes);
     $operacionesPorFecha = [];
     foreach ($operacionesMes as $operacion) {
@@ -360,7 +361,7 @@ template('header', [
     }
 
     $fechasAgenda = array_unique(array_merge(array_keys($operacionesPorFecha), array_keys($porDia)));
-    sort($fechasAgenda);
+    rsort($fechasAgenda);
 
     $filasAgenda = [];
     foreach ($fechasAgenda as $fechaDia) {
