@@ -535,7 +535,7 @@
             papel: $('rd-papel').value, orientacion: $('rd-orient').value,
             sup: num('rd-m-sup'), inf: num('rd-m-inf'), izq: num('rd-m-izq'), der: num('rd-m-der'),
             numerar: $('rd-numerar').checked, numPosicion: ($('rd-x-num-pos') || {}).value || 'pie_centro',
-            encabezado: $('rd-encabezado').checked, idioma: $('rd-idioma').value
+            idioma: $('rd-idioma').value
         };
     }
     function num(id) { var v = parseFloat(String($(id).value).replace(',', '.')); return isFinite(v) ? Math.max(0, Math.min(8, v)) : 2.54; }
@@ -559,30 +559,91 @@
             if (libre > 0) sl[i].style.height = libre + 'px';
         }
     }
-    /** Configuración del membrete guardada en el panel de Diseño. */
-    function leerMembrete(slot) {
-        var img = $('rd-x-' + slot + '-img'), op = $('rd-x-' + slot + '-op'), ancho = $('rd-x-' + slot + '-ancho'), x = $('rd-x-' + slot + '-x'), y = $('rd-x-' + slot + '-y');
-        var num = function (e, def, min, max) { var v = e ? parseFloat(String(e.value).replace(',', '.')) : def; return isFinite(v) ? Math.max(min, Math.min(max, v)) : def; };
+    /** Lee un bloque (encabezado o pie) del panel de membrete. */
+    function leerBloqueMembrete(slot) {
+        var id = function (sufijo) { var e = $('rd-mb-' + slot + '-' + sufijo); return e ? e.value : ''; };
+        var marcado = function (sufijo) { var e = $('rd-mb-' + slot + '-' + sufijo); return e && e.checked ? 1 : 0; };
+        var numero = function (el, def, min, max) { var v = el ? parseFloat(String(el.value).replace(',', '.')) : def; return isFinite(v) ? Math.max(min, Math.min(max, v)) : def; };
+        var img = $('rd-x-' + slot + '-img'), op = $('rd-x-' + slot + '-op'), ancho = $('rd-x-' + slot + '-ancho');
         return {
-            src: img && img.value ? '/public/uploads/vplan/' + img.value : '',
-            opacidad: num(op, 100, 0, 100),
-            ancho: num(ancho, 5, 0.5, 100),
-            x: num(x, 0, 0, 100),
-            y: num(y, 0, 0, 100)
+            activo: marcado('activo'),
+            disposicion: id('dispo') || 'logo_izq',
+            alineacion: id('alin') || 'izq',
+            logo_imagen: img ? img.value : '',
+            logo_opacidad: numero(op, 100, 0, 100),
+            logo_ancho: numero(ancho, 3, 0.5, 24),
+            titulo_texto: id('titulo'),
+            titulo_tamano: numero($('rd-mb-' + slot + '-titulo-tam'), 14, 5, 72),
+            titulo_color: id('titulo-color') || '#1e293b',
+            titulo_negrita: marcado('titulo-negrita'),
+            titulo_cursiva: marcado('titulo-cursiva'),
+            subtitulo_texto: id('sub'),
+            subtitulo_tamano: numero($('rd-mb-' + slot + '-sub-tam'), 9.5, 5, 72),
+            subtitulo_color: id('sub-color') || '#64748b',
+            subtitulo_negrita: marcado('sub-negrita'),
+            subtitulo_cursiva: marcado('sub-cursiva')
         };
     }
-    /** Pinta las imágenes del membrete detrás del texto, una vez por página. */
+    /** Lee la marca de agua del panel. */
+    function leerMarcaMembrete() {
+        var val = function (id) { var e = $(id); return e ? e.value : ''; };
+        var numero = function (id, def, min, max) { var e = $(id); var v = e ? parseFloat(String(e.value).replace(',', '.')) : def; return isFinite(v) ? Math.max(min, Math.min(max, v)) : def; };
+        return {
+            activo: $('rd-x-marca-activo') && $('rd-x-marca-activo').checked ? 1 : 0,
+            texto: val('rd-x-marca'),
+            color: val('rd-x-marca-color') || '#cbd5e1',
+            opacidad: numero('rd-x-marca-op', 25, 0, 100),
+            tamano: numero('rd-x-marca-tam', 90, 24, 220),
+            angulo: numero('rd-x-marca-ang', -45, -90, 90)
+        };
+    }
+    /** Todo el diseño del membrete, tal como se guarda en la base. */
+    function leerMembrete() {
+        return { encabezado: leerBloqueMembrete('enc'), pie: leerBloqueMembrete('pie'), marca: leerMarcaMembrete() };
+    }
+    /** Sustituye los datos del documento en los textos del membrete. */
+    function textoMembrete(t) {
+        var fecha = $('rd-fecha') ? $('rd-fecha').value : '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) fecha = fecha.slice(8, 10) + '/' + fecha.slice(5, 7) + '/' + fecha.slice(0, 4);
+        return String(t || '')
+            .replace(/\{nombre\}/g, $('rd-nombre') ? $('rd-nombre').value : '')
+            .replace(/\{departamento\}/g, $('rd-depto') ? $('rd-depto').value : '')
+            .replace(/\{fecha\}/g, fecha);
+    }
+    /** HTML de un bloque del membrete para la vista previa de la hoja. */
+    function htmlBloqueMembrete(b) {
+        if (!b.activo) return '';
+        var align = b.alineacion === 'centro' ? 'center' : (b.alineacion === 'der' ? 'right' : 'left');
+        var margen = align === 'center' ? '0 auto' : (align === 'right' ? '0 0 0 auto' : '0');
+        var logo = b.logo_imagen
+            ? '<img class="rd-mb-logo-img" src="/public/uploads/vplan/' + esc(b.logo_imagen) + '" alt="" style="width:' + (b.logo_ancho * CM) + 'px;opacity:' + (b.logo_opacidad / 100) + ';margin:' + margen + '">'
+            : '';
+        var linea = function (texto, tam, color, negrita, cursiva) {
+            if (!texto) return '';
+            return '<div class="rd-mb-linea" style="font-size:' + tam + 'pt;color:' + esc(color) + ';font-weight:' + (negrita ? '700' : '400') + ';font-style:' + (cursiva ? 'italic' : 'normal') + '">' + esc(textoMembrete(texto)) + '</div>';
+        };
+        var textos = linea(b.titulo_texto, b.titulo_tamano, b.titulo_color, b.titulo_negrita, b.titulo_cursiva)
+            + linea(b.subtitulo_texto, b.subtitulo_tamano, b.subtitulo_color, b.subtitulo_negrita, b.subtitulo_cursiva);
+        if (!logo && !textos) return '';
+        var bloqueTexto = '<div class="rd-mb-textos" style="text-align:' + align + '">' + textos + '</div>';
+        if (b.disposicion === 'logo_arriba') return '<div class="rd-mb-contenido rd-mb-contenido--arriba" style="text-align:' + align + '">' + logo + bloqueTexto + '</div>';
+        if (b.disposicion === 'solo_texto') return bloqueTexto;
+        if (b.disposicion === 'logo_der') return '<div class="rd-mb-contenido rd-mb-contenido--fila" style="justify-content:flex-end">' + bloqueTexto + logo + '</div>';
+        return '<div class="rd-mb-contenido rd-mb-contenido--fila">' + logo + bloqueTexto + '</div>';
+    }
+    /** Pinta los bloques de encabezado y pie en cada página de la hoja. */
     function dibujarMembrete(n) {
-        if (!capaMembrete) return;
-        var bloques = [leerMembrete('enc'), leerMembrete('pie')].filter(function (m) { return m.src; }), h = '';
-        bloques.forEach(function (m) {
-            for (var i = 0; i < n; i++) {
-                h += '<img class="rd-membrete-img" src="' + esc(m.src) + '" alt="" style="left:' + (m.x * CM) + 'px;top:' + (i * medidas.h + m.y * CM) + 'px;width:' + (m.ancho * CM) + 'px;opacity:' + (m.opacidad / 100) + '">';
-            }
-        });
+        if (!capaMembrete || !medidas) return;
+        var enc = leerBloqueMembrete('enc'), pie = leerBloqueMembrete('pie'), h = '';
+        for (var i = 0; i < n; i++) {
+            h += '<div class="rd-mb-pagina" style="top:' + (i * medidas.h) + 'px;height:' + medidas.h + 'px">';
+            if (enc.activo) h += '<div class="rd-mb-zona rd-mb-zona--enc" style="left:' + medidas.izq + 'px;right:' + medidas.der + 'px;top:8px">' + htmlBloqueMembrete(enc) + '</div>';
+            if (pie.activo) h += '<div class="rd-mb-zona rd-mb-zona--pie" style="left:' + medidas.izq + 'px;right:' + medidas.der + 'px;bottom:8px">' + htmlBloqueMembrete(pie) + '</div>';
+            h += '</div>';
+        }
         capaMembrete.innerHTML = h;
         capaMembrete.style.height = (n * medidas.h) + 'px';
-        pagina.classList.toggle('rd-con-membrete', bloques.length > 0);
+        pagina.classList.toggle('rd-con-membrete', !!(enc.activo || pie.activo));
     }
     function dibujarGuias() {
         if (!medidas) return;
@@ -602,8 +663,14 @@
                 h += '<div class="rd-num" style="' + estiloNum + '">Página ' + i + ' de ' + n + '</div>';
             }
         }
-        var marca = $('rd-x-marca') ? $('rd-x-marca').value.trim() : '';
-        if (marca) for (i = 0; i < n; i++) h += '<div class="rd-marca-txt" style="top:' + (i * medidas.h) + 'px;height:' + medidas.h + 'px"><span>' + esc(marca) + '</span></div>';
+        var marca = leerMarcaMembrete();
+        if (marca.activo && marca.texto) {
+            for (i = 0; i < n; i++) {
+                h += '<div class="rd-marca-txt" style="top:' + (i * medidas.h) + 'px;height:' + medidas.h + 'px">'
+                    + '<span style="font-size:' + marca.tamano + 'pt;color:' + esc(marca.color) + ';opacity:' + (marca.opacidad / 100) + ';transform:rotate(' + marca.angulo + 'deg)">'
+                    + esc(marca.texto) + '</span></div>';
+            }
+        }
         guias.innerHTML = h;
         guias.style.height = (n * medidas.h) + 'px';
         dibujarMembrete(n);
@@ -614,7 +681,7 @@
     function contarPalabras() { var t = hoja.innerText.trim(); return t ? t.split(/\s+/).length : 0; }
     var tDiseno = null;
     function planificarDiseno() { clearTimeout(tDiseno); tDiseno = setTimeout(dibujarGuias, 250); }
-    ['rd-papel', 'rd-orient', 'rd-m-sup', 'rd-m-inf', 'rd-m-izq', 'rd-m-der', 'rd-numerar', 'rd-encabezado'].forEach(function (id) {
+    ['rd-papel', 'rd-orient', 'rd-m-sup', 'rd-m-inf', 'rd-m-izq', 'rd-m-der', 'rd-numerar'].forEach(function (id) {
         $(id).addEventListener('input', function () { if (/^rd-m-/.test(id)) $('rd-margen-pre').value = ''; aplicarPagina(); marcarSucio(); });
     });
     /** Las tres casillas de numeración (Diseño, Encabezado y Imprimir) son la misma opción. */
@@ -643,16 +710,26 @@
         fd.append('comentarios', JSON.stringify(comentarios)); if (rastrear) fd.append('rastrear', '1');
         fd.append('idioma', a.idioma); fd.append('papel', a.papel); fd.append('orientacion', a.orientacion);
         fd.append('margen_sup', a.sup); fd.append('margen_inf', a.inf); fd.append('margen_izq', a.izq); fd.append('margen_der', a.der);
-        if (a.numerar) fd.append('numerar', '1'); if (a.encabezado) fd.append('encabezado', '1');
+        if (a.numerar) fd.append('numerar', '1');
         fd.append('num_posicion', a.numPosicion || 'pie_centro');
-        ['marca', 'enc', 'pie'].forEach(function (k) { var e = $('rd-x-' + k); if (e) fd.append({ marca: 'marca_agua', enc: 'encabezado_texto', pie: 'pie_texto' }[k], e.value); });
-        ['enc', 'pie'].forEach(function (slot) {
-            var base = slot === 'enc' ? 'imagen_encabezado' : 'imagen_pie';
-            [['-img', ''], ['-op', '_opacidad'], ['-x', '_x'], ['-y', '_y'], ['-ancho', '_ancho']].forEach(function (par) {
-                var e = $('rd-x-' + slot + par[0]);
-                if (e) fd.append(base + par[1], e.value);
-            });
-        });
+        /* Diseño por bloques (la fuente de verdad) + columnas antiguas para
+           que un documento abierto por una versión anterior se vea igual. */
+        var diseno = leerMembrete();
+        fd.append('membrete', JSON.stringify(diseno));
+        fd.append('encabezado_texto', diseno.encabezado.titulo_texto);
+        fd.append('pie_texto', diseno.pie.titulo_texto);
+        fd.append('marca_agua', diseno.marca.activo ? diseno.marca.texto : '');
+        fd.append('imagen_encabezado', diseno.encabezado.logo_imagen);
+        fd.append('imagen_encabezado_opacidad', diseno.encabezado.logo_opacidad);
+        fd.append('imagen_encabezado_ancho', diseno.encabezado.logo_ancho);
+        fd.append('imagen_encabezado_x', 0);
+        fd.append('imagen_encabezado_y', 0);
+        fd.append('imagen_pie', diseno.pie.logo_imagen);
+        fd.append('imagen_pie_opacidad', diseno.pie.logo_opacidad);
+        fd.append('imagen_pie_ancho', diseno.pie.logo_ancho);
+        fd.append('imagen_pie_x', 0);
+        fd.append('imagen_pie_y', 0);
+        if (diseno.encabezado.activo) fd.append('encabezado', '1');
         if (etiquetaVersion) { fd.append('version_etiqueta', etiquetaVersion); etiquetaVersion = ''; }
         if (imgSel) imgSel.classList.remove('rd-sel');
         var copia = hoja.cloneNode(true);
@@ -1303,7 +1380,7 @@
     // ---------- Pestañas de la barra ----------
     function sincronizarImpresion() {
         [['rd-pr-papel', 'rd-papel'], ['rd-pr-orient', 'rd-orient'], ['rd-pr-margen', 'rd-margen-pre'],
-         ['rd-pr-numerar', 'rd-numerar'], ['rd-pr-encabezado', 'rd-encabezado']].forEach(function (par) {
+         ['rd-pr-numerar', 'rd-numerar']].forEach(function (par) {
             var p = $(par[0]), o = $(par[1]);
             if (!p || !o) return;
             if (p.type === 'checkbox') p.checked = o.checked; else p.value = o.value;
@@ -1317,7 +1394,7 @@
         o.dispatchEvent(new Event('change', { bubbles: true }));
     }
     [['rd-pr-papel', 'rd-papel'], ['rd-pr-orient', 'rd-orient'], ['rd-pr-margen', 'rd-margen-pre'],
-     ['rd-pr-numerar', 'rd-numerar'], ['rd-pr-encabezado', 'rd-encabezado']].forEach(function (par) {
+     ['rd-pr-numerar', 'rd-numerar']].forEach(function (par) {
         var e = $(par[0]);
         if (e) e.addEventListener('change', function () { aplicarImpresion(par); sincronizarImpresion(); });
     });

@@ -54,6 +54,7 @@ $nuevo = new \Model\RedactorDocumento([
     'marca_agua'       => $_POST['marca_agua'] ?? $documento->marca_agua,
     'encabezado_texto' => $_POST['encabezado_texto'] ?? $documento->encabezado_texto,
     'pie_texto'        => $_POST['pie_texto'] ?? $documento->pie_texto,
+    'membrete'         => $_POST['membrete'] ?? $documento->membrete,
     'imagen_encabezado' => $_POST['imagen_encabezado'] ?? $documento->imagen_encabezado,
     'imagen_encabezado_opacidad' => $_POST['imagen_encabezado_opacidad'] ?? $documento->imagen_encabezado_opacidad,
     'imagen_encabezado_x' => $_POST['imagen_encabezado_x'] ?? $documento->imagen_encabezado_x,

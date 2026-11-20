@@ -14,10 +14,10 @@ use Classes\Imagenes;
 class RedactorDocumento extends ActiveRecord
 {
     protected static $tabla = 'redactor_documentos';
-    protected static $columnasDB = ['id', 'nombre', 'fecha', 'departamento', 'idioma', 'papel', 'orientacion', 'margen_sup', 'margen_inf', 'margen_izq', 'margen_der', 'numerar', 'num_posicion', 'encabezado', 'rastrear', 'marca_agua', 'encabezado_texto', 'pie_texto', 'imagen_encabezado', 'imagen_encabezado_opacidad', 'imagen_encabezado_x', 'imagen_encabezado_y', 'imagen_encabezado_ancho', 'imagen_pie', 'imagen_pie_opacidad', 'imagen_pie_x', 'imagen_pie_y', 'imagen_pie_ancho', 'contenido', 'comentarios', 'creado_por'];
+    protected static $columnasDB = ['id', 'nombre', 'fecha', 'departamento', 'idioma', 'papel', 'orientacion', 'margen_sup', 'margen_inf', 'margen_izq', 'margen_der', 'numerar', 'num_posicion', 'encabezado', 'rastrear', 'marca_agua', 'encabezado_texto', 'pie_texto', 'membrete', 'imagen_encabezado', 'imagen_encabezado_opacidad', 'imagen_encabezado_x', 'imagen_encabezado_y', 'imagen_encabezado_ancho', 'imagen_pie', 'imagen_pie_opacidad', 'imagen_pie_x', 'imagen_pie_y', 'imagen_pie_ancho', 'contenido', 'comentarios', 'creado_por'];
 
     public $id, $nombre, $fecha, $departamento, $idioma, $papel, $orientacion;
-    public $margen_sup, $margen_inf, $margen_izq, $margen_der, $numerar, $num_posicion, $encabezado, $rastrear, $marca_agua, $encabezado_texto, $pie_texto;
+    public $margen_sup, $margen_inf, $margen_izq, $margen_der, $numerar, $num_posicion, $encabezado, $rastrear, $marca_agua, $encabezado_texto, $pie_texto, $membrete;
     public $imagen_encabezado, $imagen_encabezado_opacidad, $imagen_encabezado_x, $imagen_encabezado_y, $imagen_encabezado_ancho;
     public $imagen_pie, $imagen_pie_opacidad, $imagen_pie_x, $imagen_pie_y, $imagen_pie_ancho;
     public $contenido, $comentarios, $creado_por;
@@ -31,6 +31,71 @@ class RedactorDocumento extends ActiveRecord
         'enc_izq' => 'Encabezado · izquierda',
         'enc_centro' => 'Encabezado · centro',
         'enc_der' => 'Encabezado · derecha',
+    ];
+
+    /**
+     * Diseño del membrete por bloques. Cada zona (encabezado/pie) lleva su
+     * logo, título y subencabezado; la marca de agua es independiente.
+     * El color y los tamaños se guardan como datos, nunca como HTML.
+     */
+    public const MEMBRETE_DEFECTO = [
+        'encabezado' => [
+            'activo'           => 0,
+            'disposicion'      => 'logo_izq',   // logo_izq | logo_arriba | logo_der | solo_texto
+            'alineacion'       => 'izq',        // izq | centro | der
+            'logo_imagen'      => '',
+            'logo_opacidad'    => 100,
+            'logo_ancho'       => 3.0,
+            'titulo_texto'     => '',
+            'titulo_tamano'    => 14.0,
+            'titulo_color'     => '#1e293b',
+            'titulo_negrita'   => 1,
+            'titulo_cursiva'   => 0,
+            'subtitulo_texto'  => '',
+            'subtitulo_tamano' => 9.5,
+            'subtitulo_color'  => '#64748b',
+            'subtitulo_negrita'=> 0,
+            'subtitulo_cursiva'=> 0,
+        ],
+        'pie' => [
+            'activo'           => 0,
+            'disposicion'      => 'logo_izq',
+            'alineacion'       => 'izq',
+            'logo_imagen'      => '',
+            'logo_opacidad'    => 100,
+            'logo_ancho'       => 3.0,
+            'titulo_texto'     => '',
+            'titulo_tamano'    => 9.5,
+            'titulo_color'     => '#475569',
+            'titulo_negrita'   => 0,
+            'titulo_cursiva'   => 0,
+            'subtitulo_texto'  => '',
+            'subtitulo_tamano' => 8.0,
+            'subtitulo_color'  => '#94a3b8',
+            'subtitulo_negrita'=> 0,
+            'subtitulo_cursiva'=> 0,
+        ],
+        'marca' => [
+            'activo'   => 0,
+            'texto'    => '',
+            'color'    => '#cbd5e1',
+            'opacidad' => 25,
+            'tamano'   => 90.0,
+            'angulo'   => -45,
+        ],
+    ];
+
+    public const DISPOSICIONES_MEMBRETE = [
+        'logo_izq'    => 'Logo a la izquierda',
+        'logo_arriba' => 'Logo arriba',
+        'logo_der'    => 'Logo a la derecha',
+        'solo_texto'  => 'Solo texto',
+    ];
+
+    public const ALINEACIONES_MEMBRETE = [
+        'izq'    => 'Izquierda',
+        'centro' => 'Centrada',
+        'der'    => 'Derecha',
     ];
 
     /** Papeles [clave => [etiqueta, ancho cm, alto cm]] (vertical) */
@@ -61,6 +126,17 @@ class RedactorDocumento extends ActiveRecord
         $this->marca_agua = mb_substr(trim(preg_replace('/[<>"\x00-\x1f]/u', '', (string)($args['marca_agua'] ?? ''))), 0, 40);
         $this->encabezado_texto = mb_substr(trim(preg_replace('/[<>"\x00-\x1f]/u', '', (string)($args['encabezado_texto'] ?? ''))), 0, 200);
         $this->pie_texto = mb_substr(trim(preg_replace('/[<>"\x00-\x1f]/u', '', (string)($args['pie_texto'] ?? ''))), 0, 200);
+        $membrete = $args['membrete'] ?? '';
+        if (is_array($membrete)) {
+            $this->membrete = json_encode(self::normalizarMembrete($membrete), JSON_UNESCAPED_UNICODE);
+        } elseif (trim((string) $membrete) !== '') {
+            $datos = json_decode((string) $membrete, true);
+            $this->membrete = is_array($datos)
+                ? json_encode(self::normalizarMembrete($datos), JSON_UNESCAPED_UNICODE)
+                : '';
+        } else {
+            $this->membrete = '';
+        }
         foreach (['encabezado', 'pie'] as $slot) {
             $base = 'imagen_' . $slot;
             $this->{$base} = self::nombreImagen($args[$base] ?? '');
@@ -93,6 +169,125 @@ class RedactorDocumento extends ActiveRecord
     {
         $n = basename(trim((string) $v));
         return preg_match('/^[a-f0-9]{32}\.(?:png|jpg)$/', $n) ? $n : '';
+    }
+
+    /** Texto de una línea del membrete, sin etiquetas ni controles. */
+    private static function textoMembrete($v, int $max): string
+    {
+        $t = preg_replace('/[<>"\x00-\x1f]/u', '', strip_tags((string) $v));
+        return mb_substr(trim((string) $t), 0, $max);
+    }
+
+    /** Color #rrggbb del membrete (si no es válido, el color de respaldo). */
+    private static function colorMembrete($v, string $defecto): string
+    {
+        $c = strtolower(trim((string) $v));
+        return preg_match('/^#[0-9a-f]{6}$/', $c) ? $c : $defecto;
+    }
+
+    /**
+     * Convierte cualquier entrada (JSON, array o texto vacío) en el diseño de
+     * membrete saneado. Sirve tanto al guardar como al leer de la base.
+     */
+    public static function normalizarMembrete($valor): array
+    {
+        $datos = is_array($valor) ? $valor : json_decode((string) $valor, true);
+        if (!is_array($datos)) $datos = [];
+
+        $out = self::MEMBRETE_DEFECTO;
+        foreach (['encabezado', 'pie'] as $slot) {
+            $b = is_array($datos[$slot] ?? null) ? $datos[$slot] : [];
+            $def = self::MEMBRETE_DEFECTO[$slot];
+            $out[$slot]['activo'] = !empty($b['activo']) ? 1 : 0;
+            $out[$slot]['disposicion'] = isset(self::DISPOSICIONES_MEMBRETE[$b['disposicion'] ?? ''])
+                ? $b['disposicion'] : $def['disposicion'];
+            $out[$slot]['alineacion'] = isset(self::ALINEACIONES_MEMBRETE[$b['alineacion'] ?? ''])
+                ? $b['alineacion'] : $def['alineacion'];
+            $out[$slot]['logo_imagen'] = self::nombreImagen($b['logo_imagen'] ?? '');
+            $out[$slot]['logo_opacidad'] = (int) max(0, min(100, (int) ($b['logo_opacidad'] ?? $def['logo_opacidad'])));
+            $out[$slot]['logo_ancho'] = self::decimal($b['logo_ancho'] ?? $def['logo_ancho'], $def['logo_ancho'], 0.5, 24);
+            foreach (['titulo', 'subtitulo'] as $linea) {
+                $out[$slot][$linea . '_texto'] = self::textoMembrete($b[$linea . '_texto'] ?? '', 200);
+                $out[$slot][$linea . '_tamano'] = self::decimal(
+                    $b[$linea . '_tamano'] ?? $def[$linea . '_tamano'],
+                    $def[$linea . '_tamano'], 5, 72
+                );
+                $out[$slot][$linea . '_color'] = self::colorMembrete(
+                    $b[$linea . '_color'] ?? $def[$linea . '_color'],
+                    $def[$linea . '_color']
+                );
+                $out[$slot][$linea . '_negrita'] = !empty($b[$linea . '_negrita']) ? 1 : 0;
+                $out[$slot][$linea . '_cursiva'] = !empty($b[$linea . '_cursiva']) ? 1 : 0;
+            }
+        }
+
+        $m = is_array($datos['marca'] ?? null) ? $datos['marca'] : [];
+        $def = self::MEMBRETE_DEFECTO['marca'];
+        $out['marca']['activo'] = !empty($m['activo']) ? 1 : 0;
+        $out['marca']['texto'] = self::textoMembrete($m['texto'] ?? '', 40);
+        $out['marca']['color'] = self::colorMembrete($m['color'] ?? $def['color'], $def['color']);
+        $out['marca']['opacidad'] = (int) max(0, min(100, (int) ($m['opacidad'] ?? $def['opacidad'])));
+        $out['marca']['tamano'] = self::decimal($m['tamano'] ?? $def['tamano'], $def['tamano'], 24, 220);
+        $out['marca']['angulo'] = (int) max(-90, min(90, (int) ($m['angulo'] ?? $def['angulo'])));
+
+        return $out;
+    }
+
+    /**
+     * Diseño del membrete listo para pintar. Si el documento es anterior a
+     * los bloques, se construye a partir de los campos antiguos para que al
+     * abrirlo el usuario vea su encabezado y su pie ya colocados.
+     */
+    public function membreteDiseno(): array
+    {
+        $raw = trim((string) ($this->membrete ?? ''));
+        if ($raw !== '') {
+            $datos = json_decode($raw, true);
+            if (is_array($datos)) return self::normalizarMembrete($datos);
+        }
+
+        $out = self::MEMBRETE_DEFECTO;
+        $fecha = date('d/m/Y', strtotime((string) $this->fecha));
+        $automatico = trim($this->nombre . ($this->departamento !== '' ? ' · ' . $this->departamento : '') . ' · ' . $fecha);
+
+        $encTitulo = trim((string) $this->encabezado_texto);
+        if ($encTitulo === '' && !empty($this->encabezado)) $encTitulo = $automatico;
+        $logoEnc = self::nombreImagen($this->imagen_encabezado);
+        $out['encabezado'] = array_merge($out['encabezado'], [
+            'activo'        => ($encTitulo !== '' || $logoEnc !== '') ? 1 : 0,
+            'logo_imagen'   => $logoEnc,
+            'logo_opacidad' => (int) $this->imagen_encabezado_opacidad,
+            'logo_ancho'    => (float) $this->imagen_encabezado_ancho,
+            'titulo_texto'  => mb_substr($encTitulo, 0, 200),
+        ]);
+
+        $logoPie = self::nombreImagen($this->imagen_pie);
+        $out['pie'] = array_merge($out['pie'], [
+            'activo'        => (trim((string) $this->pie_texto) !== '' || $logoPie !== '') ? 1 : 0,
+            'logo_imagen'   => $logoPie,
+            'logo_opacidad' => (int) $this->imagen_pie_opacidad,
+            'logo_ancho'    => (float) $this->imagen_pie_ancho,
+            'titulo_texto'  => mb_substr(trim((string) $this->pie_texto), 0, 200),
+        ]);
+
+        if (trim((string) $this->marca_agua) !== '') {
+            $out['marca'] = array_merge($out['marca'], [
+                'activo' => 1,
+                'texto'  => mb_substr(trim((string) $this->marca_agua), 0, 40),
+            ]);
+        }
+
+        return self::normalizarMembrete($out);
+    }
+
+    /** Sustituye {nombre}, {departamento} y {fecha} en un texto del membrete. */
+    public function textoMembreteResuelto(string $texto): string
+    {
+        return strtr($texto, [
+            '{nombre}'       => (string) $this->nombre,
+            '{departamento}' => (string) $this->departamento,
+            '{fecha}'        => date('d/m/Y', strtotime((string) $this->fecha)),
+        ]);
     }
 
     /** Texto que va en la numeración de páginas. */
@@ -166,10 +361,13 @@ class RedactorDocumento extends ActiveRecord
     /** Imágenes de encabezado/pie que usa el documento (nombres en vplan). */
     public function imagenesMembrete(): array
     {
-        return array_values(array_filter([
+        $diseno = $this->membreteDiseno();
+        return array_values(array_unique(array_filter([
             self::nombreImagen($this->imagen_encabezado),
             self::nombreImagen($this->imagen_pie),
-        ]));
+            $diseno['encabezado']['logo_imagen'] ?? '',
+            $diseno['pie']['logo_imagen'] ?? '',
+        ])));
     }
 
     /** Todas las imágenes propias del documento: contenido y membrete. */
@@ -188,12 +386,19 @@ class RedactorDocumento extends ActiveRecord
     private static function imagenesDeOtros(int $excluir): array
     {
         $out = [];
-        $r = self::$db->query("SELECT contenido, imagen_encabezado, imagen_pie FROM redactor_documentos WHERE id <> $excluir");
+        $r = self::$db->query("SELECT contenido, imagen_encabezado, imagen_pie, membrete FROM redactor_documentos WHERE id <> $excluir");
         while ($r && ($f = $r->fetch_assoc())) {
             $out = array_merge($out, self::imagenesDe($f['contenido']));
             foreach (['imagen_encabezado', 'imagen_pie'] as $campo) {
                 $n = self::nombreImagen($f[$campo] ?? '');
                 if ($n !== '') $out[] = $n;
+            }
+            $diseno = json_decode((string) ($f['membrete'] ?? ''), true);
+            if (is_array($diseno)) {
+                foreach (['encabezado', 'pie'] as $slot) {
+                    $n = self::nombreImagen($diseno[$slot]['logo_imagen'] ?? '');
+                    if ($n !== '') $out[] = $n;
+                }
             }
         }
         return array_values(array_unique($out));

@@ -4,7 +4,8 @@
  *
  * Rutas que llegan por POST (con el _csrf que inyecta la aplicación):
  *   /admin/archivo/crear-carpeta      → crea una carpeta y entra en ella
- *   /admin/archivo/renombrar-carpeta  → cambia el nombre (JSON, es un <dialog>)
+ *   /admin/archivo/editar-carpeta     → nombre, color e icono (JSON)
+ *   /admin/archivo/renombrar-carpeta  → cambia el nombre (JSON, API antigua)
  *   /admin/archivo/eliminar-carpeta   → la borra; el contenido pasa al padre
  *   /admin/archivo/mover              → mueve un archivo de sitio (JSON)
  *   /admin/archivo/eliminar-archivo   → borra el registro y los bytes
@@ -35,9 +36,11 @@ if ($accion === 'crear-carpeta') {
     $nombre  = ArchivoCarpeta::limpiarNombre($_POST['nombre'] ?? '');
 
     $carpeta = new ArchivoCarpeta([
-        'nombre'          => $nombre,
+        'nombre'           => $nombre,
+        'color'            => $_POST['color'] ?? '',
+        'icono'            => $_POST['icono'] ?? '',
         'carpeta_padre_id' => $padreId,
-        'creado_por'      => (int) ($_SESSION['id'] ?? 0),
+        'creado_por'       => (int) ($_SESSION['id'] ?? 0),
     ]);
     $alertas = $carpeta->validar();
     if ($alertas) {
@@ -71,6 +74,32 @@ if ($accion === 'renombrar-carpeta') {
     }
 
     $carpeta->nombre = $nombre;
+    $carpeta->guardar();
+    json_respuesta(['success' => true]);
+}
+
+/* --------------------------------------------------- editar carpeta ---- */
+if ($accion === 'editar-carpeta') {
+    $id     = (int) ($_POST['id'] ?? 0);
+    $nombre = ArchivoCarpeta::limpiarNombre($_POST['nombre'] ?? '');
+    $color  = ArchivoCarpeta::limpiarColor($_POST['color'] ?? '');
+    $icono  = ArchivoCarpeta::limpiarIcono($_POST['icono'] ?? '');
+
+    $carpeta = ArchivoCarpeta::find($id);
+    if (!$carpeta) {
+        json_respuesta(['success' => false, 'error' => 'La carpeta ya no existe'], 404);
+    }
+    if ($nombre === '') {
+        json_respuesta(['success' => false, 'error' => 'El nombre es obligatorio'], 422);
+    }
+    $padre = (int) ($carpeta->carpeta_padre_id ?? 0);
+    if ($nombre !== $carpeta->nombre && $carpeta->nombreUsado($nombre, $padre)) {
+        json_respuesta(['success' => false, 'error' => 'Ya existe una carpeta con ese nombre aquí'], 422);
+    }
+
+    $carpeta->nombre = $nombre;
+    $carpeta->color  = $color;
+    $carpeta->icono  = $icono;
     $carpeta->guardar();
     json_respuesta(['success' => true]);
 }

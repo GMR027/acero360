@@ -3,9 +3,10 @@
  *
  *   node pruebas/probar_archivo.mjs
  *
- * Recorre con el navegador: enlace en el menú, creación de carpetas, subida
- * de archivos válidos, rechazo de formatos no admitidos, búsqueda, renombrar,
- * mover, descarga (bytes intactos) y borrado de carpeta sin perder archivos.
+ * Recorre con el navegador: enlace en el menú, creación de carpetas (con color
+ * e icono), subida de archivos válidos, aceptación de extensiones desconocidas,
+ * rechazo de un PDF falso, búsqueda, edición, mover, descarga (bytes intactos),
+ * rejilla 4/2 y borrado de carpeta sin perder archivos.
  */
 import { chromium } from 'playwright';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -15,6 +16,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:8018';
 const EMAIL = process.env.EMAIL || 'archivo.test@test.local';
 const CLAVE = process.env.CLAVE || 'Prueba1234!';
 const CARPETA_PRUEBAS = '/tmp/opencode/archivo-test';
+const DB = process.env.DB_NAME || 'cotizaciones';
 
 let ok = 0, mal = 0;
 const prueba = (n, v, d = '') => {
@@ -25,12 +27,12 @@ const prueba = (n, v, d = '') => {
 // Usuario de prueba (no toca los existentes).
 if (!process.env.EMAIL) {
     const hash = execFileSync('php', ['-r', `echo password_hash(${JSON.stringify(CLAVE)}, PASSWORD_BCRYPT);`], { encoding: 'utf8' }).trim();
-    execFileSync('mysql', ['-uroot', 'cotizaciones', '-e',
+    execFileSync('mysql', ['-uroot', DB, '-e',
         `INSERT INTO usuarios (nombre, email, contrasena, telefono, rol) VALUES ('Prueba Archivo', '${EMAIL}', '${hash}', '', 1) ` +
         `ON DUPLICATE KEY UPDATE contrasena = VALUES(contrasena)`]);
 }
 // Limpieza de una ronda anterior.
-execFileSync('mysql', ['-uroot', 'cotizaciones', '-e',
+execFileSync('mysql', ['-uroot', DB, '-e',
     "DELETE FROM archivo_archivos; DELETE FROM archivo_carpetas;"]);
 execFileSync('bash', ['-c', 'rm -rf storage/archivo/*']);
 
@@ -87,10 +89,17 @@ try {
     await page.click('[data-arch-nueva-carpeta]');
     await page.waitForSelector('#ar-dlg-carpeta[open]', { timeout: 4000 });
     await page.fill('#ar-dlg-carpeta input[name="nombre"]', 'Planos de obra');
+    await page.locator('#ar-dlg-carpeta input[name="color"][value="#dc2626"]').check({ force: true });
+    await page.locator('#ar-dlg-carpeta input[name="icono"][value="architecture"]').check({ force: true });
     await Promise.all([page.waitForURL(/carpeta=\d+/, { timeout: 8000 }), page.click('#ar-dlg-carpeta button[type="submit"]')]);
     const urlCarpeta = page.url();
     const idCarpeta = Number(new URL(urlCarpeta).searchParams.get('carpeta'));
     prueba(`crea la carpeta y entra en ella (id=${idCarpeta})`, idCarpeta > 0);
+
+    const datosCarpeta = execFileSync('mysql', ['-uroot', DB, '-N', '-B', '-e',
+        `SELECT color, icono FROM archivo_carpetas WHERE id = ${idCarpeta}`], { encoding: 'utf8' }).trim();
+    prueba('guarda el color elegido', /^#dc2626\t/.test(datosCarpeta), datosCarpeta);
+    prueba('guarda el icono central elegido', /architecture$/.test(datosCarpeta), datosCarpeta);
 
     // Subcarpeta dentro de la primera.
     await page.click('[data-arch-nueva-carpeta]');
@@ -132,28 +141,28 @@ try {
     const avisoSubida = await page.locator('.alerta').first().textContent().catch(() => '');
     prueba('sube los 4 archivos (ofimática, PDF y modelos)', /4 archivos subidos|archivo subido/i.test(avisoSubida || ''), avisoSubida);
 
-    const filas = await page.locator('.tabla tbody tr').count();
+    const filas = await page.locator('.ar-archivos .ar-archivo').count();
     prueba(`aparecen en la tabla (${filas})`, filas === 4, `filas=${filas}`);
     for (const nombre of ['presupuesto_obra.pdf', 'informe_mensual.docx', 'planta_baja.dwg', 'modelo_revit.rvt']) {
-        prueba(`lista «${nombre}»`, await page.locator(`.tabla tbody tr strong:text-is("${nombre}")`).count() === 1);
+        prueba(`lista «${nombre}»`, await page.locator(`.ar-archivos .ar-archivo__textos strong:text-is("${nombre}")`).count() === 1);
     }
 
     // Los bytes deben estar fuera de public/ y coincidir con el original.
-    const enDisco = execFileSync('bash', ['-c', 'find storage/archivo -type f | head -10'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    const enDisco = execFileSync('bash', ['-c', 'find storage/archivo -type f -not -path "*/miniaturas/*" | head -10'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
     prueba('los bytes viven en storage/archivo (fuera de public/)', enDisco.length === 4 && !enDisco.some((r) => r.startsWith('public/')), JSON.stringify(enDisco));
     const pdfDisco = execFileSync('bash', ['-c', 'find storage/archivo -name "*.pdf" | head -1'], { encoding: 'utf8' }).trim();
     const igual = pdfDisco && readFileSync(pdfDisco).equals(readFileSync(`${CARPETA_PRUEBAS}/presupuesto_obra.pdf`));
     prueba('el PDF guardado byte a byte = el original', !!igual, pdfDisco);
 
-    // Formato NO admitido.
+    // Extensión desconocida: la herramienta admite cualquier tipo de archivo.
     await page.goto(`${BASE}/admin/archivo?carpeta=${idCarpeta}`, { waitUntil: 'networkidle' });
     await page.setInputFiles('#ar-input', [`${CARPETA_PRUEBAS}/programa_malo.exe`]);
     await page.click('#ar-enviar');
     await page.waitForSelector('.alerta', { timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(400);
     const avisoExe = await page.locator('.alerta--error, .alerta').first().textContent().catch(() => '');
-    const filasTrasExe = await page.locator('.tabla tbody tr').count();
-    prueba('rechaza un .exe (formato no admitido)', /formato no admitido/i.test(avisoExe || '') && filasTrasExe === 4, avisoExe);
+    const filasTrasExe = await page.locator('.ar-archivos .ar-archivo').count();
+    prueba('admite una extensión desconocida (.exe)', /archivo subido/i.test(avisoExe || '') && filasTrasExe === 5, avisoExe);
 
     // Archivo que no corresponde con su extensión (pdf con contenido aleatorio).
     const falsoPdf = `${CARPETA_PRUEBAS}/falso.pdf`;
@@ -168,10 +177,10 @@ try {
     /* ------------------------------------------------ búsqueda --------- */
     console.log('\nBúsqueda');
     await page.goto(`${BASE}/admin/archivo?carpeta=${idCarpeta}&q=planta`, { waitUntil: 'networkidle' });
-    let n = await page.locator('.tabla tbody tr').count();
+    let n = await page.locator('.ar-archivos .ar-archivo').count();
     prueba(`busca «planta» (${n} resultado)`, n === 1, `filas=${n}`);
     await page.goto(`${BASE}/admin/archivo?carpeta=${idCarpeta}&q=zzz`, { waitUntil: 'networkidle' });
-    n = await page.locator('.tabla tbody tr').count();
+    n = await page.locator('.ar-archivos .ar-archivo').count();
     prueba('sin resultados informa del vacío', n === 0 && await page.locator('.card .text-muted').first().isVisible());
 
     /* ------------------------------------------------ descarga --------- */
@@ -180,7 +189,7 @@ try {
         page.waitForEvent('download', { timeout: 15000 }),
         (async () => {
             await page.goto(`${BASE}/admin/archivo?carpeta=${idCarpeta}`, { waitUntil: 'networkidle' });
-            await page.locator('.tabla tbody tr', { hasText: 'presupuesto_obra.pdf' }).locator('a:has-text("Descargar")').click();
+            await page.locator('.ar-archivos .ar-archivo', { hasText: 'presupuesto_obra.pdf' }).locator('a[href*="descargar"]').click();
         })(),
     ]);
     const rutaDl = await descarga.path();
@@ -192,24 +201,30 @@ try {
     /* ------------------------------------------------ mover ------------ */
     console.log('\nMover y renombrar');
     await page.goto(`${BASE}/admin/archivo?carpeta=${idCarpeta}`, { waitUntil: 'networkidle' });
-    const filaDwg = page.locator('.tabla tbody tr', { hasText: 'planta_baja.dwg' });
+    const filaDwg = page.locator('.ar-archivos .ar-archivo', { hasText: 'planta_baja.dwg' });
     await filaDwg.locator('.ar-select-mover').selectOption(String(idSub));
     await page.waitForTimeout(900);
     await page.goto(`${BASE}/admin/archivo?carpeta=${idSub}`, { waitUntil: 'networkidle' });
     prueba('mueve el .dwg a la subcarpeta',
-        await page.locator('.tabla tbody tr strong:text-is("planta_baja.dwg")').count() === 1);
+        await page.locator('.ar-archivos .ar-archivo__textos strong:text-is("planta_baja.dwg")').count() === 1);
     const dwgMovido = execFileSync('bash', ['-c', 'find storage/archivo -name "*.dwg" | head -1'], { encoding: 'utf8' }).trim();
     prueba('los bytes acompañan al archivo al moverlo', dwgMovido.includes(`c${idSub}/`), dwgMovido);
 
-    // Renombrar carpeta: se hace desde la tarjeta en la carpeta MADRE (dialog → JSON).
+    // Editar carpeta: se hace desde la tarjeta en la carpeta MADRE (dialog → JSON).
     await page.goto(`${BASE}/admin/archivo?carpeta=${idCarpeta}`, { waitUntil: 'networkidle' });
-    await page.locator('.ar-carpeta', { hasText: 'Detalles' }).locator('[data-arch-renombrar]').click();
-    await page.waitForSelector('#ar-dlg-renombrar[open]', { timeout: 4000 });
-    await page.fill('#ar-ren-nombre', 'Detalles ampliados');
-    await Promise.all([page.waitForURL(/admin\/archivo/, { timeout: 8000 }), page.click('#ar-dlg-renombrar button[type="submit"]')]);
-    await page.waitForTimeout(600);
+    await page.locator('.ar-carpeta', { hasText: 'Detalles' }).locator('[data-arch-editar]').click();
+    await page.waitForSelector('#ar-dlg-carpeta[open]', { timeout: 4000 });
+    await page.fill('#ar-carpeta-nombre', 'Detalles ampliados');
+    await page.locator('#ar-dlg-carpeta input[name="color"][value="#15803d"]').check({ force: true });
+    await page.locator('#ar-dlg-carpeta input[name="icono"][value="description"]').check({ force: true });
+    await page.click('#ar-dlg-carpeta button[type="submit"]');
+    await page.waitForSelector('.ar-carpeta__nombre:text-is("Detalles ampliados")', { timeout: 8000 });
     prueba('renombra la carpeta',
         await page.locator('.ar-carpeta__nombre:text-is("Detalles ampliados")').count() === 1);
+    const tarjetaEditada = page.locator('.ar-carpeta', { hasText: 'Detalles ampliados' });
+    prueba('cambia el color de la carpeta', /#15803d/i.test(await tarjetaEditada.getAttribute('style') || ''));
+    prueba('cambia el icono central de la carpeta',
+        (await tarjetaEditada.locator('.ar-carpeta__ico').textContent() || '').trim() === 'description');
     // Y se refleja en las migas al entrar.
     await page.goto(`${BASE}/admin/archivo?carpeta=${idSub}`, { waitUntil: 'networkidle' });
     prueba('el nuevo nombre aparece en las migas',
@@ -219,12 +234,12 @@ try {
     console.log('\nBorrar archivo');
     // El .rvt sigue en la carpeta principal (sólo se movió el .dwg).
     await page.goto(`${BASE}/admin/archivo?carpeta=${idCarpeta}`, { waitUntil: 'networkidle' });
-    const filaRvt = page.locator('.tabla tbody tr', { hasText: 'modelo_revit.rvt' });
+    const filaRvt = page.locator('.ar-archivos .ar-archivo', { hasText: 'modelo_revit.rvt' });
     prueba('el .rvt está donde se subió', await filaRvt.count() === 1);
-    await filaRvt.locator('button:has-text("Eliminar")').click();
+    await filaRvt.locator('button[title^="Eliminar"]').click();
     await confirmarModal();
-    const enDiscoSinRvt = execFileSync('bash', ['-c', 'find storage/archivo -type f | wc -l'], { encoding: 'utf8' }).trim();
-    prueba('borrar un archivo retira también sus bytes', Number(enDiscoSinRvt) === 3, `en disco=${enDiscoSinRvt}`);
+    const enDiscoSinRvt = execFileSync('bash', ['-c', 'find storage/archivo -type f -not -path "*/miniaturas/*" | wc -l'], { encoding: 'utf8' }).trim();
+    prueba('borrar un archivo retira también sus bytes', Number(enDiscoSinRvt) === 4, `en disco=${enDiscoSinRvt}`);
     const quedanRvt = execFileSync('bash', ['-c', 'find storage/archivo -name "*.rvt" | wc -l'], { encoding: 'utf8' }).trim();
     prueba('no queda ningún .rvt en disco', Number(quedanRvt) === 0, quedanRvt);
 
@@ -233,18 +248,31 @@ try {
     await page.goto(`${BASE}/admin/archivo`, { waitUntil: 'networkidle' });
     await page.locator('.ar-carpeta', { hasText: 'Planos de obra' }).locator('form[action*="eliminar-carpeta"] button').click();
     await confirmarModal();
-    const trasBorrar = await page.locator('.tabla tbody tr').count();
+    const trasBorrar = await page.locator('.ar-archivos .ar-archivo').count();
     const carpetasTras = await page.locator('.ar-carpeta').count();
-    // Quedan 3 archivos (4 subidos − 1 borrado): todo en la raíz, carpetas fuera.
-    prueba(`al borrar la carpeta sus archivos pasan a la raíz (${trasBorrar})`, trasBorrar === 3, `filas=${trasBorrar}`);
+    // Quedan 4 archivos (5 subidos − 1 borrado): todo en la raíz, carpetas fuera.
+    prueba(`al borrar la carpeta sus archivos pasan a la raíz (${trasBorrar})`, trasBorrar === 4, `filas=${trasBorrar}`);
     prueba('desaparecen las carpetas (madre e hija)', carpetasTras === 0, `carpetas=${carpetasTras}`);
 
-    const enDiscoTras = execFileSync('bash', ['-c', 'find storage/archivo -type f | wc -l'], { encoding: 'utf8' }).trim();
-    prueba('ningún archivo se perdió: siguen los 3 en disco', Number(enDiscoTras) === 3, `en disco=${enDiscoTras}`);
+    const enDiscoTras = execFileSync('bash', ['-c', 'find storage/archivo -type f -not -path "*/miniaturas/*" | wc -l'], { encoding: 'utf8' }).trim();
+    prueba('ningún archivo se perdió: siguen los 4 en disco', Number(enDiscoTras) === 4, `en disco=${enDiscoTras}`);
     prueba('ningún registro huérfano',
-        Number(execFileSync('mysql', ['-uroot', 'cotizaciones', '-N', '-B', '-e', 'SELECT COUNT(*) FROM archivo_archivos'], { encoding: 'utf8' }).trim()) === 3);
+        Number(execFileSync('mysql', ['-uroot', DB, '-N', '-B', '-e', 'SELECT COUNT(*) FROM archivo_archivos'], { encoding: 'utf8' }).trim()) === 4);
 
+    /* ------------------------------------------- rejilla e iconos ------ */
+    console.log('\nRejilla e iconos');
+    const columnasPc = await page.locator('.ar-archivos').evaluate(
+        (el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    prueba(`4 archivos por línea en escritorio (${columnasPc})`, columnasPc === 4);
+    const fill = await page.locator('#archivo .material-symbols-outlined').first().evaluate(
+        (el) => getComputedStyle(el).fontVariationSettings);
+    prueba('los iconos son sólidos (FILL 1)', /FILL["']?\s*1/.test(fill), fill);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const columnasMovil = await page.locator('.ar-archivos').evaluate(
+        (el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    prueba(`2 archivos por línea en móvil (${columnasMovil})`, columnasMovil === 2);
     await page.screenshot({ path: '/tmp/opencode/archivo-final.png' });
+    await page.setViewportSize({ width: 1440, height: 900 });
     await ctx.close();
 
     /* ------------------------------------------------ permisos --------- */

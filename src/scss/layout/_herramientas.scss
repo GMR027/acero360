@@ -367,6 +367,11 @@
    (Va fuera de .herr para poder usar las variables de Acero 360 a secas.)
    ========================================================================== */
 #archivo {
+    /* Iconos sólidos en toda la herramienta (la fuente variable admite FILL 1). */
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
     /* --- Migas de pan --- */
     .ar-miga {
         display: flex;
@@ -479,50 +484,101 @@
     .ar-soltar[hidden] { display: none; }
     .ar-ayuda { margin-bottom: .9rem; }
 
-    /* --- Tarjetas de carpeta --- */
+    /* --- Tarjetas de carpeta: forma de carpeta, color e icono propios --- */
     .ar-carpetas {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-        gap: .75rem;
-        margin-bottom: 1rem;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem .85rem;
+        margin-bottom: 1.25rem;
     }
     .ar-carpeta {
+        --carpeta-color: var(--color-primario);
         position: relative;
-        display: flex;
-        align-items: stretch;
-        background: var(--color-superficie);
-        border: 1px solid var(--color-borde);
-        border-radius: .6rem;
-        overflow: hidden;
-        transition: border-color .15s, box-shadow .15s;
-        &:hover { border-color: var(--color-primario); box-shadow: var(--sombra-1, 0 4px 12px rgba(0,0,0,.12)); }
+        min-width: 0;
     }
     .ar-carpeta__cuerpo {
-        flex: 1;
         display: flex;
         flex-direction: column;
-        gap: .1rem;
-        padding: .7rem .6rem;
-        min-width: 0;
+        height: 100%;
+        padding: .55rem .6rem .7rem;
+        border: 1px solid var(--color-borde);
+        border-radius: .75rem;
+        background: var(--color-superficie);
         color: var(--color-texto);
         text-decoration: none;
-        &:hover { text-decoration: none; }
+        transition: border-color .15s, box-shadow .15s, transform .15s;
+        &:hover, &:focus-visible {
+            border-color: var(--carpeta-color);
+            box-shadow: var(--sombra-1, 0 6px 16px rgba(0, 0, 0, .12));
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
     }
-    .ar-carpeta__ico { font-size: 1.9rem; color: var(--color-advertencia, #d97706); }
+    /* Cuerpo de carpeta: pestaña superior y brillo diagonal. */
+    .ar-carpeta__figura {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        aspect-ratio: 1.35 / 1;
+        margin: .55rem 0;
+        border-radius: .45rem .7rem .7rem .7rem;
+        background: var(--carpeta-color);
+        box-shadow: inset 0 -.45rem 0 rgba(0, 0, 0, .10);
+        &::before {
+            content: '';
+            position: absolute;
+            top: -.5rem;
+            left: 0;
+            width: 46%;
+            height: .85rem;
+            border-radius: .4rem .5rem 0 0;
+            background: var(--carpeta-color);
+        }
+        &::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(150deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 58%);
+            pointer-events: none;
+        }
+    }
+    .ar-carpeta__ico {
+        position: relative;
+        z-index: 1;
+        font-size: 2.15rem;
+        line-height: 1;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, .28);
+    }
     .ar-carpeta__nombre {
+        display: block;
         font-weight: 600;
-        font-size: .9rem;
+        font-size: .875rem;
+        line-height: 1.3;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
-    .ar-carpeta__n { font-size: .75rem; color: var(--color-texto-secundario); }
+    .ar-carpeta__n {
+        margin-top: .1rem;
+        font-size: .72rem;
+        color: var(--color-texto-secundario);
+    }
     .ar-carpeta__ops {
+        position: absolute;
+        top: .8rem;
+        right: .8rem;
+        z-index: 2;
         display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: .15rem;
-        padding-right: .35rem;
+        gap: .1rem;
+        padding: .12rem;
+        border-radius: .45rem;
+        background: rgba(255, 255, 255, .94);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .22);
+        .ar-op { color: #334155; }
     }
     .ar-op {
         display: inline-flex;
@@ -541,32 +597,87 @@
         &--peligro:hover { background: var(--color-error-claro); color: var(--color-error); }
     }
 
-    /* --- Tabla de archivos --- */
+    /* --- Rejilla de archivos: 4 por línea (2 en móvil) --- */
+    .ar-archivos {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .9rem;
+    }
     .ar-archivo {
         display: flex;
-        align-items: center;
-        gap: .65rem;
-        min-width: 14rem;
+        flex-direction: column;
+        min-width: 0;
+        padding: .55rem;
+        border: 1px solid var(--color-borde);
+        border-radius: .75rem;
+        background: var(--color-superficie);
+        transition: border-color .15s, box-shadow .15s;
+        &:hover {
+            border-color: var(--color-primario);
+            box-shadow: var(--sombra-1, 0 6px 16px rgba(0, 0, 0, .12));
+        }
     }
     .ar-archivo__textos {
         display: flex;
         flex-direction: column;
+        gap: .15rem;
         min-width: 0;
+        margin-top: .5rem;
         overflow-wrap: anywhere;
+        strong {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-size: .875rem;
+            line-height: 1.3;
+        }
     }
-    /* Miniatura real (imagen o primera página del PDF). */
+    .ar-archivo__meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .2rem .45rem;
+        font-size: .7rem;
+        color: var(--color-texto-secundario);
+        font-variant-numeric: tabular-nums;
+    }
+    .ar-archivo__tipo {
+        padding: .05rem .35rem;
+        border: 1px solid var(--color-borde);
+        border-radius: .3rem;
+        background: var(--color-superficie-baja);
+        font-size: .65rem;
+        font-weight: 600;
+        letter-spacing: .03em;
+    }
+    .ar-archivo__desc {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: .72rem;
+        color: var(--color-texto-secundario);
+    }
+    .ar-archivo__acciones {
+        display: flex;
+        align-items: center;
+        gap: .15rem;
+        margin-top: auto;
+        padding-top: .45rem;
+    }
+    /* Miniatura (imagen o primera página del PDF) como cabecera de la tarjeta. */
     .ar-miniatura {
-        flex-shrink: 0;
-        display: inline-flex;
+        display: flex;
         align-items: center;
         justify-content: center;
-        width: 3.25rem;
-        height: 3.25rem;
+        width: 100%;
+        aspect-ratio: 4 / 3;
         padding: 0;
         overflow: hidden;
         background: var(--color-superficie-baja);
         border: 1px solid var(--color-borde);
-        border-radius: .45rem;
+        border-radius: .55rem;
         cursor: zoom-in;
         transition: border-color .15s, box-shadow .15s;
         &:hover {
@@ -594,12 +705,14 @@
     /* Dentro de la miniatura el icono ocupa el centro, sin margen. */
     .ar-miniatura .ar-ico-tipo {
         margin-right: 0;
-        font-size: 1.4rem;
+        font-size: 2.25rem;
     }
+    .ar-mover { margin-top: .35rem; }
     .ar-select-mover {
-        max-width: 10rem;
-        padding: .28rem .35rem;
-        font-size: .75rem;
+        width: 100%;
+        max-width: none;
+        padding: .3rem .35rem;
+        font-size: .72rem;
         background: var(--color-superficie-baja);
         border: 1px solid var(--color-borde);
         border-radius: .4rem;
@@ -644,14 +757,122 @@
     }
     .ar-dialogo__ops { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .9rem; }
 
+    /* Diálogo de carpeta: más ancho y con desplazamiento interno. */
+    .ar-dialogo--carpeta {
+        width: min(34rem, 94vw);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* --- Selector de color --- */
+    .ar-colores { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .ar-color {
+        position: relative;
+        display: inline-flex;
+        cursor: pointer;
+        border-radius: 50%;
+        input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    }
+    .ar-color__muestra {
+        width: 1.65rem;
+        height: 1.65rem;
+        border-radius: 50%;
+        background: var(--color-carpeta);
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+        transition: outline-color .12s ease, transform .12s ease;
+    }
+    .ar-color input:checked + .ar-color__muestra {
+        outline-color: var(--color-carpeta);
+        transform: scale(1.04);
+    }
+    .ar-color input:focus-visible + .ar-color__muestra { outline-color: var(--color-foco); }
+
+    /* --- Selector de icono --- */
+    .ar-iconos {
+        max-height: 10.5rem;
+        overflow-y: auto;
+        padding: .45rem;
+        border: 1px solid var(--color-borde);
+        border-radius: .5rem;
+        background: var(--color-superficie-baja);
+    }
+    .ar-iconos__grupo + .ar-iconos__grupo { margin-top: .55rem; }
+    .ar-iconos__titulo {
+        display: block;
+        margin-bottom: .25rem;
+        font-size: .68rem;
+        font-weight: 700;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        color: var(--color-texto-secundario);
+    }
+    .ar-iconos__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(2.35rem, 1fr));
+        gap: .3rem;
+    }
+    .ar-icono {
+        position: relative;
+        display: block;
+        cursor: pointer;
+        input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    }
+    .ar-icono__caja {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        aspect-ratio: 1;
+        border: 1px solid var(--color-borde);
+        border-radius: .45rem;
+        background: var(--color-superficie);
+        color: var(--color-texto-secundario);
+        transition: background .12s, border-color .12s, color .12s;
+        .material-symbols-outlined { font-size: 1.3rem; }
+        &:hover { border-color: var(--color-primario-borde); color: var(--color-primario-texto); }
+    }
+    .ar-icono input:checked + .ar-icono__caja {
+        border-color: var(--color-primario);
+        background: var(--color-primario-claro);
+        color: var(--color-primario-texto);
+        box-shadow: inset 0 0 0 1px var(--color-primario);
+    }
+    .ar-icono input:focus-visible + .ar-icono__caja {
+        outline: 2px solid var(--color-foco);
+        outline-offset: 1px;
+    }
+
+    /* --- Vista previa dentro del diálogo --- */
+    .ar-carpeta-vista {
+        display: flex;
+        align-items: center;
+        gap: .9rem;
+        margin-top: .9rem;
+        padding: .6rem .8rem;
+        border: 1px dashed var(--color-borde);
+        border-radius: .6rem;
+        .ar-carpeta__figura {
+            flex: 0 0 auto;
+            width: 5.5rem;
+            margin: .4rem 0 0;
+        }
+        .ar-carpeta__ico { font-size: 1.45rem; }
+    }
+
     /* --- Aviso de selección de archivos --- */
     .ar-aviso { margin: .5rem 0 0; color: var(--color-primario-texto); }
     .ar-aviso--error { color: var(--color-error); font-weight: 600; }
 
-    /* Móvil: la barra ocupa todo el ancho por orden. */
+    /* Móvil: dos tarjetas por línea y la barra a todo el ancho. */
+    @media (max-width: 767px) {
+        .ar-carpetas, .ar-archivos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
     @media (max-width: 640px) {
         .ar-barra { flex-direction: column; align-items: stretch; }
+        /* En columna, flex-basis mediría alto: el buscador es una fila. */
+        .ar-buscar { flex: 0 0 auto; width: 100%; }
+        .ar-subir, .ar-subir__grupo { width: 100%; }
         .ar-subir__btn { width: 100%; justify-content: center; }
-        .ar-carpetas { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
     }
 }

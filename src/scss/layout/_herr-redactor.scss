@@ -66,9 +66,16 @@
   .rd-corte { position: absolute; left: -2rem; right: -2rem; height: 16px; background: var(--bg-tertiary); box-shadow: inset 0 6px 6px -6px rgba(0, 0, 0, .45), inset 0 -6px 6px -6px rgba(0, 0, 0, .45); span { position: absolute; right: 2.4rem; top: 0; font-size: 1rem; line-height: 16px; color: #64748b; } }
   .rd-num { position: absolute; left: 0; right: 0; text-align: center; font-size: 9pt; color: #666; } }
 
-// Membrete: capa de imágenes detrás del texto, repetida en cada hoja
+// Membrete: capa de bloques (encabezado/pie) repetida en cada hoja
 .rd-membrete-capa { position: absolute; left: 0; top: 0; width: 100%; height: 0; overflow: hidden; pointer-events: none; z-index: 0;
-  img { position: absolute; height: auto; max-width: none; pointer-events: none; user-select: none; } }
+  img { max-width: none; pointer-events: none; user-select: none; } }
+.rd-mb-pagina { position: absolute; left: 0; right: 0; pointer-events: none; }
+.rd-mb-zona { position: absolute; pointer-events: none; }
+.rd-mb-contenido--fila { display: flex; align-items: center; gap: .3cm; }
+.rd-mb-contenido--arriba { display: flex; flex-direction: column; gap: .12cm; }
+.rd-mb-logo-img { display: block; height: auto; }
+.rd-mb-textos { flex: 1 1 auto; min-width: 0; }
+.rd-mb-linea { line-height: 1.2; }
 .rd-pagina.rd-con-membrete { background: #fff; }
 .rd-pagina.rd-con-membrete > .rd-hoja { position: relative; z-index: 1; background: transparent; }
 
@@ -80,6 +87,24 @@
   > strong { flex-basis: 100%; }
   label { margin: 0; }
   .rd-archivo-vista { flex-basis: 100%; } }
+
+// Editor del membrete: encabezado y pie como bloques visuales
+.rd-panel-membrete { flex-direction: column; align-items: stretch; gap: .8rem;
+  .rd-mb-intro { display: flex; flex-direction: column; gap: .2rem; } }
+.rd-mb-bloque { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: flex-start; width: 100%; margin: 0; padding: .9rem 1rem 1rem; border: 1px solid var(--border); border-radius: .7rem; background: var(--bg-secondary);
+  legend { padding: 0 .4rem; font-weight: 700; color: var(--text); }
+  .rd-mb-fila { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: flex-end; }
+  .rd-mb-fila > label { display: flex; flex-direction: column; align-items: stretch; gap: .25rem; font-size: 1.1rem; }
+  .rd-mb-logo { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: flex-start; flex: 1 1 18rem; padding: .7rem; border: 1px solid var(--border); border-radius: .55rem; background: var(--surface);
+    > strong { flex-basis: 100%; } }
+  .rd-mb-texto { display: flex; flex-direction: column; gap: .45rem; flex: 1 1 22rem; min-width: 0;
+    > label { display: flex; flex-direction: column; align-items: stretch; gap: .25rem; font-size: 1.1rem; }
+    input[type="text"] { width: 100%; } }
+  .rd-mb-estilo { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center;
+    label { display: inline-flex; flex-direction: row; align-items: center; gap: .35rem; font-size: 1.05rem; } }
+  .rd-mb-numeracion { flex-direction: row; align-items: center; }
+}
+.rd-guias .rd-marca-txt span { text-transform: none; }
 .rd-membrete-acciones { display: flex; gap: .4rem; flex-wrap: wrap; }
 .rd-membrete-coords { display: flex; gap: .6rem; flex-wrap: wrap; }
 .rd-pos-botones { display: flex; flex-wrap: wrap; gap: .35rem; flex-basis: 100%;

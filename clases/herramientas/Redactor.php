@@ -482,6 +482,192 @@ class Redactor
         }
     }
 
+    /** Datos del logo de un bloque de membrete (o null si no hay imagen válida). */
+    private static function mbLogo(array $b): ?array
+    {
+        if (($b['disposicion'] ?? '') === 'solo_texto') return null;
+        $nombre = (string) ($b['logo_imagen'] ?? '');
+        if ($nombre === '' || !preg_match('/^[a-f0-9]{32}\.(?:png|jpg)$/', $nombre)) return null;
+        $ruta = Imagenes::CARPETA_VPLAN . '/' . $nombre;
+        $info = @getimagesize($ruta);
+        if (!is_file($ruta) || !$info) return null;
+        $ancho = max(0.5, min(24.0, (float) ($b['logo_ancho'] ?? 3)));
+        return [
+            'ruta'      => $ruta,
+            'ancho'     => $ancho,
+            'alto'      => $ancho * $info[1] / max(1, $info[0]),
+            'opacidad'  => (int) ($b['logo_opacidad'] ?? 100),
+        ];
+    }
+
+    /** Texto resuelto de una línea del bloque ('titulo_texto' / 'subtitulo_texto'). */
+    private static function mbTexto(RedactorDocumento $d, array $b, string $linea): string
+    {
+        return $d->textoMembreteResuelto((string) ($b[$linea . '_texto'] ?? ''));
+    }
+
+    /** Alineación CSS/PhpWord del bloque. */
+    private static function mbAlinear(array $b): string
+    {
+        return ($b['alineacion'] ?? 'izq') === 'centro' ? 'center' : (($b['alineacion'] ?? 'izq') === 'der' ? 'right' : 'left');
+    }
+
+    /** Ancho útil de la hoja (cm): papel menos márgenes laterales. */
+    private static function mbAnchoUtil(RedactorDocumento $d): float
+    {
+        [$w] = $d->medidas();
+        return max(2.0, $w - (float) $d->margen_izq - (float) $d->margen_der);
+    }
+
+    /** Altura aproximada del bloque (cm) para reservar la zona del encabezado/pie. */
+    private static function mbAltoBloque(RedactorDocumento $d, array $b): float
+    {
+        $logo = self::mbLogo($b);
+        $altoLogo = $logo ? $logo['alto'] : 0;
+        $lineas = 0;
+        foreach (['titulo' => 14, 'subtitulo' => 9.5] as $linea => $def) {
+            if (self::mbTexto($d, $b, $linea) !== '') {
+                $lineas += max(6, (float) ($b[$linea . '_tamano'] ?? $def)) * 1.35 / 28.35;
+            }
+        }
+        if (($b['disposicion'] ?? '') === 'logo_arriba') $alto = $altoLogo + $lineas + 0.15;
+        else $alto = max($altoLogo, $lineas);
+        return max(0.8, min(8.0, $alto + 0.35));
+    }
+
+    /** ¿El bloque tiene algo que pintar? */
+    private static function mbTieneContenido(RedactorDocumento $d, array $b): bool
+    {
+        return self::mbLogo($b) !== null
+            || self::mbTexto($d, $b, 'titulo') !== ''
+            || self::mbTexto($d, $b, 'subtitulo') !== '';
+    }
+
+    /** Línea de texto con estilos del membrete para PhpWord. */
+    private static function mbFuente(array $b, string $linea): array
+    {
+        return [
+            'size'   => (float) ($b[$linea . '_tamano'] ?? 10),
+            'color'  => ltrim((string) ($b[$linea . '_color'] ?? '#1e293b'), '#'),
+            'bold'   => !empty($b[$linea . '_negrita']),
+            'italic' => !empty($b[$linea . '_cursiva']),
+        ];
+    }
+
+    /** Bloque de encabezado/pie en un header/footer de PhpWord (DOCX). */
+    private static function agregarBloquePhpWord($contenedor, RedactorDocumento $d, string $slot, array &$temporales): void
+    {
+        $diseno = $d->membreteDiseno();
+        $b = $diseno[$slot] ?? [];
+        if (empty($b['activo']) || !self::mbTieneContenido($d, $b)) return;
+        $logo = self::mbLogo($b);
+        $titulo = self::mbTexto($d, $b, 'titulo');
+        $sub = self::mbTexto($d, $b, 'subtitulo');
+        $align = self::mbAlinear($b);
+        $util = self::mbAnchoUtil($d);
+        $esArriba = ($b['disposicion'] ?? '') === 'logo_arriba';
+
+        $tabla = $contenedor->addTable([
+            'width' => self::cmATwips($util),
+            'unit'  => 'dxa',
+            'borderSize' => 0,
+            'borderColor' => 'FFFFFF',
+            'cellMargin' => 0,
+        ]);
+        $fila = $tabla->addRow();
+        $parrafo = ['alignment' => $align, 'spaceAfter' => 0, 'spaceBefore' => 0];
+
+        $agregarTextos = static function ($celda) use ($titulo, $sub, $b, $parrafo) {
+            if ($titulo !== '') $celda->addText($titulo, self::mbFuente($b, 'titulo'), $parrafo);
+            if ($sub !== '') $celda->addText($sub, self::mbFuente($b, 'subtitulo'), $parrafo);
+        };
+
+        if ($esArriba || !$logo) {
+            $celda = $fila->addCell(self::cmATwips($util), ['valign' => 'center']);
+            if ($logo && $esArriba) {
+                $ruta = self::imagenConOpacidad($logo['ruta'], $logo['opacidad']);
+                if ($ruta) {
+                    if ($ruta !== $logo['ruta']) $temporales[] = $ruta;
+                    $runLogo = $celda->addTextRun(['alignment' => $align]);
+                    $runLogo->addImage($ruta, ['width' => $logo['ancho'] * 28.3465]);
+                }
+            }
+            $agregarTextos($celda);
+            return;
+        }
+
+        $anchoLogo = $logo['ancho'] + 0.3;
+        $anchoTexto = max(2.0, $util - $anchoLogo);
+        $ruta = self::imagenConOpacidad($logo['ruta'], $logo['opacidad']);
+        if (!$ruta) return;
+        if ($ruta !== $logo['ruta']) $temporales[] = $ruta;
+
+        if (($b['disposicion'] ?? '') === 'logo_der') {
+            $celdaTexto = $fila->addCell(self::cmATwips($anchoTexto), ['valign' => 'center']);
+            $agregarTextos($celdaTexto);
+            $celdaLogo = $fila->addCell(self::cmATwips($anchoLogo), ['valign' => 'center']);
+            $runLogo = $celdaLogo->addTextRun(['alignment' => 'right']);
+            $runLogo->addImage($ruta, ['width' => $logo['ancho'] * 28.3465]);
+        } else {
+            $celdaLogo = $fila->addCell(self::cmATwips($anchoLogo), ['valign' => 'center']);
+            $runLogo = $celdaLogo->addTextRun(['alignment' => 'left']);
+            $runLogo->addImage($ruta, ['width' => $logo['ancho'] * 28.3465]);
+            $celdaTexto = $fila->addCell(self::cmATwips($anchoTexto), ['valign' => 'center']);
+            $agregarTextos($celdaTexto);
+        }
+    }
+
+    /** Bloque de encabezado/pie como HTML fijo para Dompdf (se repite por página). */
+    private static function htmlBloquePdf(RedactorDocumento $d, string $slot): string
+    {
+        $diseno = $d->membreteDiseno();
+        $b = $diseno[$slot] ?? [];
+        if (empty($b['activo']) || !self::mbTieneContenido($d, $b)) return '';
+
+        $logo = self::mbLogo($b);
+        $align = self::mbAlinear($b);
+        $margenLogo = $align === 'center' ? '0 auto' : ($align === 'right' ? '0 0 0 auto' : '0');
+        $logoHtml = $logo
+            ? '<img src="' . htmlspecialchars($logo['ruta']) . '" style="display:block;width:' . $logo['ancho'] . 'cm;opacity:' . ($logo['opacidad'] / 100) . ';margin:' . $margenLogo . '">'
+            : '';
+        $textos = '';
+        foreach (['titulo', 'subtitulo'] as $linea) {
+            $texto = self::mbTexto($d, $b, $linea);
+            if ($texto === '') continue;
+            $textos .= '<div style="font-family:DejaVu Sans,sans-serif;font-size:' . (float) $b[$linea . '_tamano'] . 'pt;'
+                . 'line-height:1.2;color:' . htmlspecialchars((string) $b[$linea . '_color']) . ';'
+                . 'font-weight:' . (!empty($b[$linea . '_negrita']) ? 'bold' : 'normal') . ';'
+                . 'font-style:' . (!empty($b[$linea . '_cursiva']) ? 'italic' : 'normal') . '">'
+                . htmlspecialchars($texto) . '</div>';
+        }
+        if ($logoHtml === '' && $textos === '') return '';
+
+        $disposicion = $b['disposicion'] ?? 'logo_izq';
+        if ($disposicion === 'logo_arriba') {
+            $contenido = '<div style="text-align:' . $align . '">' . $logoHtml . '</div><div style="text-align:' . $align . '">' . $textos . '</div>';
+        } elseif ($disposicion === 'solo_texto' || $logoHtml === '') {
+            $contenido = '<div style="text-align:' . $align . '">' . $textos . '</div>';
+        } else {
+            $anchoLogo = $logo['ancho'] + 0.3;
+            $celdas = '';
+            if ($disposicion === 'logo_der') {
+                $celdas .= '<td style="vertical-align:middle;text-align:' . $align . '">' . $textos . '</td>';
+                $celdas .= '<td style="width:' . $anchoLogo . 'cm;vertical-align:middle;padding-left:.25cm">' . $logoHtml . '</td>';
+            } else {
+                $celdas .= '<td style="width:' . $anchoLogo . 'cm;vertical-align:middle;padding-right:.25cm">' . $logoHtml . '</td>';
+                $celdas .= '<td style="vertical-align:middle;text-align:' . $align . '">' . $textos . '</td>';
+            }
+            $contenido = '<table class="rd-mb-tabla" style="width:100%;border-collapse:collapse;border:0"><tr>' . $celdas . '</tr></table>';
+        }
+
+        // Dompdf coloca los bloques fijos dentro del área de contenido: el
+        // desplazamiento negativo los lleva al margen superior/inferior real.
+        $pos = $slot === 'encabezado'
+            ? 'top:' . round(-max(0, (float) $d->margen_sup - 0.35), 2) . 'cm'
+            : 'bottom:' . round(-max(0, (float) $d->margen_inf - 0.35), 2) . 'cm';
+        return '<div style="position:fixed;' . $pos . ';left:0;width:100%;z-index:-1">' . $contenido . '</div>';
+    }
+
     private static function phpWord(RedactorDocumento $d, string $formato, array $opc, array &$temporales): \PhpOffice\PhpWord\PhpWord
     {
         $pw = new \PhpOffice\PhpWord\PhpWord();
@@ -493,37 +679,53 @@ class Redactor
             $pw->addTitleStyle($n, ['bold' => true, 'size' => $tam], ['spaceBefore' => 240, 'spaceAfter' => 80]);
         }
         [$w, $h] = $d->medidas();
+        $diseno = $d->membreteDiseno();
+        $bloqueEnc = $diseno['encabezado'];
+        $bloquePie = $diseno['pie'];
+        $altoEnc = !empty($bloqueEnc['activo']) ? self::mbAltoBloque($d, $bloqueEnc) : 0;
+        $altoPie = !empty($bloquePie['activo']) ? self::mbAltoBloque($d, $bloquePie) : 0;
+        // Distancia del borde de la hoja al membrete: 0.35 cm si cabe en el
+        // margen; si el bloque es más alto, se sube para no invadir el texto.
+        $offsetEnc = 0.35;
+        if ($altoEnc > 0 && $offsetEnc + $altoEnc > (float) $d->margen_sup) {
+            $offsetEnc = max(0.1, (float) $d->margen_sup - $altoEnc);
+        }
+        $offsetPie = 0.35;
+        if ($altoPie > 0 && $offsetPie + $altoPie > (float) $d->margen_inf) {
+            $offsetPie = max(0.1, (float) $d->margen_inf - $altoPie);
+        }
         $sec = $pw->addSection([
             'pageSizeW' => self::cmATwips($w), 'pageSizeH' => self::cmATwips($h), 'orientation' => 'portrait',
             'marginTop' => self::cmATwips((float)$d->margen_sup), 'marginBottom' => self::cmATwips((float)$d->margen_inf),
             'marginLeft' => self::cmATwips((float)$d->margen_izq), 'marginRight' => self::cmATwips((float)$d->margen_der),
-            'headerHeight' => 400, 'footerHeight' => 400,
+            'headerHeight' => self::cmATwips($offsetEnc), 'footerHeight' => self::cmATwips($offsetPie),
         ]);
         $esOdt = $formato === 'odt';
         $numEnEnc = $d->numerar && str_starts_with((string) $d->num_posicion, 'enc_');
-        $imagenEnc = $esOdt ? null : self::membreteConfig($d, 'enc');
-        $imagenPie = $esOdt ? null : self::membreteConfig($d, 'pie');
-        $cabecera = (!$esOdt && ($d->encabezado || $d->encabezado_texto !== '' || $imagenEnc || $numEnEnc)) ? $sec->addHeader() : null;
-        if ($cabecera) {
-            if ($d->encabezado || $d->encabezado_texto !== '') $cabecera->addText(self::linea($d), ['size' => 9, 'color' => '666666']);
-            if ($d->numerar && $numEnEnc) $cabecera->addPreserveText($d->textoNumeracion(), ['size' => 9, 'color' => '666666'], ['alignment' => self::alineacionNumero($d->num_posicion)]);
+
+        $cabecera = (!$esOdt && ((!empty($bloqueEnc['activo']) && self::mbTieneContenido($d, $bloqueEnc)) || $numEnEnc)) ? $sec->addHeader() : null;
+        if ($cabecera && !empty($bloqueEnc['activo'])) self::agregarBloquePhpWord($cabecera, $d, 'encabezado', $temporales);
+        if ($cabecera && $d->numerar && $numEnEnc) {
+            $cabecera->addPreserveText($d->textoNumeracion(), ['size' => 9, 'color' => '666666'], ['alignment' => self::alineacionNumero($d->num_posicion)]);
         }
-        if (!$esOdt && $d->marca_agua !== '' && $formato === 'docx' && ($png = self::pngMarcaAgua($d->marca_agua))) {
-            $temporales[] = $png;
-            try {
-                ($cabecera ?? $sec->addHeader())->addWatermark($png, ['width' => 420, 'height' => 420, 'positioning' => 'absolute', 'posHorizontalRel' => 'margin', 'posVerticalRel' => 'margin', 'posHorizontal' => 'center', 'posVertical' => 'center', 'wrappingStyle' => 'behind']);
-            } catch (\Throwable $e) {
-                error_log('Redactor marca de agua: ' . $e->getMessage());
+
+        $marca = $diseno['marca'];
+        if (!$esOdt && $formato === 'docx' && !empty($marca['activo']) && $marca['texto'] !== '') {
+            $png = self::pngMarcaAgua($marca['texto'], $marca['color'], (int) $marca['opacidad'], (float) $marca['tamano'], (int) $marca['angulo']);
+            if ($png) {
+                $temporales[] = $png;
+                try {
+                    ($cabecera ?? $sec->addHeader())->addWatermark($png, ['width' => 420, 'height' => 420, 'positioning' => 'absolute', 'posHorizontalRel' => 'margin', 'posVerticalRel' => 'margin', 'posHorizontal' => 'center', 'posVertical' => 'center', 'wrappingStyle' => 'behind']);
+                } catch (\Throwable $e) {
+                    error_log('Redactor marca de agua: ' . $e->getMessage());
+                }
             }
         }
-        $pie = (!$esOdt && ($d->pie_texto !== '' || $imagenPie || ($d->numerar && !$numEnEnc))) ? $sec->addFooter() : null;
-        if ($pie) {
-            if ($d->pie_texto !== '') $pie->addText($d->pie_texto, ['size' => 9, 'color' => '666666'], ['alignment' => 'center']);
-            if ($d->numerar && !$numEnEnc) $pie->addPreserveText($d->textoNumeracion(), ['size' => 9, 'color' => '666666'], ['alignment' => self::alineacionNumero($d->num_posicion)]);
-        }
-        if (!$esOdt) {
-            if ($imagenEnc) self::agregarImagenMembreteDocx($cabecera ?? $sec->addHeader(), $imagenEnc, $temporales);
-            if ($imagenPie) self::agregarImagenMembreteDocx($pie ?? $sec->addFooter(), $imagenPie, $temporales);
+
+        $pie = (!$esOdt && ((!empty($bloquePie['activo']) && self::mbTieneContenido($d, $bloquePie)) || ($d->numerar && !$numEnEnc))) ? $sec->addFooter() : null;
+        if ($pie && !empty($bloquePie['activo'])) self::agregarBloquePhpWord($pie, $d, 'pie', $temporales);
+        if ($pie && $d->numerar && !$numEnEnc) {
+            $pie->addPreserveText($d->textoNumeracion(), ['size' => 9, 'color' => '666666'], ['alignment' => self::alineacionNumero($d->num_posicion)]);
         }
         $especiales = [];
         foreach (self::piezas(self::contenidoExportable($d, $opc)) as $i => $pz) {
@@ -576,36 +778,56 @@ class Redactor
         }
     }
 
-    /** PNG transparente con el texto en diagonal y gris claro (PhpWord solo admite marcas de agua de imagen); devuelve su ruta temporal */
-    private static function pngMarcaAgua(string $texto): ?string
-    {
+    /**
+     * PNG transparente con la marca de agua (PhpWord y ODT solo admiten
+     * marcas de agua de imagen). Color, opacidad, tamaño y ángulo se
+     * incorporan al PNG para que se vea igual en Word y LibreOffice.
+     */
+    private static function pngMarcaAgua(
+        string $texto,
+        string $color = '#cbd5e1',
+        int $opacidad = 25,
+        float $tamano = 90,
+        int $angulo = -45
+    ): ?string {
         $ttf = __DIR__ . '/../../vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf';
-        if (!function_exists('imagettftext') || !is_file($ttf)) return null;
-        $tam = 900;
-        $im = imagecreatetruecolor($tam, $tam);
-        imagesavealpha($im, true);
-        imagealphablending($im, false);
-        imagefill($im, 0, 0, imagecolorallocatealpha($im, 255, 255, 255, 127));
-        imagealphablending($im, true);
-        $color = imagecolorallocatealpha($im, 150, 150, 150, 90);
-        $pt = 110;
-        do {
-            $caja = imagettfbbox($pt, 0, $ttf, $texto);
-            $ancho = $caja[2] - $caja[0];
-            $pt -= 6;
-        } while ($ancho > $tam * 0.92 && $pt > 20);
-        $alto = $caja[1] - $caja[7];
-        $lienzo = imagecreatetruecolor($tam, $tam);
+        if (!function_exists('imagettftext') || !is_file($ttf) || trim($texto) === '') return null;
+
+        preg_match('/^#?([0-9a-f]{6})$/i', $color, $m);
+        $rgb = $m ? [hexdec(substr($m[1], 0, 2)), hexdec(substr($m[1], 2, 2)), hexdec(substr($m[1], 4, 2))] : [203, 213, 225];
+        $alfa = (int) round(127 * (1 - max(0, min(100, $opacidad)) / 100));
+
+        $lado = 1000;
+        $lienzo = imagecreatetruecolor($lado, $lado);
         imagesavealpha($lienzo, true);
         imagealphablending($lienzo, false);
         imagefill($lienzo, 0, 0, imagecolorallocatealpha($lienzo, 255, 255, 255, 127));
         imagealphablending($lienzo, true);
-        imagettftext($lienzo, $pt + 6, 0, (int)(($tam - $ancho) / 2), (int)(($tam + $alto) / 2), $color, $ttf, $texto);
-        $rot = imagerotate($lienzo, 45, imagecolorallocatealpha($lienzo, 255, 255, 255, 127));
+        $tinta = imagecolorallocatealpha($lienzo, $rgb[0], $rgb[1], $rgb[2], $alfa);
+
+        // El tamaño configurado (pt) se lleva a píxeles; si el texto no cabe,
+        // se reduce hasta el 92 % del lienzo.
+        $pt = max(12, (int) round($tamano * 2));
+        do {
+            $caja = imagettfbbox($pt, 0, $ttf, $texto);
+            $ancho = abs($caja[2] - $caja[0]);
+            $pt -= 4;
+        } while ($ancho > $lado * 0.92 && $pt > 10);
+        $pt = max(10, $pt + 4);
+        $caja = imagettfbbox($pt, 0, $ttf, $texto);
+        $ancho = abs($caja[2] - $caja[0]);
+        $alto = abs($caja[1] - $caja[7]);
+        imagettftext($lienzo, $pt, 0, (int) (($lado - $ancho) / 2), (int) (($lado + $alto) / 2), $tinta, $ttf, $texto);
+
+        // imagerotate gira en sentido antihorario: el ángulo del usuario es
+        // horario, por eso se invierte.
+        $rot = imagerotate($lienzo, -max(-90, min(90, $angulo)), imagecolorallocatealpha($lienzo, 255, 255, 255, 127));
+        imagedestroy($lienzo);
         if (!$rot) return null;
         imagesavealpha($rot, true);
         $ruta = tempnam(sys_get_temp_dir(), 'rdw') . '.png';
         imagepng($rot, $ruta);
+        imagedestroy($rot);
         return is_file($ruta) ? $ruta : null;
     }
 
@@ -709,43 +931,109 @@ class Redactor
             }
             $align = self::alineacionNumero((string) $d->num_posicion);
             $numEnEnc = $d->numerar && str_starts_with((string) $d->num_posicion, 'enc_');
-            $encPartes = $piePartes = [];
-            if ($d->encabezado || $d->encabezado_texto !== '') {
-                $encPartes[] = '<text:p text:style-name="RdEncPie">' . htmlspecialchars(self::linea($d), ENT_XML1) . '</text:p>';
-            }
-            if ($d->numerar && $numEnEnc) {
-                $encPartes[] = '<text:p text:style-name="RdNumPagina">Página <text:page-number text:select-page="current">1</text:page-number> de <text:page-count>1</text:page-count></text:p>';
-            }
-            if ($d->pie_texto !== '') {
-                $piePartes[] = '<text:p text:style-name="RdEncPie">' . htmlspecialchars($d->pie_texto, ENT_XML1) . '</text:p>';
-            }
-            if ($d->numerar && !$numEnEnc) {
-                $piePartes[] = '<text:p text:style-name="RdNumPagina">Página <text:page-number text:select-page="current">1</text:page-number> de <text:page-count>1</text:page-count></text:p>';
-            }
+            [$anchoPag, $altoPag] = $d->medidas();
+            $diseno = $d->membreteDiseno();
+            $encPartes = $piePartes = $estilosMb = [];
             $manifest = (string) $zip->getFromName('META-INF/manifest.xml');
-            foreach (['enc' => 'header', 'pie' => 'footer'] as $slot => $zona) {
-                $info = self::membreteConfig($d, $slot);
-                if (!$info) continue;
-                $ruta = self::imagenConOpacidad($info['ruta'], (int) $info['opacidad']);
-                if (!$ruta) continue;
-                $ext = strtolower(pathinfo($ruta, PATHINFO_EXTENSION)) ?: 'png';
-                if (!in_array($ext, ['png', 'jpg', 'jpeg'], true)) $ext = 'png';
-                $destino = 'Pictures/rdmembrete_' . $slot . '.' . $ext;
-                if ($ruta === $info['ruta']) {
-                    $zip->addFile($ruta, $destino);
-                } else {
-                    $zip->addFromString($destino, (string) file_get_contents($ruta));
-                    @unlink($ruta);
-                }
-                $mime = in_array($ext, ['jpg', 'jpeg'], true) ? 'image/jpeg' : 'image/png';
+
+            $agregarImagen = static function (string $origen, string $destino, string $mime) use ($zip, &$manifest): void {
+                $zip->addFromString($destino, (string) file_get_contents($origen));
                 if ($manifest !== '' && !str_contains($manifest, 'manifest:full-path="' . $destino . '"')) {
                     $manifest = str_replace('</manifest:manifest>', '<manifest:file-entry manifest:full-path="' . $destino . '" manifest:media-type="' . $mime . '"/></manifest:manifest>', $manifest);
                 }
-                $frame = '<text:p><draw:frame text:anchor-type="page" svg:x="' . $info['x'] . 'cm" svg:y="' . $info['y'] . 'cm" svg:width="' . $info['ancho'] . 'cm" svg:height="' . $info['alto'] . 'cm" draw:z-index="-1" style:wrap="run-through" style:run-through="background">'
-                    . '<draw:image xlink:href="' . $destino . '" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame></text:p>';
-                if ($zona === 'header') $encPartes[] = $frame; else $piePartes[] = $frame;
+            };
+
+            foreach (['encabezado' => 'header', 'pie' => 'footer'] as $slot => $zona) {
+                $b = $diseno[$slot];
+                if (empty($b['activo']) || !self::mbTieneContenido($d, $b)) continue;
+                $alignBloque = self::mbAlinear($b);
+                $logo = self::mbLogo($b);
+                $arriba = ($b['disposicion'] ?? '') === 'logo_arriba';
+                $ladoDer = ($b['disposicion'] ?? '') === 'logo_der';
+                $logoH = $logo ? $logo['alto'] : 0;
+                $logoW = $logo ? $logo['ancho'] : 0;
+                $partes = [];
+                $altoBloque = self::mbAltoBloque($d, $b);
+                $yBloque = $zona === 'header'
+                    ? 0.35
+                    : max(0.35, $altoPag - $altoBloque - 0.35);
+
+                foreach (['titulo', 'subtitulo'] as $linea) {
+                    $texto = self::mbTexto($d, $b, $linea);
+                    if ($texto === '') continue;
+                    $nombre = 'RdMb' . ucfirst($zona) . ucfirst($linea);
+                    $margenes = '';
+                    if ($logo && !$arriba) {
+                        $margenes .= $ladoDer
+                            ? ' fo:margin-right="' . ($logoW + 0.25) . 'cm"'
+                            : ' fo:margin-left="' . ($logoW + 0.25) . 'cm"';
+                    } elseif ($logo && $arriba && $linea === 'titulo') {
+                        $margenes .= ' fo:margin-top="' . ($logoH + 0.15) . 'cm"';
+                    }
+                    $estilosMb[] = '<style:style style:name="' . $nombre . '" style:family="paragraph">'
+                        . '<style:paragraph-properties fo:text-align="' . $alignBloque . '" fo:margin-top="0.02cm" fo:margin-bottom="0.02cm"' . $margenes . '/>'
+                        . '<style:text-properties fo:font-size="' . (float) $b[$linea . '_tamano'] . 'pt"'
+                        . ' fo:color="' . htmlspecialchars((string) $b[$linea . '_color'], ENT_XML1) . '"'
+                        . ' fo:font-weight="' . (!empty($b[$linea . '_negrita']) ? 'bold' : 'normal') . '"'
+                        . ' fo:font-style="' . (!empty($b[$linea . '_cursiva']) ? 'italic' : 'normal') . '"/>'
+                        . '</style:style>';
+                    $partes[] = '<text:p text:style-name="' . $nombre . '">' . htmlspecialchars($texto, ENT_XML1) . '</text:p>';
+                }
+
+                if ($logo) {
+                    $rutaLogo = self::imagenConOpacidad($logo['ruta'], (int) $logo['opacidad']);
+                    if ($rutaLogo) {
+                        $ext = strtolower(pathinfo($rutaLogo, PATHINFO_EXTENSION)) ?: 'png';
+                        if (!in_array($ext, ['png', 'jpg', 'jpeg'], true)) $ext = 'png';
+                        $destino = 'Pictures/rdmembrete_' . $zona . '.' . $ext;
+                        $agregarImagen($rutaLogo, $destino, in_array($ext, ['jpg', 'jpeg'], true) ? 'image/jpeg' : 'image/png');
+                        if ($rutaLogo !== $logo['ruta']) @unlink($rutaLogo);
+
+                        $x = (float) $d->margen_izq;
+                        if ($b['alineacion'] === 'centro') $x = ($anchoPag - $logoW) / 2;
+                        elseif ($b['alineacion'] === 'der') $x = $anchoPag - (float) $d->margen_der - $logoW;
+                        if ($ladoDer) $x = $anchoPag - (float) $d->margen_der - $logoW;
+                        elseif (($b['disposicion'] ?? '') === 'logo_izq') $x = (float) $d->margen_izq;
+                        $y = $arriba ? $yBloque : ($zona === 'header' ? 0.35 : $altoPag - max(1.0, $logoH) - 0.35);
+                        $estiloImg = 'RdMbImg' . ucfirst($zona);
+                        $estilosMb[] = '<style:style style:name="' . $estiloImg . '" style:family="graphic"><style:graphic-properties'
+                            . ' style:wrap="run-through" style:run-through="background" style:horizontal-pos="from-left" style:horizontal-rel="page"'
+                            . ' style:vertical-pos="from-top" style:vertical-rel="page"/></style:style>';
+                        $partes[] = '<text:p><draw:frame draw:style-name="' . $estiloImg . '" text:anchor-type="page" svg:x="' . round(max(0, $x), 2) . 'cm" svg:y="' . round(max(0, $y), 2) . 'cm"'
+                            . ' svg:width="' . $logoW . 'cm" svg:height="' . $logoH . 'cm" draw:z-index="-1">'
+                            . '<draw:image xlink:href="' . $destino . '" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame></text:p>';
+                    }
+                }
+
+                if ($zona === 'header') $encPartes = array_merge($encPartes, $partes);
+                else $piePartes = array_merge($piePartes, $partes);
             }
-            if ($manifest !== '' && str_contains($manifest, 'rdmembrete_')) $zip->addFromString('META-INF/manifest.xml', $manifest);
+
+            if ($d->numerar) {
+                $pNum = '<text:p text:style-name="RdNumPagina">Página <text:page-number text:select-page="current">1</text:page-number> de <text:page-count>1</text:page-count></text:p>';
+                if ($numEnEnc) $encPartes[] = $pNum; else $piePartes[] = $pNum;
+            }
+
+            $marca = $diseno['marca'];
+            if (!empty($marca['activo']) && $marca['texto'] !== '') {
+                $png = self::pngMarcaAgua($marca['texto'], $marca['color'], (int) $marca['opacidad'], (float) $marca['tamano'], (int) $marca['angulo']);
+                if ($png) {
+                    $agregarImagen($png, 'Pictures/rdmarca.png', 'image/png');
+                    @unlink($png);
+                    $ladoMarca = min($anchoPag, $altoPag) * 0.7;
+                    $xMarca = ($anchoPag - $ladoMarca) / 2;
+                    $yMarca = ($altoPag - $ladoMarca) / 2;
+                    $estilosMb[] = '<style:style style:name="RdMbImgMarca" style:family="graphic"><style:graphic-properties'
+                        . ' style:wrap="run-through" style:run-through="background" style:horizontal-pos="from-left" style:horizontal-rel="page"'
+                        . ' style:vertical-pos="from-top" style:vertical-rel="page"/></style:style>';
+                    $frameMarca = '<text:p><draw:frame draw:style-name="RdMbImgMarca" text:anchor-type="page" svg:x="' . round($xMarca, 2) . 'cm" svg:y="' . round($yMarca, 2) . 'cm"'
+                        . ' svg:width="' . round($ladoMarca, 2) . 'cm" svg:height="' . round($ladoMarca, 2) . 'cm" draw:z-index="-3">'
+                        . '<draw:image xlink:href="Pictures/rdmarca.png" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame></text:p>';
+                    $encPartes[] = $frameMarca;
+                }
+            }
+
+            if ($manifest !== '') $zip->addFromString('META-INF/manifest.xml', $manifest);
             $cabecera = $encPartes ? '<style:header>' . implode('', $encPartes) . '</style:header>' : '';
             $pie = $piePartes ? '<style:footer>' . implode('', $piePartes) . '</style:footer>' : '';
             $xml = preg_replace('#<style:header\b[^>]*/>#', '', $xml);
@@ -760,8 +1048,8 @@ class Redactor
                 }, $xml, 1);
                 if (!$hecho) $xml = preg_replace('#</style:master-page>#', $cabecera . $pie . '</style:master-page>', $xml, 1);
             }
-            $estilo = '<style:style style:name="RdEncPie" style:family="paragraph"><style:paragraph-properties fo:text-align="left"/><style:text-properties fo:font-size="9pt" fo:color="#666666"/></style:style>'
-                . '<style:style style:name="RdNumPagina" style:family="paragraph"><style:paragraph-properties fo:text-align="' . $align . '"/><style:text-properties fo:font-size="9pt" fo:color="#666666"/></style:style>';
+            $estilo = '<style:style style:name="RdNumPagina" style:family="paragraph"><style:paragraph-properties fo:text-align="' . $align . '"/><style:text-properties fo:font-size="9pt" fo:color="#666666"/></style:style>'
+                . implode('', $estilosMb);
             $xml = str_contains($xml, '<office:automatic-styles/>')
                 ? str_replace('<office:automatic-styles/>', '<office:automatic-styles>' . $estilo . '</office:automatic-styles>', $xml)
                 : preg_replace('#</office:automatic-styles>#', $estilo . '</office:automatic-styles>', $xml, 1);
@@ -782,17 +1070,20 @@ class Redactor
         $css = '@page{margin:' . $m['sup'] . 'cm ' . $m['der'] . 'cm ' . $m['inf'] . 'cm ' . $m['izq'] . 'cm}'
             . 'body{font-family:DejaVu Sans,Helvetica,sans-serif;font-size:11pt;line-height:1.35;color:#000;margin:0}'
             . 'h1{font-size:20pt}h2{font-size:16pt}h3{font-size:13pt}table{border-collapse:collapse}td,th{border:1px solid #888;padding:3pt 5pt;vertical-align:top}'
-            . 'blockquote{margin:6pt 0 6pt 18pt;padding-left:8pt;border-left:3pt solid #bbb;color:#444}pre{font-family:DejaVu Sans Mono,monospace;font-size:10pt}img{max-width:100%}img.rd-img-izq{float:left;margin:0 8pt 4pt 0}img.rd-img-der{float:right;margin:0 0 4pt 8pt}img.rd-img-bloque{display:block;margin:6pt auto}a{color:#0563c1}.rd-indice p{margin:2pt 0}';
-        $marca = $d->marca_agua !== '' ? '<div style="position:fixed;left:0;right:0;top:40%;text-align:center;font-size:96pt;font-weight:bold;color:#cccccc;opacity:0.35;transform:rotate(-45deg);z-index:-1">' . htmlspecialchars($d->marca_agua) . '</div>' : '';
-        $membrete = '';
-        foreach (['enc', 'pie'] as $slot) {
-            $info = self::membreteConfig($d, $slot);
-            if (!$info) continue;
-            $membrete .= '<div style="position:fixed;left:' . $info['x'] . 'cm;top:' . $info['y'] . 'cm;width:' . $info['ancho'] . 'cm;opacity:' . ($info['opacidad'] / 100) . ';z-index:-1">'
-                . '<img src="' . htmlspecialchars($info['ruta']) . '" style="display:block;width:100%;height:auto">'
-                . '</div>';
+            . 'blockquote{margin:6pt 0 6pt 18pt;padding-left:8pt;border-left:3pt solid #bbb;color:#444}pre{font-family:DejaVu Sans Mono,monospace;font-size:10pt}img{max-width:100%}img.rd-img-izq{float:left;margin:0 8pt 4pt 0}img.rd-img-der{float:right;margin:0 0 4pt 8pt}img.rd-img-bloque{display:block;margin:6pt auto}a{color:#0563c1}.rd-indice p{margin:2pt 0}'
+            . '.rd-mb-tabla,.rd-mb-tabla td{border:0;padding:0}';
+        $diseno = $d->membreteDiseno();
+        $membrete = self::htmlBloquePdf($d, 'encabezado') . self::htmlBloquePdf($d, 'pie');
+        $marca = $diseno['marca'];
+        $marcaHtml = '';
+        if (!empty($marca['activo']) && $marca['texto'] !== '') {
+            $marcaHtml = '<div style="position:fixed;left:0;right:0;top:0;height:' . $h . 'cm;text-align:center;z-index:-3">'
+                . '<span style="display:inline-block;margin-top:' . max(0, $h / 2 - 2) . 'cm;font-family:DejaVu Sans,sans-serif;'
+                . 'font-size:' . (float) $marca['tamano'] . 'pt;font-weight:bold;color:' . htmlspecialchars((string) $marca['color']) . ';'
+                . 'opacity:' . ((int) $marca['opacidad'] / 100) . ';transform:rotate(' . (int) $marca['angulo'] . 'deg);white-space:nowrap">'
+                . htmlspecialchars((string) $marca['texto']) . '</span></div>';
         }
-        $dompdf = Pdf::preparar('<html><head><meta charset="utf-8"><title>' . htmlspecialchars($d->nombre) . '</title><style>' . $css . '</style></head><body>' . $membrete . $marca . $html . '</body></html>',
+        $dompdf = Pdf::preparar('<html><head><meta charset="utf-8"><title>' . htmlspecialchars($d->nombre) . '</title><style>' . $css . '</style></head><body>' . $membrete . $marcaHtml . $html . '</body></html>',
             [0, 0, $w / 2.54 * 72, $h / 2.54 * 72], 'portrait',
             ['isRemoteEnabled' => false, 'chroot' => realpath(__DIR__ . '/../../public/uploads') ?: Imagenes::CARPETA_VPLAN, 'defaultFont' => 'serif']);
         $dompdf->render();
@@ -811,13 +1102,6 @@ class Redactor
                 ? max(10, $m['sup'] * 28.35 / 2) - 4
                 : $ph - max(14, $m['inf'] * 28.35 / 2) - 4;
             $canvas->page_text($xNum, $yNum, $textoNum, $fuente, 9, [0.4, 0.4, 0.4]);
-        }
-        if ($d->encabezado || $d->encabezado_texto !== '') {
-            $canvas->page_text($m['izq'] * 28.35, max(10, $m['sup'] * 28.35 / 2) - 4, self::linea($d), $fuente, 9, [0.4, 0.4, 0.4]);
-        }
-        if ($d->pie_texto !== '') {
-            $ancho = $dompdf->getFontMetrics()->getTextWidth($d->pie_texto, $fuente, 9);
-            $canvas->page_text($pw / 2 - $ancho / 2, $ph - max(14, $m['inf'] * 28.35 / 2) - ($d->numerar && !str_starts_with((string) $d->num_posicion, 'enc_') ? 14 : 4), $d->pie_texto, $fuente, 9, [0.4, 0.4, 0.4]);
         }
         return $dompdf->output();
     }

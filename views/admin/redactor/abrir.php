@@ -17,6 +17,7 @@ if (!$documento) {
 }
 
 $documento->contenido = \Classes\Sheetflow::refrescarHtml((string) $documento->contenido);
+$membrete = $documento->membreteDiseno();
 $departamentos = \Model\RedactorDocumento::departamentos();
 $usuario = (string) ($_SESSION['nombre'] ?? '');
 
@@ -374,7 +375,6 @@ template('header', [
     <label>Izq. <input type="number" id="rd-m-izq" step="0.1" min="0" max="8" value="<?php echo (float)$documento->margen_izq; ?>"> cm</label>
     <label>Der. <input type="number" id="rd-m-der" step="0.1" min="0" max="8" value="<?php echo (float)$documento->margen_der; ?>"> cm</label>
     <label><input type="checkbox" id="rd-numerar"<?php echo $documento->numerar ? ' checked' : ''; ?>> Numerar páginas</label>
-    <label><input type="checkbox" id="rd-encabezado"<?php echo $documento->encabezado ? ' checked' : ''; ?>> Encabezado (nombre · departamento · fecha)</label>
     <label>Corrector <select id="rd-idioma"><?php foreach (RedactorDocumento::IDIOMAS as $k => $n): ?><option value="<?php echo s($k); ?>"<?php echo $documento->idioma === $k ? ' selected' : ''; ?>><?php echo s($n); ?></option><?php endforeach; ?></select></label>
 </div>
 
@@ -394,7 +394,6 @@ template('header', [
             <option value="2.54,2.54,4.5,2.54">Encuadernado (izq. 4.5)</option>
         </select></label>
         <label class="rd-opc"><input type="checkbox" id="rd-pr-numerar"<?php echo $documento->numerar ? ' checked' : ''; ?>> Numerar páginas</label>
-        <label class="rd-opc"><input type="checkbox" id="rd-pr-encabezado"<?php echo $documento->encabezado ? ' checked' : ''; ?>> Encabezado</label>
         <span class="rd-sep" aria-hidden="true"></span>
         <label class="rd-opc"><input type="checkbox" id="rd-pr-cambios"> Mostrar cambios marcados</label>
         <label class="rd-opc"><input type="checkbox" id="rd-pr-coment"> Incluir comentarios al final</label>
@@ -514,65 +513,116 @@ template('header', [
     <div id="rd-x-est-lista" class="rd-est-lista"></div>
     <span class="text-sm text-muted">Se guardan en este navegador para este proyecto.</span>
 </div>
-<div class="rd-panel" id="rd-p-encpie" hidden>
-    <strong>Encabezado, pie y marca de agua</strong>
-    <label>Encabezado <input type="text" id="rd-x-enc" maxlength="200" value="<?php echo s($documento->encabezado_texto); ?>" placeholder="Vacío = automático (si está activo)"></label>
-    <label>Pie <input type="text" id="rd-x-pie" maxlength="200" value="<?php echo s($documento->pie_texto); ?>" placeholder="Texto bajo cada página"></label>
-    <label>Marca de agua <input type="text" id="rd-x-marca" maxlength="40" value="<?php echo s($documento->marca_agua); ?>" placeholder="BORRADOR, CONFIDENCIAL…"></label>
-    <span class="rd-sugerencias">
-        <button type="button" class="btn btn-sm btn-ghost" data-x-marca="BORRADOR">BORRADOR</button>
-        <button type="button" class="btn btn-sm btn-ghost" data-x-marca="CONFIDENCIAL">CONFIDENCIAL</button>
-        <button type="button" class="btn btn-sm btn-ghost" data-x-marca="COPIA CONTROLADA">COPIA CONTROLADA</button>
-        <button type="button" class="btn btn-sm btn-ghost" data-x-marca="">Quitar</button>
-    </span>
-    <hr>
-    <label class="rd-opc"><input type="checkbox" id="rd-x-numerar"<?php echo $documento->numerar ? ' checked' : ''; ?>> Numerar páginas</label>
-    <label>Posición de la numeración
-        <select id="rd-x-num-pos">
-            <?php foreach (RedactorDocumento::POSICIONES_NUM as $k => $n): ?>
-                <option value="<?php echo s($k); ?>"<?php echo $documento->num_posicion === $k ? ' selected' : ''; ?>><?php echo s($n); ?></option>
-            <?php endforeach; ?>
-        </select>
-    </label>
-    <span class="text-sm text-muted">La numeración se repite en todas las páginas y se exporta a PDF, Word y LibreOffice.</span>
-    <hr>
+<div class="rd-panel rd-panel-membrete" id="rd-p-encpie" hidden>
+    <div class="rd-mb-intro">
+        <strong>Encabezado, pie y marca de agua</strong>
+        <span class="text-sm text-muted">Cada zona es un bloque: coloca el logo, el título y el subencabezado donde los necesites. En los textos puedes usar {nombre}, {departamento} y {fecha}.</span>
+    </div>
+
     <?php
-    $bloqueMembrete = static function (string $slot, string $etiqueta, string $img, $opacidad, $x, $y, $ancho) {
+    $mbMarcado = static fn($v): string => !empty($v) ? ' checked' : '';
+    $editorBloque = static function (string $slot, string $titulo, array $b) use ($mbMarcado) {
         $id = 'rd-x-' . $slot;
+        $p = 'rd-mb-' . $slot;
         ?>
-        <div class="rd-membrete-bloque">
-            <strong>Imagen del <?php echo s($etiqueta); ?></strong>
-            <input type="hidden" id="<?php echo $id; ?>-img" value="<?php echo s($img); ?>">
-            <div class="rd-membrete-acciones">
-                <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-subir"><i class="fa-solid fa-upload"></i> Subir</button>
-                <input type="file" id="<?php echo $id; ?>-archivo" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" hidden>
-                <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-quitar"><i class="fa-solid fa-trash-can"></i> Quitar</button>
+        <fieldset class="rd-mb-bloque" id="<?php echo $p; ?>">
+            <legend>
+                <label class="rd-opc"><input type="checkbox" id="<?php echo $p; ?>-activo"<?php echo $mbMarcado($b['activo']); ?>> <?php echo s($titulo); ?></label>
+            </legend>
+
+            <div class="rd-mb-fila">
+                <label>Disposición
+                    <select id="<?php echo $p; ?>-dispo">
+                        <?php foreach (RedactorDocumento::DISPOSICIONES_MEMBRETE as $k => $n): ?>
+                            <option value="<?php echo s($k); ?>"<?php echo $b['disposicion'] === $k ? ' selected' : ''; ?>><?php echo s($n); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>Alineación
+                    <select id="<?php echo $p; ?>-alin">
+                        <?php foreach (RedactorDocumento::ALINEACIONES_MEMBRETE as $k => $n): ?>
+                            <option value="<?php echo s($k); ?>"<?php echo $b['alineacion'] === $k ? ' selected' : ''; ?>><?php echo s($n); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
             </div>
-            <label>Buscar en Archivo <input type="search" id="<?php echo $id; ?>-q" placeholder="Nombre de la imagen…" autocomplete="off"></label>
-            <label>o una imagen del Archivo <select id="<?php echo $id; ?>-sel"><option value="">— ninguna —</option></select></label>
-            <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-usar" data-slot="<?php echo $slot; ?>"><i class="fa-regular fa-image"></i> Usar del Archivo</button>
-            <div class="rd-archivo-vista" id="<?php echo $id; ?>-vista"<?php echo $img === '' ? ' hidden' : ''; ?>><img alt="Vista previa de la imagen de <?php echo s($etiqueta); ?>"<?php echo $img !== '' ? ' src="/public/uploads/vplan/' . s($img) . '"' : ''; ?>></div>
-            <label>Opacidad <input type="range" id="<?php echo $id; ?>-op" min="0" max="100" step="5" value="<?php echo (int) $opacidad; ?>"> <output id="<?php echo $id; ?>-op-n"><?php echo (int) $opacidad; ?>%</output></label>
-            <label>Ancho (cm) <input type="number" id="<?php echo $id; ?>-ancho" min="0.5" max="100" step="0.1" value="<?php echo (float) $ancho; ?>"></label>
-            <div class="rd-pos-botones" role="group" aria-label="Posición de la imagen">
-                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="enc_izq" data-slot="<?php echo $slot; ?>">Encabezado izq.</button>
-                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="enc_centro" data-slot="<?php echo $slot; ?>">Encabezado centro</button>
-                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="enc_der" data-slot="<?php echo $slot; ?>">Encabezado der.</button>
-                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="pie_izq" data-slot="<?php echo $slot; ?>">Pie izq.</button>
-                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="pie_centro" data-slot="<?php echo $slot; ?>">Pie centro</button>
-                <button type="button" class="btn btn-sm btn-ghost" data-membrete-pos="pie_der" data-slot="<?php echo $slot; ?>">Pie der.</button>
+
+            <div class="rd-mb-logo">
+                <strong>Logo</strong>
+                <input type="hidden" id="<?php echo $id; ?>-img" value="<?php echo s($b['logo_imagen']); ?>">
+                <div class="rd-membrete-acciones">
+                    <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-subir"><i class="fa-solid fa-upload"></i> Subir</button>
+                    <input type="file" id="<?php echo $id; ?>-archivo" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" hidden>
+                    <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-quitar"><i class="fa-solid fa-trash-can"></i> Quitar</button>
+                </div>
+                <label>Buscar en Archivo <input type="search" id="<?php echo $id; ?>-q" placeholder="Nombre de la imagen…" autocomplete="off"></label>
+                <label>o una imagen del Archivo <select id="<?php echo $id; ?>-sel"><option value="">— ninguna —</option></select></label>
+                <button type="button" class="btn btn-sm btn-ghost" id="<?php echo $id; ?>-usar"><i class="fa-regular fa-image"></i> Usar del Archivo</button>
+                <div class="rd-archivo-vista" id="<?php echo $id; ?>-vista"<?php echo $b['logo_imagen'] === '' ? ' hidden' : ''; ?>>
+                    <img alt="Logo del <?php echo s($titulo); ?>"<?php echo $b['logo_imagen'] !== '' ? ' src="/public/uploads/vplan/' . s($b['logo_imagen']) . '"' : ''; ?>>
+                </div>
+                <div class="rd-mb-fila">
+                    <label>Opacidad <input type="range" id="<?php echo $id; ?>-op" min="0" max="100" step="5" value="<?php echo (int) $b['logo_opacidad']; ?>"> <output id="<?php echo $id; ?>-op-n"><?php echo (int) $b['logo_opacidad']; ?>%</output></label>
+                    <label>Tamaño <input type="number" id="<?php echo $id; ?>-ancho" min="0.5" max="24" step="0.1" value="<?php echo (float) $b['logo_ancho']; ?>"> cm de ancho</label>
+                </div>
             </div>
-            <div class="rd-membrete-coords">
-                <label>X <input type="number" id="<?php echo $id; ?>-x" min="0" max="100" step="0.1" value="<?php echo (float) $x; ?>"> cm</label>
-                <label>Y <input type="number" id="<?php echo $id; ?>-y" min="0" max="100" step="0.1" value="<?php echo (float) $y; ?>"> cm</label>
+
+            <div class="rd-mb-texto">
+                <label>Título <input type="text" id="<?php echo $p; ?>-titulo" maxlength="200" value="<?php echo s($b['titulo_texto']); ?>" placeholder="Título de la hoja o de la sección"></label>
+                <div class="rd-mb-estilo">
+                    <label>Tamaño <input type="number" id="<?php echo $p; ?>-titulo-tam" min="5" max="72" step="0.5" value="<?php echo (float) $b['titulo_tamano']; ?>"> pt</label>
+                    <label>Color <input type="color" id="<?php echo $p; ?>-titulo-color" value="<?php echo s($b['titulo_color']); ?>"></label>
+                    <label class="rd-opc"><input type="checkbox" id="<?php echo $p; ?>-titulo-negrita"<?php echo $mbMarcado($b['titulo_negrita']); ?>> Negrita</label>
+                    <label class="rd-opc"><input type="checkbox" id="<?php echo $p; ?>-titulo-cursiva"<?php echo $mbMarcado($b['titulo_cursiva']); ?>> Cursiva</label>
+                </div>
+                <label>Subencabezado <input type="text" id="<?php echo $p; ?>-sub" maxlength="200" value="<?php echo s($b['subtitulo_texto']); ?>" placeholder="Línea secundaria (opcional)"></label>
+                <div class="rd-mb-estilo">
+                    <label>Tamaño <input type="number" id="<?php echo $p; ?>-sub-tam" min="5" max="72" step="0.5" value="<?php echo (float) $b['subtitulo_tamano']; ?>"> pt</label>
+                    <label>Color <input type="color" id="<?php echo $p; ?>-sub-color" value="<?php echo s($b['subtitulo_color']); ?>"></label>
+                    <label class="rd-opc"><input type="checkbox" id="<?php echo $p; ?>-sub-negrita"<?php echo $mbMarcado($b['subtitulo_negrita']); ?>> Negrita</label>
+                    <label class="rd-opc"><input type="checkbox" id="<?php echo $p; ?>-sub-cursiva"<?php echo $mbMarcado($b['subtitulo_cursiva']); ?>> Cursiva</label>
+                </div>
             </div>
-        </div>
+        </fieldset>
         <?php
     };
-    $bloqueMembrete('enc', 'encabezado', (string) $documento->imagen_encabezado, $documento->imagen_encabezado_opacidad, $documento->imagen_encabezado_x, $documento->imagen_encabezado_y, $documento->imagen_encabezado_ancho);
-    $bloqueMembrete('pie', 'pie', (string) $documento->imagen_pie, $documento->imagen_pie_opacidad, $documento->imagen_pie_x, $documento->imagen_pie_y, $documento->imagen_pie_ancho);
+    $editorBloque('enc', 'Encabezado', $membrete['encabezado']);
+    $editorBloque('pie', 'Pie de página', $membrete['pie']);
     ?>
-    <span class="text-sm text-muted">En el encabezado puedes usar {nombre}, {departamento} y {fecha}. Las imágenes se repiten en todas las páginas; si borras el original en Archivo, el documento conserva su copia. La marca sale en PDF y Word (no en LibreOffice).</span>
+
+    <fieldset class="rd-mb-bloque rd-mb-numeracion">
+        <legend>
+            <label class="rd-opc"><input type="checkbox" id="rd-x-numerar"<?php echo $documento->numerar ? ' checked' : ''; ?>> Numeración de páginas</label>
+        </legend>
+        <label>Posición
+            <select id="rd-x-num-pos">
+                <?php foreach (RedactorDocumento::POSICIONES_NUM as $k => $n): ?>
+                    <option value="<?php echo s($k); ?>"<?php echo $documento->num_posicion === $k ? ' selected' : ''; ?>><?php echo s($n); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <span class="text-sm text-muted">Se repite en todas las páginas y se exporta a PDF, Word y LibreOffice.</span>
+    </fieldset>
+
+    <fieldset class="rd-mb-bloque">
+        <legend>
+            <label class="rd-opc"><input type="checkbox" id="rd-x-marca-activo"<?php echo $mbMarcado($membrete['marca']['activo']); ?>> Marca de agua</label>
+        </legend>
+        <label>Texto <input type="text" id="rd-x-marca" maxlength="40" value="<?php echo s($membrete['marca']['texto']); ?>" placeholder="BORRADOR, CONFIDENCIAL…"></label>
+        <div class="rd-mb-estilo">
+            <label>Tamaño <input type="number" id="rd-x-marca-tam" min="24" max="220" step="2" value="<?php echo (float) $membrete['marca']['tamano']; ?>"> pt</label>
+            <label>Color <input type="color" id="rd-x-marca-color" value="<?php echo s($membrete['marca']['color']); ?>"></label>
+            <label>Opacidad <input type="range" id="rd-x-marca-op" min="0" max="100" step="5" value="<?php echo (int) $membrete['marca']['opacidad']; ?>"> <output id="rd-x-marca-op-n"><?php echo (int) $membrete['marca']['opacidad']; ?>%</output></label>
+            <label>Ángulo <input type="number" id="rd-x-marca-ang" min="-90" max="90" step="5" value="<?php echo (int) $membrete['marca']['angulo']; ?>"> °</label>
+        </div>
+        <div class="rd-sugerencias">
+            <button type="button" class="btn btn-sm btn-ghost" data-x-marca="BORRADOR">BORRADOR</button>
+            <button type="button" class="btn btn-sm btn-ghost" data-x-marca="CONFIDENCIAL">CONFIDENCIAL</button>
+            <button type="button" class="btn btn-sm btn-ghost" data-x-marca="COPIA CONTROLADA">COPIA CONTROLADA</button>
+            <button type="button" class="btn btn-sm btn-ghost" data-x-marca="">Quitar</button>
+        </div>
+    </fieldset>
+    <span class="text-sm text-muted">La marca de agua se centra en la hoja y queda detrás del texto. Los logos se repiten en todas las páginas; si borras el original en Archivo, el documento conserva su copia.</span>
 </div>
 <div class="rd-panel" id="rd-p-ira" hidden>
     <strong>Ir a</strong>

@@ -210,6 +210,7 @@ $router->post('/admin/sheetflow/api/compartir', 'views/admin/sheetflow/api/compa
 $router->get('/admin/archivo',                 'views/admin/archivo/index.php',     'soloAdmin');
 $router->post('/admin/archivo/subir',          'views/admin/archivo/subir.php',     'soloAdmin');
 $router->post('/admin/archivo/crear-carpeta',  'views/admin/archivo/accion.php',    'soloAdmin');
+$router->post('/admin/archivo/editar-carpeta',    'views/admin/archivo/accion.php', 'soloAdmin');
 $router->post('/admin/archivo/renombrar-carpeta', 'views/admin/archivo/accion.php', 'soloAdmin');
 $router->post('/admin/archivo/eliminar-carpeta',  'views/admin/archivo/accion.php', 'soloAdmin');
 $router->post('/admin/archivo/mover',          'views/admin/archivo/accion.php',    'soloAdmin');
