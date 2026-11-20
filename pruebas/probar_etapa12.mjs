@@ -51,14 +51,16 @@ try {
   verifica('venta con IVA: pendiente de facturar, con IVA', (await panel.innerText()).toLowerCase().includes('pendiente de facturar') && (await panel.innerText()).toLowerCase().includes('con iva'));
   verifica('ya no pide confirmar a mano: subir el documento basta', (await panel.locator('#fv_manual').count()) === 0
     && !(await panel.innerText()).includes('No hay un CFDI adjunto'));
-  await pagina.selectOption('#estado_facturacion', 'facturada');
-  await pagina.click('#facturacion form:has(#estado_facturacion) button[type=submit]');
-  verifica('elegir «Facturada» sin CFDI queda como confirmación manual', sql(`SELECT CONCAT(estado_facturacion,'/',facturacion_manual) FROM ingresos WHERE venta_id=${vIva}`) === 'facturada/1');
+  await pagina.check('#confirma-manual');
+  await pagina.fill('#factura_folio', 'A-12');
+  await pagina.fill('#uuid_fiscal', 'FA120000-0000-4000-8000-000000000012');
+  await Promise.all([
+    pagina.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    pagina.click('#form-facturacion button[type=submit]'),
+  ]);
+  verifica('confirmar a mano sin CFDI queda como facturada manual', sql(`SELECT CONCAT(estado_facturacion,'/',facturacion_manual) FROM ingresos WHERE venta_id=${vIva}`) === 'facturada/1');
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${vIva}`);
   verifica('reabierta muestra «Facturada» con su confirmación manual', (await pagina.locator('#facturacion').innerText()).includes('confirmación manual'));
-  await pagina.selectOption('#estado_facturacion', 'facturada');
-  await pagina.click('#facturacion form:has(#estado_facturacion) button[type=submit]');
-  verifica('confirmada a mano: facturada y marcada manual', sql(`SELECT CONCAT(estado_facturacion,'/',facturacion_manual) FROM ingresos WHERE venta_id=${vIva}`) === 'facturada/1');
   verifica('regresa al detalle de la venta con el historial', pagina.url().includes('/admin/ventas/detalle') && (await pagina.locator('#facturacion').innerText()).includes('confirmación manual'));
   await pagina.goto(`${BASE}/admin/ventas/detalle?id=${vSin}`);
   verifica('venta sin IVA: no facturada, sin IVA', (await pagina.locator('#facturacion').innerText()).toLowerCase().includes('no facturada') && (await pagina.locator('#facturacion').innerText()).toLowerCase().includes('sin iva'));

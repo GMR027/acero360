@@ -94,11 +94,13 @@ try {
 
   console.log('Burbujas de ayuda (200 ms)');
   await pagina.goto(`${BASE}/admin/contabilidad`);
-  await pagina.hover('.sidebar__enlace[href="/admin/fiscal"]');
+  // Se usa el primer enlace del menú: está siempre visible y no obliga a
+  // desplazar el menú (el desplazamiento oculta la burbuja a propósito).
+  await pagina.hover('.sidebar__enlace[href="/admin"]');
   await pagina.waitForTimeout(80);
   verifica('antes de 200 ms no aparece la burbuja', await pagina.locator('#burbuja-ayuda').count() === 0 || await pagina.locator('#burbuja-ayuda').isHidden());
   await pagina.waitForTimeout(350);
-  verifica('pasados 200 ms la burbuja explica la sección', (await pagina.locator('#burbuja-ayuda').isVisible()) && (await pagina.locator('#burbuja-ayuda').innerText()).includes('separar para impuestos'));
+  verifica('pasados 200 ms la burbuja explica la sección', (await pagina.locator('#burbuja-ayuda').isVisible()) && (await pagina.locator('#burbuja-ayuda').innerText()).includes('accesos rápidos'));
   await pagina.mouse.move(600, 400);
   await pagina.waitForTimeout(100);
   verifica('al quitar el cursor la burbuja se oculta', await pagina.locator('#burbuja-ayuda').isHidden());
@@ -133,14 +135,17 @@ try {
   await pagina.goto(`${BASE}/admin/contabilidad/ingresos?anio=${anio}&mes=${mes}`);
   verifica('lista 2 ingresos pendientes de facturar', (await pagina.locator('tbody tr').count()) === 2 && (await pagina.locator('tbody .badge:has-text("Pendiente de facturar")').count()) === 2);
   const ingresoId = sql(`SELECT i.id FROM ingresos i JOIN ventas v ON v.id=i.venta_id WHERE v.cliente_id=${c1}`);
-  await pagina.goto(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}`);
-  await pagina.selectOption('#estado_facturacion', 'facturada');
-  await pagina.click('form:has(#estado_facturacion) details summary');
+  const ventaId = sql(`SELECT venta_id FROM ingresos WHERE id=${ingresoId}`);
+  await pagina.goto(`${BASE}/admin/ventas/detalle?id=${ventaId}`);
+  await pagina.check('#confirma-manual');
   await pagina.fill('#factura_folio', 'A-77');
   await pagina.fill('#uuid_fiscal', uuid);
-  await Promise.all([pagina.waitForNavigation(), pagina.click('form:has(#estado_facturacion) button[type=submit]')]);
+  await Promise.all([
+    pagina.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    pagina.click('#form-facturacion button[type=submit]'),
+  ]);
   verifica('queda facturada con su UUID', sql(`SELECT CONCAT(estado_facturacion,'/',uuid_fiscal) FROM ingresos WHERE id=${ingresoId}`) === `facturada/${uuid}`);
-  await pagina.click('summary:has-text("Anotar un pago parcial")');
+  await pagina.click('summary:has-text("Registrar un abono")');
   await pagina.fill('#cobro-importe', '50');
   const tokenCobro = await pagina.locator('form:has(#cobro-importe) input[name=token]').inputValue();
   await Promise.all([pagina.waitForNavigation(), pagina.click('button:has-text("Anotar pago recibido")')]);
@@ -149,18 +154,24 @@ try {
   verifica('reenviar el mismo formulario no duplica el cobro', sql(`SELECT COUNT(*) FROM cobros WHERE ingreso_id=${ingresoId}`) === '1' && reenvio.status() === 302);
 
   console.log('Documentos');
-  await pagina.goto(`${BASE}/admin/contabilidad/ingresos/detalle?id=${ingresoId}`);
-  const guardarFactura = async () => Promise.all([pagina.waitForNavigation(), pagina.click('form:has(#estado_facturacion) button[type=submit]')]);
+  await pagina.goto(`${BASE}/admin/ventas/detalle?id=${ventaId}`);
+  const guardarFactura = async () => Promise.all([
+    pagina.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+    pagina.click('#form-facturacion button[type=submit]'),
+  ]);
   await pagina.setInputFiles('#doc-archivo', pdf);
   await guardarFactura();
   verifica('PDF adjuntado', sql(`SELECT COUNT(*) FROM documentos WHERE entidad='ingreso' AND entidad_id=${ingresoId} AND tipo='factura_pdf'`) === '1');
+  // El PDF falso se prueba antes del XML: al quedar facturada con CFDI, la
+  // pantalla cambia al formulario de «completar» y ya no ofrece #doc-archivo.
+  await pagina.setInputFiles('#doc-archivo', malo);
+  await guardarFactura();
+  verifica('un archivo falso se rechaza con mensaje claro', (await pagina.content()).includes('no es un PDF válido') && sql(`SELECT COUNT(*) FROM documentos`) === '1');
   await pagina.setInputFiles('#doc-archivo', xml);
   await guardarFactura();
   verifica('XML CFDI adjuntado con su UUID', sql(`SELECT uuid_fiscal FROM documentos WHERE entidad='ingreso' AND tipo='xml'`) === uuid);
   verifica('se muestra la validación documental «sin verificar SAT»', (await pagina.content()).includes('sin verificar SAT'));
-  await pagina.setInputFiles('#doc-archivo', malo);
-  await guardarFactura();
-  verifica('un archivo falso se rechaza con mensaje claro', (await pagina.content()).includes('no es un PDF válido') && sql(`SELECT COUNT(*) FROM documentos`) === '2');
+  verifica('quedaron el PDF y el XML', sql(`SELECT COUNT(*) FROM documentos`) === '2');
 
   const doc = sql(`SELECT id FROM documentos WHERE tipo='xml'`);
   const descarga = await pagina.request.get(`${BASE}/admin/contabilidad/documentos/descargar?id=${doc}`);
