@@ -13,7 +13,8 @@
 # Etapa 1: dependencias de Composer (sin dev, autoloader optimizado)
 # ---------------------------------------------------------------------------
 FROM composer:2 AS composer
-# ext-gd no existe en esta imagen de composer pero sí en el runtime (etapa 2); por eso se ignora aquí.
+# ext-gd y ext-mbstring no existen en esta imagen de composer pero sí en el
+# runtime (etapa 2); por eso se ignoran aquí. El runtime es el que ejecuta la app.
 
 WORKDIR /app
 COPY composer.json composer.lock ./
@@ -23,7 +24,8 @@ RUN composer install \
       --no-scripts \
       --prefer-dist \
       --optimize-autoloader \
-      --ignore-platform-req=ext-gd
+      --ignore-platform-req=ext-gd \
+      --ignore-platform-req=ext-mbstring
 
 # ---------------------------------------------------------------------------
 # Etapa 2: runtime Apache + PHP
