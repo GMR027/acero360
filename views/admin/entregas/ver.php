@@ -20,9 +20,9 @@ $grupos     = \App\Entregas::productosAgrupados($ventas);
 $pendientes = array_sum(array_column($ventas, 'pendientes'));
 
 $consulta = http_build_query(['ventas' => array_map('intval', array_column($ventas, 'id'))]);
-$exportar = '<a class="btn btn--secundario" href="/admin/entregas/imprimir?tipo=preparacion&' . $consulta . '" target="_blank" rel="noopener">Imprimir</a>'
-    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?tipo=preparacion&' . $consulta . '" target="_blank" rel="noopener">Preparación (PDF)</a>'
-    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?tipo=entrega&' . $consulta . '" target="_blank" rel="noopener">Entrega (PDF)</a>';
+$exportar = '<a class="btn btn--secundario" href="/admin/entregas/imprimir?tipo=preparacion&' . $consulta . '"' . atributosNuevaPestana() . '>Imprimir</a>'
+    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?tipo=preparacion&' . $consulta . '">Preparación (PDF)</a>'
+    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?tipo=entrega&' . $consulta . '">Entrega (PDF)</a>';
 
 template('header', [
     'titulo'     => 'Pedidos seleccionados',

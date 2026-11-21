@@ -66,7 +66,7 @@ template('header', [
     'titulo'     => 'Análisis Financiero',
     'subtitulo'  => 'Administración y finanzas',
     'rutaActiva' => '/admin/analisis-financiero',
-    'acciones'   => '<a class="btn btn--primario" href="' . escaparValores($pdfUrl) . '" target="_blank" rel="noopener">'
+    'acciones'   => '<a class="btn btn--primario" href="' . escaparValores($pdfUrl) . '">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>'
         . '<span>Exportar PDF' . ($modo === 'detallado' ? ' detallado' : '') . '</span></a>',
 ]);

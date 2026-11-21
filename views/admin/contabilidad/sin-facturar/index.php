@@ -30,7 +30,7 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'pe
 
 <div class="encabezado-pagina__acciones mb-lg movil-oculto">
     <?php foreach (['pdf' => ['PDF', 'picture_as_pdf'], 'xlsx' => ['Excel', 'table_view'], 'csv' => ['CSV', 'csv']] as $formato => [$texto, $icono]) : ?>
-        <a class="btn btn--secundario" href="/admin/contabilidad/sin-facturar/exportar?<?= $consultaVista ?>&formato=<?= $formato ?>"<?= $formato === 'pdf' ? ' target="_blank" rel="noopener"' : '' ?>>
+        <a class="btn btn--secundario" href="/admin/contabilidad/sin-facturar/exportar?<?= $consultaVista ?>&formato=<?= $formato ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem"><?= $icono ?></span><span>Exportar <?= $texto ?></span></a>
     <?php endforeach; ?>
 </div>

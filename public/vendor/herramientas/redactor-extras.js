@@ -884,6 +884,23 @@
     });
 
     // ================= Exportar solo la selección =================
+    /** App Android: el WebView no descarga blob:, la app lo guarda por su puente. */
+    function descargarArchivo(blob, nombre) {
+        var puente = window.Acero360Android;
+        if (puente && typeof puente.guardar === 'function') {
+            var lector = new FileReader();
+            lector.onload = function () {
+                var datos = String(lector.result || '');
+                var coma = datos.indexOf(',');
+                if (coma >= 0) puente.guardar(datos.substring(coma + 1), nombre, blob.type || 'application/octet-stream');
+            };
+            lector.readAsDataURL(blob);
+            return;
+        }
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombre; document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }
+
     seleccionar('rd-x-expsel', function (formato) {
         R.restaurarSeleccion();
         var s = R.seleccion(); if (!s || s.isCollapsed) { estado('Selecciona primero el texto que quieres exportar', true); return; }
@@ -895,8 +912,7 @@
             if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || 'No se pudo exportar'); });
             var nombre = r.headers.get('X-Nombre-Archivo') || ('seleccion.' + formato);
             return r.blob().then(function (blob) {
-                var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombre; document.body.appendChild(a); a.click();
-                setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+                descargarArchivo(blob, nombre);
                 estado('Selección exportada: ' + nombre);
             });
         }).catch(function (e) { estado(e.message || 'No se pudo exportar', true); });

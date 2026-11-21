@@ -21,7 +21,7 @@
         </div>
         <div class="encabezado-pagina__acciones">
             <?php if ($entregas) : ?>
-                <a class="btn btn--secundario btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= $id ?>" target="_blank" rel="noopener">
+                <a class="btn btn--secundario btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= $id ?>">
                     <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
                     <span>Acta de entrega (PDF)</span>
                 </a>
@@ -159,8 +159,7 @@
             ]); ?>
 
             <p class="texto-sm mb-0">
-                <a class="btn btn--texto btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= $id ?>&entrega=<?= (int) $e['id'] ?>"
-                   target="_blank" rel="noopener">
+                <a class="btn btn--texto btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= $id ?>&entrega=<?= (int) $e['id'] ?>">
                     <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
                     <span>Acta de esta entrega (PDF)</span>
                 </a>

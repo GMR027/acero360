@@ -25,6 +25,31 @@ function t(string $texto): string
     return $texto;
 }
 
+/**
+ * ¿La petición viene de la app Android?
+ *
+ * /app/android/entrar deja la cookie de la app. El WebView de Android ignora
+ * los enlaces con target="_blank" (no hay onCreateWindow) y no tiene visor de
+ * PDF, así que las vistas cambian la forma de abrir las descargas cuando esto
+ * devuelve true.
+ */
+function enAppAndroid(): bool
+{
+    return class_exists(\App\AppAndroid::class) && \App\AppAndroid::desdeApp() !== null;
+}
+
+/** Atributos de un enlace que en el navegador abre otra pestaña (en la app, la misma). */
+function atributosNuevaPestana(): string
+{
+    return enAppAndroid() ? '' : ' target="_blank" rel="noopener"';
+}
+
+/** Parámetro para ver un PDF dentro del navegador; en la app Android se descarga. */
+function consultaPdfInline(): string
+{
+    return enAppAndroid() ? '' : '&inline=1';
+}
+
 /** Fecha legible con el formato indicado (acepta fechas MySQL y timestamps). */
 function formatear_fecha($fecha, string $formato = 'd/m/Y'): string
 {

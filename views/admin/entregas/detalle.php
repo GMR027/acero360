@@ -18,9 +18,9 @@ $ventas  = \App\Entregas::ventasDePreparacion($id);
 $grupos  = \App\Entregas::productosAgrupados($ventas);
 $pendientes = array_sum(array_column($ventas, 'pendientes'));
 
-$acciones = '<a class="btn btn--secundario" href="/admin/entregas/imprimir?id=' . $id . '&tipo=preparacion" target="_blank" rel="noopener">Imprimir</a>'
-    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?id=' . $id . '&tipo=preparacion" target="_blank" rel="noopener">Lista de preparación (PDF)</a>'
-    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?id=' . $id . '&tipo=entrega" target="_blank" rel="noopener">PDF de entrega</a>';
+$acciones = '<a class="btn btn--secundario" href="/admin/entregas/imprimir?id=' . $id . '&tipo=preparacion"' . atributosNuevaPestana() . '>Imprimir</a>'
+    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?id=' . $id . '&tipo=preparacion">Lista de preparación (PDF)</a>'
+    . '<a class="btn btn--secundario" href="/admin/entregas/pdf?id=' . $id . '&tipo=entrega">PDF de entrega</a>';
 
 template('header', [
     'titulo'     => $prep['folio'],

@@ -36,7 +36,7 @@ template('header', [
     'acciones'  => '<a class="btn btn--secundario" href="/admin/proveedores/categorias">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">category</span>'
         . '<span>Crear Categorías</span></a>'
-        . '<a class="btn btn--secundario" href="/admin/proveedores/pdf" target="_blank" rel="noopener">'
+        . '<a class="btn btn--secundario" href="/admin/proveedores/pdf">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>'
         . '<span>Exportar datos</span></a>'
         . '<a class="btn btn--secundario" href="/admin/proveedores/entradas">'

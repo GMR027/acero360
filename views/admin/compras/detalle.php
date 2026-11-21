@@ -33,9 +33,9 @@ $puedeEditar  = in_array($orden['estado'], ['solicitada', 'sin_recepcion'], true
 $gastoVigente = $gasto && $gasto['estado'] === 'vigente';
 $sinRelacionar = array_filter($partidas, static fn ($p) => !$esInsumo && !$p['producto_id']);
 
-$acciones = '<a class="btn btn--secundario" href="/admin/compras/pdf?id=' . $id . '&tipo=orden" target="_blank" rel="noopener">PDF de la compra</a>';
+$acciones = '<a class="btn btn--secundario" href="/admin/compras/pdf?id=' . $id . '&tipo=orden">PDF de la compra</a>';
 if ($puedeRecibir || $recepciones) {
-    $acciones .= '<a class="btn btn--secundario" href="/admin/compras/pdf?id=' . $id . '&tipo=cierre" target="_blank" rel="noopener">Comprado vs. recibido</a>';
+    $acciones .= '<a class="btn btn--secundario" href="/admin/compras/pdf?id=' . $id . '&tipo=cierre">Comprado vs. recibido</a>';
 }
 
 template('header', [

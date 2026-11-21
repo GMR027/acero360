@@ -42,7 +42,7 @@ template('header', [
                     <a href="/admin/redactor/descargar?id=<?= (int) $documento->id ?>&formato=docx"><span class="material-symbols-outlined">description</span> Word (.docx)</a>
                     <a href="/admin/redactor/descargar?id=<?= (int) $documento->id ?>&formato=odt"><span class="material-symbols-outlined">article</span> LibreOffice (.odt)</a>
                     <a href="/admin/redactor/descargar?id=<?= (int) $documento->id ?>&formato=pdf"><span class="material-symbols-outlined">picture_as_pdf</span> PDF</a>
-                    <a href="/admin/redactor/descargar?id=<?= (int) $documento->id ?>&formato=pdf&inline=1" target="_blank" rel="noopener"><span class="material-symbols-outlined">print</span> Imprimir</a>
+                    <a href="/admin/redactor/descargar?id=<?= (int) $documento->id ?>&formato=pdf<?= consultaPdfInline() ?>"<?= atributosNuevaPestana() ?>><span class="material-symbols-outlined">print</span> Imprimir</a>
                     <?php if ($comentarios) : ?>
                         <label class="rd-opc"><input type="checkbox" id="rd-x-coment"> Incluir comentarios al exportar</label>
                     <?php endif; ?>

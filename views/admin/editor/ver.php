@@ -48,7 +48,7 @@ template('header', [
                     <a href="/admin/editor/descargar?id=<?= (int) $documento->id ?>&formato=pdf">
                         <span class="material-symbols-outlined">picture_as_pdf</span> PDF
                     </a>
-                    <a href="/admin/editor/descargar?id=<?= (int) $documento->id ?>&formato=pdf&inline=1" target="_blank" rel="noopener">
+                    <a href="/admin/editor/descargar?id=<?= (int) $documento->id ?>&formato=pdf<?= consultaPdfInline() ?>"<?= atributosNuevaPestana() ?>>
                         <span class="material-symbols-outlined">print</span> Imprimir
                     </a>
                 </div>

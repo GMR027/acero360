@@ -23,7 +23,7 @@ template('header', [
     'acciones'   => '<a class="btn btn--secundario" href="/admin/pedidos?empresa=' . (int) $pedido->empresa_id . '">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>'
         . '<span>Pedidos</span></a>'
-        . '<a class="btn btn--secundario" href="/admin/pedidos/pdf?id=' . (int) $pedido->id . '" target="_blank" rel="noopener">'
+        . '<a class="btn btn--secundario" href="/admin/pedidos/pdf?id=' . (int) $pedido->id . '">'
         . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>'
         . '<span>PDF</span></a>',
 ]);

@@ -89,7 +89,7 @@ template('selectorPeriodo', ['accion' => '/admin/contabilidad/cierre', 'periodo'
             <div><dt>Avisos reconocidos</dt><dd><?= count($estado['snapshot']['avisos_reconocidos'] ?? []) ?></dd></div>
         </dl>
         <div class="encabezado-pagina__acciones mt-md">
-            <a class="btn btn--secundario" href="/admin/contabilidad/cierre/exportar?<?= $consulta ?>&formato=pdf" target="_blank" rel="noopener">Exportar resumen (PDF)</a>
+            <a class="btn btn--secundario" href="/admin/contabilidad/cierre/exportar?<?= $consulta ?>&formato=pdf">Exportar resumen (PDF)</a>
             <a class="btn btn--secundario" href="/admin/contabilidad/cierre/exportar?<?= $consulta ?>&formato=csv">Exportar resumen (CSV)</a>
         </div>
     </section>

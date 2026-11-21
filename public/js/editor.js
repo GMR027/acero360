@@ -3607,7 +3607,8 @@
 
     function exportarPdf(imprimir) {
         estado('Generando PDF…');
-        var ventana = imprimir ? window.open('', '_blank') : null;
+        // La app Android no abre ventanas nuevas ni tiene visor de PDF: se descarga.
+        var ventana = imprimir && !puenteAndroid() ? window.open('', '_blank') : null;
         guardar(false).then(function () {
             // Primero se intenta con lo que ya está guardado: si el documento
             // no cambió desde el último export, el servidor compone el PDF en
@@ -3651,7 +3652,7 @@
             var url = URL.createObjectURL(blob);
             if (ventana) ventana.location.href = url;
             else descargarBlob(blob, nombreArchivo('pdf'));
-            estado('PDF generado');
+            estado(!ventana && imprimir ? 'PDF descargado: ábrelo para imprimir' : 'PDF generado');
             setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
         }).catch(function () {
             if (ventana) ventana.close();

@@ -203,7 +203,7 @@ template('header', [
             </a>
         <?php endif; ?>
         <?php if ($entregas) : ?>
-            <a class="btn btn--secundario" href="/admin/entregas-seguimiento/acta?id=<?= $id ?>" target="_blank" rel="noopener">
+            <a class="btn btn--secundario" href="/admin/entregas-seguimiento/acta?id=<?= $id ?>">
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
                 <span>Acta de entrega</span>
             </a>

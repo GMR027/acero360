@@ -778,7 +778,10 @@
         b.addEventListener('click', function () {
             var f = b.dataset.exportar, ir = function () {
                 var q = (opcion('rd-x-cambios') ? '&cambios=1' : '') + (opcion('rd-x-coment') ? '&comentarios=1' : '') + (opcion('rd-x-firmas') ? '' : '&firmas=0');
-                if (f === 'imprimir') window.open(C.descargar + '&formato=pdf&inline=1' + q, '_blank', 'noopener');
+                // La app Android no abre ventanas nuevas ni muestra PDF incrustados:
+                // «Imprimir» descarga el PDF para abrirlo con un visor.
+                if (f === 'imprimir' && window.Acero360Android) window.location.href = C.descargar + '&formato=pdf' + q;
+                else if (f === 'imprimir') window.open(C.descargar + '&formato=pdf&inline=1' + q, '_blank', 'noopener');
                 else window.location.href = C.descargar + '&formato=' + f + q;
             };
             if (sucio) guardar(false, ir); else ir();

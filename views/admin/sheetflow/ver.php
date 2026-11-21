@@ -44,7 +44,7 @@ template('header', [
                     <a href="/admin/sheetflow/descargar?id=<?= (int) $hoja->id ?>&formato=csv"><span class="material-symbols-outlined">description</span> CSV</a>
                     <a href="/admin/sheetflow/descargar?id=<?= (int) $hoja->id ?>&formato=sheetflow"><span class="material-symbols-outlined">grid_on</span> SheetFlow (.sheetflow)</a>
                     <a href="/admin/sheetflow/descargar?id=<?= (int) $hoja->id ?>&formato=pdf"><span class="material-symbols-outlined">picture_as_pdf</span> PDF</a>
-                    <a href="/admin/sheetflow/descargar?id=<?= (int) $hoja->id ?>&formato=pdf&inline=1" target="_blank" rel="noopener"><span class="material-symbols-outlined">print</span> Imprimir</a>
+                    <a href="/admin/sheetflow/descargar?id=<?= (int) $hoja->id ?>&formato=pdf<?= consultaPdfInline() ?>"<?= atributosNuevaPestana() ?>><span class="material-symbols-outlined">print</span> Imprimir</a>
                 </div>
             </details>
             <a href="/admin/sheetflow" class="btn btn--texto">← Tablas</a>

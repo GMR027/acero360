@@ -70,8 +70,7 @@ template('tabsEntregas', ['tab' => 'clientes']);
                             <td class="tabla__acciones">
                                 <a class="btn btn--primario btn--sm" href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>&accion=entrega&volver=clientes">Registrar entrega</a>
                                 <?php if ((int) $v['entregadas'] > 0) : ?>
-                                    <a class="btn btn--texto btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= (int) $v['id'] ?>"
-                                       target="_blank" rel="noopener">Acta</a>
+                                    <a class="btn btn--texto btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= (int) $v['id'] ?>">Acta</a>
                                 <?php endif; ?>
                             </td>
                         </tr>

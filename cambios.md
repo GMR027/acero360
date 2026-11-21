@@ -2113,3 +2113,33 @@ El mismo problema de Operación Comercial se repetía en Contabilidad e Impuesto
 - `pruebas/probar_impuestos_rapida.mjs` (nueva): pestaña de Documentos fiscales, acciones y filtros de Ventas y gastos, exportación filtrada, meses de declaración y móvil → **23/23**.
 - `pruebas/probar_gastos_pago.mjs` → **19/19**; `pruebas/probar_facturacion.mjs` → **36/36**; `pruebas/probar_gastos_masivos.mjs` → **30/30**; `pruebas/probar_duplicados.mjs` → **22/22**; `pruebas/probar_operacion.mjs` → **60/60**; `pruebas/probar_devoluciones.mjs` → **16/16**.
 - `auditar_ui` → **0 hallazgos**; `auditar_movil` → **0 desbordes, 0 tablas con scroll**; `auditar_consola` → **0 problemas**.
+
+---
+
+## Ronda — Exportaciones en la app Android: el acta y todos los PDF (2026-11-20)
+
+El acta de entrega no descargaba nada en la app Android, aunque en el navegador sí. La causa era común a casi todas las exportaciones: los enlaces llevaban `target="_blank"` y el WebView de Android ignora las ventanas nuevas porque la app no implementa `WebChromeClient.onCreateWindow`. El toque no navegaba, no descargaba y no mostraba ningún error.
+
+### Descargas que ya no dependen de una pestaña nueva
+
+- **`includes/herramientas.php`:** ayudantes `enAppAndroid()` (lee la cookie que deja `/app/android/entrar`), `atributosNuevaPestana()` y `consultaPdfInline()`.
+- **Enlaces de descarga:** se quitó `target="_blank"` de los PDF, Excel, CSV, ZIP, actas, órdenes de compra, reportes, estados financieros, inventario, proveedores, pedidos, cotizaciones y ventas. Un `Content-Disposition: attachment` descarga sin sacar al usuario de la pantalla, también en la app.
+- **«Imprimir» de Editor, Redactor y SheetFlow:** en la app el PDF se descarga en vez de abrirse con `inline=1` (el WebView no tiene visor de PDF). En el navegador se conserva la pestaña nueva con el visor.
+- **Hojas de preparación/entrega:** el enlace HTML de impresión se abre en la misma ventana dentro de la app; su botón «Imprimir» ya usaba el puente `Acero360Android.imprimir`.
+
+### JavaScript de respaldo
+
+- **`src/js/modulos/descargasApp.js` (nuevo):** dentro de la app convierte cualquier `target="_blank"` interno en navegación de la misma ventana (y quita `inline` de los PDF); los enlaces externos se entregan a la política de navegación de Tauri. Así también funcionan páginas cacheadas o enlaces que se agreguen en el futuro.
+- **`public/vendor/herramientas/redactor.js`:** «Imprimir» descarga el PDF en la app.
+- **`public/vendor/herramientas/redactor-extras.js`:** «Exportar selección» entrega el blob al puente `Acero360Android.guardar` (antes usaba `a.download`, que el WebView ignora).
+- **`public/js/editor.js`:** «Imprimir» genera el PDF y lo descarga por el puente, sin `window.open`.
+
+### Pruebas
+
+- Verificación con sesión real sobre `cotizaciones`: **145/145** comprobaciones de exportaciones (PDF, XLSX, CSV, DOCX, ODT, SheetFlow, ZIP, acta, pedido, editor, archivo y documentos), incluyendo MIME, `Content-Disposition: attachment` y firma del archivo.
+- Modo app (cookie `acero360_android`): **0** enlaces de exportación con `target="_blank"` o `inline=1` en Inicio, Ventas, expediente, Pedidos, Compras, Proveedores, Análisis Financiero, Entregas, Editor, Redactor y SheetFlow; el clic en **Acta** y en el **Excel del inventario** descarga y la página no navega.
+- Respaldo para versiones viejas: un `target="_blank"` y un `inline=1` inyectados a mano se convierten en descarga (**3/3**); «Exportar selección» del Redactor entrega el PDF al puente (**4/4**).
+
+### Sin migraciones ni APK nuevo
+
+- No hay cambios de base de datos ni de código nativo: el arreglo viaja en las vistas y los assets web que la app ya carga del servidor.

@@ -654,8 +654,8 @@ template('header', [
                                 <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>
                             </a>
                             <a class="btn btn--texto btn--sm" href="/admin/cotizaciones/pdf?id=<?= (int) $f['id'] ?>"
-                               target="_blank" rel="noopener" title="Ver la <?= escaparValores($f['folio']) ?> en PDF"
-                               aria-label="Ver la cotización <?= escaparValores($f['folio']) ?> en PDF">
+                               title="Descargar la <?= escaparValores($f['folio']) ?> en PDF"
+                               aria-label="Descargar la cotización <?= escaparValores($f['folio']) ?> en PDF">
                                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
                                 <span class="movil-oculto">PDF</span>
                             </a>
@@ -680,8 +680,8 @@ template('header', [
                                 <span class="actividad__importe"><?= formatoMoneda((float) $f['total']) ?></span>
                             </a>
                             <a class="btn btn--texto btn--sm" href="/admin/ventas/pdf?id=<?= (int) $f['id'] ?>"
-                               target="_blank" rel="noopener" title="Ver la <?= escaparValores($f['folio']) ?> en PDF"
-                               aria-label="Ver la venta <?= escaparValores($f['folio']) ?> en PDF">
+                               title="Descargar la <?= escaparValores($f['folio']) ?> en PDF"
+                               aria-label="Descargar la venta <?= escaparValores($f['folio']) ?> en PDF">
                                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
                                 <span class="movil-oculto">PDF</span>
                             </a>

@@ -308,7 +308,7 @@ template('tabsEntregas', ['tab' => 'ventas']);
 
                                 <?php if ($piezasEntregadas > 0) : ?>
                                     <a class="btn btn--texto btn--sm" href="/admin/entregas-seguimiento/acta?id=<?= $ventaId ?>"
-                                       target="_blank" rel="noopener" title="Acta de entrega (PDF)">
+                                       title="Acta de entrega (PDF)">
                                         <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
                                         <span>Acta</span>
                                     </a>
