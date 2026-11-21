@@ -110,6 +110,7 @@ $router->get('/admin/pedidos/pdf',      'views/admin/pedidos/pdf.php',      'sol
 $router->post('/admin/pedidos/cotizar', 'views/admin/pedidos/cotizar.php',  'soloAdmin');
 $router->post('/admin/pedidos/vender',  'views/admin/pedidos/vender.php',   'soloAdmin');
 $router->post('/admin/pedidos/cancelar','views/admin/pedidos/cancelar.php', 'soloAdmin');
+$router->post('/admin/pedidos/eliminar','views/admin/pedidos/eliminar.php', 'soloAdmin');
 
 // Distribuidores autorizados del sitio público (migración 056)
 $router->get('/admin/distribuidores',           'views/admin/distribuidores/index.php',    'soloAdmin');

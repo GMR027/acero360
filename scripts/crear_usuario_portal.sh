@@ -3,9 +3,11 @@
 # scripts/crear_usuario_portal.sh — Usuario MySQL del portal de clientes.
 #
 # El portal (sitio de Soluciones en Acero) comparte esta base. Este usuario
-# sólo ve lo que el portal necesita: nada de costos, stock, usuarios, datos
-# fiscales ni contabilidad. Es idempotente: se puede volver a ejecutar para
-# rotar la contraseña o reaplicar permisos.
+# sólo ve lo que el portal necesita: nada de costos, usuarios, datos fiscales
+# ni contabilidad. La existencia (stock) se lee sólo para validar que el
+# cliente no pida más de lo disponible; el portal nunca la muestra. Es
+# idempotente: se puede volver a ejecutar para rotar la contraseña o
+# reaplicar permisos.
 #
 # Requiere las migraciones 052, 053 y 056 aplicadas (los permisos son por columna).
 #
@@ -51,9 +53,9 @@ GRANT SELECT (id, nombre, nombre_empresa, email, telefono, portal_contrasena, po
       UPDATE (portal_contrasena, portal_actualizada_en)
    ON \`$BASE\`.clientes TO '$USUARIO'@'%';
 
--- Catálogo con precio de lista (sin costo ni existencias) y catálogo público (053)
+-- Catálogo con precio de lista, existencia (sólo para validar el pedido) y catálogo público (053)
 GRANT SELECT (id, empresa_id, nombre, sku, categoria, categoria_id, unidad, descripcion, precio,
-              imagen, imagen_uso, activo, publicado_web)
+              stock, imagen, imagen_uso, activo, publicado_web)
    ON \`$BASE\`.productos TO '$USUARIO'@'%';
 GRANT SELECT (id, nombre, slug, descripcion, imagen, orden) ON \`$BASE\`.categorias_producto TO '$USUARIO'@'%';
 GRANT SELECT ON \`$BASE\`.producto_empresa TO '$USUARIO'@'%';

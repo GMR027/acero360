@@ -120,6 +120,20 @@ template('header', [
                 </form>
             </div>
             <?php endif; ?>
+
+            <?php if (!$pedido->venta_id && $pedido->estado !== 'vendido') : ?>
+                <div class="formulario__acciones mt-md" style="justify-content:flex-end">
+                    <form action="/admin/pedidos/eliminar" method="post" data-validar
+                          data-confirmacion="¿Eliminar el pedido <?= escaparValores($pedido->folio) ?>?"
+                          data-confirmacion-mensaje="Se borrará también del portal del cliente y no se puede deshacer.<?= $pedido->cotizacion_id ? ' La cotización ' . escaparValores($pedido->cotizacion_folio) . ' se conserva.' : '' ?>"
+                          data-confirmacion-boton="Sí, eliminar">
+                        <input type="hidden" name="id" value="<?= (int) $pedido->id ?>">
+                        <button class="btn btn--peligro" type="submit">
+                            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">delete</span>
+                            <span>Eliminar pedido</span></button>
+                    </form>
+                </div>
+            <?php endif; ?>
         </div>
     </section>
 </div>

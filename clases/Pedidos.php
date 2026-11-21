@@ -618,6 +618,83 @@ class Pedidos
         return true;
     }
 
+    /**
+     * Elimina un pedido sin venta vinculada. Sus renglones se borran en cascada
+     * y el pedido desaparece del portal del cliente. La cotización, si existe,
+     * no se modifica.
+     */
+    public static function eliminar(int $id): bool
+    {
+        self::$errores = [];
+
+        try {
+            self::$db->begin_transaction();
+
+            $consulta = self::$db->prepare(
+                'SELECT id, folio, estado, venta_id, cotizacion_id FROM pedidos WHERE id = ? FOR UPDATE'
+            );
+            $consulta->bind_param('i', $id);
+            $consulta->execute();
+            $pedido = $consulta->get_result()->fetch_assoc();
+            $consulta->close();
+
+            if (!$pedido) {
+                self::$db->rollBack();
+                self::$errores[] = 'El pedido ya no existe.';
+                return false;
+            }
+
+            $ventaVinculada = (int) ($pedido['venta_id'] ?? 0) > 0
+                || $pedido['estado'] === 'vendido'
+                || self::ventaPorCotizacion((int) ($pedido['cotizacion_id'] ?? 0));
+
+            if ($ventaVinculada) {
+                self::$db->rollBack();
+                self::$errores[] = 'El pedido ' . $pedido['folio'] . ' tiene una venta vinculada y no se puede eliminar. Cancela o elimina primero la venta.';
+                return false;
+            }
+
+            $borrar = self::$db->prepare('DELETE FROM pedidos WHERE id = ?');
+            $borrar->bind_param('i', $id);
+            $borrar->execute();
+            $eliminados = $borrar->affected_rows;
+            $borrar->close();
+
+            if ($eliminados !== 1) {
+                self::$db->rollBack();
+                self::$errores[] = 'No fue posible eliminar el pedido.';
+                return false;
+            }
+
+            self::$db->commit();
+            return true;
+        } catch (\mysqli_sql_exception $e) {
+            self::$db->rollBack();
+            error_log('[Pedidos::eliminar] ' . $e->getMessage());
+        }
+
+        self::$errores[] = 'No fue posible eliminar el pedido.';
+        return false;
+    }
+
+    /** ¿La cotización de este pedido ya generó una venta registrada? */
+    private static function ventaPorCotizacion(int $cotizacionId): bool
+    {
+        if ($cotizacionId <= 0) {
+            return false;
+        }
+
+        $consulta = self::$db->prepare(
+            "SELECT id FROM ventas WHERE cotizacion_id = ? AND estado = 'registrada' LIMIT 1"
+        );
+        $consulta->bind_param('i', $cotizacionId);
+        $consulta->execute();
+        $venta = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
+
+        return $venta !== null;
+    }
+
     /** Cancela un pedido pendiente o cotizado (la cotización generada no se toca). */
     public static function cancelar(int $id, int $usuarioId): bool
     {

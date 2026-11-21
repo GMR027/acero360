@@ -73,10 +73,11 @@ régimen y flujo de efectivo con tu contador en *Fiscal → Configuración fisca
 
 ### Pedidos y portal de clientes (migración 052)
 
-- **Pedidos** (`/admin/pedidos`): tabla `pedidos` + `pedido_detalles`, importes calculados igual que una cotización (`Cotizaciones::calcular`). Estados: `pendiente` → `cotizado` (crea una cotización) → `vendido` (vende esa cotización, o registra una venta directa si no tenía) / `cancelado`. Clase `App\Pedidos`.
+- **Pedidos** (`/admin/pedidos`): tabla `pedidos` + `pedido_detalles`, importes calculados igual que una cotización (`Cotizaciones::calcular`). Estados: `pendiente` → `cotizado` (crea una cotización) → `vendido` (vende esa cotización, o registra una venta directa si no tenía) / `cancelado`. Clase `App\Pedidos`. Un pedido sin venta vinculada se puede eliminar desde el panel: sus renglones se borran en cascada y también desaparece del portal del cliente; la cotización, si existe, se conserva.
 - **Contrato para el portal público** (otra aplicación sobre esta misma base):
   - Inicio de sesión: `clientes.email` + `clientes.portal_contrasena`, que es un hash **bcrypt** (`password_hash(..., PASSWORD_BCRYPT)`, prefijo `$2y$`). Verificar con `password_verify()` en PHP o `bcrypt.checkpw()` en Python. `NULL` = sin acceso. Nunca guardar ni leer texto plano.
   - Alta de pedido: `INSERT` en `pedidos` con `origen = 'portal'`, `usuario_id = NULL`, `estado = 'pendiente'`, folio `PED-<año>-<NNNN>` (máximo numérico del año + 1, reintentar si choca con la clave única) y renglones en `pedido_detalles` con `precio_unitario` = precio de lista (`productos.precio`) y `subtotal = cantidad × precio`. Llenar también `subtotal`, `iva` (16 % si `aplica_iva`) y `total` del encabezado. El administrador lo revisa y lo convierte desde el panel.
+  - **Existencias:** el portal lee `productos.stock` (solo lectura, permiso por columna) para rechazar cantidades mayores a lo disponible. Nunca muestra la existencia; si el cliente intenta excederla, le indica la cantidad máxima de ese producto. El stock **no se descuenta al crear el pedido ni al cotizarlo**, solo al marcarlo como venta.
 
 ### Catálogo del sitio público (migración 053)
 

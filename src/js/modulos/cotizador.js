@@ -764,6 +764,11 @@ function actualizarClienteCotizador() {
  */
 let cotizadorCondiciones = { envio: '', compra: '' };
 
+/** Compara condiciones sin importar saltos de línea, tabuladores ni espacios repetidos. */
+function normalizarCondiciones(texto) {
+  return String(texto || '').replace(/\s+/g, ' ').trim();
+}
+
 function registrarCondicionesIniciales() {
   if (!cotizadorNodos || !cotizadorNodos.empresa) {
     return;
@@ -775,8 +780,8 @@ function registrarCondicionesIniciales() {
   }
 
   cotizadorCondiciones = {
-    envio: (opcion.getAttribute('data-envio') || '').replace(/\n/g, ' '),
-    compra: (opcion.getAttribute('data-compra') || '').replace(/\n/g, ' '),
+    envio: normalizarCondiciones(opcion.getAttribute('data-envio')),
+    compra: normalizarCondiciones(opcion.getAttribute('data-compra')),
   };
 }
 
@@ -790,14 +795,14 @@ function actualizarCondicionesCotizador() {
     return;
   }
 
-  const envio = (opcion.getAttribute('data-envio') || '').replace(/\n/g, ' ');
-  const compra = (opcion.getAttribute('data-compra') || '').replace(/\n/g, ' ');
+  const envio = opcion.getAttribute('data-envio') || '';
+  const compra = opcion.getAttribute('data-compra') || '';
 
   const aplicar = function (elemento, valor, previo) {
     if (!elemento) {
       return;
     }
-    const actual = elemento.value.trim();
+    const actual = normalizarCondiciones(elemento.value);
     if (actual === '' || actual === previo) {
       elemento.value = valor;
     }
@@ -806,7 +811,10 @@ function actualizarCondicionesCotizador() {
   aplicar(cotizadorNodos.condicionesEnvio, envio, cotizadorCondiciones.envio);
   aplicar(cotizadorNodos.condicionesCompra, compra, cotizadorCondiciones.compra);
 
-  cotizadorCondiciones = { envio: envio, compra: compra };
+  cotizadorCondiciones = {
+    envio: normalizarCondiciones(envio),
+    compra: normalizarCondiciones(compra),
+  };
 }
 
 /* --------------------------------------------------------------------------
