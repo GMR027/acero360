@@ -670,7 +670,9 @@ class Entregas
         int $usuarioId,
         array $fotos = [],
         array $metadatosFotos = [],
-        string $ubicacion = ''
+        string $ubicacion = '',
+        string $recibioNombre = '',
+        string $origen = 'web'
     ): bool {
         self::$errores = [];
         self::$fotosGuardadas = 0;
@@ -754,15 +756,17 @@ class Entregas
                 $existe->close();
             }
 
-            $notas = trim($notas) ?: null;
+            $notas = mb_substr(trim($notas), 0, 255) ?: null;
+            $recibioNombre = mb_substr(trim($recibioNombre), 0, 120) ?: null;
+            $origen = $origen === 'app' ? 'app' : 'web';
             $ubicacionGuardar = $ubicacion !== '' ? $ubicacion : null;
             $ubicacionLat = $coordenadasUbicacion['lat'] ?? null;
             $ubicacionLon = $coordenadasUbicacion['lon'] ?? null;
             $crear = self::$db->prepare(
-                'INSERT INTO entregas (venta_id, preparacion_id, fecha, token, notas, ubicacion_maps, ubicacion_lat, ubicacion_lon, usuario_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO entregas (venta_id, preparacion_id, fecha, token, notas, recibio_nombre, ubicacion_maps, ubicacion_lat, ubicacion_lon, usuario_id, origen)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
-            $crear->bind_param('iissssddi', $ventaId, $preparacionId, $fecha, $token, $notas, $ubicacionGuardar, $ubicacionLat, $ubicacionLon, $usuarioId);
+            $crear->bind_param('iisssssddis', $ventaId, $preparacionId, $fecha, $token, $notas, $recibioNombre, $ubicacionGuardar, $ubicacionLat, $ubicacionLon, $usuarioId, $origen);
             try {
                 $crear->execute();
             } catch (\mysqli_sql_exception $duplicada) {

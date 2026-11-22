@@ -6,13 +6,15 @@
 
 soloAdmin();
 
-$paquetes     = \App\AppAndroid::listar();
-$vigente      = \App\AppAndroid::vigente();
-$dispositivos = \App\AppAndroid::dispositivos();
-$estaApp      = \App\AppAndroid::desdeApp();
-$tam          = static fn (int $b): string => number_format($b / 1048576, 1) . ' MB';
-$host         = $_SERVER['HTTP_HOST'] ?? 'tu-servidor';
-$urlPublica   = (conexionSegura() ? 'https' : 'http') . '://' . $host . '/app/android/descargar';
+$paquetes          = \App\AppAndroid::listar();
+$vigente           = \App\AppAndroid::vigente();
+$entregasVigente   = \App\AppAndroid::vigente('entregas');
+$dispositivos      = \App\AppAndroid::dispositivos();
+$estaApp           = \App\AppAndroid::desdeApp();
+$tam               = static fn (int $b): string => number_format($b / 1048576, 1) . ' MB';
+$host              = $_SERVER['HTTP_HOST'] ?? 'tu-servidor';
+$urlPublica        = (conexionSegura() ? 'https' : 'http') . '://' . $host . '/app/android/descargar';
+$urlPublicaEntregas = (conexionSegura() ? 'https' : 'http') . '://' . $host . '/app/entregas/descargar';
 $estadoDe     = static function (string $instalada) use ($vigente): array {
     if (!$vigente) {
         return ['badge--neutro', 'Sin versión publicada'];
@@ -113,6 +115,39 @@ template('tabsAjustes', ['tab' => 'android']);
     <?php else : ?>
         <p class="texto-secundario">Todavía no hay una versión publicada. Quien administra el servidor la compila con
             <code>android/compilar.sh</code> y la publica con <code>php scripts/publicar_android.php &lt;archivo.apk&gt; &lt;versión&gt;</code>.</p>
+    <?php endif; ?>
+</section>
+
+<section class="tarjeta mb-lg" aria-labelledby="t-entregas">
+    <h2 class="titulo-5 mb-md" id="t-entregas">Acero Entregas (app de reparto)</h2>
+    <p class="texto-secundario">
+        Aplicación independiente para que el personal registre entregas, visitas sin entrega e incidencias.
+        Usa los mismos usuarios y la misma base de ventas, no muestra precios y no necesita la app principal.
+        Puede instalarse junto a Acero 360.
+    </p>
+    <?php if ($entregasVigente) : ?>
+        <p><strong>Acero Entregas <?= escaparValores($entregasVigente['version']) ?></strong>
+            · <?= $tam((int) $entregasVigente['tamano']) ?>
+            · publicada el <?= date('d/m/Y H:i', strtotime($entregasVigente['publicada_en'])) ?></p>
+        <?php if ($entregasVigente['notas']) : ?>
+            <p class="texto-secundario"><?= escaparValores($entregasVigente['notas']) ?></p>
+        <?php endif; ?>
+        <p class="texto-xs texto-secundario mt-md">SHA-256: <code><?= escaparValores($entregasVigente['sha256']) ?></code></p>
+        <div class="encabezado-pagina__acciones mt-md">
+            <a class="btn btn--primario" href="/app/entregas/descargar">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">download</span>
+                <span>Descargar Acero Entregas</span>
+            </a>
+            <a class="btn btn--secundario" href="/admin/android/descargar?id=<?= (int) $entregasVigente['id'] ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">admin_panel_settings</span>
+                <span>Descarga de administrador</span>
+            </a>
+        </div>
+        <p class="campo__ayuda mt-md">Enlace directo para el teléfono: <code><?= escaparValores($urlPublicaEntregas) ?></code></p>
+    <?php else : ?>
+        <p class="texto-secundario">Todavía no hay una versión de Entregas publicada. Se compila con
+            <code>android-entregas/compilar.sh</code> y se publica con
+            <code>php scripts/publicar_entregas.php &lt;archivo.apk&gt; &lt;versión&gt;</code>.</p>
     <?php endif; ?>
 </section>
 

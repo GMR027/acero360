@@ -20,7 +20,7 @@ if (PHP_SAPI === 'cli-server') {
     $archivoEstatico = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     // Nunca se sirven directamente carpetas internas (documentos fiscales, código, configuración).
     $interno = is_string($archivoEstatico)
-        && preg_match('#^/(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop|android)(/|$)|^/\.|\.(env|md|sql|lock|log|sh|json|ya?ml|ini|example)$|^/(Dockerfile|Router\.php|gulpfile\.js|deploy\.sh)$#', $archivoEstatico);
+        && preg_match('#^/(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop|android|android-entregas)(/|$)|^/\.|\.(env|md|sql|lock|log|sh|json|ya?ml|ini|example)$|^/(Dockerfile|Router\.php|gulpfile\.js|deploy\.sh)$#', $archivoEstatico);
 
     if (is_string($archivoEstatico) && !$interno && $archivoEstatico !== '/' && file_exists(__DIR__ . $archivoEstatico)) {
         return false;
@@ -59,9 +59,33 @@ $router->post('/app/android/avisos/registrar', 'views/publico/android/avisos-reg
 $router->post('/app/android/avisos/revocar',   'views/publico/android/avisos-revocar.php');
 $router->get('/app/android/avisos.json',       'views/publico/android/avisos.php');
 
+// App independiente de reparto «Acero Entregas»: versión y APK vigente.
+$router->get('/app/entregas/version.json',     'views/publico/entregas/version.php');
+$router->get('/app/entregas/descargar',        'views/publico/entregas/descargar.php');
+
 // Portal de clientes (sitio de Soluciones en Acero): fotos de entrega con URL firmada.
 // Sin PORTAL_FOTOS_SECRETO responde 404. Ver clases/PortalFotos.php.
 $router->get('/portal/entregas/foto',     'views/publico/portal-foto.php');
+
+/* ---------------------------------------------------------------------------
+ * API DE LA APP ANDROID DE ENTREGAS (Bearer token, sin sesión ni CSRF)
+ * ------------------------------------------------------------------------- */
+$router->post('/api/entregas/v1/login',             'views/api/entregas.php');
+$router->post('/api/entregas/v1/logout',            'views/api/entregas.php');
+$router->get('/api/entregas/v1/yo',                 'views/api/entregas.php');
+$router->get('/api/entregas/v1/version',            'views/api/entregas.php');
+$router->get('/api/entregas/v1/config',             'views/api/entregas.php');
+$router->get('/api/entregas/v1/motivos',            'views/api/entregas.php');
+$router->get('/api/entregas/v1/pendientes',         'views/api/entregas.php');
+$router->get('/api/entregas/v1/venta',              'views/api/entregas.php');
+$router->post('/api/entregas/v1/entrega',           'views/api/entregas.php');
+$router->post('/api/entregas/v1/incidencia',        'views/api/entregas.php');
+$router->post('/api/entregas/v1/intento',           'views/api/entregas.php');
+$router->get('/api/entregas/v1/historial',          'views/api/entregas.php');
+$router->get('/api/entregas/v1/foto',               'views/api/entregas.php');
+$router->get('/api/entregas/v1/pdf/preparacion',    'views/api/entregas.php');
+$router->get('/api/entregas/v1/pdf/entrega',        'views/api/entregas.php');
+$router->get('/api/entregas/v1/pdf/acta',           'views/api/entregas.php');
 
 // Registro de nuevos administradores. Cerrado por defecto:
 // requiere la variable de entorno REGISTRO_ABIERTO=1.

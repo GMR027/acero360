@@ -417,6 +417,95 @@ class Documentos
     }
 
     /**
+     * PDF de una lista de preparación o de una hoja de entrega consolidada.
+     * Devuelve los bytes para que la API de la app los sirva con su token.
+     *
+     * @param int[] $ventaIds
+     */
+    public static function pdfListaEntrega(int $preparacionId, string $tipo, array $ventaIds = []): ?string
+    {
+        $contexto = self::contextoEntrega($preparacionId, $tipo, $ventaIds);
+
+        ob_start();
+        \template('pdfEntregas', $contexto + ['imprimir' => false]);
+        $html = (string) ob_get_clean();
+
+        return self::componer($html, $tipo === 'entrega' ? 'la hoja de entrega' : 'la preparación');
+    }
+
+    /**
+     * Hoja de entrega en DOS copias dentro de una hoja carta horizontal.
+     * Cada copia ocupa media hoja (5.5 × 8.5 pulgadas) y se separa con un
+     * corte vertical. Es el formato que usa la app de entregas.
+     */
+    public static function pdfEntregaDosCopias(int $ventaId): ?string
+    {
+        $venta = Ventas::buscarID($ventaId);
+        if (!$venta) {
+            self::$errores[] = 'La venta no existe.';
+            return null;
+        }
+
+        $lineas = array_values(array_filter(
+            Entregas::pendientesDeVentas([$ventaId])[$ventaId] ?? [],
+            static fn (array $linea): bool => (int) $linea['pendiente'] > 0
+        ));
+        if (!$lineas) {
+            self::$errores[] = 'La venta no tiene productos por entregar.';
+            return null;
+        }
+
+        ob_start();
+        \template('pdfEntregaDosCopias', [
+            'venta'  => $venta,
+            'lineas' => $lineas,
+            'fecha'  => date('d/m/Y H:i'),
+        ]);
+        $html = (string) ob_get_clean();
+
+        return self::componer($html, 'la hoja de entrega', 'landscape');
+    }
+
+    /**
+     * Acta de entrega de una venta (todas sus entregas o una sola).
+     */
+    public static function pdfActaEntregaVenta(int $ventaId, int $entregaId = 0): ?string
+    {
+        $venta = Ventas::buscarID($ventaId);
+        if (!$venta) {
+            self::$errores[] = 'La venta no existe.';
+            return null;
+        }
+
+        $entregas = Entregas::entregasDeVenta($ventaId);
+        if (!$entregas) {
+            self::$errores[] = 'Esta venta todavía no tiene entregas registradas para el acta.';
+            return null;
+        }
+
+        if ($entregaId > 0) {
+            $entregas = array_values(array_filter(
+                $entregas,
+                static fn (array $entrega): bool => (int) $entrega['id'] === $entregaId
+            ));
+            if (!$entregas) {
+                self::$errores[] = 'La entrega indicada no pertenece a esta venta.';
+                return null;
+            }
+        }
+
+        $incidencias = IncidenciasEntrega::deVenta($ventaId);
+        if ($entregaId > 0) {
+            $incidencias = array_values(array_filter(
+                $incidencias,
+                static fn (array $incidencia): bool => (int) ($incidencia['entrega_id'] ?? 0) === $entregaId
+            ));
+        }
+
+        return self::pdfActaEntrega($venta, $entregas, $incidencias);
+    }
+
+    /**
      * Versión para imprimir: la misma hoja del PDF como página con botón de impresión.
      * Solo lee; nunca registra entregas ni toca existencias.
      */

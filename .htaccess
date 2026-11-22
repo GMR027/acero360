@@ -2,9 +2,14 @@
 # se resuelve en index.php (front controller).
 RewriteEngine On
 
+# La API móvil de entregas usa Authorization: Bearer. Apache no siempre
+# expone esa cabecera como HTTP_AUTHORIZATION; se copia explícitamente.
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # Rutas y archivos internos: nunca se sirven directamente (documentos fiscales,
 # configuración, código, migraciones…). Solo public/ y build/ son públicos.
-RewriteRule ^(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop|android)(/|$) - [F,L]
+RewriteRule ^(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop|android|android-entregas)(/|$) - [F,L]
 RewriteRule ^\.(?!well-known) - [F,L]
 # /app/android/version.json no es un archivo: lo responde index.php (la app Android lo consulta).
 RewriteCond %{REQUEST_URI} !^/app/android/version\.json$

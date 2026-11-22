@@ -22,6 +22,9 @@ class AppAndroid
     /** Nombre de la cookie que deja /app/android/entrar. */
     public const COOKIE = 'acero360_android';
 
+    /** Aplicaciones Android publicadas desde esta plataforma. */
+    public const APPS = ['acero360', 'entregas'];
+
     /** @var \mysqli */
     protected static $db;
 
@@ -61,14 +64,22 @@ class AppAndroid
     }
 
     /** @return array<int, array<string, mixed>> */
-    public static function listar(): array
+    public static function listar(string $aplicacion = 'acero360'): array
     {
-        return self::$db->query(
+        $aplicacion = in_array($aplicacion, self::APPS, true) ? $aplicacion : 'acero360';
+        $consulta = self::$db->prepare(
             'SELECT p.*, u.nombre AS publicada_por_nombre
                FROM paquetes_android p
                LEFT JOIN usuarios u ON u.id = p.publicada_por
+              WHERE p.aplicacion = ?
               ORDER BY p.version_code DESC, p.id DESC'
-        )->fetch_all(MYSQLI_ASSOC);
+        );
+        $consulta->bind_param('s', $aplicacion);
+        $consulta->execute();
+        $filas = $consulta->get_result()->fetch_all(MYSQLI_ASSOC);
+        $consulta->close();
+
+        return $filas;
     }
 
     public static function buscarID(int $id): ?array
@@ -83,37 +94,49 @@ class AppAndroid
     }
 
     /** Versión vigente: la de mayor version_code que no esté retirada. */
-    public static function vigente(): ?array
+    public static function vigente(string $aplicacion = 'acero360'): ?array
     {
-        $fila = self::$db->query("SELECT * FROM paquetes_android WHERE estado = 'publicada' ORDER BY version_code DESC, id DESC LIMIT 1")->fetch_assoc();
+        $aplicacion = in_array($aplicacion, self::APPS, true) ? $aplicacion : 'acero360';
+        $consulta = self::$db->prepare(
+            "SELECT * FROM paquetes_android
+              WHERE aplicacion = ? AND estado = 'publicada'
+              ORDER BY version_code DESC, id DESC LIMIT 1"
+        );
+        $consulta->bind_param('s', $aplicacion);
+        $consulta->execute();
+        $fila = $consulta->get_result()->fetch_assoc();
+        $consulta->close();
 
         return $fila ?: null;
     }
 
     /** Lo que la app consulta para saber si hay actualización (público, sin datos privados). */
-    public static function infoPublica(string $urlBase): array
+    public static function infoPublica(string $urlBase, string $aplicacion = 'acero360'): array
     {
-        $v = self::vigente();
+        $v = self::vigente($aplicacion);
         if (!$v) {
             return ['disponible' => false];
         }
+        $ruta = $aplicacion === 'entregas' ? '/app/entregas/descargar' : '/app/android/descargar';
 
         return [
             'disponible'   => true,
+            'aplicacion'   => $aplicacion,
             'version'      => $v['version'],
             'version_code' => (int) $v['version_code'],
             'tamano'       => (int) $v['tamano'],
             'sha256'       => $v['sha256'],
             'notas'        => (string) ($v['notas'] ?? ''),
             'publicada'    => date('c', strtotime($v['publicada_en'])),
-            'url'          => rtrim($urlBase, '/') . '/app/android/descargar',
+            'url'          => rtrim($urlBase, '/') . $ruta,
         ];
     }
 
-    /** Registra un APK ya firmado (lo llama scripts/publicar_android.php). */
-    public static function publicar(string $rutaApk, string $version, string $notas, ?int $usuarioId): bool
+    /** Registra un APK ya firmado (scripts/publicar_android.php y publicar_entregas.php). */
+    public static function publicar(string $rutaApk, string $version, string $notas, ?int $usuarioId, string $aplicacion = 'acero360'): bool
     {
         self::$errores = [];
+        $aplicacion = in_array($aplicacion, self::APPS, true) ? $aplicacion : 'acero360';
 
         if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) {
             self::$errores[] = 'La versión debe tener el formato 1.2.3.';
@@ -148,14 +171,23 @@ class AppAndroid
         }
 
         $codigo = self::versionCode($version);
-        $mayor = self::$db->query("SELECT version, version_code FROM paquetes_android ORDER BY version_code DESC LIMIT 1")->fetch_assoc();
+        $mayorQ = self::$db->prepare(
+            'SELECT version, version_code FROM paquetes_android
+              WHERE aplicacion = ? ORDER BY version_code DESC LIMIT 1'
+        );
+        $mayorQ->bind_param('s', $aplicacion);
+        $mayorQ->execute();
+        $mayor = $mayorQ->get_result()->fetch_assoc();
+        $mayorQ->close();
         if ($mayor && (int) $mayor['version_code'] >= $codigo) {
             self::$errores[] = "La versión $version no es mayor que la ya publicada {$mayor['version']}: Android no la aceptaría como actualización. Una versión publicada no se sobrescribe; sube un número nuevo.";
             return false;
         }
 
         $sha = hash_file('sha256', $rutaApk);
-        $nombre = sprintf('acero360-android_%s.apk', $version);
+        $nombre = $aplicacion === 'entregas'
+            ? sprintf('acero360-entregas_%s.apk', $version)
+            : sprintf('acero360-android_%s.apk', $version);
         $relativa = 'android/' . $nombre;
         $destino = Archivos::base() . '/' . $relativa;
 
@@ -173,14 +205,17 @@ class AppAndroid
         $tamano = (int) filesize($destino);
         $notas = trim($notas) ?: null;
         $consulta = self::$db->prepare(
-            'INSERT INTO paquetes_android (version, version_code, archivo, nombre_archivo, tamano, sha256, notas, publicada_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO paquetes_android (aplicacion, version, version_code, archivo, nombre_archivo, tamano, sha256, notas, publicada_por)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
-        $consulta->bind_param('sississi', $version, $codigo, $relativa, $nombre, $tamano, $sha, $notas, $usuarioId);
+        $consulta->bind_param('ssississi', $aplicacion, $version, $codigo, $relativa, $nombre, $tamano, $sha, $notas, $usuarioId);
         $consulta->execute();
         $id = (int) self::$db->insert_id;
         $consulta->close();
 
-        Auditoria::registrar('paquete_android', $id, 'publicar', $usuarioId, $notas, ['version' => $version, 'sha256' => $sha, 'tamano' => $tamano]);
+        Auditoria::registrar('paquete_android', $id, 'publicar', $usuarioId, $notas, [
+            'aplicacion' => $aplicacion, 'version' => $version, 'sha256' => $sha, 'tamano' => $tamano,
+        ]);
         return true;
     }
 

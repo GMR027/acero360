@@ -165,6 +165,11 @@ function verificarCsrf(): void
         return;
     }
 
+    // La API móvil de entregas usa Bearer token, no cookies de sesión.
+    if (str_starts_with((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'), '/api/entregas/')) {
+        return;
+    }
+
     sesionActiva();
     $enviado = (string) ($_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
     $esperado = (string) ($_SESSION['csrf'] ?? '');
@@ -192,6 +197,10 @@ function verificarCsrf(): void
 /** Agrega el campo _csrf a cada formulario POST de la página que se va a enviar. */
 function inyectarCsrf(string $html): string
 {
+    // La API de entregas responde JSON/PDF: no se toca su cuerpo.
+    if (str_starts_with((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'), '/api/entregas/')) {
+        return $html;
+    }
     if (stripos($html, '<form') === false) {
         return $html;
     }

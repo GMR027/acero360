@@ -183,6 +183,9 @@ $fechaFoto = static function (array $foto, array $entrega): string {
                 Registró <?= escaparValores((string) ($entrega['usuario_nombre'] ?? '—')) ?>
                 <?php if (!empty($entrega['creado_en'])) : ?> · <?= date('d/m/Y H:i', strtotime((string) $entrega['creado_en'])) ?><?php endif; ?>
                 · <?= count($renglones) ?> producto<?= count($renglones) === 1 ? '' : 's' ?> · <?= count($fotos) ?> foto<?= count($fotos) === 1 ? '' : 's' ?>
+                <?php if (!empty($entrega['recibio_nombre'])) : ?>
+                    <br><strong>Recibió:</strong> <?= escaparValores((string) $entrega['recibio_nombre']) ?>
+                <?php endif; ?>
             </p>
 
             <?php if ($renglones) : ?>

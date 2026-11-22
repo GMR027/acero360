@@ -84,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['accion'] ?? '') =
 
 $detalles = \App\Ventas::detalles($id);
 $entregas = \App\Entregas::entregasDeVenta($id);
+$intentosEntrega = \App\IntentosEntrega::deVenta($id);
 $estado   = \App\Ventas::datosEstado($venta->estado);
 
 /** Descuento por renglón y descuento global (con su porcentaje negociado). */
@@ -340,6 +341,7 @@ template('venta/entrega', [
     'venta'       => $venta,
     'pendientes'  => $pendientes,
     'entregas'    => $entregas,
+    'intentos'    => $intentosEntrega,
     'afectadas'   => $afectadas,
     'vendidas'    => $vendidas,
     'entregadas'  => $entregadas,

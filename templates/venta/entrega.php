@@ -153,6 +153,12 @@
         <?php endif; ?>
     <?php else : ?>
         <?php foreach ($entregas as $e) : ?>
+            <p class="texto-sm mb-0">
+                <strong><?= date('d/m/Y', strtotime((string) $e['fecha'])) ?></strong>
+                · Registró <?= escaparValores((string) ($e['usuario_nombre'] ?? '—')) ?>
+                <?php if (!empty($e['recibio_nombre'])) : ?> · Recibió <?= escaparValores((string) $e['recibio_nombre']) ?><?php endif; ?>
+                · Origen <?= ($e['origen'] ?? 'web') === 'app' ? 'App' : 'Web' ?>
+            </p>
             <?php template('galeriaFotosEntrega', [
                 'entrega'          => $e,
                 'direccionCliente' => (string) $venta->cliente_ubicacion,
@@ -246,3 +252,34 @@
         </form>
     <?php endif; ?>
 </section>
+
+<?php if (!empty($intentos)) : ?>
+    <section class="tarjeta mb-lg" id="intentos-entrega" style="scroll-margin-top:5rem">
+        <div class="tabla-toolbar">
+            <div>
+                <h2 class="titulo-4">Visitas sin entrega</h2>
+                <p class="texto-secundario texto-sm mb-0">
+                    Registradas desde la app cuando no se pudo entregar. No mueven inventario ni cambian el importe de la venta.
+                </p>
+            </div>
+        </div>
+        <div class="tabla-contenedor">
+            <table class="tabla">
+                <caption class="solo-lectores">Visitas en las que no se pudo entregar</caption>
+                <thead><tr><th scope="col">Fecha</th><th scope="col">Motivo</th><th scope="col">Notas</th>
+                    <th scope="col">Registró</th><th scope="col" class="tabla--numerica">Fotos</th></tr></thead>
+                <tbody>
+                    <?php foreach ($intentos as $intento) : ?>
+                        <tr>
+                            <td><?= date('d/m/Y H:i', strtotime((string) $intento['fecha'])) ?></td>
+                            <td><strong><?= escaparValores(\App\IntentosEntrega::MOTIVOS[$intento['motivo']]['etiqueta'] ?? (string) $intento['motivo']) ?></strong></td>
+                            <td><?= escaparValores((string) ($intento['notas'] ?? '')) ?: '—' ?></td>
+                            <td><?= escaparValores((string) ($intento['usuario_nombre'] ?? '—')) ?></td>
+                            <td class="tabla--numerica cifra"><?= count($intento['fotos'] ?? []) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
+<?php endif; ?>

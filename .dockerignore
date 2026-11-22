@@ -51,5 +51,6 @@ Thumbs.db
 desktop/
 public/image/recortes/
 
-# Proyecto de la app Android (Tauri): se compila fuera de la imagen
+# Proyectos Android (Tauri y Acero Entregas): se compilan fuera de la imagen
 android/
+android-entregas/

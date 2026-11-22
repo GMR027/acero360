@@ -125,7 +125,9 @@ class IncidenciasEntrega
         string $notas,
         bool $facturaRequerida,
         int $usuarioId,
-        ?int $entregaId = null
+        ?int $entregaId = null,
+        string $token = '',
+        string $origen = 'web'
     ): bool {
         self::$errores = [];
         self::$ultimoId = 0;
@@ -134,6 +136,27 @@ class IncidenciasEntrega
             self::$errores[] = 'El motivo de la incidencia no es válido.';
             return false;
         }
+        $token = trim($token);
+        if ($token !== '' && !preg_match('/^[a-f0-9]{32}$/', $token)) {
+            self::$errores[] = 'El token de la incidencia no es válido.';
+            return false;
+        }
+        if ($token !== '') {
+            $repetida = self::$db->prepare('SELECT id, venta_id FROM entrega_incidencias WHERE token = ? LIMIT 1');
+            $repetida->bind_param('s', $token);
+            $repetida->execute();
+            $fila = $repetida->get_result()->fetch_assoc();
+            $repetida->close();
+            if ($fila) {
+                if ((int) $fila['venta_id'] !== $ventaId) {
+                    self::$errores[] = 'El token de la incidencia ya se usó en otra venta.';
+                    return false;
+                }
+                self::$ultimoId = (int) $fila['id'];
+                return true;
+            }
+        }
+        $origen = $origen === 'app' ? 'app' : 'web';
 
         $filtrados = [];
         foreach ($renglones as $productoId => $r) {
@@ -228,13 +251,14 @@ class IncidenciasEntrega
             }
 
             $crear = self::$db->prepare(
-                'INSERT INTO entrega_incidencias (venta_id, entrega_id, motivo, estado, notas, factura_requerida, usuario_id)
-                 VALUES (?, ?, ?, "abierta", ?, ?, ?)'
+                'INSERT INTO entrega_incidencias (venta_id, entrega_id, token, motivo, estado, notas, factura_requerida, usuario_id, origen)
+                 VALUES (?, ?, ?, ?, "abierta", ?, ?, ?, ?)'
             );
             $entregaSql = $entregaId ?: null;
+            $tokenSql   = $token !== '' ? $token : null;
             $facturaSql = $facturaRequerida ? 1 : 0;
             $notasSql   = $notas !== '' ? $notas : null;
-            $crear->bind_param('iissii', $ventaId, $entregaSql, $motivo, $notasSql, $facturaSql, $usuarioId);
+            $crear->bind_param('iisssiis', $ventaId, $entregaSql, $tokenSql, $motivo, $notasSql, $facturaSql, $usuarioId, $origen);
             $crear->execute();
             $incidenciaId = (int) self::$db->insert_id;
             $crear->close();
