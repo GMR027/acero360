@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
@@ -29,6 +30,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,8 +50,8 @@ import mx.com.iguzman.acero360.entregas.ui.AceroAvisoSuave
 import mx.com.iguzman.acero360.entregas.ui.AceroExito
 import mx.com.iguzman.acero360.entregas.ui.AceroExitoSuave
 import mx.com.iguzman.acero360.entregas.ui.BotonPrincipal
-import mx.com.iguzman.acero360.entregas.ui.CajaInfo
 import mx.com.iguzman.acero360.entregas.ui.EtiquetaEstado
+import mx.com.iguzman.acero360.entregas.ui.ImagenProducto
 import mx.com.iguzman.acero360.entregas.ui.MensajeVacio
 import mx.com.iguzman.acero360.entregas.ui.UiState
 import mx.com.iguzman.acero360.entregas.ui.fechaCorta
@@ -172,6 +174,7 @@ fun PendientesScreen(
             items(filtrados, key = { it.id }) { cliente ->
                 ClienteCard(
                     cliente = cliente,
+                    servidor = estado.servidor,
                     modoSeleccion = estado.modoSeleccion,
                     seleccion = estado.seleccion,
                     alAbrirVenta = alAbrirVenta,
@@ -241,6 +244,7 @@ private fun ResumenPendientes(datos: PendientesData?) {
 @Composable
 private fun ClienteCard(
     cliente: ClientePendiente,
+    servidor: String,
     modoSeleccion: Boolean,
     seleccion: Set<Int>,
     alAbrirVenta: (Int) -> Unit,
@@ -296,7 +300,7 @@ private fun ClienteCard(
             Spacer(Modifier.height(8.dp))
             cliente.ventas.forEach { venta ->
                 val seleccionada = seleccion.contains(venta.id)
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
@@ -308,59 +312,80 @@ private fun ClienteCard(
                             if (modoSeleccion) alAlternarSeleccion(venta.id) else alAbrirVenta(venta.id)
                         }
                         .padding(vertical = 8.dp, horizontal = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (modoSeleccion) {
-                        Checkbox(
-                            checked = seleccionada,
-                            onCheckedChange = { alAlternarSeleccion(venta.id) },
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(
-                                    if (venta.incidenciasAbiertas > 0) AceroAviso else AceroExito,
-                                    RoundedCornerShape(50),
-                                ),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                venta.folio,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (modoSeleccion) {
+                            Checkbox(
+                                checked = seleccionada,
+                                onCheckedChange = { alAlternarSeleccion(venta.id) },
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(
+                                        if (venta.incidenciasAbiertas > 0) AceroAviso else AceroExito,
+                                        RoundedCornerShape(50),
+                                    ),
                             )
                             Spacer(Modifier.width(8.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    venta.folio,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    venta.empresaNombre,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                             Text(
-                                venta.empresaNombre,
-                                style = MaterialTheme.typography.labelSmall,
+                                "${venta.pendiente} pieza(s) pendiente(s) · ${fechaCorta(venta.fecha)}",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        Text(
-                            "${venta.pendiente} pieza(s) pendiente(s) · ${fechaCorta(venta.fecha)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            "${venta.pendiente}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = AceroAviso,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        if (venta.incidenciasAbiertas > 0) {
-                            EtiquetaEstado(
-                                "${venta.incidenciasAbiertas} incidencia(s)",
-                                AceroAviso,
-                                AceroAvisoSuave,
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                "${venta.pendiente}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = AceroAviso,
+                                fontWeight = FontWeight.Bold,
                             )
+                            if (venta.incidenciasAbiertas > 0) {
+                                EtiquetaEstado(
+                                    "${venta.incidenciasAbiertas} incidencia(s)",
+                                    AceroAviso,
+                                    AceroAvisoSuave,
+                                )
+                            }
+                        }
+                    }
+                    if (!modoSeleccion) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            OutlinedButton(
+                                onClick = { alAbrirVenta(venta.id) },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                modifier = Modifier.height(34.dp),
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Ver pedido", style = MaterialTheme.typography.labelMedium)
+                            }
                         }
                     }
                 }
@@ -368,10 +393,35 @@ private fun ClienteCard(
 
             val productos = productosDeVentas(cliente.ventas)
             if (productos.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
-                CajaInfo(
-                    texto = productos.joinToString(" · ") { "${it.total} × ${it.nombre}" },
-                )
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        productos.forEach { producto ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ImagenProducto(
+                                    servidor = servidor,
+                                    archivo = producto.imagen,
+                                    descripcion = producto.nombre,
+                                    tamano = 40.dp,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "${producto.total} × ${producto.nombre}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

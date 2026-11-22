@@ -1,5 +1,6 @@
 package mx.com.iguzman.acero360.entregas.ui.screens
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,8 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,8 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import mx.com.iguzman.acero360.entregas.BuildConfig
 import mx.com.iguzman.acero360.entregas.data.QueueItem
 import mx.com.iguzman.acero360.entregas.ui.AceroAlerta
@@ -38,9 +43,11 @@ import mx.com.iguzman.acero360.entregas.ui.AceroAzul
 import mx.com.iguzman.acero360.entregas.ui.BotonPrincipal
 import mx.com.iguzman.acero360.entregas.ui.DatoLinea
 import mx.com.iguzman.acero360.entregas.ui.EtiquetaEstado
+import mx.com.iguzman.acero360.entregas.ui.Temas
 import mx.com.iguzman.acero360.entregas.ui.TituloSeccion
 import mx.com.iguzman.acero360.entregas.ui.UiState
 import mx.com.iguzman.acero360.entregas.ui.fechaHora
+import mx.com.iguzman.acero360.entregas.util.Biometria
 
 @Composable
 fun PerfilScreen(
@@ -49,8 +56,41 @@ fun PerfilScreen(
     alCerrarSesion: () -> Unit,
     alReintentarCola: () -> Unit,
     alDescartarCola: (String) -> Unit,
+    alCambiarTema: (String) -> Unit,
+    alCambiarBiometria: (Boolean) -> Unit,
 ) {
     var confirmarSalida by remember { mutableStateOf(false) }
+    val contexto = LocalContext.current
+    val actividad = LocalActivity.current as? FragmentActivity
+    var mensajeHuella by remember { mutableStateOf("") }
+    var pidiendoHuella by remember { mutableStateOf(false) }
+
+    fun cambiarHuella(activar: Boolean) {
+        val actual = actividad
+        if (actual == null) {
+            mensajeHuella = "No se pudo abrir el lector de huellas."
+            return
+        }
+        if (activar && !estado.biometriaDisponible) {
+            mensajeHuella = Biometria.motivoNoDisponible(contexto)
+            return
+        }
+        pidiendoHuella = true
+        mensajeHuella = ""
+        Biometria.autenticar(
+            actividad = actual,
+            titulo = if (activar) "Activar acceso con huella" else "Desactivar acceso con huella",
+            subtitulo = "Confirma que eres tú",
+            alExito = {
+                pidiendoHuella = false
+                alCambiarBiometria(activar)
+            },
+            alError = {
+                pidiendoHuella = false
+                mensajeHuella = it
+            },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -78,6 +118,97 @@ fun PerfilScreen(
                     DatoLinea("Servidor", estado.servidor)
                     DatoLinea("Última sync", if (estado.ultimaSync.isBlank()) "—" else fechaHora(estado.ultimaSync))
                     DatoLinea("Sin subir", estado.cola.toString())
+                }
+            }
+        }
+
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Apariencia",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        "Elige el modo claro u oscuro de la aplicación.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            Temas.SISTEMA to "Automático",
+                            Temas.CLARO to "Claro",
+                            Temas.OSCURO to "Oscuro",
+                        ).forEach { (clave, etiqueta) ->
+                            FilterChip(
+                                selected = estado.tema == clave,
+                                onClick = { alCambiarTema(clave) },
+                                label = { Text(etiqueta) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Acceso con huella digital",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                if (estado.biometriaActiva) {
+                                    "Activo: se pide la huella al abrir la app."
+                                } else {
+                                    "Protege la app con la huella de este teléfono."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = estado.biometriaActiva,
+                            onCheckedChange = ::cambiarHuella,
+                            enabled = estado.biometriaDisponible && !pidiendoHuella,
+                        )
+                    }
+                    if (!estado.biometriaDisponible) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            Biometria.motivoNoDisponible(contexto),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AceroAviso,
+                        )
+                    }
+                    if (pidiendoHuella) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Esperando la huella…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (mensajeHuella.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            mensajeHuella,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AceroAlerta,
+                        )
+                    }
                 }
             }
         }

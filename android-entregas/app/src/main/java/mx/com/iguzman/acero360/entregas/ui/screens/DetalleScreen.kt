@@ -47,6 +47,7 @@ import mx.com.iguzman.acero360.entregas.ui.CajaInfo
 import mx.com.iguzman.acero360.entregas.ui.DatoLinea
 import mx.com.iguzman.acero360.entregas.ui.DivisorSuave
 import mx.com.iguzman.acero360.entregas.ui.EtiquetaEstado
+import mx.com.iguzman.acero360.entregas.ui.ImagenProducto
 import mx.com.iguzman.acero360.entregas.ui.MensajeVacio
 import mx.com.iguzman.acero360.entregas.ui.TituloSeccion
 import mx.com.iguzman.acero360.entregas.ui.UiState
@@ -212,7 +213,7 @@ fun DetalleScreen(
                 Column(Modifier.padding(16.dp)) {
                     Text("Productos", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(6.dp))
-                    detalle.lineas.forEach { linea -> LineaProducto(linea) }
+                    detalle.lineas.forEach { linea -> LineaProducto(linea, estado.servidor) }
                 }
             }
         }
@@ -310,9 +311,16 @@ private fun ResumenDato(etiqueta: String, valor: Int, color: androidx.compose.ui
 }
 
 @Composable
-private fun LineaProducto(linea: LineaVenta) {
+private fun LineaProducto(linea: LineaVenta, servidor: String) {
     Column(Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            ImagenProducto(
+                servidor = servidor,
+                archivo = linea.imagen,
+                descripcion = linea.nombre,
+                tamano = 48.dp,
+            )
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     linea.nombre,

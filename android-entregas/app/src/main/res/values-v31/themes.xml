@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ pinta una pantalla de arranque propia. Se usa el mismo
+         verde profundo de la bóveda y el logotipo de la app para que la
+         entrada a la aplicación se sienta como una sola animación. -->
+    <style name="Theme.AceroEntregas.Arranque" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">#07120E</item>
+        <item name="android:navigationBarColor">#07120E</item>
+        <item name="android:windowBackground">#07120E</item>
+        <item name="android:windowSplashScreenBackground">#07120E</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#07120E</item>
+    </style>
+</resources>

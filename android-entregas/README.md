@@ -8,8 +8,19 @@ precios, importes, IVA ni datos fiscales.
 ## Funciones
 
 - Login con el correo y la contraseña actuales.
+- **Animación de bienvenida tipo bóveda**: dos paneles metálicos se abren,
+  aparece el logotipo y una ilustración de entregas recoloreada a la paleta de
+  la app. Se puede tocar la pantalla para saltarla.
+- **Acceso con huella digital** opcional: se activa en Perfil y la app la pide al
+  abrirse o al volver después de un minuto en segundo plano. Si la huella falla,
+  siempre queda «Entrar con contraseña».
+- **Modo claro, oscuro o automático** desde Perfil; la elección se conserva en
+  el teléfono.
 - Todos los usuarios ven todos los pedidos confirmados con piezas pendientes.
 - Agrupación por cliente, búsqueda y filtro por negocio.
+- **Miniaturas de los productos** en la lista de pendientes y en las pantallas
+  de detalle, entrega e incidencia.
+- **Botón «Ver pedido»** en cada venta, además del toque sobre la fila.
 - Entrega total o parcial, con cantidades precargadas.
 - Nombre de quien recibe y notas opcionales.
 - Fotos opcionales con cámara o galería; se guardan fecha/hora y GPS.
@@ -56,7 +67,7 @@ cd android-entregas
 ./compilar.sh
 ```
 
-El APK firmado queda en `dist/acero360-entregas_1.0.0.apk`.
+El APK firmado queda en `dist/acero360-entregas_1.1.0.apk`.
 Para publicar una actualización hay que subir `versionCode` y `versionName` en
 `app/build.gradle.kts`; Android no instala un APK con un `versionCode` menor.
 
@@ -81,6 +92,19 @@ para apuntar a otro archivo de propiedades.
 
 ## Notas
 
+- El acceso con huella sólo protege la sesión ya iniciada: no guarda la
+  contraseña. Si el teléfono se queda sin huellas registradas, la app no se
+  bloquea para no dejar a nadie fuera.
+- La pantalla de arranque y la bóveda usan el mismo verde profundo
+  (`#07120E`) para que la entrada se sienta como una sola animación.
+- La ilustración de la bienvenida vive en
+  `app/src/main/res/drawable/entrega_intro.xml` y su fuente editable en
+  `arte/entrega_intro.svg`. Es un vector limpio (vehiculo, teléfono y cajas)
+  con la paleta de la app: verdes, naranjas del logotipo y gris acero del
+  camión; así se ve nítida en cualquier pantalla y no arrastra los bordes
+  blancos del WebP original.
+- La apariencia (`sistema`, `claro` u `oscuro`) se guarda en las preferencias
+  del teléfono y se aplica también a las barras del sistema.
 - La primera versión usa `usesCleartextTraffic="true"` para pruebas locales.
   Antes de publicar en producción se debe servir todo por HTTPS y desactivar
   el tráfico sin cifrar.

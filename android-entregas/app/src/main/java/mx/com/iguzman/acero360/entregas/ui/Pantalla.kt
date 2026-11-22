@@ -40,4 +40,10 @@ data class UiState(
     val filtroEmpresa: String = "Todos",
     val modoSeleccion: Boolean = false,
     val seleccion: Set<Int> = emptySet(),
+    /** La app está tapada por la pantalla de desbloqueo con huella. */
+    val bloqueado: Boolean = false,
+    val biometriaActiva: Boolean = false,
+    val biometriaDisponible: Boolean = false,
+    /** Preferencia de apariencia: sistema, claro u oscuro. */
+    val tema: String = "sistema",
 )

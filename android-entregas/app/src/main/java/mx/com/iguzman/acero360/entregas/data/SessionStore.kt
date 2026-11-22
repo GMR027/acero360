@@ -19,6 +19,16 @@ class SessionStore(context: Context) {
         get() = prefs.getString("token", "") ?: ""
         set(value) = prefs.edit().putString("token", value).apply()
 
+    /** Apariencia elegida en Perfil: sistema, claro u oscuro. */
+    var tema: String
+        get() = prefs.getString("tema", "sistema") ?: "sistema"
+        set(value) = prefs.edit().putString("tema", value).apply()
+
+    /** Si el teléfono debe pedir la huella al abrir la app. */
+    var biometriaActiva: Boolean
+        get() = prefs.getBoolean("biometria_activa", false)
+        set(value) = prefs.edit().putBoolean("biometria_activa", value).apply()
+
     var usuario: Usuario?
         get() {
             val raw = prefs.getString("usuario", "") ?: ""

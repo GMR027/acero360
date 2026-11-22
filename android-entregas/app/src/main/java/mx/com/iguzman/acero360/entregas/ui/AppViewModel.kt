@@ -34,6 +34,7 @@ import mx.com.iguzman.acero360.entregas.data.Usuario
 import mx.com.iguzman.acero360.entregas.data.VentaCabecera
 import mx.com.iguzman.acero360.entregas.data.VentaDetalleData
 import mx.com.iguzman.acero360.entregas.data.VentaResumen
+import mx.com.iguzman.acero360.entregas.util.Biometria
 import mx.com.iguzman.acero360.entregas.util.PdfHelper
 import org.json.JSONArray
 import org.json.JSONObject
@@ -65,6 +66,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             cola = queue.contar(),
             colaItems = queue.listar(),
             ultimaSync = session.lastSync,
+            biometriaActiva = session.biometriaActiva,
+            biometriaDisponible = Biometria.disponible(contexto),
+            tema = session.tema,
         )
     )
     val estado = _estado.asStateFlow()
@@ -89,9 +93,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val cm = contexto.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             cm.registerDefaultNetworkCallback(manejadorRed)
         }
-        _estado.update { it.copy(offline = !hayRed()) }
+        val disponible = Biometria.disponible(contexto)
+        val bloquear = session.biometriaActiva && session.token.isNotBlank() && disponible
+        _estado.update {
+            it.copy(
+                offline = !hayRed(),
+                bloqueado = bloquear,
+                biometriaActiva = session.biometriaActiva,
+                biometriaDisponible = disponible,
+                tema = session.tema,
+                iniciando = if (bloquear) false else it.iniciando,
+            )
+        }
         SyncWorker.programarPeriodico(contexto)
-        autoEntrar()
+        if (!bloquear) autoEntrar()
     }
 
     override fun onCleared() {
@@ -215,6 +230,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 iniciando = false,
                 servidor = session.serverUrl,
                 pantalla = Pantalla.Login,
+                biometriaActiva = session.biometriaActiva,
+                biometriaDisponible = Biometria.disponible(contexto),
+                tema = session.tema,
             )
         }
     }
@@ -226,6 +244,61 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             servidor = session.serverUrl,
             pantalla = Pantalla.Login,
             aviso = Aviso(mensaje, true),
+            biometriaActiva = session.biometriaActiva,
+            biometriaDisponible = Biometria.disponible(contexto),
+            tema = session.tema,
+        )
+    }
+
+    /* ------------------------------------------------------------------
+     * Apariencia y desbloqueo con huella
+     * ---------------------------------------------------------------- */
+
+    fun cambiarTema(tema: String) {
+        if (tema !in listOf(Temas.SISTEMA, Temas.CLARO, Temas.OSCURO)) return
+        session.tema = tema
+        _estado.update { it.copy(tema = tema) }
+    }
+
+    fun cambiarBiometria(activa: Boolean) {
+        val disponible = Biometria.disponible(contexto)
+        if (activa && !disponible) {
+            avisar(Biometria.motivoNoDisponible(contexto), true)
+            _estado.update { it.copy(biometriaDisponible = false) }
+            return
+        }
+        session.biometriaActiva = activa
+        _estado.update { it.copy(biometriaActiva = activa, biometriaDisponible = disponible) }
+        avisar(
+            if (activa) "Listo: la app pedirá tu huella al abrirse."
+            else "Se desactivó el acceso con huella."
+        )
+    }
+
+    /** Tapa la app con la pantalla de huella (al abrir o volver del fondo). */
+    fun bloquear() {
+        if (_estado.value.bloqueado || !session.biometriaActiva || session.token.isBlank()) return
+        if (!Biometria.disponible(contexto)) return
+        _estado.update { it.copy(bloqueado = true, aviso = null) }
+    }
+
+    /** La huella se confirmó: se sigue con la sesión guardada. */
+    fun desbloquear() {
+        if (!_estado.value.bloqueado) return
+        _estado.update { it.copy(bloqueado = false) }
+        autoEntrar()
+    }
+
+    /** Alternativa para quien no puede o no quiere usar la huella. */
+    fun entrarConContrasena() {
+        session.cerrarSesion()
+        _estado.value = UiState(
+            iniciando = false,
+            servidor = session.serverUrl,
+            pantalla = Pantalla.Login,
+            biometriaActiva = session.biometriaActiva,
+            biometriaDisponible = Biometria.disponible(contexto),
+            tema = session.tema,
         )
     }
 
@@ -859,8 +932,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onResume() {
+        _estado.update {
+            it.copy(
+                offline = !hayRed(),
+                biometriaDisponible = Biometria.disponible(contexto),
+            )
+        }
         if (session.token.isBlank()) return
-        _estado.update { it.copy(offline = !hayRed()) }
+        if (_estado.value.bloqueado) return
         if (queue.contar() > 0 && hayRed()) {
             sincronizarAhora()
         } else {

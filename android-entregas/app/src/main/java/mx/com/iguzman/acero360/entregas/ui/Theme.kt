@@ -7,49 +7,97 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val AceroAzul = Color(0xFF4679A6)
-val AceroAzulOscuro = Color(0xFF2F5F8C)
-val AceroFondo = Color(0xFFF4F7FA)
-val AceroSuperficie = Color(0xFFFFFFFF)
-val AceroTexto = Color(0xFF33343A)
-val AceroTextoSuave = Color(0xFF6B6B70)
-val AceroBorde = Color(0xFFD9DDE3)
-val AceroExito = Color(0xFF1C6B3C)
-val AceroExitoSuave = Color(0xFFEAF7EF)
-val AceroAlerta = Color(0xFFA12A2A)
-val AceroAlertaSuave = Color(0xFFFDF0F0)
-val AceroAviso = Color(0xFF8A5A00)
-val AceroAvisoSuave = Color(0xFFFFF7E2)
+/** Preferencias de apariencia que se guardan en el teléfono. */
+object Temas {
+    const val SISTEMA = "sistema"
+    const val CLARO = "claro"
+    const val OSCURO = "oscuro"
+}
+
+private val Azul = Color(0xFF4679A6)
+private val AzulOscuro = Color(0xFF2F5F8C)
+private val Fondo = Color(0xFFF4F7FA)
+private val Superficie = Color(0xFFFFFFFF)
+private val Texto = Color(0xFF33343A)
+private val TextoSuave = Color(0xFF6B6B70)
+private val Borde = Color(0xFFD9DDE3)
+
+private val ExitoClaro = Color(0xFF1C6B3C)
+private val ExitoSuaveClaro = Color(0xFFEAF7EF)
+private val AlertaClaro = Color(0xFFA12A2A)
+private val AlertaSuaveClaro = Color(0xFFFDF0F0)
+private val AvisoClaro = Color(0xFF8A5A00)
+private val AvisoSuaveClaro = Color(0xFFFFF7E2)
+
+private val AzulOscuroTema = Color(0xFF8FB8DE)
+private val ExitoOscuro = Color(0xFF7FD99C)
+private val ExitoSuaveOscuro = Color(0xFF143A24)
+private val AlertaOscuro = Color(0xFFFFB4AB)
+private val AlertaSuaveOscuro = Color(0xFF4A1515)
+private val AvisoOscuro = Color(0xFFFFD180)
+private val AvisoSuaveOscuro = Color(0xFF3A2E12)
+
+/**
+ * Colores de estado que se adaptan al tema activo. En las pantallas se usan
+ * como hasta ahora (`AceroAviso`, `AceroExito`…), pero cambian de tono cuando
+ * el usuario elige el modo oscuro.
+ */
+val AceroAzul: Color
+    @Composable get() = if (esTemaOscuro()) AzulOscuroTema else Azul
+
+val AceroExito: Color
+    @Composable get() = if (esTemaOscuro()) ExitoOscuro else ExitoClaro
+
+val AceroExitoSuave: Color
+    @Composable get() = if (esTemaOscuro()) ExitoSuaveOscuro else ExitoSuaveClaro
+
+val AceroAlerta: Color
+    @Composable get() = if (esTemaOscuro()) AlertaOscuro else AlertaClaro
+
+val AceroAlertaSuave: Color
+    @Composable get() = if (esTemaOscuro()) AlertaSuaveOscuro else AlertaSuaveClaro
+
+val AceroAviso: Color
+    @Composable get() = if (esTemaOscuro()) AvisoOscuro else AvisoClaro
+
+val AceroAvisoSuave: Color
+    @Composable get() = if (esTemaOscuro()) AvisoSuaveOscuro else AvisoSuaveClaro
+
+@Composable
+fun esTemaOscuro(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
 private val Claro = lightColorScheme(
-    primary = AceroAzul,
+    primary = Azul,
     onPrimary = Color.White,
     primaryContainer = Color(0xFFEAF1F8),
-    onPrimaryContainer = AceroAzulOscuro,
-    secondary = AceroAzulOscuro,
+    onPrimaryContainer = AzulOscuro,
+    secondary = AzulOscuro,
     onSecondary = Color.White,
-    background = AceroFondo,
-    onBackground = AceroTexto,
-    surface = AceroSuperficie,
-    onSurface = AceroTexto,
+    background = Fondo,
+    onBackground = Texto,
+    surface = Superficie,
+    onSurface = Texto,
     surfaceVariant = Color(0xFFEDF1F6),
-    onSurfaceVariant = AceroTextoSuave,
-    outline = AceroBorde,
-    error = AceroAlerta,
+    onSurfaceVariant = TextoSuave,
+    outline = Borde,
+    error = AlertaClaro,
     onError = Color.White,
-    errorContainer = AceroAlertaSuave,
-    onErrorContainer = AceroAlerta,
+    errorContainer = AlertaSuaveClaro,
+    onErrorContainer = AlertaClaro,
 )
 
 private val Oscuro = darkColorScheme(
-    primary = Color(0xFF8FB8DE),
+    primary = AzulOscuroTema,
     onPrimary = Color(0xFF10263B),
     primaryContainer = Color(0xFF1D3A55),
     onPrimaryContainer = Color(0xFFD7E8F8),
+    secondary = Color(0xFF9CC3E6),
+    onSecondary = Color(0xFF10263B),
     background = Color(0xFF12161C),
     onBackground = Color(0xFFE6E8EB),
     surface = Color(0xFF1B2027),
@@ -57,9 +105,9 @@ private val Oscuro = darkColorScheme(
     surfaceVariant = Color(0xFF262D36),
     onSurfaceVariant = Color(0xFFB6BDC7),
     outline = Color(0xFF3A434E),
-    error = Color(0xFFFFB4AB),
+    error = AlertaOscuro,
     onError = Color(0xFF690005),
-    errorContainer = Color(0xFF4A1515),
+    errorContainer = AlertaSuaveOscuro,
     onErrorContainer = Color(0xFFFFDAD6),
 )
 
@@ -74,9 +122,14 @@ private val Tipografia = Typography(
 
 @Composable
 fun AceroTheme(
-    oscuro: Boolean = isSystemInDarkTheme(),
+    modo: String = Temas.SISTEMA,
     content: @Composable () -> Unit,
 ) {
+    val oscuro = when (modo) {
+        Temas.CLARO -> false
+        Temas.OSCURO -> true
+        else -> isSystemInDarkTheme()
+    }
     MaterialTheme(
         colorScheme = if (oscuro) Oscuro else Claro,
         typography = Tipografia,

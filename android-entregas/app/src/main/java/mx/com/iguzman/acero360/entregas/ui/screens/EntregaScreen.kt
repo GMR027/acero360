@@ -58,6 +58,7 @@ import mx.com.iguzman.acero360.entregas.ui.BotonPrincipal
 import mx.com.iguzman.acero360.entregas.ui.CajaInfo
 import mx.com.iguzman.acero360.entregas.ui.EtiquetaEstado
 import mx.com.iguzman.acero360.entregas.ui.FotoMiniatura
+import mx.com.iguzman.acero360.entregas.ui.ImagenProducto
 import mx.com.iguzman.acero360.entregas.ui.MensajeVacio
 import mx.com.iguzman.acero360.entregas.ui.SelectorCantidad
 import mx.com.iguzman.acero360.entregas.ui.UiState
@@ -268,6 +269,7 @@ fun EntregaScreen(
         items(lineas, key = { it.productoId }) { linea ->
             ProductoEntrega(
                 linea = linea,
+                servidor = estado.servidor,
                 cantidad = cantidades[linea.productoId] ?: 0,
                 alCambiar = { cantidades[linea.productoId] = it },
             )
@@ -396,6 +398,7 @@ fun EntregaScreen(
 @Composable
 private fun ProductoEntrega(
     linea: LineaVenta,
+    servidor: String,
     cantidad: Int,
     alCambiar: (Int) -> Unit,
 ) {
@@ -408,6 +411,13 @@ private fun ProductoEntrega(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            ImagenProducto(
+                servidor = servidor,
+                archivo = linea.imagen,
+                descripcion = linea.nombre,
+                tamano = 48.dp,
+            )
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     linea.nombre,

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -34,6 +35,7 @@ import mx.com.iguzman.acero360.entregas.ui.AceroAvisoSuave
 import mx.com.iguzman.acero360.entregas.ui.BotonPrincipal
 import mx.com.iguzman.acero360.entregas.ui.CajaInfo
 import mx.com.iguzman.acero360.entregas.ui.ChipMotivo
+import mx.com.iguzman.acero360.entregas.ui.ImagenProducto
 import mx.com.iguzman.acero360.entregas.ui.MensajeVacio
 import mx.com.iguzman.acero360.entregas.ui.RenglonCaptura
 import mx.com.iguzman.acero360.entregas.ui.SelectorCantidad
@@ -153,16 +155,27 @@ fun IncidenciaScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(12.dp)) {
-                    Text(
-                        linea.nombre,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        "${linea.sku.ifBlank { "Sin código" }} · vendido: ${linea.vendido} ${linea.unidad}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ImagenProducto(
+                            servidor = estado.servidor,
+                            archivo = linea.imagen,
+                            descripcion = linea.nombre,
+                            tamano = 48.dp,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                linea.nombre,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                "${linea.sku.ifBlank { "Sin código" }} · vendido: ${linea.vendido} ${linea.unidad}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,

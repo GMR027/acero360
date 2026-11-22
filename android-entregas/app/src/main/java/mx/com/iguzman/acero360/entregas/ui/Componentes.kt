@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,17 +33,24 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import mx.com.iguzman.acero360.entregas.data.PhotoMeta
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -149,7 +157,11 @@ fun BotonSecundario(
 }
 
 @Composable
-fun EtiquetaEstado(texto: String, color: Color = AceroAzul, fondo: Color = Color(0xFFEAF1F8)) {
+fun EtiquetaEstado(
+    texto: String,
+    color: Color = AceroAzul,
+    fondo: Color = MaterialTheme.colorScheme.primaryContainer,
+) {
     Surface(color = fondo, contentColor = color, shape = RoundedCornerShape(999.dp)) {
         Text(
             text = texto,
@@ -229,6 +241,77 @@ fun TituloSeccion(texto: String, modifier: Modifier = Modifier) {
 @Composable
 fun DivisorSuave() {
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+}
+
+/**
+ * Dirección pública de la foto de un producto. La API entrega sólo el nombre
+ * del archivo guardado en `public/image`; aquí se completa con el servidor y se
+ * prefiere la miniatura de 300×300 que genera Imagenes::subir().
+ */
+fun urlImagenProducto(servidor: String, archivo: String, miniatura: Boolean): String {
+    val limpio = archivo.trim()
+    if (limpio.isBlank()) return ""
+    if (limpio.startsWith("http://", ignoreCase = true) ||
+        limpio.startsWith("https://", ignoreCase = true)
+    ) {
+        return limpio
+    }
+    val nombre = if (miniatura) {
+        limpio.replace(Regex("(\\.[A-Za-z0-9]+)$"), "_mini$1")
+    } else {
+        limpio
+    }
+    return "${servidor.trim().trimEnd('/')}/public/image/${nombre.trimStart('/')}"
+}
+
+/**
+ * Miniatura cuadrada de un producto con respaldo: si no existe la versión
+ * `_mini`, intenta la imagen original; si tampoco hay, muestra el icono de
+ * producto para que la fila nunca quede rota.
+ */
+@Composable
+fun ImagenProducto(
+    servidor: String,
+    archivo: String,
+    descripcion: String = "Producto",
+    tamano: Dp = 48.dp,
+    modifier: Modifier = Modifier,
+) {
+    var usarMiniatura by remember(archivo) { mutableStateOf(true) }
+    val url = remember(servidor, archivo, usarMiniatura) {
+        urlImagenProducto(servidor, archivo, usarMiniatura)
+    }
+    val forma = RoundedCornerShape(9.dp)
+
+    Box(
+        modifier = modifier
+            .size(tamano)
+            .clip(forma)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (url.isBlank()) {
+            Icon(
+                Icons.Default.ShoppingCart,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(tamano * 0.45f),
+            )
+        } else {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(url)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = descripcion,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                onError = {
+                    if (usarMiniatura) usarMiniatura = false
+                },
+            )
+        }
+    }
 }
 
 @Composable

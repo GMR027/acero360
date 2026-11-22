@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="580" height="375" viewBox="40 25 580 375">
+  <!-- Sombras de piso -->
+  <ellipse cx="320" cy="358" rx="250" ry="20" fill="#06110C" opacity="0.55"/>
+  <ellipse cx="510" cy="348" rx="95" ry="13" fill="#06110C" opacity="0.45"/>
+  <ellipse cx="128" cy="348" rx="78" ry="12" fill="#06110C" opacity="0.42"/>
+  <ellipse cx="326" cy="384" rx="62" ry="10" fill="#06110C" opacity="0.42"/>
+
+  <!-- Líneas de movimiento -->
+  <path d="M556 118h34M560 134h30M566 150h24" stroke="#7FE0B0" stroke-width="5" stroke-linecap="round" opacity="0.35"/>
+
+  <!-- Caja del camión -->
+  <rect x="300" y="96" width="206" height="184" rx="10" fill="#C9D6E3"/>
+  <rect x="300" y="96" width="206" height="14" rx="7" fill="#E4EDF3"/>
+  <rect x="486" y="96" width="20" height="184" fill="#AFC2D0"/>
+  <path d="M352 112v158M402 112v158M452 112v158" stroke="#AFC2D0" stroke-width="4"/>
+  <circle cx="402" cy="196" r="30" fill="#E4EDF3"/>
+  <path d="M390 196a13 13 0 1 1 22 9" fill="none" stroke="#45B882" stroke-width="5" stroke-linecap="round"/>
+  <path d="M409 201l-4 9-9-3z" fill="#F2A56B"/>
+
+  <!-- Rueda trasera -->
+  <circle cx="354" cy="312" r="31" fill="#1D2B36"/>
+  <circle cx="354" cy="312" r="14" fill="#8FA3B5"/>
+  <circle cx="354" cy="312" r="5" fill="#5A6B7B"/>
+
+  <!-- Cabina del camión -->
+  <path d="M438 286V173c0-22 12-37 38-37h74c17 0 28 8 34 23l18 48c3 8 5 16 5 24v55z" fill="#45B882"/>
+  <path d="M438 286V173c0-22 12-37 38-37h13v150z" fill="#2E8F66"/>
+  <path d="M488 158h63c14 0 23 7 28 20l17 46c2 6 3 11 3 16v17h-111z" fill="#3EAC79"/>
+  <rect x="450" y="164" width="31" height="69" rx="7" fill="#22303A"/>
+  <path d="M452 169h27v9h-27z" fill="#35495A" opacity="0.7"/>
+  <path d="M488 158h62c14 0 23 7 28 20l17 46c2 6 3 11 3 16v17h-110z" fill="#22303A" opacity="0.94"/>
+  <path d="M496 166h50c11 0 18 5 22 16l15 41c2 5 2 9 2 13h-89z" fill="#2C3D4A"/>
+  <path d="M504 172h39c8 0 13 4 16 12l12 35h-67z" fill="#3A5060" opacity="0.7"/>
+  <path d="M496 166v70M556 171l33 48" stroke="#5A7180" stroke-width="2.5" opacity="0.55"/>
+  <path d="M520 250v36" stroke="#2E8F66" stroke-width="2"/>
+  <rect x="562" y="250" width="24" height="19" rx="5" fill="#F7E3C4"/>
+  <rect x="562" y="276" width="21" height="8" rx="4" fill="#F2A56B"/>
+  <rect x="540" y="292" width="50" height="18" rx="6" fill="#263845"/>
+  <path d="M550 260h14M550 267h10" stroke="#1D2B36" stroke-width="2.5" stroke-linecap="round" opacity="0.65"/>
+
+  <!-- Rueda delantera -->
+  <circle cx="548" cy="314" r="31" fill="#1D2B36"/>
+  <circle cx="548" cy="314" r="14" fill="#8FA3B5"/>
+  <circle cx="548" cy="314" r="5" fill="#5A6B7B"/>
+
+  <!-- Carrito y cajas de la izquierda -->
+  <path d="M198 148v63M186 148h24" fill="none" stroke="#D95757" stroke-width="6" stroke-linecap="round"/>
+  <path d="M202 207h-58M202 207l14 119M180 326h44" fill="none" stroke="#D95757" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="207" cy="334" r="11" fill="#1D2B36"/>
+  <circle cx="207" cy="334" r="4" fill="#8FA3B5"/>
+  <circle cx="174" cy="334" r="11" fill="#1D2B36"/>
+  <circle cx="174" cy="334" r="4" fill="#8FA3B5"/>
+
+  <g>
+    <path d="M73 245l65-18 46 19-67 21z" fill="#F7C08E"/>
+    <path d="M73 245l44 22v66l-44-22z" fill="#F2A56B"/>
+    <path d="M117 267l67-21v65l-67 22z" fill="#D98B52"/>
+    <path d="M84 255l33-9 24 10-34 11z" fill="#FFD9B5"/>
+    <path d="M117 267v65M98 258l44 20" stroke="#C97A45" stroke-width="2.5" opacity="0.6"/>
+  </g>
+  <g>
+    <path d="M88 191l68-20 49 20-70 23z" fill="#F7C08E"/>
+    <path d="M88 191l47 23v65l-47-23z" fill="#F2A56B"/>
+    <path d="M135 214l70-23v64l-70 23z" fill="#D98B52"/>
+    <path d="M100 202l35-10 26 11-37 12z" fill="#FFD9B5"/>
+    <path d="M135 214v63M115 205l47 21" stroke="#C97A45" stroke-width="2.5" opacity="0.6"/>
+  </g>
+
+  <!-- Caja delantera -->
+  <g>
+    <path d="M274 318l61-18 47 19-64 21z" fill="#F7C08E"/>
+    <path d="M274 318l44 22v53l-44-22z" fill="#F2A56B"/>
+    <path d="M318 340l64-21v52l-64 22z" fill="#D98B52"/>
+    <path d="M286 328l32-10 25 10-35 11z" fill="#FFD9B5"/>
+    <path d="M318 340v52M300 332l43 19" stroke="#C97A45" stroke-width="2.5" opacity="0.6"/>
+  </g>
+
+  <!-- Teléfono -->
+  <rect x="218" y="62" width="140" height="286" rx="24" fill="#1D2B36"/>
+  <rect x="223" y="67" width="130" height="276" rx="20" fill="#45B882"/>
+  <rect x="231" y="76" width="114" height="258" rx="14" fill="#F7FBF9"/>
+  <rect x="276" y="82" width="24" height="5" rx="2.5" fill="#2E7D5A"/>
+  <circle cx="263" cy="84.5" r="3" fill="#2E7D5A"/>
+
+  <path d="M231 90h114v58c0 7-5 12-12 12H243c-7 0-12-5-12-12z" fill="#45B882"/>
+  <circle cx="288" cy="124" r="27" fill="#EAF7F0"/>
+  <circle cx="288" cy="114" r="9" fill="#D29A75"/>
+  <path d="M278 109c2-7 18-7 20 0z" fill="#C84B4B"/>
+  <path d="M272 142c0-12 7-19 16-19s16 7 16 19z" fill="#D95757"/>
+  <rect x="278" y="135" width="20" height="14" rx="2" fill="#F2A56B"/>
+  <path d="M278 140h20M288 135v14" stroke="#C97A45" stroke-width="2"/>
+  <path d="M270 132l-8 10M306 132l8 10" stroke="#D29A75" stroke-width="6" stroke-linecap="round"/>
+
+  <rect x="242" y="170" width="92" height="150" rx="8" fill="#FFFFFF" stroke="#D9E6E3" stroke-width="2"/>
+  <rect x="276" y="167" width="24" height="7" rx="3.5" fill="#F7FBF9" stroke="#D9E6E3" stroke-width="2"/>
+  <circle cx="254" cy="192" r="3.5" fill="#45B882"/>
+  <rect x="264" y="188" width="56" height="7" rx="3.5" fill="#C9D6E3"/>
+  <circle cx="254" cy="214" r="3.5" fill="#F2A56B"/>
+  <rect x="264" y="210" width="48" height="7" rx="3.5" fill="#C9D6E3"/>
+  <circle cx="254" cy="236" r="3.5" fill="#45B882"/>
+  <rect x="264" y="232" width="60" height="7" rx="3.5" fill="#C9D6E3"/>
+  <circle cx="254" cy="258" r="3.5" fill="#D95757"/>
+  <rect x="264" y="254" width="42" height="7" rx="3.5" fill="#C9D6E3"/>
+  <circle cx="254" cy="280" r="3.5" fill="#45B882"/>
+  <rect x="264" y="276" width="52" height="7" rx="3.5" fill="#C9D6E3"/>
+  <rect x="242" y="298" width="92" height="24" rx="8" fill="#EAF7F0"/>
+  <rect x="254" y="306" width="68" height="7" rx="3.5" fill="#7FE0B0"/>
+
+  <!-- Globo de mensaje -->
+  <rect x="112" y="34" width="122" height="58" rx="17" fill="#45B882"/>
+  <path d="M142 90l-10 20 32-20z" fill="#45B882"/>
+  <circle cx="150" cy="63" r="6.5" fill="#F7FBF9"/>
+  <circle cx="176" cy="63" r="6.5" fill="#F7FBF9"/>
+  <circle cx="202" cy="63" r="6.5" fill="#F7FBF9"/>
+</svg>

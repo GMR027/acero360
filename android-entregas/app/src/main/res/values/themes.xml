@@ -3,8 +3,31 @@
     <style name="Theme.AceroEntregas" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:statusBarColor">#F4F7FA</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
         <item name="android:windowBackground">#F4F7FA</item>
+    </style>
+
+    <!-- Se aplica antes de crear la actividad cuando el usuario eligió el modo
+         oscuro, para que el arranque no muestre un destello blanco. -->
+    <style name="Theme.AceroEntregas.Oscuro" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">#12161C</item>
+        <item name="android:navigationBarColor">#1B2027</item>
+        <item name="android:windowBackground">#12161C</item>
+    </style>
+
+    <!-- Pantalla de arranque: siempre oscura para empalmar con la bóveda
+         animada de bienvenida. -->
+    <style name="Theme.AceroEntregas.Arranque" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">#07120E</item>
+        <item name="android:navigationBarColor">#07120E</item>
+        <item name="android:windowBackground">#07120E</item>
     </style>
 </resources>

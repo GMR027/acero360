@@ -27,19 +27,50 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mx.com.iguzman.acero360.entregas.ui.screens.BloqueoScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.DetalleScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.EntregaScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.HistorialScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.IncidenciaScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.IntentoScreen
+import mx.com.iguzman.acero360.entregas.ui.screens.IntroEntregasScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.LoginScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.PendientesScreen
 import mx.com.iguzman.acero360.entregas.ui.screens.PerfilScreen
 
+@Composable
+fun AppRoot(
+    modelo: AppViewModel,
+    introCompletada: Boolean,
+    alCompletarIntro: () -> Unit,
+) {
+    val estado by modelo.estado.collectAsStateWithLifecycle()
+
+    // El contenido real se compone debajo de la bienvenida para que la salida
+    // de la bóveda sea un fundido hacia la app, no un corte.
+    Box(Modifier.fillMaxSize()) {
+        ContenidoApp(modelo = modelo, estado = estado)
+        if (!introCompletada && !estado.bloqueado) {
+            IntroEntregasScreen(alTerminar = alCompletarIntro)
+        }
+    }
+
+    BackHandler(enabled = !introCompletada && !estado.bloqueado) {
+        alCompletarIntro()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot(modelo: AppViewModel) {
-    val estado by modelo.estado.collectAsStateWithLifecycle()
+private fun ContenidoApp(modelo: AppViewModel, estado: UiState) {
+    if (estado.bloqueado) {
+        BloqueoScreen(
+            estado = estado,
+            alDesbloquear = modelo::desbloquear,
+            alUsarContrasena = modelo::entrarConContrasena,
+        )
+        return
+    }
 
     if (estado.iniciando) {
         Box(Modifier.fillMaxSize()) {
@@ -212,6 +243,8 @@ fun AppRoot(modelo: AppViewModel) {
                         alCerrarSesion = modelo::cerrarSesion,
                         alReintentarCola = modelo::reintentarCola,
                         alDescartarCola = modelo::descartarCola,
+                        alCambiarTema = modelo::cambiarTema,
+                        alCambiarBiometria = modelo::cambiarBiometria,
                     )
 
                     Pantalla.Login -> Unit
