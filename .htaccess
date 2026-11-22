@@ -11,8 +11,9 @@ RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 # configuración, código, migraciones…). Solo public/ y build/ son públicos.
 RewriteRule ^(storage|vendor|clases|includes|config|mysql|scripts|pruebas|templates|views|cambios|helm|design|src|node_modules|desktop|android|android-entregas)(/|$) - [F,L]
 RewriteRule ^\.(?!well-known) - [F,L]
-# /app/android/version.json no es un archivo: lo responde index.php (la app Android lo consulta).
+# Los version.json de las apps no son archivos: los responde index.php.
 RewriteCond %{REQUEST_URI} !^/app/android/version\.json$
+RewriteCond %{REQUEST_URI} !^/app/entregas/version\.json$
 RewriteRule \.(env|md|sql|lock|log|sh|json|ya?ml|ini|example)$ - [F,L]
 RewriteRule ^(Dockerfile|Router\.php|gulpfile\.js|deploy\.sh)$ - [F,L]
 
