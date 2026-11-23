@@ -559,6 +559,9 @@ class Documentos
     private const ACTA_ALTO_MIN   = 42.0;
     /** Lado mayor de las fotos incrustadas: de sobra para la hoja y el PDF pesa y tarda menos. */
     private const ACTA_LADO_FOTO  = 1100;
+    /** Tamaño (pt) del pie de cada foto, según quepan 1–2 o 3+ columnas. */
+    private const ACTA_FUENTE_PIE          = 8.5;
+    private const ACTA_FUENTE_PIE_COMPACTA = 8.0;
 
     /**
      * HTML del acta: datos del negocio emisor y del cliente, cada entrega con
@@ -567,8 +570,9 @@ class Documentos
      * @param Ventas              $venta        Venta de la que se emite el acta.
      * @param array<int, array>   $entregas     Entregas::entregasDeVenta().
      * @param array<int, array>   $incidencias  IncidenciasEntrega::deVenta().
-     * @param array<string,mixed> $distribucion columnas, alto (pt) de cada foto y
-     *                                          medir (true = sin fotos, para medir el texto).
+     * @param array<string,mixed> $distribucion columnas, alto (pt) de cada foto,
+     *                                          fuente (pt del pie) y medir
+     *                                          (true = sin fotos, para medir el texto).
      */
     public static function htmlActaEntrega(Ventas $venta, array $entregas, array $incidencias, array $distribucion = []): string
     {
@@ -585,6 +589,7 @@ class Documentos
                 'medir'    => false,
                 'ancho'    => self::ACTA_ANCHO_UTIL,
                 'hueco'    => self::ACTA_HUECO,
+                'fuente'   => self::ACTA_FUENTE_PIE,
             ],
         ]);
 
@@ -623,7 +628,7 @@ class Documentos
                 $huella[] = ($foto['archivo'] ?? '') . '@' . ($foto['_pdf']['firma'] ?? '');
             }
         }
-        $clave = \Classes\CachePdf::clave($medicion . '|acta-v4|' . implode(',', $huella), self::ANCHO_PAGINA, self::ORIENTACION);
+        $clave = \Classes\CachePdf::clave($medicion . '|acta-v5|' . implode(',', $huella), self::ANCHO_PAGINA, self::ORIENTACION);
         $guardado = \Classes\CachePdf::obtener($clave);
         if ($guardado !== null) {
             return $guardado;
@@ -753,7 +758,7 @@ class Documentos
      * Se prueba de 1 a 6 columnas y gana la que deja las fotos con más área
      * visible (respetando la proporción de cada una).
      *
-     * @return array{columnas: int, alto: float, filas: int, tope: float}
+     * @return array{columnas: int, alto: float, filas: int, tope: float, fuente: float}
      */
     private static function distribucionActa(array $entregas, float $libre): array
     {
@@ -765,14 +770,14 @@ class Documentos
             }
         }
         $total = array_sum(array_map('count', $grupos));
-        $mejor = ['columnas' => min(6, max(2, $total)), 'alto' => self::ACTA_ALTO_MIN, 'puntos' => -1.0, 'filas' => 1, 'tope' => self::ACTA_ALTO_MAX];
+        $mejor = ['columnas' => min(6, max(2, $total)), 'alto' => self::ACTA_ALTO_MIN, 'puntos' => -1.0, 'filas' => 1, 'tope' => self::ACTA_ALTO_MAX, 'fuente' => self::ACTA_FUENTE_PIE];
 
         for ($columnas = 1; $columnas <= 6; $columnas++) {
             if ($columnas > max(1, $total)) {
                 break;
             }
             $ancho = (self::ACTA_ANCHO_UTIL - ($columnas - 1) * self::ACTA_HUECO) / $columnas;
-            $fuente = $columnas >= 3 ? 7.0 : 7.5;
+            $fuente = $columnas >= 3 ? self::ACTA_FUENTE_PIE_COMPACTA : self::ACTA_FUENTE_PIE;
             $filas = 0;
             $pies = 0.0;
             foreach ($grupos as $fotos) {
@@ -805,7 +810,7 @@ class Documentos
                 }
             }
             if ($puntos > $mejor['puntos'] * 1.02) {
-                $mejor = ['columnas' => $columnas, 'alto' => $alto, 'puntos' => $puntos, 'filas' => $filas, 'tope' => $ancho * 1.4];
+                $mejor = ['columnas' => $columnas, 'alto' => $alto, 'puntos' => $puntos, 'filas' => $filas, 'tope' => $ancho * 1.4, 'fuente' => $fuente];
             }
         }
 
@@ -814,6 +819,7 @@ class Documentos
             'alto'     => round($mejor['alto'], 1),
             'filas'    => max(1, $mejor['filas']),
             'tope'     => $mejor['tope'],
+            'fuente'   => $mejor['fuente'],
         ];
     }
 

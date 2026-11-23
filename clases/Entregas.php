@@ -1108,7 +1108,7 @@ class Entregas
 
         if ($entregas) {
             $consulta = self::$db->prepare(
-                'SELECT er.*, p.nombre AS producto_nombre FROM entrega_renglones er
+                'SELECT er.*, p.nombre AS producto_nombre, p.sku AS sku FROM entrega_renglones er
                    JOIN productos p ON p.id = er.producto_id
                    JOIN entregas en ON en.id = er.entrega_id WHERE en.venta_id = ? ORDER BY er.id'
             );

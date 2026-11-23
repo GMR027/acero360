@@ -62,6 +62,7 @@ if ($producto === null || (int) $producto['stock'] < 10) {
     exit(1);
 }
 $productoId   = (int) $producto['id'];
+$skuProducto  = (string) $uno("SELECT COALESCE(sku, '') FROM productos WHERE id = $productoId");
 $stockOriginal = (int) $producto['stock'];   // el de la base, que se restaura al final
 $db->query("UPDATE productos SET stock = 100 WHERE id = $productoId");
 
@@ -335,9 +336,31 @@ if (!$ingreso || $ingreso['estado'] !== 'vigente') {
  * 6b. ACTA DE ENTREGA EN PDF
  * ------------------------------------------------------------------ */
 echo "— acta de entrega —\n";
+/* Entrega de prueba para que el acta tenga renglones con SKU. Se inserta
+ * directamente porque el PDF solo lee; se retira en la limpieza final. */
+$tokenActa = bin2hex(random_bytes(16));
+$db->query("INSERT INTO entregas (venta_id, fecha, token, notas, usuario_id)
+    VALUES ($ventaId, CURDATE(), '$tokenActa', 'T43 acta de prueba', $usuario)");
+$entregaActaId = (int) $db->insert_id;
+$db->query("INSERT INTO entrega_renglones (entrega_id, producto_id, cantidad)
+    VALUES ($entregaActaId, $productoId, 2)");
+
+$entregasActa = Entregas::entregasDeVenta($ventaId);
+$skuEnActa = '';
+foreach ($entregasActa as $entregaActa) {
+    foreach ($entregaActa['renglones'] ?? [] as $renglonActa) {
+        if ((int) $renglonActa['producto_id'] === $productoId) {
+            $skuEnActa = (string) ($renglonActa['sku'] ?? '');
+        }
+    }
+}
+$prueba('el acta trae el código (SKU) del producto',
+    $skuProducto !== '' && $skuEnActa === $skuProducto,
+    'SKU esperado ' . $skuProducto . ' · recibido ' . ($skuEnActa !== '' ? $skuEnActa : '(sin sku)'));
+
 $acta = \App\Documentos::pdfActaEntrega(
     Ventas::buscarID($ventaId),
-    Entregas::entregasDeVenta($ventaId),
+    $entregasActa,
     IncidenciasEntrega::deVenta($ventaId)
 );
 $prueba('el acta de entrega se compone como PDF',
@@ -350,6 +373,8 @@ $prueba('el acta de entrega se compone como PDF',
 $db->begin_transaction();
 $db->query("DELETE r FROM entrega_incidencia_renglones r JOIN entrega_incidencias i ON i.id = r.incidencia_id WHERE i.venta_id = $ventaId");
 $db->query("DELETE FROM entrega_incidencias WHERE venta_id = $ventaId");
+$db->query("DELETE FROM entrega_renglones WHERE entrega_id = $entregaActaId");
+$db->query("DELETE FROM entregas WHERE id = $entregaActaId");
 $db->query("DELETE FROM venta_devoluciones WHERE venta_id = $ventaId");
 $db->query("DELETE FROM movimientos_inventario WHERE venta_id = $ventaId");
 $db->query("DELETE FROM auditoria WHERE entidad = 'seguimiento'
