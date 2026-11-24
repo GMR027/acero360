@@ -92,13 +92,13 @@ try {
     console.log('1. El mes fiscal reúne sus vistas');
     await pagina.goto(`${BASE}/admin/fiscal?anio=${anio}&mes=${mes}`, { waitUntil: 'domcontentloaded' });
     verifica('la pestaña Documentos fiscales existe',
-        await pagina.locator('.entregas-tabs .chip:has-text("Documentos fiscales")').count() >= 1);
+        await pagina.locator('.modulo-nav__tab:has-text("Documentos fiscales")').count() >= 1);
     verifica('el mes enlaza a Ventas y gastos',
         await pagina.locator(`a[href*="/admin/fiscal/movimientos?anio=${anio}&mes=${mes}"]`).count() >= 1);
     verifica('el mes enlaza a Documentos fiscales',
         await pagina.locator(`a[href*="/admin/fiscal/documentos?anio=${anio}&mes=${mes}"]`).count() >= 1);
     verifica('el mes indica el estado de la declaración',
-        await pagina.locator('.chip-grupo a:has-text("Declaración:")').count() >= 1);
+        await pagina.locator('.fiscal-subnav a:has-text("Declaración:")').count() >= 1);
 
     console.log('2. Ventas y gastos: acciones por fila');
     await pagina.goto(`${BASE}/admin/fiscal/movimientos?anio=${anio}&mes=${mes}`, { waitUntil: 'domcontentloaded' });
@@ -136,7 +136,7 @@ try {
     console.log('4. Documentos fiscales');
     await pagina.goto(`${BASE}/admin/fiscal/documentos?anio=${anio}&mes=${mes}&grupo=sin_factura`, { waitUntil: 'domcontentloaded' });
     verifica('la pestaña está activa',
-        (await pagina.locator('.entregas-tabs .chip[aria-current="page"]').first().textContent()).includes('Documentos fiscales'));
+        (await pagina.locator('.modulo-nav__tab[aria-current="page"]').first().textContent()).includes('Documentos fiscales'));
     const filaDocumento = pagina.locator('tr', { hasText: folio });
     verifica('la venta sin factura aparece con sus acciones',
         await filaDocumento.locator('a:has-text("Abrir venta")').count() === 1

@@ -187,19 +187,95 @@ $vacio = static function (string $texto): string {
     return '<p class="texto-secundario">' . $texto . '</p>';
 };
 
+/* Acciones del encabezado: las dos salidas más frecuentes del panel. */
+$accionesPanel = '<a class="btn btn--secundario" href="/admin/ventas/crear">'
+    . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">point_of_sale</span>'
+    . '<span>Nueva venta</span></a>'
+    . '<a class="btn btn--primario" href="/admin/cotizaciones/crear">'
+    . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">note_add</span>'
+    . '<span>Nueva cotización</span></a>';
+
 template('header', [
     'titulo'     => 'Resumen general',
-    'subtitulo'  => 'Panel de administración',
+    'subtitulo'  => 'Todo lo que requiere tu atención hoy',
     'rutaActiva' => '/admin',
+    'acciones'   => $accionesPanel,
 ]);
+
+/* ---------------------------------------------------------------------------
+ * INDICADORES CLAVE
+ *
+ * Se leen de arriba abajo, como se revisa el negocio: primero el resultado del
+ * periodo, después el dinero que falta por mover y al final lo que está
+ * detenido. Cada tarjeta abre el registro que la forma.
+ * ------------------------------------------------------------------------- */
+$nPorPagar = (int) $resumenGastos['n'];
+
+$kpisPanel = [
+    [
+        'etiqueta' => 'Ventas del periodo',
+        'valor'    => formatoMoneda((float) $indicadores['ventas']['monto']),
+        'pie'      => number_format((int) $indicadores['ventas']['n']) . ((int) $indicadores['ventas']['n'] === 1 ? ' venta registrada' : ' ventas registradas'),
+        'icono'    => 'trending_up',
+        'enlace'   => $indicadores['ventas']['enlace'],
+        'alerta'   => false,
+    ],
+    [
+        'etiqueta' => 'Gastos del periodo',
+        'valor'    => formatoMoneda((float) $indicadores['gastos']['monto']),
+        'pie'      => number_format((int) $indicadores['gastos']['n']) . ((int) $indicadores['gastos']['n'] === 1 ? ' gasto registrado' : ' gastos registrados'),
+        'icono'    => 'receipt_long',
+        'enlace'   => $indicadores['gastos']['enlace'],
+        'alerta'   => false,
+    ],
+    [
+        'etiqueta' => 'Ventas por cobrar',
+        'valor'    => formatoMoneda((float) $indicadores['cobrar']['monto']),
+        'pie'      => number_format((int) $indicadores['cobrar']['n']) . ((int) $indicadores['cobrar']['n'] === 1 ? ' venta' : ' ventas') . ' · todas las fechas',
+        'icono'    => 'account_balance_wallet',
+        'enlace'   => $indicadores['cobrar']['enlace'],
+        'alerta'   => (int) $indicadores['cobrar']['n'] > 0,
+    ],
+    [
+        'etiqueta' => 'Gastos por pagar',
+        'valor'    => formatoMoneda((float) $resumenGastos['monto']),
+        'pie'      => number_format($nPorPagar) . ($nPorPagar === 1 ? ' gasto' : ' gastos') . ' · todas las fechas',
+        'icono'    => 'payments',
+        'enlace'   => '/admin/contabilidad/gastos?pago=pendiente&todos=1',
+        'alerta'   => $nPorPagar > 0,
+    ],
+    [
+        'etiqueta' => 'Entregas pendientes',
+        'valor'    => number_format((int) $indicadores['entregas']['n']),
+        'pie'      => (int) $indicadores['entregas']['n'] === 1 ? 'venta con piezas por entregar' : 'ventas con piezas por entregar',
+        'icono'    => 'local_shipping',
+        'enlace'   => $indicadores['entregas']['enlace'],
+        'alerta'   => (int) $indicadores['entregas']['n'] > 0,
+    ],
+    [
+        'etiqueta' => 'Avisos sin leer',
+        'valor'    => number_format((int) $indicadores['notificaciones']['n']),
+        'pie'      => (int) $indicadores['notificaciones']['n'] === 1 ? 'requiere revisión' : 'requieren revisión',
+        'icono'    => 'notifications_active',
+        'enlace'   => $indicadores['notificaciones']['enlace'],
+        'alerta'   => (int) $indicadores['notificaciones']['n'] > 0,
+    ],
+];
 ?>
 
-<section class="mb-lg" aria-label="Periodo">
-    <div class="flex-entre fila--envuelto">
-        <svg class="panel-marca" viewBox="0 0 64 64" role="img" aria-label="Acero 360"><defs><linearGradient id="pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4679a6"/><stop offset="1" stop-color="#2b4d6e"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#pg)"/><g class="a360-anillo"><path d="M52.67 24.48A22 22 0 1 1 39.52 11.33" fill="none" stroke="#fff" stroke-width="4"/><path d="M41.06 7.1 45.1 13.4 37.98 15.56z" fill="#F2A56B" stroke="#F2A56B" stroke-width="1.5" stroke-linejoin="round"/></g><g class="a360-letra" fill="none" stroke="#fff" stroke-width="5"><path d="M23 44 32 20l9 24"/><path d="M26.5 36.5h11" stroke="#F2A56B" stroke-width="4"/></g></svg>
-        <p class="texto-secundario">Periodo: <strong><?= escaparValores($periodo['etiqueta']) ?></strong>.
-            Ventas, gastos, impuestos y productos más vendidos usan este periodo; lo pendiente se cuenta completo, sin importar la fecha.</p>
-    <form class="buscador" action="/admin" method="get" role="search" data-validar>
+<section class="panel-toolbar" aria-label="Periodo del panel">
+    <div class="panel-toolbar__periodo">
+        <span class="panel-toolbar__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">calendar_month</span>
+        </span>
+        <div class="panel-toolbar__texto">
+            <span class="texto-etiqueta">Periodo analizado</span>
+            <strong><?= escaparValores($periodo['etiqueta']) ?></strong>
+            <span class="texto-secundario">Ventas, gastos e impuestos usan este periodo; los pendientes se cuentan completos.</span>
+        </div>
+    </div>
+
+    <form class="panel-toolbar__form" action="/admin" method="get" role="search" data-validar>
         <label class="solo-lectores" for="filtro-anio">Año</label>
         <select class="control control--compacto" id="filtro-anio" name="anio">
             <?php foreach ($anios as $anio) : ?>
@@ -236,20 +312,59 @@ template('header', [
         </button>
 
         <?php if ($hayFiltros) : ?>
-            <a class="btn btn--texto btn--sm" href="/admin"
-               aria-label="Restablecer el periodo">
+            <a class="btn btn--texto btn--sm" href="/admin" aria-label="Restablecer el periodo">
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">close</span>
                 <span>Limpiar</span>
             </a>
         <?php endif; ?>
     </form>
-    </div>
 </section>
 
+<section class="panel-kpis" aria-label="Indicadores clave">
+    <?php foreach ($kpisPanel as $kpi) : ?>
+        <a class="panel-kpi<?= $kpi['alerta'] ? ' panel-kpi--alerta' : '' ?>" href="<?= escaparValores($kpi['enlace']) ?>">
+            <span class="panel-kpi__cabecera">
+                <span class="panel-kpi__icono" aria-hidden="true">
+                    <span class="material-symbols-outlined"><?= escaparValores($kpi['icono']) ?></span>
+                </span>
+                <span class="panel-kpi__etiqueta"><?= escaparValores($kpi['etiqueta']) ?></span>
+            </span>
+            <strong class="panel-kpi__valor cifra"><?= $kpi['valor'] ?></strong>
+            <span class="panel-kpi__pie"><?= escaparValores($kpi['pie']) ?></span>
+        </a>
+    <?php endforeach; ?>
+</section>
+
+<div class="panel-metricas" aria-label="Otros indicadores del periodo">
+    <a class="panel-metrica" href="<?= escaparValores($indicadores['cotizaciones']['enlace']) ?>">
+        <span class="material-symbols-outlined" aria-hidden="true">request_quote</span>
+        <span class="panel-metrica__texto">Cotizaciones pendientes</span>
+        <strong class="cifra"><?= number_format((int) $indicadores['cotizaciones']['n']) ?></strong>
+        <span class="panel-metrica__monto cifra"><?= formatoMoneda((float) $indicadores['cotizaciones']['monto']) ?></span>
+    </a>
+    <a class="panel-metrica" href="<?= escaparValores($indicadores['facturar']['enlace']) ?>">
+        <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
+        <span class="panel-metrica__texto">Pendientes de facturar</span>
+        <strong class="cifra"><?= number_format((int) $indicadores['facturar']['n']) ?></strong>
+        <span class="panel-metrica__monto cifra"><?= formatoMoneda((float) $indicadores['facturar']['monto']) ?></span>
+    </a>
+    <a class="panel-metrica" href="<?= escaparValores($indicadores['devoluciones']['enlace']) ?>">
+        <span class="material-symbols-outlined" aria-hidden="true">assignment_return</span>
+        <span class="panel-metrica__texto">Devoluciones</span>
+        <strong class="cifra"><?= number_format((int) $indicadores['devoluciones']['n']) ?></strong>
+        <span class="panel-metrica__monto">ventas con piezas devueltas</span>
+    </a>
+</div>
+
+
+
 <?php if ($sinActividad) : ?>
-<section class="tarjeta mb-lg" aria-labelledby="titulo-primeros-pasos">
+<section class="tarjeta panel-primeros-pasos" aria-labelledby="titulo-primeros-pasos">
     <div class="tarjeta__cabecera">
-        <h2 class="titulo-4" id="titulo-primeros-pasos">Primeros pasos</h2>
+        <h2 class="panel-seccion__titulo" id="titulo-primeros-pasos">
+            <span class="material-symbols-outlined" aria-hidden="true">rocket_launch</span>
+            Primeros pasos
+        </h2>
         <span class="badge badge--neutro badge--sin-punto">Sin actividad todavía</span>
     </div>
     <p class="texto-secundario mb-md">
@@ -281,158 +396,37 @@ template('header', [
 </section>
 <?php endif; ?>
 
-<!-- 1. Ventas por negocio -->
-<section class="mb-lg" aria-labelledby="titulo-negocios">
-    <div class="flex-entre fila--envuelto mb-md">
-        <h2 class="titulo-4" id="titulo-negocios">Ventas por negocio</h2>
-        <a class="btn btn--texto btn--sm" href="/admin/estadisticas">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">monitoring</span>
-            <span>Ver estadísticas</span>
-        </a>
-    </div>
-
-    <p class="texto-secundario mb-md">
-        Periodo contabilizado: <strong><?= escaparValores($periodo['etiqueta']) ?></strong>.
-        Son <strong>todas las ventas que se hicieron</strong> en ese periodo, directas y las que nacieron
-        de una cotización, <strong>con su IVA</strong>; las canceladas no cuentan.
-    </p>
-
-    <?php if (!$negocios) : ?>
-        <?= $vacio('Todavía no hay negocios activos para mostrar sus ventas.') ?>
-    <?php else : ?>
-        <div class="rejilla-2">
-            <?php foreach ($negocios as $negocio) :
-                $resumen = $negociosResumen[(int) $negocio->id];
-                $logo = trim((string) $negocio->logo) !== ''
-                    ? \App\Imagenes::url($negocio->logo)
-                    : '';
-                $rutaVentas = '/admin/ventas?empresa=' . (int) $negocio->id
-                    . ($periodo['desde'] !== '' ? '&desde=' . $periodo['desde'] : '')
-                    . ($periodo['hasta'] !== '' ? '&hasta=' . $periodo['hasta'] : '');
-                $pluralVendidas = $resumen['vendidas'] === 1 ? 'cotización vendida' : 'cotizaciones vendidas';
-                $pluralPendientes = $resumen['pendientes'] === 1 ? 'cotización pendiente' : 'cotizaciones pendientes';
-                ?>
-                <article class="tarjeta ganancia">
-                    <div class="tarjeta__cabecera">
-                        <h3 class="tarjeta__titulo">
-                            <?php if ($logo !== '') : ?>
-                                <img class="ganancia__logo" src="<?= escaparValores($logo) ?>" alt="">
-                            <?php endif; ?>
-                            <span><?= escaparValores($negocio->nombre) ?></span>
-                        </h3>
-                        <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaVentas) ?>">
-                            <span>Ver ventas (<?= number_format($resumen['ventas_n']) ?>)</span>
-                        </a>
-                    </div>
-
-                    <span class="ganancia__etiqueta">Ventas del periodo (con IVA)</span>
-                    <strong class="ganancia__valor cifra"><?= formatoMoneda($resumen['ventas']) ?></strong>
-                    <span class="ganancia__nota">
-                        <?= number_format($resumen['ventas_n']) ?> <?= $resumen['ventas_n'] === 1 ? 'venta' : 'ventas' ?> en el periodo ·
-                        <?= number_format($resumen['vendidas']) ?> <?= $pluralVendidas ?> ·
-                        <?= number_format($resumen['pendientes']) ?> <?= $pluralPendientes ?>
-                    </span>
-
-                    <dl class="ganancia__rejilla">
-                        <div class="ganancia__dato">
-                            <dt>En cartera</dt>
-                            <dd class="cifra"><?= formatoMoneda($resumen['cartera']) ?></dd>
-                        </div>
-                        <div class="ganancia__dato">
-                            <dt>Total cotizado</dt>
-                            <dd class="cifra"><?= formatoMoneda($resumen['cotizado']) ?></dd>
-                        </div>
-                        <div class="ganancia__dato">
-                            <dt>Cotizaciones</dt>
-                            <dd class="cifra"><?= number_format($resumen['cotizaciones']) ?></dd>
-                        </div>
-                        <div class="ganancia__dato">
-                            <dt>Canceladas</dt>
-                            <dd class="cifra"><?= number_format($resumen['canceladas']) ?></dd>
-                        </div>
-                    </dl>
-                </article>
-            <?php endforeach; ?>
+<!-- 1. Lo que está pendiente: cobro, facturación, gastos, entregas e incidencias -->
+<section class="panel-seccion" aria-labelledby="titulo-pendientes">
+    <div class="panel-seccion__cabecera">
+        <div class="panel-seccion__texto">
+            <h2 class="panel-seccion__titulo" id="titulo-pendientes">
+                <span class="material-symbols-outlined" aria-hidden="true">priority_high</span>
+                Pendientes de atender
+            </h2>
+            <p class="panel-seccion__sub">Cobrar, facturar, pagar, entregar y resolver: lo que hoy pide una acción.</p>
         </div>
-    <?php endif; ?>
-</section>
-
-<!-- 2. Preliminar de impuestos e impuestos por pagar, en la misma tarjeta -->
-<section class="mb-lg" aria-labelledby="titulo-impuestos">
-    <div class="flex-entre fila--envuelto mb-md">
-        <h2 class="titulo-4" id="titulo-impuestos">Impuestos</h2>
-        <div class="fila">
-            <a class="btn btn--texto btn--sm" href="/admin/fiscal?anio=<?= $anioImpuestos ?><?= $mesFiltro > 0 ? '&amp;mes=' . $mesFiltro : '' ?>">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">account_balance</span>
-                <span>Ver impuestos</span>
-            </a>
-            <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaPreliminar) ?>">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">calculate</span>
-                <span>Ver preliminar</span>
-            </a>
-        </div>
-    </div>
-
-    <article class="tarjeta ganancia">
-        <div class="tarjeta__cabecera">
-            <h3 class="tarjeta__titulo">Preliminar de impuestos · <?= escaparValores($etiquetaImpuestos) ?></h3>
-            <span class="badge badge--neutro">Simulador básico</span>
-        </div>
-
-        <span class="ganancia__etiqueta"><?= $impuestos['impuestos'] >= 0 ? 'Impuestos por pagar' : 'Saldo a tu favor' ?></span>
-        <strong class="ganancia__valor cifra"><?= $importe((float) $impuestos['impuestos']) ?></strong>
-        <span class="ganancia__nota">
-            IVA <?= $importe((float) $impuestos['iva_por_pagar']) ?> + ISR <?= $importe((float) $impuestos['isr']) ?> ·
-            <?= (int) $impuestos['ventas_n'] ?> <?= (int) $impuestos['ventas_n'] === 1 ? 'factura' : 'facturas' ?> de venta y
-            <?= (int) $impuestos['gastos_n'] ?> <?= (int) $impuestos['gastos_n'] === 1 ? 'comprobante' : 'comprobantes' ?> de compra
-            · es un estimado, no la declaración<?= escaparValores($notaImpuestos) ?>
-        </span>
-
-        <dl class="ganancia__rejilla">
-            <div class="ganancia__dato">
-                <dt>Ventas facturadas (con IVA)</dt>
-                <dd class="cifra"><?= $importe((float) $impuestos['ventas']) ?></dd>
-            </div>
-            <div class="ganancia__dato">
-                <dt>Gastos facturados (con IVA)</dt>
-                <dd class="cifra"><?= $importe((float) $impuestos['gastos']) ?></dd>
-            </div>
-            <div class="ganancia__dato">
-                <dt>IVA por pagar</dt>
-                <dd class="cifra"><?= $importe((float) $impuestos['iva_por_pagar']) ?></dd>
-            </div>
-            <div class="ganancia__dato">
-                <dt>ISR (32 % de la utilidad)</dt>
-                <dd class="cifra"><?= $importe((float) $impuestos['isr']) ?></dd>
-            </div>
-        </dl>
-    </article>
-</section>
-
-<!-- 3. Lo que está pendiente: cobro, facturación, gastos, entregas e incidencias -->
-<section class="mb-lg" aria-labelledby="titulo-pendientes">
-    <div class="flex-entre fila--envuelto mb-md">
-        <h2 class="titulo-4" id="titulo-pendientes">Pendientes de atender</h2>
         <a class="btn btn--texto btn--sm" href="/admin/seguimiento">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">notifications</span>
-            <span>Centro de seguimiento<?= $indicadores['notificaciones']['n'] > 0 ? ' (' . number_format($indicadores['notificaciones']['n']) . ')' : '' ?></span>
+            <span>Centro de seguimiento<?= $indicadores['notificaciones']['n'] > 0 ? ' (' . number_format((int) $indicadores['notificaciones']['n']) . ')' : '' ?></span>
         </a>
     </div>
 
-    <div class="rejilla-2">
+    <div class="panel-pendientes">
         <!-- Ventas pendientes de pago o por facturar -->
-        <article class="tarjeta">
+        <article class="tarjeta tarjeta--panel">
             <div class="tarjeta__cabecera">
                 <h3 class="tarjeta__titulo">
-                    Ventas pendientes de pago o por facturar
+                    <span class="panel-titulo-icono" aria-hidden="true"><span class="material-symbols-outlined">payments</span></span>
+                    Ventas por cobrar o facturar
                     <span class="badge <?= $nVentasPendientes > 0 ? 'badge--pendiente' : 'badge--aprobado' ?>"><?= number_format($nVentasPendientes) ?></span>
                 </h3>
                 <div class="fila">
                     <a class="btn btn--texto btn--sm" href="<?= escaparValores($indicadores['cobrar']['enlace']) ?>">
-                        Por cobrar (<?= number_format($indicadores['cobrar']['n']) ?>)
+                        Por cobrar (<?= number_format((int) $indicadores['cobrar']['n']) ?>)
                     </a>
                     <a class="btn btn--texto btn--sm" href="<?= escaparValores($indicadores['facturar']['enlace']) ?>">
-                        Por facturar (<?= number_format($indicadores['facturar']['n']) ?>)
+                        Por facturar (<?= number_format((int) $indicadores['facturar']['n']) ?>)
                     </a>
                 </div>
             </div>
@@ -462,20 +456,24 @@ template('header', [
                         </a></li>
                     <?php endforeach; ?>
                 </ul>
-                <p class="campo__ayuda mt-md">El importe de cada fila es el total de la venta <strong>con IVA</strong>.</p>
             <?php endif; ?>
+            <div class="tarjeta__pie">
+                <span>Por cobrar: <strong class="cifra"><?= formatoMoneda((float) $indicadores['cobrar']['monto']) ?></strong></span>
+                <a class="btn btn--texto btn--sm" href="<?= escaparValores($indicadores['cobrar']['enlace']) ?>">Ver todas</a>
+            </div>
         </article>
 
         <!-- Gastos pendientes por pagar -->
-        <article class="tarjeta">
+        <article class="tarjeta tarjeta--panel">
             <div class="tarjeta__cabecera">
                 <h3 class="tarjeta__titulo">
-                    Gastos pendientes por pagar
-                    <span class="badge <?= $resumenGastos['n'] > 0 ? 'badge--pendiente' : 'badge--aprobado' ?>"><?= number_format($resumenGastos['n']) ?></span>
+                    <span class="panel-titulo-icono" aria-hidden="true"><span class="material-symbols-outlined">receipt_long</span></span>
+                    Gastos por pagar
+                    <span class="badge <?= $resumenGastos['n'] > 0 ? 'badge--pendiente' : 'badge--aprobado' ?>"><?= number_format((int) $resumenGastos['n']) ?></span>
                 </h3>
                 <div class="fila">
                     <a class="btn btn--texto btn--sm" href="/admin/contabilidad/gastos?pago=pendiente&amp;todos=1">
-                        Ver todos (<?= number_format($resumenGastos['n']) ?>)
+                        Ver todos (<?= number_format($nPorPagar) ?>)
                     </a>
                 </div>
             </div>
@@ -491,21 +489,23 @@ template('header', [
                         </a></li>
                     <?php endforeach; ?>
                 </ul>
-                <p class="campo__ayuda mt-md">
-                    Total por pagar: <strong><?= formatoMoneda($resumenGastos['monto']) ?></strong> (con IVA).
-                </p>
             <?php endif; ?>
+            <div class="tarjeta__pie">
+                <span>Total por pagar: <strong class="cifra"><?= formatoMoneda((float) $resumenGastos['monto']) ?></strong></span>
+                <a class="btn btn--texto btn--sm" href="/admin/contabilidad/gastos?pago=pendiente&amp;todos=1">Gestionar pagos</a>
+            </div>
         </article>
 
         <!-- Ventas pendientes por entregar -->
-        <article class="tarjeta">
+        <article class="tarjeta tarjeta--panel">
             <div class="tarjeta__cabecera">
                 <h3 class="tarjeta__titulo">
-                    Ventas pendientes por entregar
-                    <span class="badge <?= $indicadores['entregas']['n'] > 0 ? 'badge--pendiente' : 'badge--aprobado' ?>"><?= number_format($indicadores['entregas']['n']) ?></span>
+                    <span class="panel-titulo-icono" aria-hidden="true"><span class="material-symbols-outlined">local_shipping</span></span>
+                    Ventas por entregar
+                    <span class="badge <?= $indicadores['entregas']['n'] > 0 ? 'badge--pendiente' : 'badge--aprobado' ?>"><?= number_format((int) $indicadores['entregas']['n']) ?></span>
                 </h3>
                 <div class="fila">
-                    <a class="btn btn--texto btn--sm" href="/admin/entregas">Ver todas (<?= number_format($indicadores['entregas']['n']) ?>)</a>
+                    <a class="btn btn--texto btn--sm" href="/admin/entregas">Ver todas (<?= number_format((int) $indicadores['entregas']['n']) ?>)</a>
                 </div>
             </div>
             <?php if (!$entregasPendientes) : ?>
@@ -528,14 +528,19 @@ template('header', [
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>
+            <div class="tarjeta__pie">
+                <span>Piezas pendientes de salir del almacén</span>
+                <a class="btn btn--texto btn--sm" href="/admin/entregas">Hoja de ruta</a>
+            </div>
         </article>
 
         <!-- Incidencias de logística o entrega -->
-        <article class="tarjeta">
+        <article class="tarjeta tarjeta--panel">
             <div class="tarjeta__cabecera">
                 <h3 class="tarjeta__titulo">
-                    Incidencias de logística o entrega
-                    <span class="badge <?= $nIncidencias > 0 ? 'badge--error' : 'badge--aprobado' ?>"><?= number_format($nIncidencias) ?> abierta<?= $nIncidencias === 1 ? '' : 's' ?></span>
+                    <span class="panel-titulo-icono panel-titulo-icono--alerta" aria-hidden="true"><span class="material-symbols-outlined">report</span></span>
+                    Incidencias abiertas
+                    <span class="badge <?= $nIncidencias > 0 ? 'badge--error' : 'badge--aprobado' ?>"><?= number_format($nIncidencias) ?></span>
                 </h3>
                 <div class="fila">
                     <a class="btn btn--texto btn--sm" href="/admin/ventas?entrega=incidencias">Ver seguimiento</a>
@@ -560,84 +565,243 @@ template('header', [
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>
+            <div class="tarjeta__pie">
+                <span>Logística y entregas con seguimiento abierto</span>
+                <a class="btn btn--texto btn--sm" href="/admin/ventas?entrega=incidencias">Ver historial</a>
+            </div>
         </article>
     </div>
 </section>
 
-<!-- 4. Productos más vendidos del mes -->
-<section class="mb-lg" aria-labelledby="titulo-mas-vendidos">
-    <div class="flex-entre fila--envuelto mb-md">
-        <h2 class="titulo-4" id="titulo-mas-vendidos">Productos más vendidos · <?= escaparValores($etiquetaMes) ?></h2>
-        <a class="btn btn--texto btn--sm" href="/admin/estadisticas?tipo=mes&indice=<?= $mesTop ?>&anio=<?= $anioTop ?>">
+<!-- 2. Ventas por negocio e impuestos -->
+<section class="panel-seccion" aria-labelledby="titulo-negocios">
+    <div class="panel-seccion__cabecera">
+        <div class="panel-seccion__texto">
+            <h2 class="panel-seccion__titulo" id="titulo-negocios">
+                <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
+                Ventas por negocio e impuestos
+            </h2>
+            <p class="panel-seccion__sub">Cómo va cada negocio en <strong><?= escaparValores($periodo['etiqueta']) ?></strong> y cuánto conviene reservar para impuestos.</p>
+        </div>
+        <a class="btn btn--texto btn--sm" href="/admin/estadisticas">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">monitoring</span>
-            <span>Ver en estadísticas</span>
+            <span>Ver estadísticas</span>
         </a>
     </div>
 
-    <?php if (!$masVendidos) : ?>
-        <?= $vacio('No hay ventas de productos registradas en ' . escaparValores($etiquetaMes) . '.') ?>
-    <?php else : ?>
-        <div class="rejilla-stats">
-            <?php foreach ($masVendidos as $p) : ?>
-                <a class="stat stat--enlace stat--producto" href="/admin/productos/editar?id=<?= (int) $p['producto_id'] ?>">
-                    <span class="stat__producto">
-                        <?= $miniatura($p) ?>
-                        <span class="stat__titulos">
-                            <span class="stat__codigo cifra"><?= escaparValores($codigo($p)) ?></span>
-                            <span class="stat__nombre"><?= escaparValores($p['nombre']) ?></span>
+    <div class="rejilla-resumen panel-resumen">
+        <div class="panel-negocios">
+            <?php if (!$negocios) : ?>
+                <div class="tarjeta"><?= $vacio('Todavía no hay negocios activos para mostrar sus ventas.') ?></div>
+            <?php else : ?>
+                <?php foreach ($negocios as $negocio) :
+                    $resumen = $negociosResumen[(int) $negocio->id];
+                    $logo = trim((string) $negocio->logo) !== ''
+                        ? \App\Imagenes::url($negocio->logo)
+                        : '';
+                    $rutaVentas = '/admin/ventas?empresa=' . (int) $negocio->id
+                        . ($periodo['desde'] !== '' ? '&desde=' . $periodo['desde'] : '')
+                        . ($periodo['hasta'] !== '' ? '&hasta=' . $periodo['hasta'] : '');
+                    $pluralVendidas = $resumen['vendidas'] === 1 ? 'cotización vendida' : 'cotizaciones vendidas';
+                    $pluralPendientes = $resumen['pendientes'] === 1 ? 'cotización pendiente' : 'cotizaciones pendientes';
+                    ?>
+                    <article class="tarjeta ganancia tarjeta--panel">
+                        <div class="tarjeta__cabecera">
+                            <h3 class="tarjeta__titulo">
+                                <?php if ($logo !== '') : ?>
+                                    <img class="ganancia__logo" src="<?= escaparValores($logo) ?>" alt="">
+                                <?php endif; ?>
+                                <span><?= escaparValores($negocio->nombre) ?></span>
+                            </h3>
+                            <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaVentas) ?>">
+                                <span>Ver ventas (<?= number_format($resumen['ventas_n']) ?>)</span>
+                            </a>
+                        </div>
+
+                        <span class="ganancia__etiqueta">Ventas del periodo (con IVA)</span>
+                        <strong class="ganancia__valor cifra"><?= formatoMoneda($resumen['ventas']) ?></strong>
+                        <span class="ganancia__nota">
+                            <?= number_format($resumen['ventas_n']) ?> <?= $resumen['ventas_n'] === 1 ? 'venta' : 'ventas' ?> en el periodo ·
+                            <?= number_format($resumen['vendidas']) ?> <?= $pluralVendidas ?> ·
+                            <?= number_format($resumen['pendientes']) ?> <?= $pluralPendientes ?>
                         </span>
-                    </span>
-                    <span class="stat__valor cifra"><?= formatoMoneda($p['importe']) ?></span>
-                    <span class="stat__pie"><?= $plural($p['piezas'], 'pieza', 'piezas') ?> en <?= $plural($p['ventas'], 'venta', 'ventas') ?> · importe de renglones sin IVA</span>
-                </a>
-            <?php endforeach; ?>
+
+                        <dl class="ganancia__rejilla">
+                            <div class="ganancia__dato">
+                                <dt>En cartera</dt>
+                                <dd class="cifra"><?= formatoMoneda($resumen['cartera']) ?></dd>
+                            </div>
+                            <div class="ganancia__dato">
+                                <dt>Total cotizado</dt>
+                                <dd class="cifra"><?= formatoMoneda($resumen['cotizado']) ?></dd>
+                            </div>
+                            <div class="ganancia__dato">
+                                <dt>Cotizaciones</dt>
+                                <dd class="cifra"><?= number_format($resumen['cotizaciones']) ?></dd>
+                            </div>
+                            <div class="ganancia__dato">
+                                <dt>Canceladas</dt>
+                                <dd class="cifra"><?= number_format($resumen['canceladas']) ?></dd>
+                            </div>
+                        </dl>
+                    </article>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
-    <?php endif; ?>
+
+        <aside class="panel-lateral" aria-labelledby="titulo-impuestos">
+            <article class="tarjeta ganancia tarjeta--panel panel-impuestos">
+                <div class="tarjeta__cabecera">
+                    <h3 class="tarjeta__titulo" id="titulo-impuestos">
+                        <span class="panel-titulo-icono" aria-hidden="true"><span class="material-symbols-outlined">account_balance</span></span>
+                        Preliminar de impuestos
+                    </h3>
+                    <span class="badge badge--neutro">Simulador</span>
+                </div>
+
+                <span class="ganancia__etiqueta"><?= $impuestos['impuestos'] >= 0 ? 'Impuestos por pagar' : 'Saldo a tu favor' ?> · <?= escaparValores($etiquetaImpuestos) ?></span>
+                <strong class="ganancia__valor cifra"><?= $importe((float) $impuestos['impuestos']) ?></strong>
+                <span class="ganancia__nota">
+                    IVA <?= $importe((float) $impuestos['iva_por_pagar']) ?> + ISR <?= $importe((float) $impuestos['isr']) ?> ·
+                    <?= (int) $impuestos['ventas_n'] ?> <?= (int) $impuestos['ventas_n'] === 1 ? 'factura' : 'facturas' ?> de venta y
+                    <?= (int) $impuestos['gastos_n'] ?> <?= (int) $impuestos['gastos_n'] === 1 ? 'comprobante' : 'comprobantes' ?> de compra
+                </span>
+
+                <dl class="ganancia__rejilla">
+                    <div class="ganancia__dato">
+                        <dt>Ventas facturadas (con IVA)</dt>
+                        <dd class="cifra"><?= $importe((float) $impuestos['ventas']) ?></dd>
+                    </div>
+                    <div class="ganancia__dato">
+                        <dt>Gastos facturados (con IVA)</dt>
+                        <dd class="cifra"><?= $importe((float) $impuestos['gastos']) ?></dd>
+                    </div>
+                    <div class="ganancia__dato">
+                        <dt>IVA por pagar</dt>
+                        <dd class="cifra"><?= $importe((float) $impuestos['iva_por_pagar']) ?></dd>
+                    </div>
+                    <div class="ganancia__dato">
+                        <dt>ISR (32 % de la utilidad)</dt>
+                        <dd class="cifra"><?= $importe((float) $impuestos['isr']) ?></dd>
+                    </div>
+                </dl>
+
+                <p class="panel-aviso">
+                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                    <span>Es un estimado, no la declaración<?= escaparValores($notaImpuestos) ?>.</span>
+                </p>
+
+                <div class="panel-impuestos__acciones">
+                    <a class="btn btn--texto btn--sm" href="<?= escaparValores($rutaPreliminar) ?>">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">calculate</span>
+                        <span>Ver preliminar</span>
+                    </a>
+                    <a class="btn btn--texto btn--sm" href="/admin/fiscal?anio=<?= $anioImpuestos ?><?= $mesFiltro > 0 ? '&amp;mes=' . $mesFiltro : '' ?>">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">request_quote</span>
+                        <span>Ver impuestos</span>
+                    </a>
+                </div>
+            </article>
+        </aside>
+    </div>
 </section>
 
-<!-- 5. Existencias en alerta -->
-<section class="mb-lg" aria-labelledby="titulo-stock-bajo">
-    <div class="flex-entre fila--envuelto mb-md">
-        <h2 class="titulo-4" id="titulo-stock-bajo">Productos con existencias bajas</h2>
-        <a class="btn btn--texto btn--sm" href="/admin/inventario">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">warehouse</span>
-            <span>Ver inventario<?= $stockTotal > 0 ? ' (' . number_format($stockTotal) . ')' : '' ?></span>
-        </a>
+<!-- 3. Productos más vendidos y existencias bajas -->
+<section class="panel-seccion" aria-labelledby="titulo-mas-vendidos">
+    <div class="rejilla-resumen panel-resumen">
+        <div class="panel-columna">
+            <div class="panel-seccion__cabecera panel-seccion__cabecera--compacta">
+                <div class="panel-seccion__texto">
+                    <h2 class="panel-seccion__titulo" id="titulo-mas-vendidos">
+                        <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+                        Productos más vendidos
+                    </h2>
+                    <p class="panel-seccion__sub"><?= escaparValores($etiquetaMes) ?> · importe de renglones sin IVA</p>
+                </div>
+                <a class="btn btn--texto btn--sm" href="/admin/estadisticas?tipo=mes&indice=<?= $mesTop ?>&anio=<?= $anioTop ?>">
+                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">monitoring</span>
+                    <span>Ver en estadísticas</span>
+                </a>
+            </div>
+
+            <?php if (!$masVendidos) : ?>
+                <div class="tarjeta"><?= $vacio('No hay ventas de productos registradas en ' . escaparValores($etiquetaMes) . '.') ?></div>
+            <?php else : ?>
+                <div class="panel-productos">
+                    <?php foreach ($masVendidos as $p) : ?>
+                        <a class="stat stat--enlace stat--producto" href="/admin/productos/editar?id=<?= (int) $p['producto_id'] ?>">
+                            <span class="stat__producto">
+                                <?= $miniatura($p) ?>
+                                <span class="stat__titulos">
+                                    <span class="stat__codigo cifra"><?= escaparValores($codigo($p)) ?></span>
+                                    <span class="stat__nombre"><?= escaparValores($p['nombre']) ?></span>
+                                </span>
+                            </span>
+                            <span class="stat__valor cifra"><?= formatoMoneda($p['importe']) ?></span>
+                            <span class="stat__pie"><?= $plural($p['piezas'], 'pieza', 'piezas') ?> en <?= $plural($p['ventas'], 'venta', 'ventas') ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <aside class="panel-lateral" aria-labelledby="titulo-stock-bajo">
+            <div class="panel-seccion__cabecera panel-seccion__cabecera--compacta">
+                <div class="panel-seccion__texto">
+                    <h2 class="panel-seccion__titulo" id="titulo-stock-bajo">
+                        <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                        Existencias bajas
+                    </h2>
+                    <p class="panel-seccion__sub"><?= $stockTotal > 0 ? number_format($stockTotal) . ' productos requieren reposición' : 'Todo por encima del mínimo' ?></p>
+                </div>
+                <a class="btn btn--texto btn--sm" href="/admin/inventario">
+                    <span>Ver inventario<?= $stockTotal > 0 ? ' (' . number_format($stockTotal) . ')' : '' ?></span>
+                </a>
+            </div>
+
+            <?php if (!$stockBajo) : ?>
+                <div class="tarjeta"><?= $vacio('Ningún producto está agotado, con existencia negativa ni por debajo de su cantidad mínima.') ?></div>
+            <?php else : ?>
+                <div class="panel-stock">
+                    <?php foreach ($stockBajo as $p) :
+                        $textoEstado = ['negativo' => 'Existencia negativa', 'agotado' => 'Agotado', 'bajo' => 'Bajo el mínimo'][$p['estado']] ?? '';
+                        $buscar = $p['sku'] !== '' ? $p['sku'] : $p['nombre']; ?>
+                        <a class="stat stat--enlace stat--producto<?= $p['estado'] === 'bajo' ? ' stat--pocas-existencias' : ' stat--sin-existencias' ?>"
+                           href="/admin/inventario?q=<?= escaparValores(urlencode($buscar)) ?>">
+                            <span class="stat__producto">
+                                <?= $miniatura($p) ?>
+                                <span class="stat__titulos">
+                                    <span class="stat__codigo cifra"><?= escaparValores($codigo($p)) ?></span>
+                                    <span class="stat__nombre"><?= escaparValores($p['nombre']) ?></span>
+                                </span>
+                            </span>
+                            <span class="stat__valor cifra"><?= number_format($p['stock']) ?></span>
+                            <span class="stat__pie"><?= escaparValores($textoEstado) ?><?= $p['stock_minimo'] !== null ? ' · mínimo ' . number_format($p['stock_minimo']) : '' ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+                <?php if ($stockTotal > count($stockBajo)) : ?>
+                    <p class="texto-secundario mt-sm">Se muestran <?= count($stockBajo) ?> de <?= number_format($stockTotal) ?>; primero los más urgentes.</p>
+                <?php endif; ?>
+            <?php endif; ?>
+        </aside>
+    </div>
+</section>
+
+<!-- 4. Últimas cotizaciones y últimas ventas, con su PDF -->
+<section class="panel-seccion" aria-labelledby="titulo-actividad">
+    <div class="panel-seccion__cabecera panel-seccion__cabecera--compacta">
+        <div class="panel-seccion__texto">
+            <h2 class="panel-seccion__titulo" id="titulo-actividad">
+                <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                Últimos documentos
+            </h2>
+            <p class="panel-seccion__sub">Las cotizaciones y ventas más recientes, con su PDF a un clic.</p>
+        </div>
     </div>
 
-    <?php if (!$stockBajo) : ?>
-        <?= $vacio('Ningún producto está agotado, con existencia negativa ni por debajo de su cantidad mínima.') ?>
-    <?php else : ?>
-        <div class="rejilla-stats">
-            <?php foreach ($stockBajo as $p) :
-                $textoEstado = ['negativo' => 'Existencia negativa', 'agotado' => 'Agotado', 'bajo' => 'Bajo el mínimo'][$p['estado']] ?? '';
-                $buscar = $p['sku'] !== '' ? $p['sku'] : $p['nombre']; ?>
-                <a class="stat stat--enlace stat--producto<?= $p['estado'] === 'bajo' ? ' stat--pocas-existencias' : ' stat--sin-existencias' ?>"
-                   href="/admin/inventario?q=<?= escaparValores(urlencode($buscar)) ?>">
-                    <span class="stat__producto">
-                        <?= $miniatura($p) ?>
-                        <span class="stat__titulos">
-                            <span class="stat__codigo cifra"><?= escaparValores($codigo($p)) ?></span>
-                            <span class="stat__nombre"><?= escaparValores($p['nombre']) ?></span>
-                        </span>
-                    </span>
-                    <span class="stat__valor cifra"><?= number_format($p['stock']) ?></span>
-                    <span class="stat__pie"><?= escaparValores($textoEstado) ?><?= $p['stock_minimo'] !== null ? ' · mínimo ' . number_format($p['stock_minimo']) : '' ?></span>
-                </a>
-            <?php endforeach; ?>
-        </div>
-        <?php if ($stockTotal > count($stockBajo)) : ?>
-            <p class="texto-secundario mt-md">Se muestran <?= count($stockBajo) ?> de <?= number_format($stockTotal) ?> productos en alerta (los más urgentes: primero los de existencia negativa, luego los agotados).</p>
-        <?php endif; ?>
-    <?php endif; ?>
-</section>
-
-<!-- 6. Últimas cotizaciones y últimas ventas, con su PDF -->
-<section class="mb-lg" aria-labelledby="titulo-actividad">
-    <h2 class="titulo-4 mb-md" id="titulo-actividad">Últimos documentos</h2>
-
-    <div class="rejilla-2">
-        <article class="tarjeta">
+    <div class="rejilla-2 panel-documentos">
+        <article class="tarjeta tarjeta--panel">
             <div class="tarjeta__cabecera">
                 <h3 class="tarjeta__titulo">Últimas cotizaciones</h3>
                 <a class="btn btn--texto btn--sm" href="/admin/cotizaciones">Ver todas</a>
@@ -665,7 +829,7 @@ template('header', [
             <?php endif; ?>
         </article>
 
-        <article class="tarjeta">
+        <article class="tarjeta tarjeta--panel">
             <div class="tarjeta__cabecera">
                 <h3 class="tarjeta__titulo">Últimas ventas</h3>
                 <a class="btn btn--texto btn--sm" href="/admin/ventas">Ver todas</a>
@@ -690,47 +854,6 @@ template('header', [
                 </ul>
             <?php endif; ?>
         </article>
-    </div>
-</section>
-
-<!-- 7. Indicadores del periodo -->
-<section class="mb-lg" aria-labelledby="titulo-indicadores">
-    <div class="flex-entre fila--envuelto mb-md">
-        <h2 class="titulo-4" id="titulo-indicadores">Indicadores del periodo</h2>
-        <a class="btn btn--texto btn--sm" href="/admin/fiscal/preliminar?anio=<?= $anioImpuestos ?>">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">request_quote</span>
-            <span>¿Cuánto separo de impuestos?</span>
-        </a>
-    </div>
-
-    <div class="rejilla-stats">
-        <?php
-        /** Tarjetas: clave => [etiqueta, icono, texto del pie, ¿llama la atención si es mayor que cero?]. */
-        $tarjetas = [
-            'ventas'         => ['Ventas del periodo', 'point_of_sale', 'ventas registradas', false],
-            'cotizaciones'   => ['Cotizaciones por dar seguimiento', 'request_quote', 'pendientes de respuesta', true],
-            'cobrar'         => ['Ventas por cobrar', 'payments', 'ventas con saldo por cobrar', true],
-            'facturar'       => ['Pendientes de facturar', 'pending_actions', 'ventas sin indicar si se facturan (todas las fechas)', true],
-            'entregas'       => ['Entregas pendientes', 'package_2', 'ventas con piezas por entregar', true],
-            'devoluciones'   => ['Devoluciones del periodo', 'assignment_return', 'ventas con piezas devueltas', false],
-            'gastos'         => ['Gastos del periodo', 'receipt', 'gastos registrados', false],
-            'notificaciones' => ['Notificaciones sin leer', 'notifications', 'avisos nuevos', true],
-        ];
-        $sinImporte = ['entregas', 'devoluciones', 'notificaciones'];
-        foreach ($tarjetas as $clave => [$etiqueta, $icono, $pie, $alerta]) :
-            $dato = $indicadores[$clave];
-            $principal = in_array($clave, $sinImporte, true) ? number_format($dato['n']) : formatoMoneda((float) $dato['monto']);
-            $detalle = in_array($clave, $sinImporte, true) ? '' : number_format($dato['n']) . ' ';
-            ?>
-            <a class="stat stat--enlace<?= $alerta && $dato['n'] > 0 ? ' stat--alerta' : '' ?>" href="<?= escaparValores($dato['enlace']) ?>">
-                <span class="stat__etiqueta">
-                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem;vertical-align:-0.2em"><?= $icono ?></span>
-                    <?= escaparValores($etiqueta) ?>
-                </span>
-                <span class="stat__valor cifra"><?= $principal ?></span>
-                <span class="stat__pie"><?= $detalle . escaparValores($pie) ?></span>
-            </a>
-        <?php endforeach; ?>
     </div>
 </section>
 

@@ -5258,6 +5258,38 @@ function graficasMensajeSinBiblioteca(figura) {
   figura.replaceChildren(nota);
 }
 
+/** ¿La especificación trae algún valor distinto de cero? */
+function graficasTieneDatos(espec) {
+  if (!espec || !Array.isArray(espec.series) || !espec.series.length) {
+    return false;
+  }
+  return espec.series.some(function (serie) {
+    return Array.isArray(serie.datos) && serie.datos.some(function (valor) {
+      return valor !== null && valor !== undefined && Number(valor) !== 0;
+    });
+  });
+}
+
+/** Estado vacío dibujado con nodos del DOM (sin innerHTML). */
+function graficasMensajeSinDatos(figura) {
+  const caja = document.createElement('div');
+  caja.className = 'grafica__vacio';
+
+  const icono = document.createElement('span');
+  icono.className = 'material-symbols-outlined';
+  icono.setAttribute('aria-hidden', 'true');
+  icono.textContent = 'query_stats';
+
+  const titulo = document.createElement('strong');
+  titulo.textContent = 'Sin datos para este periodo';
+
+  const texto = document.createElement('span');
+  texto.textContent = 'Prueba con otro mes o año, o revisa los filtros.';
+
+  caja.append(icono, titulo, texto);
+  figura.replaceChildren(caja);
+}
+
 function dibujarGrafica(figura) {
   let espec;
   try {
@@ -5266,6 +5298,11 @@ function dibujarGrafica(figura) {
     return;
   }
   if (!espec || !espec.categorias || !espec.categorias.length || !espec.series || !espec.series.length) {
+    graficasMensajeSinDatos(figura);
+    return;
+  }
+  if (!graficasTieneDatos(espec)) {
+    graficasMensajeSinDatos(figura);
     return;
   }
   if (typeof echarts === 'undefined') {

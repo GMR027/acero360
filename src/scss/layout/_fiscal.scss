@@ -1,0 +1,431 @@
+/* ==========================================================================
+   _fiscal.scss — Módulo fiscal: periodo, subnavegación, calendario de meses,
+   resumen del mes y tabla anual.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Periodo y subnavegación --------------------------------------------- */
+.fiscal-periodo {
+  @include superficie-card;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.75rem;
+
+  &__icono {
+    flex: 0 0 auto;
+    color: $color-primario-texto;
+    font-size: 1.15rem;
+  }
+
+  .control--compacto {
+    width: auto;
+    min-width: 7rem;
+  }
+
+  @include hasta-movil {
+    .control--compacto {
+      flex: 1 1 8rem;
+      min-width: 0;
+    }
+  }
+}
+
+.fiscal-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.2rem;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: $radio;
+    color: $color-texto-secundario;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color $transicion-rapida, color $transicion-rapida;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+
+    &:hover {
+      background-color: $color-superficie-baja;
+      color: $color-texto;
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      @include anillo-foco;
+    }
+
+    &--activo {
+      background-color: $color-primario-claro;
+      color: $color-primario-texto;
+    }
+  }
+
+  @include hasta-movil {
+    width: 100%;
+
+    &__item {
+      min-height: 2.75rem;
+    }
+  }
+}
+
+/* --- Calendario de meses capturados --------------------------------------- */
+.fiscal-meses {
+  @include superficie-card;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem 0.75rem;
+    margin-bottom: 0.55rem;
+  }
+
+  &__titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: $fuente-titulos;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: $color-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.1rem;
+      color: $color-primario-texto;
+    }
+  }
+
+  &__leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.6rem;
+    font-size: 0.68rem;
+    color: $color-texto-secundario;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+  }
+
+  &__rejilla {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+
+  &__nota {
+    margin-top: 0.5rem;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: $color-texto-secundario;
+  }
+
+  @include hasta-tablet {
+    &__rejilla {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  @include hasta-movil {
+    padding: 0.75rem;
+
+    &__rejilla {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+}
+
+.fiscal-punto {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: $radio-full;
+
+  &--completo { background-color: $color-exito; }
+  &--parcial { background-color: $color-advertencia; }
+  &--vacio { background-color: $color-borde-fuerte; }
+}
+
+.fiscal-mes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0.2rem;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio;
+  color: $color-texto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: background-color $transicion-rapida, border-color $transicion-rapida;
+
+  &__punto {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: $radio-full;
+  }
+
+  &--completo {
+    background-color: $color-exito-claro;
+    border-color: $color-exito-borde;
+
+    .fiscal-mes__punto { background-color: $color-exito; }
+  }
+
+  &--parcial {
+    background-color: $color-advertencia-claro;
+    border-color: $color-advertencia-borde;
+
+    .fiscal-mes__punto { background-color: $color-advertencia; }
+  }
+
+  &--vacio {
+    background-color: $color-superficie-baja;
+
+    .fiscal-mes__punto { background-color: $color-borde-fuerte; }
+  }
+
+  &:hover {
+    background-color: $color-superficie-baja;
+    border-color: $color-borde-fuerte;
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  &--actual {
+    background-color: $color-primario-claro;
+    border-color: $color-primario;
+    color: $color-primario-texto;
+    box-shadow: 0 0 0 1px $color-primario-borde;
+  }
+}
+
+/* --- Resumen del mes ------------------------------------------------------ */
+.fiscal-resumen {
+  @include superficie-card;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 1.25rem;
+  align-items: start;
+  margin-bottom: 1.25rem;
+  padding: 1.25rem 1.35rem;
+
+  &__principal {
+    min-width: 0;
+  }
+
+  &__etiqueta {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  &__valor {
+    display: block;
+    margin: 0.15rem 0 0.1rem;
+    font-family: $fuente-titulos;
+    font-size: clamp(2rem, 3vw, 2.6rem);
+    font-weight: 700;
+    line-height: 1.05;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__fecha {
+    font-size: 0.74rem;
+    color: $color-texto-secundario;
+  }
+
+  &__desglose {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-top: 1rem;
+  }
+
+  &__extra {
+    margin-top: 0.65rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: $color-texto-secundario;
+
+    strong {
+      color: $color-texto;
+    }
+
+    a {
+      color: $color-primario-texto;
+    }
+  }
+
+  &__nota {
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    color: $color-texto-secundario;
+  }
+
+  &__acciones {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    padding-left: 1.1rem;
+    border-left: 1px solid $color-borde;
+
+    .btn {
+      justify-content: flex-start;
+    }
+  }
+
+  @include hasta-tablet {
+    grid-template-columns: 1fr;
+
+    &__acciones {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      padding-top: 0.75rem;
+      padding-left: 0;
+      border-top: 1px solid $color-borde;
+      border-left: 0;
+    }
+  }
+
+  @include hasta-movil {
+    &__desglose,
+    &__acciones {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.fiscal-desglose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.65rem 0.75rem;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio;
+
+  &__etiqueta {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  &__valor {
+    font-family: $fuente-titulos;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__pie {
+    @include texto-varias-lineas(3);
+    font-size: 0.66rem;
+    line-height: 1.35;
+    color: $color-texto-secundario;
+  }
+}
+
+/* --- Tabla anual ---------------------------------------------------------- */
+.tabla--fiscal {
+  min-width: 62rem;
+  font-size: 0.72rem;
+
+  thead th {
+    padding: 0.45rem 0.4rem;
+    text-align: center;
+    font-size: 0.62rem;
+
+    &:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      min-width: 11rem;
+      padding-left: 0.75rem;
+      background-color: $color-superficie-baja;
+      text-align: left;
+    }
+  }
+
+  thead th a {
+    color: $color-texto-secundario;
+    text-decoration: none;
+
+    &:hover {
+      color: $color-primario-texto;
+      text-decoration: underline;
+    }
+  }
+
+  tbody th {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 11rem;
+    padding: 0.45rem 0.4rem 0.45rem 0.75rem;
+    background-color: $color-superficie;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 0.45rem 0.4rem;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  tbody tr:hover th {
+    background-color: $color-superficie-baja;
+  }
+
+  .fiscal-mes-actual {
+    background-color: $color-primario-claro;
+    box-shadow: inset 0 0 0 1px $color-primario-borde;
+  }
+}
+
+/* El detalle de reglas se abre desde el aviso y queda bajo la barra fija. */
+#detalle-fiscal {
+  scroll-margin-top: 5rem;
+}

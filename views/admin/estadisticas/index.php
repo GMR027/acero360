@@ -66,9 +66,20 @@ $tarjetaGrafica = static function (array $g) use ($anchas, $ocultasMovil): strin
     if (in_array($g['id'], $ocultasMovil, true)) {
         $clases .= ' movil-oculto';
     }
+    $icono = match ($g['tipo']) {
+        'linea' => 'show_chart',
+        'apilado' => 'stacked_bar_chart',
+        'barras-h' => 'sort',
+        default => 'bar_chart',
+    };
 
     return '<section class="' . $clases . '" id="g-' . escaparValores($g['id']) . '">'
-        . '<header><h3 class="grafica-tarjeta__titulo">' . escaparValores($g['titulo']) . '</h3><p class="grafica-tarjeta__subtitulo">' . escaparValores($g['subtitulo']) . '</p></header>'
+        . '<header class="grafica-tarjeta__cabecera">'
+        . '<span class="grafica-tarjeta__icono" aria-hidden="true"><span class="material-symbols-outlined">' . $icono . '</span></span>'
+        . '<div class="grafica-tarjeta__texto">'
+        . '<h3 class="grafica-tarjeta__titulo">' . escaparValores($g['titulo']) . '</h3>'
+        . '<p class="grafica-tarjeta__subtitulo">' . escaparValores($g['subtitulo']) . '</p>'
+        . '</div></header>'
         . '<figure class="grafica" data-grafica="' . escaparValores(json_encode($g, JSON_UNESCAPED_UNICODE)) . '" aria-label="' . escaparValores($g['titulo']) . '"></figure></section>';
 };
 $vacio = static fn (string $texto): string => '<div class="vacio"><p class="vacio__titulo">' . escaparValores($texto) . '</p></div>';
@@ -93,7 +104,7 @@ template('header', [
     <a class="chip" href="/admin/estadisticas?tipo=anio&anio=<?= $hoyAnio - 1 ?>&empresa=<?= (int) $f['empresa'] ?>">Año pasado</a>
 </div>
 
-<form class="tarjeta mb-lg movil-oculto" action="/admin/estadisticas" method="get" aria-label="Filtros de estadísticas">
+<form class="tarjeta mb-lg movil-oculto estadisticas-filtros" action="/admin/estadisticas" method="get" aria-label="Filtros de estadísticas">
     <div class="formulario__rejilla">
         <div class="campo"><label class="campo__etiqueta" data-ayuda="Compara un mes, trimestre, semestre o el año completo." for="tipo">Periodo</label>
             <select class="control" id="tipo" name="tipo"><?php foreach (\App\Estadisticas::TIPOS_PERIODO as $k => $t) : ?><option value="<?= $k ?>"<?= $p['tipo'] === $k ? ' selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select></div>
@@ -142,8 +153,12 @@ template('header', [
             : ($vk['porcentual'] === null ? 'Sin base en ' . $anteriorTexto
             : ($vk['absoluta'] == 0 ? 'Igual que ' . $anteriorTexto : ($vk['absoluta'] > 0 ? '▲ +' : '▼ ') . number_format($vk['porcentual'], 1) . ' % vs ' . $anteriorTexto));
     ?>
+        <?php $iconoKpi = ['realizadas' => 'trending_up', 'cobros' => 'payments', 'facturadas' => 'receipt_long', 'gastos' => 'receipt'][$k['clave']] ?? 'insights'; ?>
         <div class="indicador" style="--indicador: <?= escaparValores($colorIndicador[$k['clave']]) ?>">
-            <span class="indicador__etiqueta"><?= escaparValores($k['nombre']) ?></span>
+            <span class="indicador__cabecera">
+                <span class="indicador__icono" aria-hidden="true"><span class="material-symbols-outlined"><?= $iconoKpi ?></span></span>
+                <span class="indicador__etiqueta"><?= escaparValores($k['nombre']) ?></span>
+            </span>
             <span class="indicador__valor"><?= $m($k['importe']) ?></span>
             <span class="cambio<?= $mejora === null ? '' : ($mejora ? ' cambio--bien' : ' cambio--mal') ?>"><?= escaparValores($textoCambio) ?></span>
             <span class="indicador__pie"><?= $vk ? ($vk['absoluta'] > 0 ? '+' : '') . $m($vk['absoluta']) . ' contra ' . $m($k['previo']) . ' del ' . ($actual['completo'] ? 'mismo periodo' : 'mismo avance') . ' de ' . $anteriorTexto : escaparValores($k['detalle']) ?></span>

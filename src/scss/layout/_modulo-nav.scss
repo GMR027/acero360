@@ -1,0 +1,122 @@
+/* ==========================================================================
+   _modulo-nav.scss — Navegación interna de un módulo (Contabilidad, Compras, Impuestos).
+   Una sola línea de pestañas compactas; en tableta se envuelven y en el
+   teléfono se deslizan en horizontal con la pestaña activa centrada.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.modulo-nav {
+  @include superficie-card;
+  margin-bottom: $espacio-lg;
+  padding: 0.25rem;
+  overflow: hidden;
+}
+
+.modulo-nav__pista {
+  display: flex;
+  align-items: stretch;
+  gap: 0.0625rem;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.modulo-nav__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.4rem;
+  border-radius: $radio;
+  color: $color-texto-secundario;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color $transicion-rapida, color $transicion-rapida;
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+
+  &:hover {
+    background-color: $color-superficie-baja;
+    color: $color-texto;
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  /* Pestaña actual: fondo azul muy claro y subrayado de 2 px. */
+  &--activo {
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0.45rem;
+      bottom: 0.1rem;
+      left: 0.45rem;
+      height: 2px;
+      border-radius: $radio-full;
+      background-color: $color-primario;
+    }
+  }
+}
+
+
+@include hasta-tablet {
+  /* En tableta las pestañas caben en dos filas: se ven todas sin deslizar. */
+  .modulo-nav__pista {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+@include hasta-movil {
+  .modulo-nav {
+    position: relative;
+    margin-bottom: $espacio-md;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      bottom: 1px;
+      width: 2rem;
+      border-radius: 0 $radio-lg $radio-lg 0;
+      background: linear-gradient(to right, transparent, $color-superficie 75%);
+      pointer-events: none;
+    }
+  }
+
+  .modulo-nav__pista {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .modulo-nav__tab {
+    min-height: 2.75rem;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.78rem;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+}

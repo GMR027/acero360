@@ -17,7 +17,10 @@
 @use 'layout/formularios';
 @use 'layout/badges';
 @use 'layout/cards';
+@use 'layout/panel';
 @use 'layout/tablas';
+@use 'layout/modulo-nav';
+@use 'layout/compras';
 @use 'layout/alertas';
 @use 'layout/modal';
 @use 'layout/documentos';
@@ -33,6 +36,8 @@
 @use 'layout/apariencia';
 @use 'layout/ajustes';
 @use 'layout/movil';
+@use 'layout/contabilidad';
+@use 'layout/fiscal';
 @use 'layout/ayudas';
 @use 'layout/utilidades';
 @use 'layout/herramientas';

@@ -148,7 +148,7 @@ try {
     console.log('7. Resumen y Pendientes de facturar');
     await pagina.goto(`${BASE}/admin/contabilidad`, { waitUntil: 'domcontentloaded' });
     verifica('el resumen trae «Cerrar el mes»', await pagina.locator('a:has-text("Cerrar el mes")').count() >= 1);
-    verifica('las tarjetas del resumen enlazan a su lista', await pagina.locator('a.stat').count() >= 3);
+    verifica('las tarjetas del resumen enlazan a su lista', await pagina.locator('a.fin-kpi').count() >= 3);
     await pagina.goto(`${BASE}/admin/contabilidad/sin-facturar`, { waitUntil: 'domcontentloaded' });
     verifica('Pendientes de facturar ofrece Facturar', await pagina.locator('a:has-text("Facturar")').count() >= 1);
     verifica('Pendientes de facturar ofrece Abrir venta', await pagina.locator('a:has-text("Abrir venta")').count() >= 1);

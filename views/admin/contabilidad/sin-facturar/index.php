@@ -15,66 +15,162 @@ $t        = $sf['totales'];
 $consulta = http_build_query(array_filter($periodo + ['cliente' => $cliente], static fn ($v) => $v !== 0));
 $consultaVista = $consulta . ($vista !== '' ? '&vista=' . $vista : '');
 
-template('header', ['titulo' => 'Pendientes de facturar', 'subtitulo' => 'Contabilidad', 'rutaActiva' => '/admin/contabilidad/sin-facturar']);
+$accionesExportar = '';
+foreach (['pdf' => ['PDF', 'picture_as_pdf'], 'xlsx' => ['Excel', 'table_view'], 'csv' => ['CSV', 'csv']] as $formato => [$texto, $icono]) {
+    $accionesExportar .= '<a class="btn btn--secundario btn--sm" href="/admin/contabilidad/sin-facturar/exportar?' . escaparValores($consultaVista) . '&formato=' . $formato . '">'
+        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem">' . $icono . '</span>'
+        . '<span>' . escaparValores($texto) . '</span></a>';
+}
+
+template('header', [
+    'titulo'     => 'Pendientes de facturar',
+    'subtitulo'  => 'Contabilidad',
+    'rutaActiva' => '/admin/contabilidad/sin-facturar',
+    'acciones'   => $accionesExportar,
+]);
 template('tabsContabilidad', ['tab' => 'sin', 'periodo' => $periodo]);
 template('selectorPeriodo', ['accion' => '/admin/contabilidad/sin-facturar', 'periodo' => $periodo, 'empresas' => $empresas, 'conTodoElAnio' => true, 'extra' => ['vista' => $vista], 'clientes' => \App\Clientes::paraSelector(), 'cliente' => $cliente, 'ocultoMovil' => true]);
+
+$kpis = [
+    [
+        'etiqueta' => 'Operaciones',
+        'valor'    => number_format((int) $t['operaciones']),
+        'pie'      => (int) $t['no_facturada'] . ' no facturadas · ' . (int) $t['sin_clasificar'] . ' pendientes de facturar',
+        'icono'    => 'receipt_long',
+    ],
+    [
+        'etiqueta' => 'Subtotal',
+        'valor'    => formatoMoneda($t['subtotal']),
+        'pie'      => 'antes de IVA',
+        'icono'    => 'calculate',
+    ],
+    [
+        'etiqueta' => 'IVA registrado',
+        'valor'    => formatoMoneda($t['iva']),
+        'pie'      => 'no es IVA a cargo',
+        'icono'    => 'account_balance',
+    ],
+    [
+        'etiqueta' => 'Total',
+        'valor'    => formatoMoneda($t['total']),
+        'pie'      => 'IVA incluido',
+        'icono'    => 'payments',
+        'destacado' => true,
+    ],
+];
+
+$enlaceIngresos = '/admin/contabilidad/ingresos?' . $consulta;
 ?>
 
-<section class="rejilla-stats mb-lg" aria-label="Resumen de ventas sin facturar">
-    <div class="stat"><span class="stat__etiqueta">Operaciones</span><span class="stat__valor"><?= number_format($t['operaciones']) ?></span>
-        <span class="stat__pie"><?= (int) $t['no_facturada'] ?> no facturadas · <?= (int) $t['sin_clasificar'] ?> pendientes de facturar</span></div>
-    <div class="stat"><span class="stat__etiqueta">Subtotal</span><span class="stat__valor"><?= formatoMoneda($t['subtotal']) ?></span><span class="stat__pie">antes de IVA</span></div>
-    <div class="stat"><span class="stat__etiqueta">IVA registrado</span><span class="stat__valor"><?= formatoMoneda($t['iva']) ?></span><span class="stat__pie">no es IVA a cargo</span></div>
-    <div class="stat"><span class="stat__etiqueta">Total</span><span class="stat__valor"><?= formatoMoneda($t['total']) ?></span><span class="stat__pie">IVA incluido</span></div>
+<section class="fin-kpis fin-kpis--4" aria-label="Resumen de ventas sin facturar">
+    <?php foreach ($kpis as $k) : ?>
+        <div class="fin-kpi<?= !empty($k['destacado']) ? ' fin-kpi--destacado' : '' ?>">
+            <span class="fin-kpi__cabecera">
+                <span class="fin-kpi__icono" aria-hidden="true">
+                    <span class="material-symbols-outlined"><?= escaparValores($k['icono']) ?></span>
+                </span>
+                <span class="fin-kpi__etiqueta"><?= escaparValores($k['etiqueta']) ?></span>
+            </span>
+            <strong class="fin-kpi__valor cifra"><?= $k['valor'] ?></strong>
+            <span class="fin-kpi__pie"><?= escaparValores($k['pie']) ?></span>
+        </div>
+    <?php endforeach; ?>
 </section>
 
-<div class="encabezado-pagina__acciones mb-lg movil-oculto">
-    <?php foreach (['pdf' => ['PDF', 'picture_as_pdf'], 'xlsx' => ['Excel', 'table_view'], 'csv' => ['CSV', 'csv']] as $formato => [$texto, $icono]) : ?>
-        <a class="btn btn--secundario" href="/admin/contabilidad/sin-facturar/exportar?<?= $consultaVista ?>&formato=<?= $formato ?>">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem"><?= $icono ?></span><span>Exportar <?= $texto ?></span></a>
-    <?php endforeach; ?>
+<div class="sf-toolbar">
+    <div class="sf-filtros" role="group" aria-label="Filtrar ventas sin facturar">
+        <?php foreach (['' => 'Todas', 'sin_clasificar' => 'Pendientes de facturar', 'no_facturada' => 'No facturadas'] as $clave => $texto) :
+            $activo = $vista === $clave; ?>
+            <a class="sf-filtro<?= $activo ? ' sf-filtro--activo' : '' ?>"
+               href="/admin/contabilidad/sin-facturar?<?= escaparValores($consulta . ($clave !== '' ? '&vista=' . $clave : '')) ?>"<?= $activo ? ' aria-current="page"' : '' ?>>
+                <?= escaparValores($texto) ?>
+            </a>
+        <?php endforeach; ?>
+    </div>
+    <a class="btn btn--texto btn--sm" href="<?= escaparValores($enlaceIngresos) ?>">
+        <span>Ver ventas y cobros</span>
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+    </a>
 </div>
 
-<nav class="mb-md movil-oculto" aria-label="Apartados">
-    <?php foreach (['' => 'Todas', 'sin_clasificar' => 'Pendientes de facturar (con IVA)', 'no_facturada' => 'No facturadas (sin IVA)'] as $clave => $texto) : ?>
-        <a class="btn btn--sm <?= $vista === $clave ? 'btn--primario' : 'btn--secundario' ?>" href="/admin/contabilidad/sin-facturar?<?= $consulta . ($clave !== '' ? '&vista=' . $clave : '') ?>"<?= $vista === $clave ? ' aria-current="page"' : '' ?>><?= $texto ?></a>
-    <?php endforeach; ?>
-</nav>
-<p class="campo__ayuda mb-md">Ninguna de estas ventas cuenta como CFDI emitido. Clasifícalas desde su detalle: una factura se confirma con el CFDI adjunto o de forma manual.</p>
+<section class="tarjeta fin-card fin-card--tabla" aria-labelledby="titulo-sin-facturar">
+    <div class="fin-card__cabecera">
+        <div class="fin-card__texto">
+            <h2 class="fin-card__titulo" id="titulo-sin-facturar">
+                <span class="fin-card__icono" aria-hidden="true"><span class="material-symbols-outlined">receipt_long</span></span>
+                Detalle de ventas
+                <?php if ((int) $t['operaciones'] > 0) : ?>
+                    <span class="badge badge--pendiente badge--sin-punto"><?= number_format((int) $t['operaciones']) ?></span>
+                <?php endif; ?>
+            </h2>
+            <p class="fin-card__sub">Ninguna de estas ventas cuenta como CFDI emitido. Clasifícalas desde su detalle: una factura se confirma con el CFDI adjunto o de forma manual.</p>
+        </div>
+    </div>
 
-<section class="tarjeta tarjeta--sin-relleno">
     <?php if (!$sf['filas']) : ?>
-        <div class="vacio"><span class="material-symbols-outlined vacio__icono" aria-hidden="true">task_alt</span>
-            <p class="vacio__titulo">No hay ventas sin facturar en este periodo</p></div>
+        <div class="fin-vacio fin-vacio--ok">
+            <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>
+            <p>No hay ventas sin facturar en este periodo.</p>
+        </div>
     <?php else : ?>
-        <div class="tabla-contenedor">
-            <table class="tabla">
+        <div class="tabla-contenedor tabla-contenedor--scroll">
+            <table class="tabla tabla--sf" data-sin-tarjetas>
                 <caption class="solo-lectores">Pendientes de facturar</caption>
-                <thead><tr><th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Cliente</th><th scope="col">Negocio</th>
-                    <th scope="col" class="tabla--numerica">Subtotal</th><th scope="col" class="tabla--numerica">IVA</th>
-                    <th scope="col" class="tabla--numerica">Total</th><th scope="col" class="tabla--centro">Estado</th><th scope="col"><span class="solo-lectores">Acciones</span></th></tr></thead>
+                <thead>
+                    <tr>
+                        <th scope="col">Fecha</th>
+                        <th scope="col">Venta</th>
+                        <th scope="col">Cliente</th>
+                        <th scope="col">Negocio</th>
+                        <th scope="col" class="tabla--numerica">Subtotal</th>
+                        <th scope="col" class="tabla--numerica">IVA</th>
+                        <th scope="col" class="tabla--numerica">Total</th>
+                        <th scope="col" class="tabla--centro">Estado</th>
+                        <th scope="col" class="tabla--centro">Acciones</th>
+                    </tr>
+                </thead>
                 <tbody>
                     <?php foreach ($sf['filas'] as $f) : $fact = \App\Contabilidad::FACTURACION[$f['estado_facturacion']]; ?>
-                        <tr><td><?= date('d/m/Y', strtotime($f['fecha'])) ?></td><td><strong><?= escaparValores($f['folio']) ?></strong></td>
-                            <td><?= escaparValores($f['cliente_empresa'] ?: $f['cliente_nombre']) ?></td><td><?= escaparValores($f['empresa_nombre']) ?></td>
+                        <tr>
+                            <td><span class="sf-fecha cifra"><?= date('d/m/Y', strtotime($f['fecha'])) ?></span></td>
+                            <td>
+                                <a class="sf-folio cifra" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f)) ?>">
+                                    <?= escaparValores($f['folio']) ?>
+                                </a>
+                            </td>
+                            <td><?= escaparValores($f['cliente_empresa'] ?: $f['cliente_nombre']) ?></td>
+                            <td><?= escaparValores($f['empresa_nombre']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda((float) $f['subtotal'] - (float) $f['descuento']) ?></td>
                             <td class="tabla--numerica cifra"><?= formatoMoneda($f['iva']) ?></td>
-                            <td class="tabla--numerica cifra"><strong><?= formatoMoneda($f['total']) ?></strong></td>
+                            <td class="tabla--numerica cifra sf-total"><?= formatoMoneda($f['total']) ?></td>
                             <td class="tabla--centro"><span class="badge <?= $fact['clase'] ?>"><?= escaparValores($fact['etiqueta']) ?></span></td>
-                            <td class="tabla__acciones">
-                                <a class="btn btn--primario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'facturacion')) ?>">
-                                    <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">receipt_long</span>
-                                    <span>Facturar</span>
-                                </a>
-                                <a class="btn btn--texto btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f)) ?>">Abrir venta</a>
-                            </td></tr>
+                            <td class="tabla--centro">
+                                <span class="sf-acciones">
+                                    <a class="btn btn--primario btn--sm" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f, 'facturacion')) ?>">
+                                        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                                        <span>Facturar</span>
+                                    </a>
+                                    <a class="btn btn--texto btn--sm oculto-en-movil" href="<?= escaparValores(\App\Contabilidad::rutaDetalle($f)) ?>">Abrir venta</a>
+                                </span>
+                            </td>
+                        </tr>
                     <?php endforeach; ?>
                 </tbody>
-                <tfoot><tr><td colspan="4"><strong>Total</strong></td>
-                    <td class="tabla--numerica cifra"><?= formatoMoneda($t['subtotal']) ?></td><td class="tabla--numerica cifra"><?= formatoMoneda($t['iva']) ?></td>
-                    <td class="tabla--numerica cifra"><strong><?= formatoMoneda($t['total']) ?></strong></td><td colspan="2"></td></tr></tfoot>
+                <tfoot>
+                    <tr>
+                        <td colspan="4"><strong>Total</strong></td>
+                        <td class="tabla--numerica cifra"><?= formatoMoneda($t['subtotal']) ?></td>
+                        <td class="tabla--numerica cifra"><?= formatoMoneda($t['iva']) ?></td>
+                        <td class="tabla--numerica cifra"><strong><?= formatoMoneda($t['total']) ?></strong></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
+        <p class="compras-desliza">
+            <span class="material-symbols-outlined" aria-hidden="true">swipe</span>
+            Desliza la tabla para ver todas las columnas.
+        </p>
     <?php endif; ?>
 </section>
 

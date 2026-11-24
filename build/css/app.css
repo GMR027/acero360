@@ -2962,6 +2962,553 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   }
 }
 /* ==========================================================================
+   _panel.scss — Panel principal (/admin).
+   Presentación de la información en tres niveles:
+     1. Indicadores clave (resultado del periodo y alertas de hoy).
+     2. Pendientes de atender (listas cortas con su acción directa).
+     3. Contexto: negocios, impuestos, inventario y documentos.
+   Las tarjetas reutilizan .tarjeta; aquí sólo se ajusta su ritmo y densidad.
+   ========================================================================== */
+/* --- Indicadores clave ---------------------------------------------------- */
+.panel-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+@media (max-width: 1199px) {
+  .panel-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .panel-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+}
+
+.panel-kpi {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.95rem 1rem;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.panel-kpi:hover, .panel-kpi:focus-visible {
+  border-color: var(--color-primario-borde);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.panel-kpi__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.panel-kpi {
+  /* Icono en caja tenue: ayuda a reconocer el indicador sin competir con la cifra. */
+}
+.panel-kpi__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.55rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.panel-kpi__icono .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+.panel-kpi__etiqueta {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  color: var(--color-texto-secundario);
+}
+.panel-kpi {
+  /* La cifra es la protagonista: no se parte y conserva el ancho tabular. */
+}
+.panel-kpi__valor {
+  overflow: hidden;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: clamp(1.2rem, 1.5vw, 1.55rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--color-texto);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.panel-kpi__pie {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--color-texto-secundario);
+}
+.panel-kpi {
+  /* Punto ámbar: hay algo que atender (no es un error). */
+}
+.panel-kpi--alerta::after {
+  content: "";
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background-color: var(--color-advertencia);
+  box-shadow: 0 0 0 0.18rem var(--color-advertencia-claro);
+}
+@media (max-width: 767px) {
+  .panel-kpi {
+    padding: 0.75rem;
+  }
+  .panel-kpi__icono {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+  .panel-kpi__valor {
+    font-size: 1.05rem;
+  }
+  .panel-kpi__etiqueta {
+    font-size: 0.62rem;
+  }
+  .panel-kpi__pie {
+    font-size: 0.65rem;
+  }
+}
+
+/* Tira secundaria: indicadores que no caben en la banda principal pero que
+   siguen siendo parte del periodo. */
+.panel-metricas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 767px) {
+  .panel-metricas {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+}
+
+.panel-metrica {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.25rem;
+  color: var(--color-texto-secundario);
+  font-size: 0.78rem;
+  text-decoration: none;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.panel-metrica .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 1.05rem;
+  color: var(--color-primario-texto);
+}
+.panel-metrica__texto {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.panel-metrica strong {
+  margin-left: auto;
+  color: var(--color-texto);
+  font-variant-numeric: tabular-nums;
+}
+.panel-metrica__monto {
+  color: var(--color-texto-secundario);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.panel-metrica:hover, .panel-metrica:focus-visible {
+  background-color: var(--color-superficie);
+  border-color: var(--color-primario-borde);
+  text-decoration: none;
+}
+@media (max-width: 767px) {
+  .panel-metrica__monto {
+    display: none;
+  }
+}
+
+/* --- Filtro de periodo ---------------------------------------------------- */
+.panel-toolbar {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+  padding: 0.9rem 1rem;
+}
+.panel-toolbar__periodo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.panel-toolbar__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.55rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.panel-toolbar__icono .material-symbols-outlined {
+  font-size: 1.15rem;
+}
+.panel-toolbar__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.panel-toolbar__texto strong {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--color-texto);
+}
+.panel-toolbar__texto .texto-secundario {
+  max-width: 24rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+.panel-toolbar__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.panel-toolbar__form .control {
+  width: auto;
+  min-width: 8.5rem;
+}
+@media (max-width: 767px) {
+  .panel-toolbar {
+    padding: 0.8rem;
+  }
+  .panel-toolbar__form {
+    width: 100%;
+  }
+  .panel-toolbar__form .control {
+    flex: 1 1 8rem;
+    min-width: 0;
+  }
+}
+
+/* --- Cabeceras de sección -------------------------------------------------- */
+.panel-seccion {
+  margin-bottom: 1.75rem;
+}
+.panel-seccion__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.panel-seccion__cabecera--compacta {
+  align-items: flex-start;
+}
+.panel-seccion__texto {
+  min-width: 0;
+}
+.panel-seccion__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-texto);
+}
+.panel-seccion__titulo .material-symbols-outlined {
+  font-size: 1.3rem;
+  color: var(--color-primario-texto);
+}
+.panel-seccion__sub {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--color-texto-secundario);
+}
+.panel-seccion__sub strong {
+  color: var(--color-texto);
+}
+
+/* Icono pequeño que precede al título de una tarjeta. */
+.panel-titulo-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.panel-titulo-icono .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+.panel-titulo-icono--alerta {
+  background-color: var(--color-advertencia-claro);
+  color: var(--color-advertencia-texto);
+}
+
+/* --- Pendientes de atender ------------------------------------------------ */
+.panel-pendientes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.panel-pendientes .tarjeta {
+  padding: 1rem 1.1rem;
+}
+.panel-pendientes .tarjeta__cabecera {
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+.panel-pendientes {
+  /* Cada tarjeta deja el pie abajo aunque su lista sea más corta. */
+}
+.panel-pendientes .tarjeta__pie {
+  margin-top: auto;
+  padding-top: 0.6rem;
+}
+.panel-pendientes .actividad__fila {
+  padding: 0.5rem 0;
+}
+@media (max-width: 767px) {
+  .panel-pendientes {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .panel-pendientes .tarjeta {
+    padding: 0.85rem;
+  }
+}
+
+/* --- Negocios e impuestos -------------------------------------------------- */
+.panel-resumen {
+  align-items: stretch;
+}
+
+.panel-columna {
+  min-width: 0;
+}
+
+.panel-negocios {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.panel-negocios .ganancia {
+  height: 100%;
+  padding: 1rem 1.1rem;
+}
+.panel-negocios .ganancia__valor {
+  font-size: 2rem;
+}
+.panel-negocios .tarjeta__cabecera {
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+@media (max-width: 767px) {
+  .panel-negocios {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+.panel-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.panel-impuestos {
+  padding: 1rem 1.1rem;
+}
+.panel-impuestos .ganancia__valor {
+  font-size: 2rem;
+}
+.panel-impuestos .ganancia__rejilla {
+  margin-bottom: 0.75rem;
+}
+.panel-impuestos__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-borde);
+}
+
+/* Aviso legal breve dentro de la tarjeta de impuestos. */
+.panel-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.25rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--color-texto-secundario);
+}
+.panel-aviso .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  color: var(--color-primario-texto);
+}
+
+/* --- Productos y existencias ---------------------------------------------- */
+.panel-productos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.panel-productos .stat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.15rem 0.6rem;
+  padding: 0.75rem 0.85rem;
+}
+.panel-productos .stat__producto {
+  grid-column: 1;
+}
+.panel-productos .stat__valor {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 1.15rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.panel-productos .stat__pie {
+  grid-column: 1/-1;
+  font-size: 0.7rem;
+}
+.panel-productos .stat__imagen {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.panel-productos .stat__nombre {
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+.panel-productos .stat__codigo {
+  font-size: 0.68rem;
+}
+@media (max-width: 767px) {
+  .panel-productos {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel-stock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.panel-stock .stat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.1rem 0.6rem;
+  padding: 0.6rem 0.75rem;
+}
+.panel-stock .stat__producto {
+  grid-column: 1;
+}
+.panel-stock .stat__valor {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 1.15rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.panel-stock .stat__pie {
+  grid-column: 1/-1;
+  font-size: 0.68rem;
+}
+.panel-stock .stat__imagen {
+  width: 2.3rem;
+  height: 2.3rem;
+}
+.panel-stock .stat__nombre {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+.panel-stock .stat__codigo {
+  font-size: 0.66rem;
+}
+
+/* --- Últimos documentos ---------------------------------------------------- */
+.panel-documentos .tarjeta {
+  padding: 1rem 1.1rem;
+}
+.panel-documentos .tarjeta__cabecera {
+  margin-bottom: 0.5rem;
+}
+.panel-documentos .actividad__fila {
+  padding: 0.55rem 0;
+}
+@media (max-width: 767px) {
+  .panel-documentos {
+    gap: 0.75rem;
+  }
+}
+
+/* --- Primeros pasos -------------------------------------------------------- */
+.panel-primeros-pasos {
+  margin-bottom: 1.5rem;
+}
+
+/* ==========================================================================
    _tablas.scss — Tablas de datos de listados.
    Cabecera con fondo gris claro, filas con separadores finos, columnas
    numéricas alineadas a la derecha con cifras tabulares.
@@ -3450,6 +3997,639 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   max-width: 28rem;
 }
 
+/* ==========================================================================
+   _modulo-nav.scss — Navegación interna de un módulo (Contabilidad, Compras, Impuestos).
+   Una sola línea de pestañas compactas; en tableta se envuelven y en el
+   teléfono se deslizan en horizontal con la pestaña activa centrada.
+   ========================================================================== */
+.modulo-nav {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  margin-bottom: 1.5rem;
+  padding: 0.25rem;
+  overflow: hidden;
+}
+
+.modulo-nav__pista {
+  display: flex;
+  align-items: stretch;
+  gap: 0.0625rem;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.modulo-nav__pista::-webkit-scrollbar {
+  display: none;
+}
+
+.modulo-nav__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.4rem;
+  border-radius: 0.25rem;
+  color: var(--color-texto-secundario);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.modulo-nav__tab .material-symbols-outlined {
+  font-size: 1rem;
+}
+.modulo-nav__tab:hover {
+  background-color: var(--color-superficie-baja);
+  color: var(--color-texto);
+  text-decoration: none;
+}
+.modulo-nav__tab:focus-visible {
+  outline: 1px solid var(--color-primario);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--color-foco);
+}
+.modulo-nav__tab {
+  /* Pestaña actual: fondo azul muy claro y subrayado de 2 px. */
+}
+.modulo-nav__tab--activo {
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.modulo-nav__tab--activo::after {
+  content: "";
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.1rem;
+  left: 0.45rem;
+  height: 2px;
+  border-radius: 9999px;
+  background-color: var(--color-primario);
+}
+
+@media (max-width: 1199px) {
+  /* En tableta las pestañas caben en dos filas: se ven todas sin deslizar. */
+  .modulo-nav__pista {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+@media (max-width: 767px) {
+  .modulo-nav {
+    position: relative;
+    margin-bottom: 1rem;
+  }
+  .modulo-nav::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    bottom: 1px;
+    width: 2rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: linear-gradient(to right, transparent, var(--color-superficie) 75%);
+    pointer-events: none;
+  }
+  .modulo-nav__pista {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .modulo-nav__tab {
+    min-height: 2.75rem;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.78rem;
+  }
+  .modulo-nav__tab .material-symbols-outlined {
+    font-size: 1rem;
+  }
+}
+/* ==========================================================================
+   _compras.scss — Resumen del módulo «Compras y proveedores».
+   Flujo de cuatro pasos y tablas de pendientes. La navegación interna vive en
+   _modulo-nav.scss y se comparte con Contabilidad e Impuestos.
+   Reutiliza .tarjeta, .tabla, .badge y .btn; aquí sólo se ajusta el ritmo.
+   ========================================================================== */
+/* --- Flujo de una compra -------------------------------------------------- */
+.compras-flujo {
+  margin-bottom: 1.5rem;
+}
+
+.compras-flujo__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.7rem;
+}
+
+.compras-flujo__titulo {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-texto);
+}
+
+.compras-flujo__sub {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--color-texto-secundario);
+}
+
+.compras-flujo__rejilla {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  /* Hilo tenue que enlaza los cuatro pasos en escritorio. */
+}
+.compras-flujo__rejilla::before {
+  content: "";
+  position: absolute;
+  top: 1.55rem;
+  right: 2rem;
+  left: 2rem;
+  height: 1px;
+  background-color: var(--color-borde);
+  z-index: 0;
+}
+@media (max-width: 1199px) {
+  .compras-flujo__rejilla {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .compras-flujo__rejilla::before {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .compras-flujo__rejilla {
+    gap: 0.5rem;
+  }
+}
+
+.compras-paso {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.9rem 1rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.compras-paso:hover, .compras-paso:focus-visible {
+  border-color: var(--color-primario-borde);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.compras-paso:focus-visible {
+  outline: 1px solid var(--color-primario);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--color-foco);
+}
+.compras-paso__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.compras-paso__numero {
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border: 1px solid var(--color-primario-borde);
+  border-radius: 9999px;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.compras-paso__icono {
+  color: var(--color-texto-secundario);
+}
+.compras-paso__icono .material-symbols-outlined {
+  font-size: 1.15rem;
+}
+.compras-paso__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.compras-paso__etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-secundario);
+}
+.compras-paso {
+  /* Punto ámbar: el paso tiene trabajo pendiente. */
+}
+.compras-paso__punto {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+  background-color: var(--color-advertencia);
+  box-shadow: 0 0 0 0.16rem var(--color-advertencia-claro);
+}
+.compras-paso__valor {
+  overflow: hidden;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-texto);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.compras-paso__valor--importe {
+  font-size: 1.35rem;
+  color: var(--color-advertencia-texto);
+}
+.compras-paso {
+  /* Primer paso: la cifra es una llamada a la acción. */
+}
+.compras-paso__accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--color-primario);
+  border-radius: 0.25rem;
+  background-color: var(--color-primario);
+  background-image: var(--textura-acento);
+  color: var(--color-texto-invertido);
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+}
+.compras-paso__pie {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--color-texto-secundario);
+}
+.compras-paso__enlace {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-borde);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-primario-texto);
+}
+.compras-paso__enlace .material-symbols-outlined {
+  font-size: 0.95rem;
+  transition: transform 150ms ease;
+}
+.compras-paso:hover .compras-paso__enlace .material-symbols-outlined {
+  transform: translateX(2px);
+}
+
+/* --- Cabeceras de sección ------------------------------------------------- */
+.compras-seccion {
+  margin-bottom: 1.5rem;
+  scroll-margin-top: 5rem;
+}
+.compras-seccion__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.6rem;
+}
+.compras-seccion__texto {
+  min-width: 0;
+}
+.compras-seccion__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-texto);
+}
+.compras-seccion__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.45rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.compras-seccion__icono .material-symbols-outlined {
+  font-size: 1rem;
+}
+.compras-seccion__sub {
+  margin-top: 0.15rem;
+  font-size: 0.76rem;
+  color: var(--color-texto-secundario);
+}
+.compras-seccion__enlace {
+  flex: 0 0 auto;
+}
+.compras-seccion__enlace .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+/* --- Tarjetas con tablas -------------------------------------------------- */
+.compras-caja {
+  padding: 0;
+  overflow: hidden;
+}
+.compras-caja__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  background-color: var(--color-superficie-baja);
+  border-top: 1px solid var(--color-borde);
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+}
+.compras-caja__pie strong {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.95rem;
+  color: var(--color-texto);
+}
+
+/* --- Tablas de compras ---------------------------------------------------- */
+.compras-tabla {
+  min-width: 40rem;
+}
+.compras-tabla thead th {
+  padding: 0.6rem 0.85rem;
+  text-align: left;
+}
+.compras-tabla thead th.tabla--numerica {
+  text-align: right;
+}
+.compras-tabla thead th.tabla--centro {
+  text-align: center;
+}
+.compras-tabla tbody td {
+  padding: 0.6rem 0.85rem;
+  font-size: 0.8125rem;
+}
+.compras-tabla .badge {
+  white-space: nowrap;
+}
+.compras-tabla--ancha {
+  min-width: 48rem;
+}
+.compras-tabla {
+  /* En tableta y móvil, la acción de la tabla ancha queda fija a la derecha
+     mientras el resto de columnas se desplaza. */
+}
+@media (max-width: 1199px) {
+  .compras-tabla--ancha th:last-child,
+  .compras-tabla--ancha td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background-color: var(--color-superficie);
+    box-shadow: -0.5rem 0 0.75rem -0.5rem rgba(15, 23, 42, 0.18);
+  }
+  .compras-tabla--ancha thead th:last-child {
+    z-index: 2;
+    background-color: var(--color-superficie-baja);
+  }
+  .compras-tabla--ancha tbody tr:hover td:last-child {
+    background-color: var(--color-superficie-baja);
+  }
+}
+.compras-tabla {
+  /* Las tablas de dos columnas caben sin desplazamiento horizontal. */
+}
+.compras-tabla--compacta {
+  min-width: 0;
+}
+.compras-tabla--compacta thead th {
+  padding: 0.55rem 0.65rem;
+}
+.compras-tabla--compacta tbody td {
+  padding: 0.55rem 0.65rem;
+}
+
+.compras-folio {
+  font-weight: 700;
+  color: var(--color-texto);
+  white-space: nowrap;
+}
+
+.compras-fecha {
+  color: var(--color-texto-secundario);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.compras-importe {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.compras-estado {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.compras-nota {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-advertencia-texto);
+}
+.compras-nota .material-symbols-outlined {
+  font-size: 0.9rem;
+}
+
+.compras-articulo {
+  display: block;
+}
+
+.compras-accion {
+  min-width: 2.25rem;
+}
+.compras-accion .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.compras-faltan {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aviso de tabla deslizable: sólo aparece en el teléfono. */
+.compras-desliza {
+  display: none;
+}
+
+/* --- Estado vacío --------------------------------------------------------- */
+.compras-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--color-texto-secundario);
+}
+.compras-vacio .material-symbols-outlined {
+  font-size: 1.6rem;
+  color: var(--color-primario-texto);
+}
+.compras-vacio p {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.compras-vacio .btn {
+  margin-top: 0.35rem;
+}
+.compras-vacio--ok .material-symbols-outlined {
+  color: var(--color-exito-texto);
+}
+
+/* --- Dos columnas: facturas y pagos --------------------------------------- */
+.compras-doble {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.compras-doble .compras-seccion {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+.compras-doble {
+  /* Las dos tarjetas comparten altura y el pie queda alineado abajo. */
+}
+.compras-doble .compras-caja {
+  flex: 1;
+}
+.compras-doble .compras-caja__pie {
+  margin-top: auto;
+}
+.compras-doble {
+  /* A partir de 1400 px las dos tablas respiran sin apretar sus columnas. */
+}
+@media (min-width: 1400px) {
+  .compras-doble {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* --- Ajustes para tablet y móvil ------------------------------------------ */
+@media (max-width: 1199px) {
+  .compras-flujo__rejilla {
+    gap: 1rem;
+  }
+  /* Las tablas anchas aprietan un poco el relleno para no cortar columnas. */
+  .compras-tabla--ancha thead th,
+  .compras-tabla--ancha tbody td {
+    padding-right: 0.55rem;
+    padding-left: 0.55rem;
+  }
+}
+@media (max-width: 767px) {
+  .compras-flujo__titulo {
+    font-size: 1rem;
+  }
+  .compras-flujo__sub {
+    font-size: 0.72rem;
+  }
+  .compras-paso {
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+  .compras-paso__valor {
+    font-size: 1.35rem;
+  }
+  .compras-paso__valor--importe {
+    font-size: 1.12rem;
+  }
+  .compras-paso__accion {
+    min-height: 2.5rem;
+    padding: 0 0.5rem;
+    font-size: 0.78rem;
+  }
+  .compras-paso__etiqueta {
+    font-size: 0.62rem;
+  }
+  .compras-paso__pie {
+    font-size: 0.68rem;
+  }
+  .compras-paso__enlace {
+    font-size: 0.68rem;
+  }
+  .compras-desliza {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0.35rem 0.85rem 0.65rem;
+    font-size: 0.68rem;
+    color: var(--color-texto-secundario);
+  }
+  .compras-desliza .material-symbols-outlined {
+    font-size: 0.95rem;
+  }
+  .compras-seccion__titulo {
+    font-size: 1rem;
+  }
+  .compras-seccion__sub {
+    font-size: 0.72rem;
+  }
+  /* En móvil las tablas de dos columnas se convierten en tarjetas: el
+     relleno evita que toquen el borde de la tarjeta contenedora. */
+  .compras-caja--tarjetas {
+    padding: 1rem;
+  }
+  .compras-caja--tarjetas .compras-caja__pie {
+    margin: 1rem -1rem -1rem;
+  }
+}
 /* ==========================================================================
    _alertas.scss — Alertas visuales (toasts).
    Reemplazan a alert(), confirm() y prompt(): todo el feedback de la app se
@@ -5142,15 +6322,43 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 }
 .grafica__lienzo {
   width: 100%;
-  height: 24rem;
+  height: 21rem;
 }
 @media (max-width: 640px) {
   .grafica__lienzo {
-    height: 19rem;
+    height: 16rem;
   }
 }
 .grafica__lienzo--h {
   height: auto;
+}
+.grafica__vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 11rem;
+  margin: 0.35rem 0;
+  padding: 1rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px dashed var(--color-borde-fuerte);
+  border-radius: 0.375rem;
+  text-align: center;
+  color: var(--color-texto-secundario);
+}
+.grafica__vacio .material-symbols-outlined {
+  font-size: 1.8rem;
+  color: var(--color-primario-texto);
+  opacity: 0.8;
+}
+.grafica__vacio strong {
+  font-size: 0.82rem;
+  color: var(--color-texto);
+}
+.grafica__vacio span {
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 .grafica__aviso {
   margin: 0;
@@ -5163,23 +6371,48 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 .grafica-tarjeta {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
   min-width: 0;
-  padding: 1rem 1rem 0.5rem;
+  padding: 0.9rem 0.95rem 0.7rem;
   background-color: var(--color-superficie);
   border: 1px solid var(--color-borde);
   border-radius: 0.5rem;
   box-shadow: 0 1px 2px rgba(31, 42, 55, 0.04), 0 6px 18px rgba(31, 42, 55, 0.05);
 }
+.grafica-tarjeta__cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.grafica-tarjeta__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.45rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.grafica-tarjeta__icono .material-symbols-outlined {
+  font-size: 1rem;
+}
+.grafica-tarjeta__texto {
+  min-width: 0;
+}
 .grafica-tarjeta__titulo {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
+  line-height: 1.25;
   color: var(--color-texto);
 }
 .grafica-tarjeta__subtitulo {
-  margin: 0.15rem 0 0;
-  font-size: 0.875rem;
+  margin: 0.1rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
   color: var(--color-texto-secundario);
 }
 
@@ -5268,8 +6501,29 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   border-radius: 0.5rem;
   box-shadow: 0 1px 2px rgba(31, 42, 55, 0.04);
 }
+.indicador__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  margin-bottom: 0.15rem;
+}
+.indicador__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.45rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.indicador__icono .material-symbols-outlined {
+  font-size: 1rem;
+}
 .indicador__etiqueta {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-texto-secundario);
 }
@@ -5304,18 +6558,62 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
 /* Navegación entre secciones de estadísticas */
 .estadisticas-nav {
   position: sticky;
-  top: 0;
-  z-index: 4;
+  top: 4.5rem;
+  z-index: 5;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.15rem;
   margin: 0 0 1.5rem;
-  padding: 0.5rem 0;
+  padding: 0.2rem;
   overflow-x: auto;
-  background: var(--color-fondo);
-  scrollbar-width: thin;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  scrollbar-width: none;
+}
+.estadisticas-nav::-webkit-scrollbar {
+  display: none;
 }
 .estadisticas-nav .chip {
   flex: none;
+  height: 1.8rem;
+  padding: 0 0.65rem;
+  border-color: transparent;
+  background-color: transparent;
+  font-size: 0.78rem;
+}
+.estadisticas-nav .chip:hover {
+  background-color: var(--color-superficie-baja);
+}
+.estadisticas-nav .chip--activo {
+  background-color: var(--color-primario-claro);
+  border-color: transparent;
+}
+
+/* Filtros compactos de estadísticas */
+.estadisticas-filtros {
+  padding: 1rem 1.1rem;
+}
+.estadisticas-filtros .formulario__rejilla {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.estadisticas-filtros .formulario__acciones {
+  margin-top: 0.25rem;
+  padding-top: 0.6rem;
+}
+@media (max-width: 1199px) {
+  .estadisticas-filtros .formulario__rejilla {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .estadisticas-filtros {
+    padding: 0.85rem;
+  }
+  .estadisticas-filtros .formulario__rejilla {
+    grid-template-columns: 1fr;
+  }
 }
 
 .estadisticas-seccion {
@@ -5698,6 +6996,165 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   background: var(--color-superficie);
 }
 
+/* --- Filtros compactos del análisis --------------------------------------- */
+.analisis-filtros {
+  padding: 1rem 1.1rem;
+}
+.analisis-filtros__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.analisis-filtros__fila {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.analisis-filtros__fila--opciones {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) auto;
+  align-items: end;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-borde);
+}
+.analisis-filtros__boton {
+  justify-self: end;
+  align-self: end;
+}
+.analisis-filtros__nota {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--color-texto-secundario);
+}
+@media (max-width: 1199px) {
+  .analisis-filtros__fila {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .analisis-filtros__fila--opciones {
+    grid-template-columns: 1fr;
+  }
+  .analisis-filtros__boton {
+    justify-self: start;
+  }
+}
+@media (max-width: 767px) {
+  .analisis-filtros {
+    padding: 0.85rem;
+  }
+  .analisis-filtros__fila {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Medidor vectorial ---------------------------------------------------- */
+.analisis-gauge {
+  display: block;
+  width: 100%;
+  max-width: 34rem;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+.analisis-gauge__pista {
+  fill: none;
+  stroke: var(--color-borde);
+  stroke-width: 28;
+  opacity: 0.55;
+}
+.analisis-gauge__seg {
+  fill: none;
+  stroke-width: 28;
+  stroke-linecap: butt;
+}
+.analisis-gauge__seg--riesgo {
+  stroke: var(--color-error);
+}
+.analisis-gauge__seg--ajustado {
+  stroke: var(--color-advertencia);
+}
+.analisis-gauge__seg--saludable {
+  stroke: #eab308;
+}
+.analisis-gauge__seg--muy {
+  stroke: var(--color-exito);
+}
+.analisis-gauge__aguja path {
+  fill: var(--color-texto);
+  filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.18));
+}
+.analisis-gauge__aguja circle {
+  fill: var(--color-texto);
+}
+.analisis-gauge__eje {
+  fill: var(--color-superficie);
+}
+.analisis-gauge text {
+  fill: var(--color-texto-secundario);
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.analisis-medidor__mini {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.75rem;
+}
+.analisis-medidor__mini div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.45rem 0.6rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.25rem;
+}
+.analisis-medidor__mini span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-secundario);
+}
+.analisis-medidor__mini strong {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  color: var(--color-texto);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tablas de análisis en el teléfono: se deslizan y conservan filas compactas. */
+@media (max-width: 767px) {
+  .analisis-tabla {
+    font-size: 0.75rem;
+  }
+  .analisis-tabla th,
+  .analisis-tabla td {
+    padding: 0.4rem 0.5rem;
+  }
+  .analisis-tabla .analisis-producto {
+    min-width: 11rem;
+  }
+  .analisis-tabla .analisis-producto img,
+  .analisis-tabla .analisis-producto .analisis-producto__vacio {
+    width: 2rem;
+    height: 2rem;
+  }
+  .analisis-tabla .analisis-producto strong {
+    font-size: 0.75rem;
+  }
+  .analisis-tabla .analisis-producto .texto-xs {
+    font-size: 0.65rem;
+  }
+  .analisis-tabla .analisis-stock {
+    font-size: 0.8rem;
+  }
+  .analisis-tabla .analisis-stock span {
+    font-size: 0.65rem;
+  }
+}
 /* ==========================================================================
    _apariencia.scss — Selector de tema (Ajustes → Apariencia).
    ========================================================================== */
@@ -6647,6 +8104,1040 @@ input:focus-visible ~ .interruptor__pista {
     padding-top: 0;
   }
 }
+/* ==========================================================================
+   _contabilidad.scss — Resumen mensual y pendientes de facturar.
+   Tarjetas de indicadores, rejilla 8/4 y listas de tareas del módulo contable.
+   ========================================================================== */
+/* --- Indicadores del periodo --------------------------------------------- */
+.fin-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.fin-kpi {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  /* Cuando la tarjeta abre su lista, conserva el aspecto de tarjeta. */
+}
+.fin-kpi[href] {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.fin-kpi[href]:hover, .fin-kpi[href]:focus-visible {
+  border-color: var(--color-primario-borde);
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.fin-kpi__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  margin-bottom: 0.15rem;
+}
+.fin-kpi__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.55rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.fin-kpi__icono .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+.fin-kpi__etiqueta {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  color: var(--color-texto-secundario);
+}
+.fin-kpi__valor {
+  overflow: hidden;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: clamp(1.5rem, 2.1vw, 1.9rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-texto);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fin-kpi__pie {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--color-texto-secundario);
+}
+.fin-kpi__comparativa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+/* --- Acciones: registro inteligente y exportaciones ---------------------- */
+.fin-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+.fin-acciones__grupo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.fin-acciones__etiqueta {
+  margin-right: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-secundario);
+}
+
+/* --- Rejilla principal 8/4 ------------------------------------------------ */
+.fin-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (min-width: 1400px) {
+  .fin-grid {
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+  }
+}
+
+.fin-columna,
+.fin-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* --- Tarjetas del resumen ------------------------------------------------ */
+.fin-card {
+  padding: 1.1rem;
+}
+.fin-card__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.fin-card__texto {
+  min-width: 0;
+}
+.fin-card__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-texto);
+}
+.fin-card__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.45rem;
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+.fin-card__icono .material-symbols-outlined {
+  font-size: 1rem;
+}
+.fin-card__icono--alerta {
+  background-color: var(--color-advertencia-claro);
+  color: var(--color-advertencia-texto);
+}
+.fin-card__sub {
+  margin-top: 0.15rem;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--color-texto-secundario);
+}
+.fin-card__sub strong {
+  color: var(--color-texto);
+}
+.fin-card {
+  /* La tabla ocupa el ancho completo de la tarjeta. */
+}
+.fin-card--tabla {
+  padding: 0;
+}
+.fin-card--tabla .fin-card__cabecera {
+  margin-bottom: 0;
+  padding: 1rem 1.1rem 0.6rem;
+}
+.fin-card--tabla .tabla-contenedor {
+  border-top: 1px solid var(--color-borde);
+}
+.fin-card--tabla .fin-vacio {
+  padding: 1.25rem 1rem;
+}
+.fin-card .fin-card__cabecera > .btn--texto {
+  flex: 0 0 auto;
+}
+
+/* Tabla de gastos: densa, con fechas y cifras alineadas. */
+.tabla--gastos thead th {
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+.tabla--gastos thead th.tabla--numerica,
+.tabla--gastos thead th.tabla--centro {
+  text-align: inherit;
+}
+.tabla--gastos thead th.tabla--numerica {
+  text-align: right;
+}
+.tabla--gastos thead th.tabla--centro {
+  text-align: center;
+}
+.tabla--gastos tbody td {
+  padding: 0.55rem 0.65rem;
+  font-size: 0.8rem;
+  vertical-align: middle;
+}
+.tabla--gastos tbody td:first-child {
+  white-space: nowrap;
+}
+.tabla--gastos tfoot td {
+  padding: 0.55rem 0.65rem;
+  font-size: 0.78rem;
+}
+.tabla--gastos .texto-xs {
+  font-size: 0.68rem;
+}
+
+/* --- Lista de tareas ------------------------------------------------------ */
+.fin-tareas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fin-tarea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.6rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+}
+.fin-tarea__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.4rem;
+  background-color: var(--color-superficie);
+  color: var(--color-primario-texto);
+}
+.fin-tarea__icono .material-symbols-outlined {
+  font-size: 0.95rem;
+}
+.fin-tarea__texto {
+  flex: 1 1 10rem;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--color-texto);
+}
+.fin-tarea .btn {
+  margin-left: auto;
+}
+
+.fin-tareas__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--color-borde);
+}
+
+/* --- Ventas sin factura y ZIP -------------------------------------------- */
+.fin-ventas-sin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.35rem 0 0.7rem;
+}
+.fin-ventas-sin strong {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  color: var(--color-texto);
+}
+.fin-ventas-sin span {
+  font-size: 0.72rem;
+  color: var(--color-texto-secundario);
+}
+
+.fin-zip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.fin-zip .btn {
+  justify-content: flex-start;
+}
+
+/* --- Estados vacíos ------------------------------------------------------- */
+.fin-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.9rem;
+  text-align: center;
+  color: var(--color-texto-secundario);
+}
+.fin-vacio .material-symbols-outlined {
+  font-size: 1.45rem;
+  color: var(--color-primario-texto);
+}
+.fin-vacio p {
+  margin: 0;
+  font-size: 0.78rem;
+}
+.fin-vacio .btn {
+  margin-top: 0.25rem;
+}
+.fin-vacio--ok .material-symbols-outlined {
+  color: var(--color-exito-texto);
+}
+
+/* --- Responsivo ----------------------------------------------------------- */
+@media (max-width: 767px) {
+  /* La tarjeta con tabla deja respirar las tarjetas-fila. */
+  .tarjeta.fin-card--tabla .tabla-contenedor {
+    padding: 0.75rem;
+  }
+  /* Gastos: cada fila se convierte en una tarjeta compacta de dos columnas. */
+  .tarjeta.fin-card .tabla--gastos tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.15rem 0.6rem;
+    padding: 0.7rem 0.8rem;
+  }
+  .tarjeta.fin-card .tabla--gastos tbody td {
+    display: block;
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    text-align: left;
+    border: 0;
+  }
+  .tarjeta.fin-card .tabla--gastos tbody td::before {
+    display: none;
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-fecha {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 0.7rem;
+    color: var(--color-texto-secundario);
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-total {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+    font-size: 0.95rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-beneficiario {
+    grid-column: 1/-1;
+    grid-row: 2;
+    margin-top: 0.15rem;
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-beneficiario strong {
+    display: block;
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-beneficiario .texto-xs {
+    display: block;
+    margin-top: 0.1rem;
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-categoria {
+    grid-column: 1;
+    grid-row: 3;
+    font-size: 0.72rem;
+    color: var(--color-texto-secundario);
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-iva {
+    grid-column: 2;
+    grid-row: 3;
+    text-align: right;
+    font-size: 0.7rem;
+    color: var(--color-texto-secundario);
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-pago {
+    grid-column: 1/-1;
+    grid-row: 4;
+    margin-top: 0.25rem;
+  }
+  .tarjeta.fin-card .tabla--gastos .gasto-acciones {
+    grid-column: 1/-1;
+    grid-row: 5;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+  }
+  .tarjeta.fin-card .tabla--gastos tfoot tr {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0;
+    padding: 0.55rem 0.8rem;
+  }
+  .tarjeta.fin-card .tabla--gastos tfoot td {
+    display: block;
+    padding: 0;
+    min-height: 0;
+    text-align: left;
+  }
+  .tarjeta.fin-card .tabla--gastos tfoot td::before {
+    display: none;
+  }
+  .tarjeta.fin-card .tabla--gastos tfoot td:empty {
+    display: none;
+  }
+  .tarjeta.fin-card .tabla--gastos tfoot td:last-child {
+    flex: 0 0 auto;
+    text-align: right;
+  }
+  .sf-filtro {
+    min-height: 2.75rem;
+  }
+  .fin-kpis {
+    grid-template-columns: 1fr;
+  }
+  .fin-kpi {
+    padding: 0.85rem;
+  }
+  .fin-kpi__valor {
+    font-size: 1.45rem;
+  }
+  .fin-acciones {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .fin-acciones__grupo {
+    justify-content: flex-start;
+  }
+  .fin-acciones__grupo--exportar {
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-borde);
+  }
+  .fin-card {
+    padding: 0.9rem;
+  }
+  .fin-card--tabla {
+    padding: 0;
+  }
+  .fin-card--tabla .fin-card__cabecera {
+    padding: 0.85rem 0.85rem 0.5rem;
+  }
+}
+/* --- Pendientes de facturar ----------------------------------------------- */
+.fin-kpis--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1199px) {
+  .fin-kpis--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .fin-kpis--4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fin-kpi--destacado {
+  border-color: var(--color-primario-borde);
+  background-color: var(--color-primario-claro);
+}
+.fin-kpi--destacado .fin-kpi__icono {
+  background-color: var(--color-superficie);
+}
+
+.sf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.sf-filtros {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+}
+
+.sf-filtro {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.25rem;
+  color: var(--color-texto-secundario);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.sf-filtro:hover {
+  background-color: var(--color-superficie-baja);
+  color: var(--color-texto);
+  text-decoration: none;
+}
+.sf-filtro:focus-visible {
+  outline: 1px solid var(--color-primario);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--color-foco);
+}
+.sf-filtro--activo {
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+
+.tabla--sf {
+  min-width: 56rem;
+}
+.tabla--sf thead th {
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+.tabla--sf thead th.tabla--numerica {
+  text-align: right;
+}
+.tabla--sf thead th.tabla--centro {
+  text-align: center;
+}
+.tabla--sf tbody td {
+  padding: 0.55rem 0.65rem;
+  font-size: 0.8rem;
+}
+.tabla--sf tfoot td {
+  padding: 0.55rem 0.65rem;
+  font-size: 0.78rem;
+}
+.tabla--sf .badge {
+  white-space: nowrap;
+}
+.tabla--sf {
+  /* La acción «Facturar» queda fija al desplazar la tabla en tablet/móvil. */
+}
+@media (max-width: 1199px) {
+  .tabla--sf th:last-child,
+  .tabla--sf td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background-color: var(--color-superficie);
+    box-shadow: -0.5rem 0 0.75rem -0.5rem rgba(15, 23, 42, 0.18);
+  }
+  .tabla--sf thead th:last-child {
+    z-index: 2;
+    background-color: var(--color-superficie-baja);
+  }
+  .tabla--sf tbody tr:hover td:last-child {
+    background-color: var(--color-superficie-baja);
+  }
+}
+
+.sf-fecha {
+  color: var(--color-texto-secundario);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.sf-folio {
+  color: var(--color-primario-texto);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sf-folio:hover {
+  text-decoration: underline;
+}
+
+.sf-total {
+  font-weight: 700;
+}
+
+.sf-acciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+/* ==========================================================================
+   _fiscal.scss — Módulo fiscal: periodo, subnavegación, calendario de meses,
+   resumen del mes y tabla anual.
+   ========================================================================== */
+/* --- Periodo y subnavegación --------------------------------------------- */
+.fiscal-periodo {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.55rem 0.75rem;
+}
+.fiscal-periodo__icono {
+  flex: 0 0 auto;
+  color: var(--color-primario-texto);
+  font-size: 1.15rem;
+}
+.fiscal-periodo .control--compacto {
+  width: auto;
+  min-width: 7rem;
+}
+@media (max-width: 767px) {
+  .fiscal-periodo .control--compacto {
+    flex: 1 1 8rem;
+    min-width: 0;
+  }
+}
+
+.fiscal-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.2rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.375rem;
+}
+.fiscal-subnav__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.25rem;
+  color: var(--color-texto-secundario);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.fiscal-subnav__item .material-symbols-outlined {
+  font-size: 1rem;
+}
+.fiscal-subnav__item:hover {
+  background-color: var(--color-superficie-baja);
+  color: var(--color-texto);
+  text-decoration: none;
+}
+.fiscal-subnav__item:focus-visible {
+  outline: 1px solid var(--color-primario);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--color-foco);
+}
+.fiscal-subnav__item--activo {
+  background-color: var(--color-primario-claro);
+  color: var(--color-primario-texto);
+}
+@media (max-width: 767px) {
+  .fiscal-subnav {
+    width: 100%;
+  }
+  .fiscal-subnav__item {
+    min-height: 2.75rem;
+  }
+}
+
+/* --- Calendario de meses capturados --------------------------------------- */
+.fiscal-meses {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+}
+.fiscal-meses__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.55rem;
+}
+.fiscal-meses__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-texto);
+}
+.fiscal-meses__titulo .material-symbols-outlined {
+  font-size: 1.1rem;
+  color: var(--color-primario-texto);
+}
+.fiscal-meses__leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  font-size: 0.68rem;
+  color: var(--color-texto-secundario);
+}
+.fiscal-meses__leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.fiscal-meses__rejilla {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+.fiscal-meses__nota {
+  margin-top: 0.5rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--color-texto-secundario);
+}
+@media (max-width: 1199px) {
+  .fiscal-meses__rejilla {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .fiscal-meses {
+    padding: 0.75rem;
+  }
+  .fiscal-meses__rejilla {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.fiscal-punto {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+}
+.fiscal-punto--completo {
+  background-color: var(--color-exito);
+}
+.fiscal-punto--parcial {
+  background-color: var(--color-advertencia);
+}
+.fiscal-punto--vacio {
+  background-color: var(--color-borde-fuerte);
+}
+
+.fiscal-mes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0.2rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.25rem;
+  color: var(--color-texto);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.fiscal-mes__punto {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+}
+.fiscal-mes--completo {
+  background-color: var(--color-exito-claro);
+  border-color: var(--color-exito-borde);
+}
+.fiscal-mes--completo .fiscal-mes__punto {
+  background-color: var(--color-exito);
+}
+.fiscal-mes--parcial {
+  background-color: var(--color-advertencia-claro);
+  border-color: var(--color-advertencia-borde);
+}
+.fiscal-mes--parcial .fiscal-mes__punto {
+  background-color: var(--color-advertencia);
+}
+.fiscal-mes--vacio {
+  background-color: var(--color-superficie-baja);
+}
+.fiscal-mes--vacio .fiscal-mes__punto {
+  background-color: var(--color-borde-fuerte);
+}
+.fiscal-mes:hover {
+  background-color: var(--color-superficie-baja);
+  border-color: var(--color-borde-fuerte);
+  text-decoration: none;
+}
+.fiscal-mes:focus-visible {
+  outline: 1px solid var(--color-primario);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px var(--color-foco);
+}
+.fiscal-mes--actual {
+  background-color: var(--color-primario-claro);
+  border-color: var(--color-primario);
+  color: var(--color-primario-texto);
+  box-shadow: 0 0 0 1px var(--color-primario-borde);
+}
+
+/* --- Resumen del mes ------------------------------------------------------ */
+.fiscal-resumen {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 1.25rem;
+  align-items: start;
+  margin-bottom: 1.25rem;
+  padding: 1.25rem 1.35rem;
+}
+.fiscal-resumen__principal {
+  min-width: 0;
+}
+.fiscal-resumen__etiqueta {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-secundario);
+}
+.fiscal-resumen__valor {
+  display: block;
+  margin: 0.15rem 0 0.1rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: clamp(2rem, 3vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--color-texto);
+  font-variant-numeric: tabular-nums;
+}
+.fiscal-resumen__fecha {
+  font-size: 0.74rem;
+  color: var(--color-texto-secundario);
+}
+.fiscal-resumen__desglose {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+.fiscal-resumen__extra {
+  margin-top: 0.65rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--color-texto-secundario);
+}
+.fiscal-resumen__extra strong {
+  color: var(--color-texto);
+}
+.fiscal-resumen__extra a {
+  color: var(--color-primario-texto);
+}
+.fiscal-resumen__nota {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--color-texto-secundario);
+}
+.fiscal-resumen__acciones {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+  padding-left: 1.1rem;
+  border-left: 1px solid var(--color-borde);
+}
+.fiscal-resumen__acciones .btn {
+  justify-content: flex-start;
+}
+@media (max-width: 1199px) {
+  .fiscal-resumen {
+    grid-template-columns: 1fr;
+  }
+  .fiscal-resumen__acciones {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 0.75rem;
+    padding-left: 0;
+    border-top: 1px solid var(--color-borde);
+    border-left: 0;
+  }
+}
+@media (max-width: 767px) {
+  .fiscal-resumen__desglose, .fiscal-resumen__acciones {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fiscal-desglose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.65rem 0.75rem;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.25rem;
+}
+.fiscal-desglose__etiqueta {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-secundario);
+}
+.fiscal-desglose__valor {
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-texto);
+  font-variant-numeric: tabular-nums;
+}
+.fiscal-desglose__pie {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--color-texto-secundario);
+}
+
+/* --- Tabla anual ---------------------------------------------------------- */
+.tabla--fiscal {
+  min-width: 62rem;
+  font-size: 0.72rem;
+}
+.tabla--fiscal thead th {
+  padding: 0.45rem 0.4rem;
+  text-align: center;
+  font-size: 0.62rem;
+}
+.tabla--fiscal thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 11rem;
+  padding-left: 0.75rem;
+  background-color: var(--color-superficie-baja);
+  text-align: left;
+}
+.tabla--fiscal thead th a {
+  color: var(--color-texto-secundario);
+  text-decoration: none;
+}
+.tabla--fiscal thead th a:hover {
+  color: var(--color-primario-texto);
+  text-decoration: underline;
+}
+.tabla--fiscal tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 11rem;
+  padding: 0.45rem 0.4rem 0.45rem 0.75rem;
+  background-color: var(--color-superficie);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.tabla--fiscal tbody td {
+  padding: 0.45rem 0.4rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.tabla--fiscal tbody tr:hover th {
+  background-color: var(--color-superficie-baja);
+}
+.tabla--fiscal .fiscal-mes-actual {
+  background-color: var(--color-primario-claro);
+  box-shadow: inset 0 0 0 1px var(--color-primario-borde);
+}
+
+/* El detalle de reglas se abre desde el aviso y queda bajo la barra fija. */
+#detalle-fiscal {
+  scroll-margin-top: 5rem;
+}
+
 /* ==========================================================================
    _ayudas.scss — Burbuja de ayuda (tooltip) que aparece a los 200 ms.
    ========================================================================== */

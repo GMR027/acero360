@@ -1,0 +1,703 @@
+/* ==========================================================================
+   _contabilidad.scss — Resumen mensual y pendientes de facturar.
+   Tarjetas de indicadores, rejilla 8/4 y listas de tareas del módulo contable.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Indicadores del periodo --------------------------------------------- */
+.fin-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.fin-kpi {
+  @include superficie-card;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 1rem 1.1rem;
+
+  /* Cuando la tarjeta abre su lista, conserva el aspecto de tarjeta. */
+  &[href] {
+    color: inherit;
+    text-decoration: none;
+    transition: border-color $transicion-rapida, box-shadow $transicion-rapida, transform $transicion-rapida;
+
+    &:hover,
+    &:focus-visible {
+      border-color: $color-primario-borde;
+      box-shadow: $sombra-2;
+      transform: translateY(-1px);
+      text-decoration: none;
+    }
+  }
+
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    margin-bottom: 0.15rem;
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 0.55rem;
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.1rem;
+    }
+  }
+
+  &__etiqueta {
+    @include texto-varias-lineas(2);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  &__valor {
+    overflow: hidden;
+    font-family: $fuente-titulos;
+    font-size: clamp(1.5rem, 2.1vw, 1.9rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__pie {
+    @include texto-varias-lineas(3);
+    font-size: 0.72rem;
+    line-height: 1.3;
+    color: $color-texto-secundario;
+  }
+
+  &__comparativa {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.35rem;
+    font-size: 0.7rem;
+    line-height: 1.3;
+  }
+}
+
+/* --- Acciones: registro inteligente y exportaciones ---------------------- */
+.fin-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+
+  &__grupo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  &__etiqueta {
+    margin-right: 0.15rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+}
+
+/* --- Rejilla principal 8/4 ------------------------------------------------ */
+.fin-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+
+  @include desde-desktopXL {
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+  }
+}
+
+.fin-columna,
+.fin-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* --- Tarjetas del resumen ------------------------------------------------ */
+.fin-card {
+  padding: 1.1rem;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.65rem;
+  }
+
+  &__texto {
+    min-width: 0;
+  }
+
+  &__titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: $fuente-titulos;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: $color-texto;
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 0.45rem;
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+
+    &--alerta {
+      background-color: $color-advertencia-claro;
+      color: $color-advertencia-texto;
+    }
+  }
+
+  &__sub {
+    margin-top: 0.15rem;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: $color-texto-secundario;
+
+    strong {
+      color: $color-texto;
+    }
+  }
+
+  /* La tabla ocupa el ancho completo de la tarjeta. */
+  &--tabla {
+    padding: 0;
+
+    .fin-card__cabecera {
+      margin-bottom: 0;
+      padding: 1rem 1.1rem 0.6rem;
+    }
+
+    .tabla-contenedor {
+      border-top: 1px solid $color-borde;
+    }
+
+    .fin-vacio {
+      padding: 1.25rem 1rem;
+    }
+  }
+
+  .fin-card__cabecera > .btn--texto {
+    flex: 0 0 auto;
+  }
+}
+
+/* Tabla de gastos: densa, con fechas y cifras alineadas. */
+.tabla--gastos {
+  thead th {
+    padding: 0.55rem 0.65rem;
+    text-align: left;
+  }
+
+  thead th.tabla--numerica,
+  thead th.tabla--centro {
+    text-align: inherit;
+  }
+
+  thead th.tabla--numerica {
+    text-align: right;
+  }
+
+  thead th.tabla--centro {
+    text-align: center;
+  }
+
+  tbody td {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.8rem;
+    vertical-align: middle;
+  }
+
+  tbody td:first-child {
+    white-space: nowrap;
+  }
+
+  tfoot td {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .texto-xs {
+    font-size: 0.68rem;
+  }
+}
+
+/* --- Lista de tareas ------------------------------------------------------ */
+.fin-tareas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fin-tarea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.6rem;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 0.4rem;
+    background-color: $color-superficie;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 0.95rem;
+    }
+  }
+
+  &__texto {
+    flex: 1 1 10rem;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: $color-texto;
+  }
+
+  .btn {
+    margin-left: auto;
+  }
+}
+
+.fin-tareas__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid $color-borde;
+}
+
+/* --- Ventas sin factura y ZIP -------------------------------------------- */
+.fin-ventas-sin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.35rem 0 0.7rem;
+
+  strong {
+    font-family: $fuente-titulos;
+    font-size: 1.55rem;
+    line-height: 1.15;
+    color: $color-texto;
+  }
+
+  span {
+    font-size: 0.72rem;
+    color: $color-texto-secundario;
+  }
+}
+
+.fin-zip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  .btn {
+    justify-content: flex-start;
+  }
+}
+
+/* --- Estados vacíos ------------------------------------------------------- */
+.fin-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.9rem;
+  text-align: center;
+  color: $color-texto-secundario;
+
+  .material-symbols-outlined {
+    font-size: 1.45rem;
+    color: $color-primario-texto;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.78rem;
+  }
+
+  .btn {
+    margin-top: 0.25rem;
+  }
+
+  &--ok .material-symbols-outlined {
+    color: $color-exito-texto;
+  }
+}
+
+/* --- Responsivo ----------------------------------------------------------- */
+@include hasta-movil {
+  /* La tarjeta con tabla deja respirar las tarjetas-fila. */
+  .tarjeta.fin-card--tabla .tabla-contenedor {
+    padding: 0.75rem;
+  }
+
+  /* Gastos: cada fila se convierte en una tarjeta compacta de dos columnas. */
+  .tarjeta.fin-card .tabla--gastos {
+    tbody tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.15rem 0.6rem;
+      padding: 0.7rem 0.8rem;
+    }
+
+    tbody td {
+      display: block;
+      width: auto;
+      min-height: 0;
+      padding: 0;
+      text-align: left;
+      border: 0;
+    }
+
+    tbody td::before {
+      display: none;
+    }
+
+    .gasto-fecha {
+      grid-column: 1;
+      grid-row: 1;
+      font-size: 0.7rem;
+      color: $color-texto-secundario;
+    }
+
+    .gasto-total {
+      grid-column: 2;
+      grid-row: 1;
+      text-align: right;
+      font-size: 0.95rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .gasto-beneficiario {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      margin-top: 0.15rem;
+
+      strong {
+        display: block;
+      }
+
+      .texto-xs {
+        display: block;
+        margin-top: 0.1rem;
+      }
+    }
+
+    .gasto-categoria {
+      grid-column: 1;
+      grid-row: 3;
+      font-size: 0.72rem;
+      color: $color-texto-secundario;
+    }
+
+    .gasto-iva {
+      grid-column: 2;
+      grid-row: 3;
+      text-align: right;
+      font-size: 0.7rem;
+      color: $color-texto-secundario;
+    }
+
+    .gasto-pago {
+      grid-column: 1 / -1;
+      grid-row: 4;
+      margin-top: 0.25rem;
+    }
+
+    .gasto-acciones {
+      grid-column: 1 / -1;
+      grid-row: 5;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      margin-top: 0.35rem;
+    }
+
+    tfoot tr {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0;
+      padding: 0.55rem 0.8rem;
+    }
+
+    tfoot td {
+      display: block;
+      padding: 0;
+      min-height: 0;
+      text-align: left;
+
+      &::before {
+        display: none;
+      }
+
+      &:empty {
+        display: none;
+      }
+    }
+
+    tfoot td:last-child {
+      flex: 0 0 auto;
+      text-align: right;
+    }
+  }
+
+  .sf-filtro {
+    min-height: 2.75rem;
+  }
+
+  .fin-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .fin-kpi {
+    padding: 0.85rem;
+
+    &__valor {
+      font-size: 1.45rem;
+    }
+  }
+
+  .fin-acciones {
+    flex-direction: column;
+    align-items: stretch;
+
+    &__grupo {
+      justify-content: flex-start;
+    }
+
+    &__grupo--exportar {
+      padding-top: 0.5rem;
+      border-top: 1px solid $color-borde;
+    }
+  }
+
+  .fin-card {
+    padding: 0.9rem;
+
+    &--tabla {
+      padding: 0;
+
+      .fin-card__cabecera {
+        padding: 0.85rem 0.85rem 0.5rem;
+      }
+    }
+  }
+}
+
+/* --- Pendientes de facturar ----------------------------------------------- */
+.fin-kpis--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+
+  @include hasta-tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include hasta-movil {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fin-kpi--destacado {
+  border-color: $color-primario-borde;
+  background-color: $color-primario-claro;
+
+  .fin-kpi__icono {
+    background-color: $color-superficie;
+  }
+}
+
+.sf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.sf-filtros {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+}
+
+.sf-filtro {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  border-radius: $radio;
+  color: $color-texto-secundario;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color $transicion-rapida, color $transicion-rapida;
+
+  &:hover {
+    background-color: $color-superficie-baja;
+    color: $color-texto;
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  &--activo {
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+  }
+}
+
+.tabla--sf {
+  min-width: 56rem;
+
+  thead th {
+    padding: 0.55rem 0.65rem;
+    text-align: left;
+  }
+
+  thead th.tabla--numerica {
+    text-align: right;
+  }
+
+  thead th.tabla--centro {
+    text-align: center;
+  }
+
+  tbody td {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.8rem;
+  }
+
+  tfoot td {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .badge {
+    white-space: nowrap;
+  }
+
+  /* La acción «Facturar» queda fija al desplazar la tabla en tablet/móvil. */
+  @include hasta-tablet {
+    th:last-child,
+    td:last-child {
+      position: sticky;
+      right: 0;
+      z-index: 1;
+      background-color: $color-superficie;
+      box-shadow: -0.5rem 0 0.75rem -0.5rem rgba(15, 23, 42, 0.18);
+    }
+
+    thead th:last-child {
+      z-index: 2;
+      background-color: $color-superficie-baja;
+    }
+
+    tbody tr:hover td:last-child {
+      background-color: $color-superficie-baja;
+    }
+  }
+}
+
+.sf-fecha {
+  color: $color-texto-secundario;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.sf-folio {
+  color: $color-primario-texto;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.sf-total {
+  font-weight: 700;
+}
+
+.sf-acciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}

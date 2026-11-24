@@ -5,7 +5,7 @@
  */
 $secciones = [
     'resumen'     => ['/admin/compras', 'Resumen', 'dashboard'],
-    'pedidos'     => ['/admin/compras/pedidos', 'Compras y pedidos', 'shopping_cart'],
+    'pedidos'     => ['/admin/compras/pedidos', 'Pedidos', 'shopping_cart', 'Compras y pedidos'],
     'recepciones' => ['/admin/compras/recepciones', 'Recepciones', 'inventory_2'],
     'proveedores' => ['/admin/proveedores', 'Proveedores', 'local_shipping'],
     'catalogo'    => ['/admin/compras/catalogo', 'Catálogo', 'category_search'],
@@ -15,10 +15,5 @@ $secciones = [
     'pagos'       => ['/admin/compras/pagos', 'Pagos', 'payments'],
     'categorias'  => ['/admin/proveedores/categorias', 'Categorías', 'category'],
 ];
-?>
-<nav class="chip-grupo entregas-tabs ajustes-tabs" aria-label="Compras y proveedores">
-    <?php foreach ($secciones as $clave => [$ruta, $texto, $icono]) : $activo = $tab === $clave; ?>
-        <a class="chip<?= $activo ? ' chip--activo' : '' ?>" href="<?= $ruta ?>" <?= $activo ? 'aria-current="page"' : '' ?>>
-            <span class="material-symbols-outlined" aria-hidden="true"><?= $icono ?></span><span><?= $texto ?></span></a>
-    <?php endforeach; ?>
-</nav>
+$etiqueta = 'Compras y proveedores';
+require __DIR__ . '/navModulo.php';

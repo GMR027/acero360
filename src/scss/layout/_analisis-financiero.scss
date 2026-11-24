@@ -3,6 +3,7 @@
    ========================================================================== */
 
 @use '../base/variables' as *;
+@use '../base/mixins' as *;
 
 .analisis-checks {
   display: flex;
@@ -341,5 +342,185 @@
   tfoot td {
     border-top: 2px solid $color-borde;
     background: $color-superficie;
+  }
+}
+
+
+/* --- Filtros compactos del análisis --------------------------------------- */
+.analisis-filtros {
+  padding: 1rem 1.1rem;
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  &__fila {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  &__fila--opciones {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) auto;
+    align-items: end;
+    padding-top: 0.75rem;
+    border-top: 1px solid $color-borde;
+  }
+
+  &__boton {
+    justify-self: end;
+    align-self: end;
+  }
+
+  &__nota {
+    margin: 0;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: $color-texto-secundario;
+  }
+
+  @include hasta-tablet {
+    &__fila {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    &__fila--opciones {
+      grid-template-columns: 1fr;
+    }
+
+    &__boton {
+      justify-self: start;
+    }
+  }
+
+  @include hasta-movil {
+    padding: 0.85rem;
+
+    &__fila {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+/* --- Medidor vectorial ---------------------------------------------------- */
+.analisis-gauge {
+  display: block;
+  width: 100%;
+  max-width: 34rem;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+
+  &__pista {
+    fill: none;
+    stroke: $color-borde;
+    stroke-width: 28;
+    opacity: 0.55;
+  }
+
+  &__seg {
+    fill: none;
+    stroke-width: 28;
+    stroke-linecap: butt;
+  }
+
+  &__seg--riesgo { stroke: $color-error; }
+  &__seg--ajustado { stroke: $color-advertencia; }
+  &__seg--saludable { stroke: #eab308; }
+  &__seg--muy { stroke: $color-exito; }
+
+  &__aguja {
+    path {
+      fill: $color-texto;
+      filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.18));
+    }
+
+    circle {
+      fill: $color-texto;
+    }
+  }
+
+  &__eje {
+    fill: $color-superficie;
+  }
+
+  text {
+    fill: $color-texto-secundario;
+    font-family: $fuente-cuerpo;
+    font-size: 11px;
+    font-weight: 600;
+  }
+}
+
+.analisis-medidor__mini {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.75rem;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    padding: 0.45rem 0.6rem;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio;
+  }
+
+  span {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  strong {
+    font-family: $fuente-titulos;
+    font-size: 1rem;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Tablas de análisis en el teléfono: se deslizan y conservan filas compactas. */
+@include hasta-movil {
+  .analisis-tabla {
+    font-size: 0.75rem;
+
+    th,
+    td {
+      padding: 0.4rem 0.5rem;
+    }
+
+    .analisis-producto {
+      min-width: 11rem;
+
+      img,
+      .analisis-producto__vacio {
+        width: 2rem;
+        height: 2rem;
+      }
+
+      strong {
+        font-size: 0.75rem;
+      }
+
+      .texto-xs {
+        font-size: 0.65rem;
+      }
+    }
+
+    .analisis-stock {
+      font-size: 0.8rem;
+
+      span {
+        font-size: 0.65rem;
+      }
+    }
   }
 }

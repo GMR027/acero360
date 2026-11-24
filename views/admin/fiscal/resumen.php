@@ -79,11 +79,25 @@ $filas = [
     ['impuestos', 'Impuestos por pagar', true],
 ];
 
-template('header', ['titulo' => 'Impuestos', 'subtitulo' => 'Cuánto se paga cada mes · ' . $anio, 'rutaActiva' => '/admin/fiscal']);
+$pdfMes = '/admin/fiscal/exportar?' . $consultaExp . '&tipo=impuestos&formato=pdf';
+$pdfAnio = '/admin/fiscal/exportar?anio=' . $anio . '&mes=0&tipo=impuestos&formato=pdf';
+$declaracionUrl = '/admin/fiscal/registros?' . $consultaExp;
+template('header', [
+    'titulo'     => 'Impuestos',
+    'subtitulo'  => 'Cuánto se paga cada mes · ' . $anio,
+    'rutaActiva' => '/admin/fiscal',
+    'acciones'   => '<a class="btn btn--secundario" href="' . escaparValores($declaracionUrl) . '">'
+        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">gavel</span>'
+        . '<span>' . ($tieneDeclaracion ? 'Ver declaración' : 'Registrar declaración') . '</span></a>'
+        . '<a class="btn btn--primario" href="' . escaparValores($pdfMes) . '">'
+        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>'
+        . '<span>Reporte del mes</span></a>',
+]);
 template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes' => $mes]]);
 ?>
 
-<form class="buscador mb-lg" action="/admin/fiscal" method="get" aria-label="Elegir mes">
+<form class="buscador fiscal-periodo mb-lg" action="/admin/fiscal" method="get" aria-label="Elegir mes">
+    <span class="fiscal-periodo__icono material-symbols-outlined" aria-hidden="true">calendar_month</span>
     <label class="solo-lectores" for="sel-anio">Año</label>
     <select class="control control--compacto" id="sel-anio" name="anio">
         <?php foreach (\App\Contabilidad::aniosConMovimientos() as $a) : ?>
@@ -100,15 +114,17 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
 </form>
 
 <!-- El mes fiscal, con sus otras vistas a un clic. -->
-<nav class="chip-grupo mb-lg" aria-label="Mes fiscal">
-    <span class="chip chip--activo"><span class="material-symbols-outlined" aria-hidden="true">request_quote</span><span>Estimación</span></span>
-    <a class="chip" href="/admin/fiscal/movimientos?<?= escaparValores($consultaExp) ?>">
+<nav class="fiscal-subnav" aria-label="Mes fiscal">
+    <span class="fiscal-subnav__item fiscal-subnav__item--activo" aria-current="page">
+        <span class="material-symbols-outlined" aria-hidden="true">request_quote</span><span>Estimación</span>
+    </span>
+    <a class="fiscal-subnav__item" href="/admin/fiscal/movimientos?<?= escaparValores($consultaExp) ?>">
         <span class="material-symbols-outlined" aria-hidden="true">table_view</span><span>Ventas y gastos</span>
     </a>
-    <a class="chip" href="/admin/fiscal/documentos?<?= escaparValores($consultaExp) ?>">
+    <a class="fiscal-subnav__item" href="/admin/fiscal/documentos?<?= escaparValores($consultaExp) ?>">
         <span class="material-symbols-outlined" aria-hidden="true">fact_check</span><span>Documentos fiscales</span>
     </a>
-    <a class="chip" href="/admin/fiscal/registros?<?= escaparValores($consultaExp) ?>">
+    <a class="fiscal-subnav__item" href="/admin/fiscal/registros?<?= escaparValores($consultaExp) ?>">
         <span class="material-symbols-outlined" aria-hidden="true">gavel</span>
         <span>Declaración: <?= $tieneDeclaracion ? 'registrada' : 'pendiente' ?></span>
     </a>
@@ -146,8 +162,8 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
 <?php elseif ($r['avisos']) : ?>
     <div class="nota nota--advertencia mb-lg" role="status">
         <span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
-        <span><strong>El cálculo avisa:</strong>
-            <?php foreach ($r['avisos'] as $i => $aviso) : ?><?= $i ? ' · ' : '' ?><?= escaparValores($aviso) ?><?php endforeach; ?></span>
+        <span><strong>El cálculo avisa:</strong> hay reglas y exclusiones que conviene revisar en este mes.
+            <a href="#detalle-fiscal">Ver el detalle de las reglas</a>.</span>
     </div>
 <?php endif; ?>
 
@@ -171,46 +187,91 @@ template('tabsFiscal', ['tab' => 'resumen', 'periodo' => ['anio' => $anio, 'mes'
     $gastosMes = array_fill(1, 12, 0);
     foreach ($db->query("SELECT MONTH(fecha) m, COUNT(*) n FROM ingresos WHERE estado = 'vigente' AND contribuyente_id = $contrib AND YEAR(fecha) = $anio GROUP BY MONTH(fecha)") as $f) { $ventasMes[(int) $f['m']] = (int) $f['n']; }
     foreach ($db->query("SELECT MONTH(fecha) m, COUNT(*) n FROM gastos WHERE estado = 'vigente' AND contribuyente_id = $contrib AND YEAR(fecha) = $anio GROUP BY MONTH(fecha)") as $f) { $gastosMes[(int) $f['m']] = (int) $f['n']; } ?>
-    <div class="nota mt-lg" role="status">
-        <span class="material-symbols-outlined nota__icono" aria-hidden="true">calendar_month</span>
-        <span><strong>Meses con datos capturados <?= $anio ?>:</strong>
-            <?php for ($i = 1; $i <= 12; $i++) :
-                $clase = $ventasMes[$i] > 0 && $gastosMes[$i] > 0 ? 'badge--aprobado' : ($ventasMes[$i] > 0 || $gastosMes[$i] > 0 ? 'badge--pendiente' : 'badge--neutro'); ?>
-                <span class="badge <?= $clase ?><?= $i === $mes ? '" style="outline:2px solid var(--color-primario)' : '' ?>"
-                      title="<?= $ventasMes[$i] ?> venta(s), <?= $gastosMes[$i] ?> gasto(s)"><?= mb_substr(nombreMes($i), 0, 3) ?></span><?php endfor; ?>
-            · verde = ventas y gastos; amarillo = sólo uno; gris = sin capturar (la carga por lotes
-            llena los meses anteriores de una vez).</span>
+<section class="fiscal-meses" aria-labelledby="titulo-meses">
+    <div class="fiscal-meses__cabecera">
+        <h2 class="fiscal-meses__titulo" id="titulo-meses">
+            <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+            Meses con datos capturados <?= $anio ?>
+        </h2>
+        <div class="fiscal-meses__leyenda" aria-label="Leyenda">
+            <span><i class="fiscal-punto fiscal-punto--completo" aria-hidden="true"></i> Ventas y gastos</span>
+            <span><i class="fiscal-punto fiscal-punto--parcial" aria-hidden="true"></i> Solo uno</span>
+            <span><i class="fiscal-punto fiscal-punto--vacio" aria-hidden="true"></i> Sin capturar</span>
+        </div>
+    </div>
+    <div class="fiscal-meses__rejilla">
+        <?php for ($i = 1; $i <= 12; $i++) :
+            $estadoMes = $ventasMes[$i] > 0 && $gastosMes[$i] > 0 ? 'completo' : ($ventasMes[$i] > 0 || $gastosMes[$i] > 0 ? 'parcial' : 'vacio');
+            $esActual = $i === $mes; ?>
+            <a class="fiscal-mes fiscal-mes--<?= $estadoMes ?><?= $esActual ? ' fiscal-mes--actual' : '' ?>"
+               href="/admin/fiscal?anio=<?= $anio ?>&mes=<?= $i ?>"<?= $esActual ? ' aria-current="page"' : '' ?>
+               title="<?= $ventasMes[$i] ?> venta(s), <?= $gastosMes[$i] ?> gasto(s)">
+                <span class="fiscal-mes__nombre"><?= escaparValores(mb_substr(nombreMes($i), 0, 3)) ?></span>
+                <span class="fiscal-mes__punto" aria-hidden="true"></span>
+                <span class="solo-lectores"><?= $ventasMes[$i] ?> ventas y <?= $gastosMes[$i] ?> gastos</span>
+            </a>
+        <?php endfor; ?>
+    </div>
+    <p class="fiscal-meses__nota">Verde: ventas y gastos. Ámbar: solo uno. Gris: sin capturar. La carga por lotes llena los meses anteriores de una vez.</p>
+</section>
+
+<section class="fiscal-resumen movil-oculto" aria-label="Impuestos del mes">
+    <div class="fiscal-resumen__principal">
+        <span class="fiscal-resumen__etiqueta"><?= $aPagar >= 0 ? 'Impuestos por pagar de' : 'Saldo a tu favor en' ?> <?= escaparValores(nombreMes($mes)) ?> <?= $anio ?></span>
+        <strong class="fiscal-resumen__valor cifra"><?= $m(abs($aPagar)) ?></strong>
+        <span class="fiscal-resumen__fecha">
+            Se paga a más tardar el día 17 de <?= escaparValores(mb_strtolower(nombreMes($siguiente[1]))) ?> <?= (int) $siguiente[0] ?>.
+        </span>
+
+        <div class="fiscal-resumen__desglose">
+            <article class="fiscal-desglose">
+                <span class="fiscal-desglose__etiqueta">IVA</span>
+                <strong class="fiscal-desglose__valor cifra"><?= $m($actual['iva_por_pagar']) ?></strong>
+                <span class="fiscal-desglose__pie">
+                    Cobrado <?= $m($actual['iva_facturado']) ?> − acreditable <?= $m($actual['iva_acreditado']) ?><?= $desgloseIva ? ' · ' . implode(' ', $desgloseIva) : '' ?>
+                </span>
+            </article>
+            <article class="fiscal-desglose">
+                <span class="fiscal-desglose__etiqueta">ISR provisional</span>
+                <strong class="fiscal-desglose__valor cifra"><?= $m($actual['isr_por_pagar']) ?></strong>
+                <span class="fiscal-desglose__pie">
+                    Tarifa progresiva art. 106 · catálogo v<?= $versionIsr ?> sobre la utilidad acumulada<?= $desgloseIsr ? ' · ' . implode(' ', $desgloseIsr) : '' ?>
+                </span>
+            </article>
+        </div>
+
+        <?php if ($actual['iva_retenciones'] > 0 || $actual['isr_retenciones'] > 0 || $actual['iva_otros_ajustes'] > 0
+            || $actual['iva_saldo_favor'] > 0 || $actual['isr_otros_acreditamientos'] > 0) :
+            $conceptos = [];
+            if ($actual['iva_retenciones'] > 0) { $conceptos[] = 'retención de IVA ' . $m($actual['iva_retenciones']); }
+            if ($actual['isr_retenciones'] > 0) { $conceptos[] = 'ISR retenido ' . $m($actual['isr_retenciones']); }
+            if ($actual['iva_saldo_favor'] > 0) { $conceptos[] = 'saldo a favor de IVA ' . $m($actual['iva_saldo_favor']); }
+            if ($actual['iva_otros_ajustes'] > 0) { $conceptos[] = 'ajustes de IVA ' . $m($actual['iva_otros_ajustes']); }
+            if ($actual['isr_otros_acreditamientos'] > 0) { $conceptos[] = 'acreditamientos de ISR ' . $m($actual['isr_otros_acreditamientos']); } ?>
+            <p class="fiscal-resumen__extra"><strong>Retenciones y otros:</strong> <?= implode(', ', $conceptos) ?>.
+                <a href="/admin/fiscal/registros?anio=<?= $anio ?>&amp;mes=<?= $mes ?>">Capturar o revisar</a></p>
+        <?php endif; ?>
+
+        <p class="fiscal-resumen__nota">Es una estimación, no la declaración. Confírmala con tu contador.</p>
     </div>
 
-<section class="tarjeta mb-lg movil-oculto" aria-label="Impuestos del mes">
-    <p class="texto-secundario"><?= $aPagar >= 0 ? 'Impuestos por pagar de' : 'Saldo a tu favor en' ?> <?= escaparValores(nombreMes($mes)) ?> <?= $anio ?></p>
-    <p class="titulo-2" style="margin:.25rem 0"><?= $m(abs($aPagar)) ?></p>
-    <ul class="lista-simple mt-md">
-        <li class="lista-simple__elemento"><strong>IVA:</strong> <?= $m($actual['iva_por_pagar']) ?>
-            <span class="texto-secundario">— IVA cobrado <?= $m($actual['iva_facturado']) ?> − IVA acreditable <?= $m($actual['iva_acreditado']) ?><?= $desgloseIva ? ' ' . implode(' ', $desgloseIva) : '' ?>.</span></li>
-        <li class="lista-simple__elemento"><strong>ISR provisional:</strong> <?= $m($actual['isr_por_pagar']) ?>
-            <span class="texto-secundario">— tarifa progresiva de la <strong>tarifa oficial art. 106</strong> (catálogo v<?= $versionIsr ?>)
-                sobre la utilidad acumulada del año<?= $desgloseIsr ? '; ' . implode(' ', $desgloseIsr) : '' ?>.</span></li>
-        <?php if ($actual['iva_retenciones'] > 0 || $actual['isr_retenciones'] > 0 || $actual['iva_otros_ajustes'] > 0
-            || $actual['iva_saldo_favor'] > 0 || $actual['isr_otros_acreditamientos'] > 0) : ?>
-            <li class="lista-simple__elemento"><strong>Retenciones y otros conceptos del mes:</strong>
-                <?php $conceptos = [];
-                if ($actual['iva_retenciones'] > 0) { $conceptos[] = 'retención de IVA ' . $m($actual['iva_retenciones']); }
-                if ($actual['isr_retenciones'] > 0) { $conceptos[] = 'ISR retenido ' . $m($actual['isr_retenciones']); }
-                if ($actual['iva_saldo_favor'] > 0) { $conceptos[] = 'saldo a favor de IVA ' . $m($actual['iva_saldo_favor']); }
-                if ($actual['iva_otros_ajustes'] > 0) { $conceptos[] = 'ajustes de IVA ' . $m($actual['iva_otros_ajustes']); }
-                if ($actual['isr_otros_acreditamientos'] > 0) { $conceptos[] = 'acreditamientos de ISR ' . $m($actual['isr_otros_acreditamientos']); }
-                echo escaparValores(implode(', ', $conceptos)); ?>.
-                <a href="/admin/fiscal/registros?anio=<?= $anio ?>&amp;mes=<?= $mes ?>">Capturar o revisar</a></li>
-        <?php endif; ?>
-    </ul>
-    <p class="campo__ayuda mt-md">Se paga a más tardar el día 17 de <?= escaparValores(mb_strtolower(nombreMes($siguiente[1]))) ?> <?= (int) $siguiente[0] ?>. Es una estimación: confírmala con tu contador.</p>
-    <div class="formulario__acciones" style="justify-content:flex-start">
-        <a class="btn btn--primario" href="/admin/fiscal/exportar?<?= $consultaExp ?>&amp;tipo=impuestos&amp;formato=pdf"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span><span>Reporte del mes en PDF</span></a>
-        <a class="btn btn--secundario" href="/admin/fiscal/exportar?anio=<?= $anio ?>&amp;mes=0&amp;tipo=impuestos&amp;formato=pdf">Reporte del año en PDF</a>
-        <a class="btn btn--secundario" href="/admin/fiscal/movimientos?<?= $consultaExp ?>">Ver ventas y gastos del mes</a>
-        <a class="btn btn--secundario" href="/admin/fiscal/registros?<?= $consultaExp ?>">Declaración</a>
-        <a class="btn btn--secundario" href="/admin/fiscal/documentos?<?= $consultaExp ?>">Documentos fiscales</a>
+    <div class="fiscal-resumen__acciones">
+        <a class="btn btn--secundario btn--sm" href="<?= escaparValores($pdfAnio) ?>">
+            <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+            <span>Reporte del año en PDF</span>
+        </a>
+        <a class="btn btn--secundario btn--sm" href="/admin/fiscal/movimientos?<?= escaparValores($consultaExp) ?>">
+            <span class="material-symbols-outlined" aria-hidden="true">table_view</span>
+            <span>Ver ventas y gastos</span>
+        </a>
+        <a class="btn btn--secundario btn--sm" href="<?= escaparValores($declaracionUrl) ?>">
+            <span class="material-symbols-outlined" aria-hidden="true">gavel</span>
+            <span>Declaración</span>
+        </a>
+        <a class="btn btn--secundario btn--sm" href="/admin/fiscal/documentos?<?= escaparValores($consultaExp) ?>">
+            <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+            <span>Documentos fiscales</span>
+        </a>
     </div>
 </section>
 
@@ -239,7 +300,7 @@ if ($gastosFuera > 0) {
             Se cuentan en el mes en que se paguen/cobren (flujo de efectivo).</span></p>
 <?php endif; ?>
 
-<details class="mb-lg">
+<details class="mb-lg" id="detalle-fiscal">
     <summary class="boton-enlace" style="cursor:pointer"><strong>¿Por qué entra o sale cada importe?</strong> (razones, exclusiones y reglas)</summary>
     <div class="mt-md">
         <p class="campo__ayuda mb-md">Todo lo que sigue lo calcula <strong>MotorFiscal</strong> con los
@@ -281,15 +342,27 @@ if ($gastosFuera > 0) {
     </div>
 </details>
 
-<section class="tarjeta tarjeta--sin-relleno mb-lg movil-oculto">
-    <div class="tabla-contenedor">
-        <table class="tabla tabla--numerica">
+<section class="tarjeta fin-card fin-card--tabla mb-lg movil-oculto" aria-labelledby="titulo-tabla-fiscal">
+    <div class="fin-card__cabecera">
+        <div class="fin-card__texto">
+            <h2 class="fin-card__titulo" id="titulo-tabla-fiscal">
+                <span class="fin-card__icono" aria-hidden="true"><span class="material-symbols-outlined">table_chart</span></span>
+                Impuestos por pagar mes por mes
+            </h2>
+            <p class="fin-card__sub">Año <?= $anio ?> · estimación con catálogos versionados. Toca un mes para revisarlo.</p>
+        </div>
+        <span class="badge badge--neutro badge--sin-punto">Año <?= $anio ?></span>
+    </div>
+    <div class="tabla-contenedor tabla-contenedor--scroll">
+        <table class="tabla tabla--numerica tabla--fiscal" data-sin-tarjetas>
             <caption class="solo-lectores">Impuestos por pagar mes por mes, <?= $anio ?></caption>
             <thead>
                 <tr>
                     <th scope="col">Concepto</th>
                     <?php for ($i = 1; $i <= 12; $i++) : ?>
-                        <th scope="col"<?= $i === $mes ? ' aria-current="true" style="background:var(--color-primario-claro)"' : '' ?>><a href="/admin/fiscal?anio=<?= $anio ?>&amp;mes=<?= $i ?>"><?= escaparValores(mb_substr(nombreMes($i), 0, 3)) ?></a></th>
+                        <th scope="col" class="<?= $i === $mes ? 'fiscal-mes-actual' : '' ?>"<?= $i === $mes ? ' aria-current="true"' : '' ?>>
+                            <a href="/admin/fiscal?anio=<?= $anio ?>&amp;mes=<?= $i ?>"><?= escaparValores(mb_substr(nombreMes($i), 0, 3)) ?></a>
+                        </th>
                     <?php endfor; ?>
                     <th scope="col">Año</th>
                 </tr>
@@ -299,7 +372,7 @@ if ($gastosFuera > 0) {
                     <tr>
                         <th scope="row"><?= $fuerte ? '<strong>' . escaparValores($titulo) . '</strong>' : escaparValores($titulo) ?></th>
                         <?php for ($i = 1; $i <= 12; $i++) : $v = $r['meses'][$i][$clave]; ?>
-                            <td class="cifra<?= $fuerte && $v < 0 ? ' variacion--sube' : '' ?>"<?= $i === $mes ? ' style="background:var(--color-primario-claro)"' : '' ?>><?= $fuerte ? '<strong>' . $m($v) . '</strong>' : $m($v) ?></td>
+                            <td class="cifra<?= $fuerte && $v < 0 ? ' variacion--sube' : '' ?><?= $i === $mes ? ' fiscal-mes-actual' : '' ?>"><?= $fuerte ? '<strong>' . $m($v) . '</strong>' : $m($v) ?></td>
                         <?php endfor; ?>
                         <td class="cifra"><strong><?= $m($t[$clave]) ?></strong></td>
                     </tr>
@@ -390,5 +463,19 @@ if ($gastosFuera > 0) {
         <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar</button></div>
     </form>
 </details>
+
+<script>
+/* El aviso enlaza al detalle de reglas: al llegar, lo abre para no dejar una
+   sección plegable cerrada después de un clic explícito. */
+(function () {
+    const detalle = document.getElementById('detalle-fiscal');
+    if (!detalle) { return; }
+    const abrir = function () { detalle.open = true; };
+    document.querySelectorAll('a[href="#detalle-fiscal"]').forEach(function (enlace) {
+        enlace.addEventListener('click', abrir);
+    });
+    if (window.location.hash === '#detalle-fiscal') { abrir(); }
+})();
+</script>
 
 <?php template('footer'); ?>

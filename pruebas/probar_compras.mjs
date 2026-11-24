@@ -90,7 +90,7 @@ try {
   console.log('Un solo módulo: navegación');
   await pagina.goto(BASE + '/admin/compras');
   const pestanas = (await pagina.locator('nav[aria-label="Compras y proveedores"] a').allInnerTexts()).map((t) => t.trim());
-  const pestanasEsperadas = ['Resumen', 'Compras y pedidos', 'Recepciones', 'Proveedores', 'Catálogo', 'Facturas',
+  const pestanasEsperadas = ['Resumen', 'Pedidos', 'Recepciones', 'Proveedores', 'Catálogo', 'Facturas',
     'Compras inteligentes', 'Complementos de pago', 'Pagos', 'Categorías'];
   // Las fases 2 y 4 añadieron «Compras inteligentes» y «Complementos de pago»: hoy son 10.
   verifica(`las ${pestanasEsperadas.length} secciones están en un mismo lugar`,
@@ -99,8 +99,8 @@ try {
   verifica('el menú lateral tiene una sola entrada «Compras y proveedores»',
     (await pagina.locator('.sidebar__enlace:has-text("Compras y proveedores")').count()) === 1
     && (await pagina.locator('.sidebar__enlace:text-is("Proveedores")').count()) === 0);
-  verifica('el resumen muestra indicadores', (await pagina.locator('.stat').count()) >= 4);
-  for (const [texto, ruta] of [['Compras y pedidos', '/admin/compras/pedidos'], ['Recepciones', '/admin/compras/recepciones'], ['Proveedores', '/admin/proveedores'],
+  verifica('el resumen muestra los cuatro pasos del flujo', (await pagina.locator('.compras-flujo .compras-paso').count()) === 4);
+  for (const [texto, ruta] of [['Pedidos', '/admin/compras/pedidos'], ['Recepciones', '/admin/compras/recepciones'], ['Proveedores', '/admin/proveedores'],
     ['Facturas', '/admin/compras/facturas'], ['Pagos', '/admin/compras/pagos'], ['Categorías', '/admin/proveedores/categorias']]) {
     await pagina.goto(BASE + '/admin/compras');
     await Promise.all([pagina.waitForURL('**' + ruta + '*'), pagina.click(`nav[aria-label="Compras y proveedores"] a:has-text("${texto}")`)]);

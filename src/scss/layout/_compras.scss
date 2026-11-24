@@ -1,0 +1,574 @@
+/* ==========================================================================
+   _compras.scss — Resumen del módulo «Compras y proveedores».
+   Flujo de cuatro pasos y tablas de pendientes. La navegación interna vive en
+   _modulo-nav.scss y se comparte con Contabilidad e Impuestos.
+   Reutiliza .tarjeta, .tabla, .badge y .btn; aquí sólo se ajusta el ritmo.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Flujo de una compra -------------------------------------------------- */
+.compras-flujo {
+  margin-bottom: $espacio-lg;
+}
+
+.compras-flujo__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $espacio-sm $espacio-md;
+  margin-bottom: 0.7rem;
+}
+
+.compras-flujo__titulo {
+  font-family: $fuente-titulos;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: $color-texto;
+}
+
+.compras-flujo__sub {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: $color-texto-secundario;
+}
+
+.compras-flujo__rejilla {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  /* Hilo tenue que enlaza los cuatro pasos en escritorio. */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 1.55rem;
+    right: 2rem;
+    left: 2rem;
+    height: 1px;
+    background-color: $color-borde;
+    z-index: 0;
+  }
+
+  @include hasta-tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    &::before {
+      display: none;
+    }
+  }
+
+  @include hasta-movil {
+    gap: 0.5rem;
+  }
+}
+
+.compras-paso {
+  @include superficie-card;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.9rem 1rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color $transicion-rapida, box-shadow $transicion-rapida,
+              transform $transicion-rapida;
+
+  &:hover,
+  &:focus-visible {
+    border-color: $color-primario-borde;
+    box-shadow: $sombra-2;
+    transform: translateY(-1px);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+  }
+
+  &__numero {
+    display: inline-grid;
+    place-items: center;
+    width: 1.55rem;
+    height: 1.55rem;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-full;
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__icono {
+    color: $color-texto-secundario;
+
+    .material-symbols-outlined {
+      font-size: 1.15rem;
+    }
+  }
+
+  &__cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  &__etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  /* Punto ámbar: el paso tiene trabajo pendiente. */
+  &__punto {
+    width: 0.4rem;
+    height: 0.4rem;
+    flex: 0 0 auto;
+    border-radius: $radio-full;
+    background-color: $color-advertencia;
+    box-shadow: 0 0 0 0.16rem $color-advertencia-claro;
+  }
+
+  &__valor {
+    overflow: hidden;
+    font-family: $fuente-titulos;
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__valor--importe {
+    font-size: 1.35rem;
+    color: $color-advertencia-texto;
+  }
+
+  /* Primer paso: la cifra es una llamada a la acción. */
+  &__accion {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    padding: 0 0.85rem;
+    border: 1px solid $color-primario;
+    border-radius: $radio;
+    background-color: $color-primario;
+    background-image: var(--textura-acento);
+    color: $color-texto-invertido;
+    font-size: 0.82rem;
+    font-weight: 600;
+    box-shadow: $sombra-1;
+  }
+
+  &__pie {
+    @include texto-varias-lineas(2);
+    font-size: 0.72rem;
+    line-height: 1.3;
+    color: $color-texto-secundario;
+  }
+
+  &__enlace {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px solid $color-borde;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 0.95rem;
+      transition: transform $transicion-rapida;
+    }
+  }
+
+  &:hover &__enlace .material-symbols-outlined {
+    transform: translateX(2px);
+  }
+}
+
+/* --- Cabeceras de sección ------------------------------------------------- */
+.compras-seccion {
+  margin-bottom: $espacio-lg;
+  scroll-margin-top: 5rem;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: $espacio-sm $espacio-md;
+    margin-bottom: 0.6rem;
+  }
+
+  &__texto {
+    min-width: 0;
+  }
+
+  &__titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: $fuente-titulos;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: $color-texto;
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 0.45rem;
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+
+  &__sub {
+    margin-top: 0.15rem;
+    font-size: 0.76rem;
+    color: $color-texto-secundario;
+  }
+
+  &__enlace {
+    flex: 0 0 auto;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+}
+
+/* --- Tarjetas con tablas -------------------------------------------------- */
+.compras-caja {
+  padding: 0;
+  overflow: hidden;
+
+  &__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm;
+    padding: 0.65rem 0.9rem;
+    background-color: $color-superficie-baja;
+    border-top: 1px solid $color-borde;
+    font-size: 0.75rem;
+    color: $color-texto-secundario;
+
+    strong {
+      font-family: $fuente-titulos;
+      font-size: 0.95rem;
+      color: $color-texto;
+    }
+  }
+}
+
+/* --- Tablas de compras ---------------------------------------------------- */
+.compras-tabla {
+  min-width: 40rem;
+
+  thead th {
+    padding: 0.6rem 0.85rem;
+    text-align: left;
+  }
+
+  thead th.tabla--numerica {
+    text-align: right;
+  }
+
+  thead th.tabla--centro {
+    text-align: center;
+  }
+
+  tbody td {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.8125rem;
+  }
+
+  .badge {
+    white-space: nowrap;
+  }
+
+  &--ancha {
+    min-width: 48rem;
+  }
+
+  /* En tableta y móvil, la acción de la tabla ancha queda fija a la derecha
+     mientras el resto de columnas se desplaza. */
+  &--ancha {
+    @include hasta-tablet {
+      th:last-child,
+      td:last-child {
+        position: sticky;
+        right: 0;
+        z-index: 1;
+        background-color: $color-superficie;
+        box-shadow: -0.5rem 0 0.75rem -0.5rem rgba(15, 23, 42, 0.18);
+      }
+
+      thead th:last-child {
+        z-index: 2;
+        background-color: $color-superficie-baja;
+      }
+
+      tbody tr:hover td:last-child {
+        background-color: $color-superficie-baja;
+      }
+    }
+  }
+
+  /* Las tablas de dos columnas caben sin desplazamiento horizontal. */
+  &--compacta {
+    min-width: 0;
+
+    thead th {
+      padding: 0.55rem 0.65rem;
+    }
+
+    tbody td {
+      padding: 0.55rem 0.65rem;
+    }
+  }
+}
+
+.compras-folio {
+  font-weight: 700;
+  color: $color-texto;
+  white-space: nowrap;
+}
+
+.compras-fecha {
+  color: $color-texto-secundario;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.compras-importe {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.compras-estado {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.compras-nota {
+  display: inline-flex;
+  align-items: center;
+  color: $color-advertencia-texto;
+
+  .material-symbols-outlined {
+    font-size: 0.9rem;
+  }
+}
+
+.compras-articulo {
+  display: block;
+}
+
+.compras-accion {
+  min-width: 2.25rem;
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+}
+
+.compras-faltan {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aviso de tabla deslizable: sólo aparece en el teléfono. */
+.compras-desliza {
+  display: none;
+}
+
+/* --- Estado vacío --------------------------------------------------------- */
+.compras-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: $color-texto-secundario;
+
+  .material-symbols-outlined {
+    font-size: 1.6rem;
+    color: $color-primario-texto;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+  }
+
+  .btn {
+    margin-top: 0.35rem;
+  }
+
+  &--ok .material-symbols-outlined {
+    color: $color-exito-texto;
+  }
+}
+
+/* --- Dos columnas: facturas y pagos --------------------------------------- */
+.compras-doble {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $espacio-lg;
+  margin-bottom: $espacio-lg;
+
+  .compras-seccion {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
+  }
+
+  /* Las dos tarjetas comparten altura y el pie queda alineado abajo. */
+  .compras-caja {
+    flex: 1;
+  }
+
+  .compras-caja__pie {
+    margin-top: auto;
+  }
+
+  /* A partir de 1400 px las dos tablas respiran sin apretar sus columnas. */
+  @include desde-desktopXL {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* --- Ajustes para tablet y móvil ------------------------------------------ */
+@include hasta-tablet {
+  .compras-flujo__rejilla {
+    gap: $espacio-md;
+  }
+
+  /* Las tablas anchas aprietan un poco el relleno para no cortar columnas. */
+  .compras-tabla--ancha {
+    thead th,
+    tbody td {
+      padding-right: 0.55rem;
+      padding-left: 0.55rem;
+    }
+  }
+}
+
+@include hasta-movil {
+  .compras-flujo__titulo {
+    font-size: 1rem;
+  }
+
+  .compras-flujo__sub {
+    font-size: 0.72rem;
+  }
+
+  .compras-paso {
+    gap: 0.5rem;
+    padding: 0.75rem;
+
+    &__valor {
+      font-size: 1.35rem;
+    }
+
+    &__valor--importe {
+      font-size: 1.12rem;
+    }
+
+    &__accion {
+      min-height: 2.5rem;
+      padding: 0 0.5rem;
+      font-size: 0.78rem;
+    }
+
+    &__etiqueta {
+      font-size: 0.62rem;
+    }
+
+    &__pie {
+      font-size: 0.68rem;
+    }
+
+    &__enlace {
+      font-size: 0.68rem;
+    }
+  }
+
+  .compras-desliza {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0.35rem 0.85rem 0.65rem;
+    font-size: 0.68rem;
+    color: $color-texto-secundario;
+
+    .material-symbols-outlined {
+      font-size: 0.95rem;
+    }
+  }
+
+  .compras-seccion {
+    &__titulo {
+      font-size: 1rem;
+    }
+
+    &__sub {
+      font-size: 0.72rem;
+    }
+  }
+
+  /* En móvil las tablas de dos columnas se convierten en tarjetas: el
+     relleno evita que toquen el borde de la tarjeta contenedora. */
+  .compras-caja--tarjetas {
+    padding: $espacio-md;
+
+    .compras-caja__pie {
+      margin: $espacio-md (-$espacio-md) (-$espacio-md);
+    }
+  }
+}

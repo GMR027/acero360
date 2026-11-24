@@ -48,8 +48,6 @@ $m = static fn ($importe): string => formatoMoneda((float) $importe);
 $baseTexto = $base === 'lista' ? 'Precio de lista (sin IVA)' : 'Precio de venta (con IVA)';
 $baseCorta = $base === 'lista' ? 'sin IVA' : 'con IVA';
 $estado = $r['balance']['estado'];
-$medidor = '/public/image/analisis/medidor.webp?v=' . (is_file(__DIR__ . '/../../public/image/analisis/medidor.webp')
-    ? filemtime(__DIR__ . '/../../public/image/analisis/medidor.webp') : time());
 $medidor2 = $modo === 'detallado' ? \App\AnalisisFinanciero::medidor2DataUri((float) $r['balance']['angulo']) : '';
 
 $pdfUrl = '/admin/analisis-financiero/exportar?' . http_build_query([
@@ -73,8 +71,8 @@ template('header', [
 ?>
 
 <section class="tarjeta mb-lg analisis-filtros">
-    <form action="/admin/analisis-financiero" method="get" class="formulario" aria-label="Filtros del análisis financiero">
-        <div class="formulario__rejilla">
+    <form action="/admin/analisis-financiero" method="get" class="analisis-filtros__form" aria-label="Filtros del análisis financiero">
+        <div class="analisis-filtros__fila">
             <div class="campo">
                 <label class="campo__etiqueta" for="anio-analisis">Año</label>
                 <select class="control" id="anio-analisis" name="anio">
@@ -90,7 +88,6 @@ template('header', [
                         <option value="<?= $mes ?>"<?= $periodo['mes'] === $mes ? ' selected' : '' ?>><?= escaparValores(nombreMes($mes)) ?></option>
                     <?php endfor; ?>
                 </select>
-                <span class="campo__ayuda">Solo aplica a los gastos del mes. La deuda con proveedores siempre es de todos los meses.</span>
             </div>
             <div class="campo">
                 <label class="campo__etiqueta" for="modo-analisis">Modo de análisis</label>
@@ -98,7 +95,6 @@ template('header', [
                     <option value="simple"<?= $modo === 'simple' ? ' selected' : '' ?>>Simple</option>
                     <option value="detallado"<?= $modo === 'detallado' ? ' selected' : '' ?>>Detallado</option>
                 </select>
-                <span class="campo__ayuda">El detallado agrega ventas del mes y gastos pagados.</span>
             </div>
             <div class="campo">
                 <label class="campo__etiqueta" for="base-analisis">Comparar con</label>
@@ -106,8 +102,10 @@ template('header', [
                     <option value="venta"<?= $base === 'venta' ? ' selected' : '' ?>>Precio de venta (con IVA)</option>
                     <option value="lista"<?= $base === 'lista' ? ' selected' : '' ?>>Precio de lista (sin IVA)</option>
                 </select>
-                <span class="campo__ayuda">La misma base se usa para el inventario, los proveedores y los gastos.</span>
             </div>
+        </div>
+
+        <div class="analisis-filtros__fila analisis-filtros__fila--opciones">
             <div class="campo">
                 <span class="campo__etiqueta">Negocios</span>
                 <div class="analisis-checks">
@@ -118,32 +116,43 @@ template('header', [
                         </label>
                     <?php endforeach; ?>
                 </div>
-                <span class="campo__ayuda">Si no marcas ninguno se analizan todos los negocios activos.</span>
             </div>
-        </div>
 
-        <div class="analisis-checks analisis-checks--deudas">
-            <span class="campo__etiqueta">Restar de <?= $modo === 'detallado' ? 'las entradas' : 'el inventario' ?></span>
-            <input type="hidden" name="proveedores" value="0">
-            <label class="ed-chk">
-                <input type="checkbox" name="proveedores" value="1"<?= $restarProveedores ? ' checked' : '' ?>>
-                Deuda con proveedores
-            </label>
-            <input type="hidden" name="gastos" value="0">
-            <label class="ed-chk">
-                <input type="checkbox" name="gastos" value="1"<?= $restarGastos ? ' checked' : '' ?>>
-                Gastos pendientes del mes
-            </label>
-        </div>
+            <div class="campo">
+                <span class="campo__etiqueta">Restar de <?= $modo === 'detallado' ? 'las entradas' : 'el inventario' ?></span>
+                <div class="analisis-checks">
+                    <input type="hidden" name="proveedores" value="0">
+                    <label class="ed-chk">
+                        <input type="checkbox" name="proveedores" value="1"<?= $restarProveedores ? ' checked' : '' ?>>
+                        Deuda con proveedores
+                    </label>
+                    <input type="hidden" name="gastos" value="0">
+                    <label class="ed-chk">
+                        <input type="checkbox" name="gastos" value="1"<?= $restarGastos ? ' checked' : '' ?>>
+                        Gastos pendientes del mes
+                    </label>
+                </div>
+            </div>
 
-        <div class="formulario__acciones">
-            <button class="btn btn--primario" type="submit">
+            <button class="btn btn--primario analisis-filtros__boton" type="submit">
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">query_stats</span>
                 <span>Actualizar análisis</span>
             </button>
         </div>
+
+        <p class="analisis-filtros__nota">
+            El mes solo aplica a los gastos; la deuda con proveedores es de todos los meses. La misma base se usa para inventario, proveedores y gastos.
+            <?php if (!$seleccion) : ?>No marcar negocios analiza todos los activos.<?php endif; ?>
+        </p>
     </form>
 </section>
+
+<?php
+$miniBalance = '<div class="analisis-medidor__mini">'
+    . '<div><span>Activo</span><strong class="cifra">' . escaparValores($m($r['balance']['activo'])) . '</strong></div>'
+    . '<div><span>Pasivo</span><strong class="cifra">' . escaparValores($m($r['balance']['pasivo'])) . '</strong></div>'
+    . '</div>';
+?>
 
 <?php if ($modo === 'detallado') : ?>
 <section class="tarjeta analisis-medidor mb-lg" aria-label="Estado financiero detallado del negocio">
@@ -166,6 +175,7 @@ template('header', [
                 <?= escaparValores($m($r['balance']['resultado'])) ?>
             </strong>
         </p>
+        <?= $miniBalance ?>
         <p class="texto-sm texto-secundario mb-0">
             <?= escaparValores($baseTexto) ?>. Entradas = inventario + ventas del mes.
             Salidas = gastos pagados<?= $restarGastos ? ' + gastos pendientes' : '' ?><?= $restarProveedores ? ' + deuda con proveedores' : '' ?>.
@@ -175,12 +185,22 @@ template('header', [
 <?php else : ?>
 <section class="tarjeta analisis-medidor mb-lg" aria-label="Estado financiero del negocio">
     <div class="analisis-medidor__grafico">
-        <img src="<?= escaparValores($medidor) ?>" alt="Medidor del estado financiero del negocio">
-        <svg class="analisis-medidor__aguja" viewBox="0 0 740 493" aria-hidden="true" focusable="false">
-            <g transform="rotate(<?= number_format((float) $r['balance']['angulo'], 2, '.', '') ?> 380 386)">
-                <polygon points="380,386 366,376 380,176 394,376" fill="#2f3542"></polygon>
-                <circle cx="380" cy="386" r="18" fill="#2f3542"></circle>
+        <?php $anguloAguja = (float) $r['balance']['angulo']; ?>
+        <svg class="analisis-gauge" viewBox="0 0 400 245" role="img"
+             aria-label="Medidor de estado financiero: <?= number_format((float) $r['balance']['solidez'], 1) ?> de 100">
+            <path class="analisis-gauge__pista" d="M 40 200 A 160 160 0 0 1 360 200" pathLength="100"></path>
+            <path class="analisis-gauge__seg analisis-gauge__seg--riesgo" d="M 40 200 A 160 160 0 0 1 360 200" pathLength="100" stroke-dasharray="35 100" stroke-dashoffset="0"></path>
+            <path class="analisis-gauge__seg analisis-gauge__seg--ajustado" d="M 40 200 A 160 160 0 0 1 360 200" pathLength="100" stroke-dasharray="19 100" stroke-dashoffset="-36"></path>
+            <path class="analisis-gauge__seg analisis-gauge__seg--saludable" d="M 40 200 A 160 160 0 0 1 360 200" pathLength="100" stroke-dasharray="19 100" stroke-dashoffset="-56"></path>
+            <path class="analisis-gauge__seg analisis-gauge__seg--muy" d="M 40 200 A 160 160 0 0 1 360 200" pathLength="100" stroke-dasharray="23 100" stroke-dashoffset="-76"></path>
+            <g class="analisis-gauge__aguja" transform="rotate(<?= number_format($anguloAguja, 2, '.', '') ?> 200 200)">
+                <path d="M200 200 L191 205 L200 62 L209 205 Z"></path>
+                <circle cx="200" cy="200" r="14"></circle>
+                <circle cx="200" cy="200" r="5" class="analisis-gauge__eje"></circle>
             </g>
+            <text x="30" y="232">0</text>
+            <text x="200" y="28" text-anchor="middle">50</text>
+            <text x="370" y="232" text-anchor="end">100</text>
         </svg>
     </div>
 
@@ -193,6 +213,7 @@ template('header', [
         <p class="analisis-medidor__balance">
             Balance: <strong><?= escaparValores($m($r['balance']['balance'])) ?></strong>
         </p>
+        <?= $miniBalance ?>
         <p class="texto-sm texto-secundario mb-0">
             <?= escaparValores($baseTexto) ?>. El medidor usa la misma base para los dos lados de la comparación.
             <?php if ($restarProveedores) : ?>Se resta la deuda con proveedores.<?php endif; ?>
@@ -485,10 +506,14 @@ template('header', [
     </header>
 
     <?php if (!$r['inventario']['filas']) : ?>
-        <p class="texto-secundario" style="padding:1rem">No hay productos con existencia para los negocios seleccionados.</p>
+        <div class="fin-vacio">
+            <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+            <p>No hay productos con existencia para los negocios seleccionados.</p>
+            <a class="btn btn--secundario btn--sm" href="/admin/productos">Ver catálogo de productos</a>
+        </div>
     <?php else : ?>
-        <div class="tabla-contenedor">
-            <table class="tabla analisis-tabla">
+        <div class="tabla-contenedor tabla-contenedor--scroll">
+            <table class="tabla analisis-tabla" data-sin-tarjetas>
                 <caption class="solo-lectores">Inventario valuado al precio de catálogo</caption>
                 <thead>
                     <tr>
@@ -536,6 +561,10 @@ template('header', [
                 </tfoot>
             </table>
         </div>
+        <p class="compras-desliza">
+            <span class="material-symbols-outlined" aria-hidden="true">swipe</span>
+            Desliza la tabla para ver todas las columnas.
+        </p>
     <?php endif; ?>
 </section>
 
@@ -549,10 +578,14 @@ template('header', [
     </header>
 
     <?php if (!$r['proveedores']['filas']) : ?>
-        <p class="texto-secundario" style="padding:1rem">No hay pedidos pendientes de pago.</p>
+        <div class="fin-vacio fin-vacio--ok">
+            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+            <p>No hay pedidos pendientes de pago.</p>
+            <a class="btn btn--secundario btn--sm" href="/admin/compras">Ir a compras y proveedores</a>
+        </div>
     <?php else : ?>
-        <div class="tabla-contenedor">
-            <table class="tabla analisis-tabla">
+        <div class="tabla-contenedor tabla-contenedor--scroll">
+            <table class="tabla analisis-tabla" data-sin-tarjetas>
                 <caption class="solo-lectores">Pedidos de proveedor con saldo pendiente</caption>
                 <thead>
                     <tr>
@@ -589,6 +622,10 @@ template('header', [
                 </tfoot>
             </table>
         </div>
+        <p class="compras-desliza">
+            <span class="material-symbols-outlined" aria-hidden="true">swipe</span>
+            Desliza la tabla para ver todas las columnas.
+        </p>
     <?php endif; ?>
 
     <div class="analisis-antiguedad" aria-label="Antigüedad de la deuda con proveedores">
@@ -613,7 +650,11 @@ template('header', [
         </header>
 
         <?php if (!$r['gastos']['filas']) : ?>
-            <p class="texto-secundario" style="padding:1rem">No hay gastos pendientes en ese mes.</p>
+            <div class="fin-vacio fin-vacio--ok">
+                <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+                <p><strong>No hay gastos pendientes en ese mes.</strong><br>Todos los gastos están pagados o no hay movimientos en el periodo.</p>
+                <a class="btn btn--secundario btn--sm" href="/admin/contabilidad/gastos/crear">Registrar un gasto</a>
+            </div>
         <?php else : ?>
             <div class="tabla-contenedor">
                 <table class="tabla analisis-tabla">

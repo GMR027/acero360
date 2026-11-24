@@ -11,19 +11,12 @@ $consulta = http_build_query(array_filter(
 ));
 $sufijo = $consulta !== '' ? '?' . $consulta : '';
 $secciones = [
-    'resumen'  => ['/admin/contabilidad', 'Resumen del mes', 'dashboard'],
-    'lotes'    => ['/admin/contabilidad/lotes', 'Carga por lotes', 'upload_file'],
-    'ingresos' => ['/admin/contabilidad/ingresos', 'Ventas y cobros', 'payments'],
-    'gastos'   => ['/admin/contabilidad/gastos', 'Gastos', 'receipt'],
-    'sin'      => ['/admin/contabilidad/sin-facturar', 'Pendientes de facturar', 'receipt_long'],
+    'resumen'  => ['/admin/contabilidad' . $sufijo, 'Resumen del mes', 'dashboard'],
+    'lotes'    => ['/admin/contabilidad/lotes' . $sufijo, 'Carga por lotes', 'upload_file'],
+    'ingresos' => ['/admin/contabilidad/ingresos' . $sufijo, 'Ventas y cobros', 'payments'],
+    'gastos'   => ['/admin/contabilidad/gastos' . $sufijo, 'Gastos', 'receipt'],
+    'sin'      => ['/admin/contabilidad/sin-facturar' . $sufijo, 'Pendientes de facturar', 'receipt_long'],
     'mas'      => ['/admin/contabilidad/mas', 'Más opciones', 'more_horiz'],
 ];
-?>
-<nav class="chip-grupo entregas-tabs ajustes-tabs" aria-label="Secciones de contabilidad">
-    <?php foreach ($secciones as $clave => [$ruta, $texto, $icono]) : $activo = $tab === $clave; ?>
-        <a class="chip<?= $activo ? ' chip--activo' : '' ?>" href="<?= $ruta . ($clave === 'mas' ? '' : $sufijo) ?>" <?= $activo ? 'aria-current="page"' : '' ?>>
-            <span class="material-symbols-outlined" aria-hidden="true"><?= $icono ?></span>
-            <span><?= $texto ?></span>
-        </a>
-    <?php endforeach; ?>
-</nav>
+$etiqueta = 'Secciones de contabilidad';
+require __DIR__ . '/navModulo.php';

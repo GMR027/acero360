@@ -3,6 +3,7 @@
    ========================================================================== */
 
 @use '../base/variables' as *;
+@use '../base/mixins' as *;
 
 .grafica {
   position: relative;
@@ -11,11 +12,43 @@
 
   &__lienzo {
     width: 100%;
-    height: 24rem;
+    height: 21rem;
 
-    @media (max-width: 640px) { height: 19rem; }
+    @media (max-width: 640px) { height: 16rem; }
 
     &--h { height: auto; }
+  }
+
+  &__vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 11rem;
+    margin: 0.35rem 0;
+    padding: 1rem;
+    background-color: $color-superficie-baja;
+    border: 1px dashed $color-borde-fuerte;
+    border-radius: $radio-md;
+    text-align: center;
+    color: $color-texto-secundario;
+
+    .material-symbols-outlined {
+      font-size: 1.8rem;
+      color: $color-primario-texto;
+      opacity: 0.8;
+    }
+
+    strong {
+      font-size: 0.82rem;
+      color: $color-texto;
+    }
+
+    span {
+      font-size: 0.72rem;
+      line-height: 1.35;
+    }
   }
 
   &__aviso {
@@ -30,24 +63,53 @@
 .grafica-tarjeta {
   display: flex;
   flex-direction: column;
-  gap: $espacio-sm;
+  gap: 0.4rem;
   min-width: 0;
-  padding: $espacio-md $espacio-md $espacio-sm;
+  padding: 0.9rem 0.95rem 0.7rem;
   background-color: $color-superficie;
   border: 1px solid $color-borde;
   border-radius: $radio-lg;
   box-shadow: 0 1px 2px rgba(31, 42, 55, 0.04), 0 6px 18px rgba(31, 42, 55, 0.05);
 
+  &__cabecera {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 0.45rem;
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+
+  &__texto {
+    min-width: 0;
+  }
+
   &__titulo {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
+    line-height: 1.25;
     color: $color-texto;
   }
 
   &__subtitulo {
-    margin: 0.15rem 0 0;
-    font-size: $fuente-sm;
+    margin: 0.1rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
     color: $color-texto-secundario;
   }
 }
@@ -130,7 +192,31 @@
   border-radius: $radio-lg;
   box-shadow: 0 1px 2px rgba(31, 42, 55, 0.04);
 
-  &__etiqueta { font-size: $fuente-sm; font-weight: 600; color: $color-texto-secundario; }
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    margin-bottom: 0.15rem;
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 0.45rem;
+    background-color: $color-primario-claro;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+
+  &__etiqueta { font-size: 0.8rem; font-weight: 600; color: $color-texto-secundario; }
 
   &__valor {
     font-size: 1.65rem;
@@ -157,17 +243,69 @@
 /* Navegación entre secciones de estadísticas */
 .estadisticas-nav {
   position: sticky;
-  top: 0;
-  z-index: 4;
+  top: 4.5rem;
+  z-index: 5;
   display: flex;
-  gap: $espacio-sm;
+  gap: 0.15rem;
   margin: 0 0 $espacio-lg;
-  padding: $espacio-sm 0;
+  padding: 0.2rem;
   overflow-x: auto;
-  background: $color-fondo;
-  scrollbar-width: thin;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+  box-shadow: $sombra-1;
+  scrollbar-width: none;
 
-  .chip { flex: none; }
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chip {
+    flex: none;
+    height: 1.8rem;
+    padding: 0 0.65rem;
+    border-color: transparent;
+    background-color: transparent;
+    font-size: 0.78rem;
+
+    &:hover {
+      background-color: $color-superficie-baja;
+    }
+
+    &--activo {
+      background-color: $color-primario-claro;
+      border-color: transparent;
+    }
+  }
+}
+
+/* Filtros compactos de estadísticas */
+.estadisticas-filtros {
+  padding: 1rem 1.1rem;
+
+  .formulario__rejilla {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .formulario__acciones {
+    margin-top: 0.25rem;
+    padding-top: 0.6rem;
+  }
+
+  @include hasta-tablet {
+    .formulario__rejilla {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @include hasta-movil {
+    padding: 0.85rem;
+
+    .formulario__rejilla {
+      grid-template-columns: 1fr;
+    }
+  }
 }
 
 .estadisticas-seccion {
