@@ -2,7 +2,7 @@
 # ===========================================================================
 # scripts/crear_usuario_portal.sh — Usuario MySQL del portal de clientes.
 #
-# El portal (sitio de Soluciones en Acero) comparte esta base. Este usuario
+# Los portales (Soluciones en Acero y Canastillas de la Baja) comparten esta base. Este usuario
 # sólo ve lo que el portal necesita: nada de costos, usuarios, datos fiscales
 # ni contabilidad. La existencia (stock) se lee sólo para validar que el
 # cliente no pida más de lo disponible; el portal nunca la muestra. Es
@@ -70,11 +70,26 @@ GRANT SELECT (id, empresa_id, nombre, sucursal, municipio, direccion, telefono, 
 GRANT SELECT, INSERT, UPDATE (estado, cancelado_en) ON \`$BASE\`.pedidos TO '$USUARIO'@'%';
 GRANT SELECT, INSERT ON \`$BASE\`.pedido_detalles TO '$USUARIO'@'%';
 
--- Seguimiento de la venta y fotos de entrega (los archivos se piden firmados a /portal/entregas/foto).
--- empresa_id: la galería pública del sitio muestra sólo las entregas de su negocio.
-GRANT SELECT (id, folio, estado, empresa_id, cliente_id, entrega_estado, entrega_fecha) ON \`$BASE\`.ventas TO '$USUARIO'@'%';
-GRANT SELECT (id, venta_id, fecha) ON \`$BASE\`.entregas TO '$USUARIO'@'%';
+-- Compras del cliente: cabecera, renglones, entregas, fotos y firma del acta.
+-- empresa_id: la galería pública y el portal muestran sólo las compras de su negocio.
+GRANT SELECT (id, folio, empresa_id, cliente_id, fecha, estado, subtotal, descuento,
+              aplica_iva, iva, total, condiciones_envio, condiciones_compra, comentarios,
+              entrega_estado, entrega_fecha, creado_en)
+   ON \`$BASE\`.ventas TO '$USUARIO'@'%';
+GRANT SELECT (id, venta_id, producto_id, cantidad, precio_unitario, descuento_pct, subtotal)
+   ON \`$BASE\`.venta_detalles TO '$USUARIO'@'%';
+
+-- Estatus de pago de la compra: ingresos y cobros vigentes.
+GRANT SELECT (id, venta_id, empresa_id, cliente_id, total, estado)
+   ON \`$BASE\`.ingresos TO '$USUARIO'@'%';
+GRANT SELECT (id, ingreso_id, importe, estado)
+   ON \`$BASE\`.cobros TO '$USUARIO'@'%';
+GRANT SELECT (id, venta_id, fecha, recibio_nombre, firma_archivo, notas, ubicacion_maps,
+              ubicacion_lat, ubicacion_lon, creado_en)
+   ON \`$BASE\`.entregas TO '$USUARIO'@'%';
 GRANT SELECT (id, entrega_id, tomada_en) ON \`$BASE\`.entrega_fotos TO '$USUARIO'@'%';
+GRANT SELECT (id, entrega_id, producto_id, cantidad)
+   ON \`$BASE\`.entrega_renglones TO '$USUARIO'@'%';
 
 FLUSH PRIVILEGES;
 SQL
