@@ -51,45 +51,41 @@ $etiqueta     = 'inc-' . (int) $id;
         </div>
     </div>
 
-    <div class="tabla-contenedor">
-        <table class="tabla">
-            <caption class="solo-lectores">Productos de la venta para afectar con la incidencia</caption>
-            <thead><tr>
-                <th scope="col">Producto</th>
-                <th scope="col" class="tabla--numerica">Vendido</th>
-                <th scope="col" class="tabla--numerica movil-oculto">Entregado</th>
-                <th scope="col" class="tabla--numerica">Piezas afectadas</th>
-                <th scope="col" class="tabla--centro">Requiere cambio</th>
-            </tr></thead>
-            <tbody>
-                <?php $vistos = [];
-                foreach (\App\Ventas::detalles($id) as $d) :
-                    $pid = (int) $d['producto_id'];
-                    if (isset($vistos[$pid])) { continue; }
-                    $vistos[$pid] = true;
-                    $info = $disponibles[$pid] ?? ['vendido' => 0, 'devuelto' => 0, 'disponible' => 0];
-                    $linea = $pendientes[$pid] ?? ['entregado' => 0];
-                    $maximo = (int) $info['disponible']; ?>
-                    <tr>
-                        <td><strong><?= escaparValores($d['producto_nombre']) ?></strong>
-                            <span class="texto-xs texto-secundario movil-oculto"><br><?= escaparValores($d['producto_sku']) ?> · <?= escaparValores($d['producto_unidad']) ?></span></td>
-                        <td class="tabla--numerica cifra"><?= (int) $info['vendido'] ?></td>
-                        <td class="tabla--numerica cifra movil-oculto"><?= (int) $linea['entregado'] ?></td>
-                        <td>
-                            <input class="control" type="number" min="0" max="<?= $maximo ?>" step="1" value="0"
-                                   name="cantidad[<?= $pid ?>]" <?= $maximo <= 0 ? 'disabled' : '' ?>
-                                   aria-label="Piezas afectadas de <?= escaparValores($d['producto_nombre']) ?>">
-                            <span class="campo__ayuda"><?= $maximo > 0 ? 'máx. ' . $maximo : 'sin piezas disponibles' ?></span>
-                        </td>
-                        <td class="tabla--centro">
-                            <label class="solo-lectores" for="cambio-<?= $etiqueta ?>-<?= $pid ?>">Cambiar <?= escaparValores($d['producto_nombre']) ?></label>
-                            <input type="checkbox" id="cambio-<?= $etiqueta ?>-<?= $pid ?>" name="cambio[<?= $pid ?>]" value="1"
-                                   <?= $maximo <= 0 ? 'disabled' : '' ?>>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+    <div class="linea-form" role="group" aria-label="Productos que se pueden afectar">
+        <?php $vistos = [];
+        foreach (\App\Ventas::detalles($id) as $d) :
+            $pid = (int) $d['producto_id'];
+            if (isset($vistos[$pid])) { continue; }
+            $vistos[$pid] = true;
+            $info = $disponibles[$pid] ?? ['vendido' => 0, 'devuelto' => 0, 'disponible' => 0];
+            $linea = $pendientes[$pid] ?? ['entregado' => 0];
+            $maximo = (int) $info['disponible']; ?>
+            <div class="linea-form__item">
+                <div class="linea-form__producto">
+                    <strong><?= escaparValores($d['producto_nombre']) ?></strong>
+                    <small><?= escaparValores($d['producto_sku']) ?> · <?= escaparValores($d['producto_unidad']) ?></small>
+                </div>
+                <div class="linea-form__datos">
+                    <span class="linea-form__dato"><small>Vendido</small><strong><?= (int) $info['vendido'] ?></strong></span>
+                    <span class="linea-form__dato"><small>Entregado</small><strong><?= (int) $linea['entregado'] ?></strong></span>
+                    <span class="linea-form__dato"><small>Disponible</small><strong><?= $maximo ?></strong></span>
+                </div>
+                <div class="linea-form__campos">
+                    <label class="linea-form__campo">
+                        <span>Piezas afectadas</span>
+                        <input class="control" type="number" min="0" max="<?= $maximo ?>" step="1" value="0"
+                               name="cantidad[<?= $pid ?>]" <?= $maximo <= 0 ? 'disabled' : '' ?>
+                               aria-label="Piezas afectadas de <?= escaparValores($d['producto_nombre']) ?>">
+                        <small><?= $maximo > 0 ? 'máx. ' . $maximo : 'sin piezas disponibles' ?></small>
+                    </label>
+                    <label class="linea-form__campo linea-form__campo--check">
+                        <input type="checkbox" id="cambio-<?= $etiqueta ?>-<?= $pid ?>" name="cambio[<?= $pid ?>]" value="1"
+                               <?= $maximo <= 0 ? 'disabled' : '' ?>>
+                        <span>Requiere cambio</span>
+                    </label>
+                </div>
+            </div>
+        <?php endforeach; ?>
     </div>
 
     <div class="mt-lg">

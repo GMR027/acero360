@@ -14,6 +14,11 @@
  * Las secciones se enlazan por ancla (#resumen, #entrega, #incidencias,
  * #facturacion, #historial), así los enlaces viejos a #fotos-entrega,
  * #cambios o #incidencias siguen funcionando.
+ *
+ * La vista se organiza en pestañas para no recorrer una página kilométrica:
+ * el resumen concentra las cifras, la entrega y sus fotos, las incidencias,
+ * la facturación/cobro y el historial. La navegación y las acciones frecuentes
+ * están siempre a la vista; las acciones secundarias viven en «Más acciones».
  */
 
 soloAdmin();
@@ -124,7 +129,6 @@ $ingreso     = \App\Contabilidad::ingresoDeVenta($id);
 $disponibles = \App\Inventario::devolvibles($id);
 $registrada  = $venta->estado === 'registrada';
 
-$definicion = \App\IncidenciasEntrega::ESTADOS_ENTREGA[$venta->entrega_estado] ?? null;
 $vendidas   = array_sum(array_column($pendientes, 'vendido'));
 $entregadas = array_sum(array_column($pendientes, 'entregado'));
 $faltan     = max(0, $vendidas - $entregadas);
@@ -167,208 +171,280 @@ template('header', [
 ]);
 ?>
 
-<section class="encabezado-pagina">
-    <div>
-        <h1 class="titulo-2">
-            <?= escaparValores($venta->folio) ?>
-            <span class="badge <?= $estado['clase'] ?>">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem"><?= $estado['icono'] ?></span>
-                <?= $estado['etiqueta'] ?>
-            </span>
-            <span class="badge badge--info"><?= $esDirecta ? 'Venta directa' : 'Desde cotización' ?></span>
-        </h1>
-        <p class="texto-secundario">
-            <?= escaparValores($venta->cliente_empresa ?: $venta->cliente_nombre) ?> ·
-            <?= escaparValores($venta->empresa_nombre) ?> ·
-            venta del <?= date('d/m/Y', strtotime($venta->fecha)) ?> ·
-            <strong class="cifra"><?= escaparValores('$' . number_format((float) $venta->total, 2)) ?></strong>
-            <?php if (trim((string) $venta->usuario_nombre) !== '') : ?>
-                · por <?= escaparValores($venta->usuario_nombre) ?>
-            <?php endif; ?>
-        </p>
-    </div>
-    <div class="encabezado-pagina__acciones">
-        <a class="btn btn--secundario" href="<?= escaparValores($rutaVolver) ?>">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>
+<section class="expediente" id="expediente-venta" data-expediente>
+    <header class="expediente-hero">
+        <a class="expediente-hero__volver" href="<?= escaparValores($rutaVolver) ?>">
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
             <span><?= escaparValores($textoVolver) ?></span>
         </a>
-        <?php if ($esDirecta) : ?>
-            <a class="btn btn--secundario" href="/admin/ventas/editar?id=<?= $id ?>">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>
-                <span>Editar</span>
-            </a>
-        <?php else : ?>
-            <a class="btn btn--secundario" href="/admin/cotizaciones/detalle?id=<?= (int) $venta->cotizacion_id ?>">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">request_quote</span>
-                <span>Ver cotización</span>
-            </a>
-        <?php endif; ?>
-        <?php if ($entregas) : ?>
-            <a class="btn btn--secundario" href="/admin/entregas-seguimiento/acta?id=<?= $id ?>">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
-                <span>Acta de entrega</span>
-            </a>
-        <?php endif; ?>
-        <?php if ($registrada && $faltan > 0) : ?>
-            <a class="btn btn--secundario" href="/admin/entregas/entregar?venta=<?= $id ?>&volver=seguimiento"
-               data-modal-form="tpl-entrega"
-               data-modal-sobre-titulo="Venta <?= escaparValores($venta->folio) ?>"
-               data-modal-titulo="Registrar entrega"
-               data-modal-confirmar="Confirmar entrega"<?= $accion === 'entrega' ? ' data-abrir-modal-al-cargar' : '' ?>>
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">local_shipping</span>
-                <span>Registrar entrega</span>
-            </a>
-        <?php endif; ?>
-        <?php if ($registrada) : ?>
-            <a class="btn btn--secundario" href="/admin/entregas-seguimiento/incidencia?id=<?= $id ?>"
-               data-modal-form="tpl-incidencia"
-               data-modal-sobre-titulo="Venta <?= escaparValores($venta->folio) ?>"
-               data-modal-titulo="Registrar incidencia"
-               data-modal-confirmar="Registrar incidencia"<?= $accion === 'incidencia' ? ' data-abrir-modal-al-cargar' : '' ?>>
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">report</span>
-                <span>Incidencia</span>
-            </a>
-            <a class="btn btn--secundario" href="/admin/ventas/devolucion?id=<?= $id ?>"
-               data-modal-form="tpl-devolucion"
-               data-modal-sobre-titulo="Devolución de la venta"
-               data-modal-titulo="Registrar devolución"
-               data-modal-confirmar="Registrar devolución"<?= $accion === 'devolucion' ? ' data-abrir-modal-al-cargar' : '' ?>>
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">assignment_return</span>
-                <span>Devolución</span>
-            </a>
-        <?php endif; ?>
-        <?php if ($ingreso) : ?>
-            <a class="btn btn--secundario" href="#facturacion">
-                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">fact_check</span>
-                <span><?= $facturada ? 'Ver facturación' : 'Facturar o cobrar' ?></span>
-            </a>
-        <?php endif; ?>
-        <a class="btn btn--primario" href="/admin/ventas/pdf?id=<?= $id ?>">
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">picture_as_pdf</span>
-            <span>PDF de la venta</span>
+
+        <div class="expediente-hero__principal">
+            <span class="expediente-hero__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">receipt_long</span>
+            </span>
+            <div class="expediente-hero__texto">
+                <p class="expediente-hero__eyebrow">
+                    Expediente de venta
+                    <span class="badge <?= $estado['clase'] ?>">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem"><?= $estado['icono'] ?></span>
+                        <?= $estado['etiqueta'] ?>
+                    </span>
+                    <span class="badge badge--info"><?= $esDirecta ? 'Venta directa' : 'Desde cotización' ?></span>
+                </p>
+                <h1 class="expediente-hero__titulo"><?= escaparValores($venta->folio) ?></h1>
+                <p class="expediente-hero__meta">
+                    <span><span class="material-symbols-outlined" aria-hidden="true">person</span><?= escaparValores($venta->cliente_empresa ?: $venta->cliente_nombre) ?></span>
+                    <span><span class="material-symbols-outlined" aria-hidden="true">storefront</span><?= escaparValores($venta->empresa_nombre) ?></span>
+                    <span><span class="material-symbols-outlined" aria-hidden="true">calendar_today</span><?= date('d/m/Y', strtotime($venta->fecha)) ?></span>
+                    <?php if (trim((string) $venta->usuario_nombre) !== '') : ?>
+                        <span><span class="material-symbols-outlined" aria-hidden="true">badge</span><?= escaparValores($venta->usuario_nombre) ?></span>
+                    <?php endif; ?>
+                </p>
+            </div>
+            <div class="expediente-hero__acciones">
+                <?php if ($registrada && $faltan > 0) : ?>
+                    <a class="btn btn--primario" href="/admin/entregas/entregar?venta=<?= $id ?>&volver=seguimiento"
+                       data-modal-form="tpl-entrega"
+                       data-modal-sobre-titulo="Venta <?= escaparValores($venta->folio) ?>"
+                       data-modal-titulo="Registrar entrega"
+                       data-modal-confirmar="Confirmar entrega"<?= $accion === 'entrega' ? ' data-abrir-modal-al-cargar' : '' ?>>
+                        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                        <span>Registrar entrega</span>
+                    </a>
+                <?php elseif ($ingreso && (float) $ingreso['saldo'] > 0 && $ingreso['estado'] === 'vigente') : ?>
+                    <a class="btn btn--primario" href="#facturacion" data-abrir-tab="facturacion">
+                        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+                        <span>Cobrar saldo</span>
+                    </a>
+                <?php elseif ($ingreso && $ingreso['estado_facturacion'] !== 'facturada' && $ingreso['estado'] === 'vigente') : ?>
+                    <a class="btn btn--primario" href="#facturacion" data-abrir-tab="facturacion">
+                        <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+                        <span>Facturar venta</span>
+                    </a>
+                <?php else : ?>
+                    <a class="btn btn--primario" href="/admin/ventas/pdf?id=<?= $id ?>">
+                        <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+                        <span>PDF de la venta</span>
+                    </a>
+                <?php endif; ?>
+
+                <details class="expediente-menu">
+                    <summary class="btn btn--secundario">
+                        <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+                        <span>Más acciones</span>
+                    </summary>
+                    <div class="expediente-menu__panel">
+                        <span class="expediente-menu__rotulo">Documento</span>
+                        <?php if ($esDirecta) : ?>
+                            <a href="/admin/ventas/editar?id=<?= $id ?>">
+                                <span class="material-symbols-outlined" aria-hidden="true">edit</span> Editar venta
+                            </a>
+                        <?php else : ?>
+                            <a href="/admin/cotizaciones/detalle?id=<?= (int) $venta->cotizacion_id ?>">
+                                <span class="material-symbols-outlined" aria-hidden="true">request_quote</span> Ver cotización
+                            </a>
+                        <?php endif; ?>
+                        <a href="/admin/ventas/pdf?id=<?= $id ?>">
+                            <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span> PDF de la venta
+                        </a>
+
+                        <?php if ($entregas || $registrada) : ?>
+                            <span class="expediente-menu__rotulo">Entrega</span>
+                        <?php endif; ?>
+                        <?php if ($entregas) : ?>
+                            <a href="/admin/entregas-seguimiento/acta?id=<?= $id ?>">
+                                <span class="material-symbols-outlined" aria-hidden="true">description</span> Acta de entrega (PDF)
+                            </a>
+                        <?php endif; ?>
+                        <?php if ($registrada) : ?>
+                            <a href="/admin/entregas-seguimiento/incidencia?id=<?= $id ?>"
+                               data-modal-form="tpl-incidencia"
+                               data-modal-sobre-titulo="Venta <?= escaparValores($venta->folio) ?>"
+                               data-modal-titulo="Registrar incidencia"
+                               data-modal-confirmar="Registrar incidencia"<?= $accion === 'incidencia' ? ' data-abrir-modal-al-cargar' : '' ?>>
+                                <span class="material-symbols-outlined" aria-hidden="true">report</span> Registrar incidencia
+                            </a>
+                            <a href="/admin/ventas/devolucion?id=<?= $id ?>"
+                               data-modal-form="tpl-devolucion"
+                               data-modal-sobre-titulo="Devolución de la venta"
+                               data-modal-titulo="Registrar devolución"
+                               data-modal-confirmar="Registrar devolución"<?= $accion === 'devolucion' ? ' data-abrir-modal-al-cargar' : '' ?>>
+                                <span class="material-symbols-outlined" aria-hidden="true">assignment_return</span> Registrar devolución
+                            </a>
+                        <?php endif; ?>
+
+                        <span class="expediente-menu__rotulo">Facturación</span>
+                        <a href="#facturacion" data-abrir-tab="facturacion">
+                            <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+                            <?= $facturada ? 'Ver facturación y cobros' : 'Facturar o cobrar' ?>
+                        </a>
+                        <?php if ($registrada) : ?>
+                            <a href="#eliminar-venta" data-abrir-tab="resumen" class="expediente-menu__peligro">
+                                <span class="material-symbols-outlined" aria-hidden="true">delete</span> Eliminar venta
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </header>
+
+    <?php if ($errores) : ?>
+        <div class="nota nota--error mb-lg" role="alert">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
+            <span><?php foreach ($errores as $i2 => $e) : ?><?= $i2 ? '<br>' : '' ?><?= escaparValores($e) ?><?php endforeach; ?></span>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($venta->estado === 'cancelada') : ?>
+        <p class="nota nota--advertencia mb-lg" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">block</span>
+            <span>Venta cancelada: el inventario ya recuperó sus piezas y no cuenta en las ganancias.</span>
+        </p>
+    <?php elseif (!empty($negativos)) : ?>
+        <p class="nota nota--advertencia mb-lg" role="status">
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">inventory</span>
+            <span>
+                <strong>Existencias en negativo.</strong>
+                Se vendió material que aún no está en almacén: <?= escaparValores(implode('; ', $negativos)) ?>.
+                <a href="/admin/inventario">Cargar inventario</a>
+            </span>
+        </p>
+    <?php endif; ?>
+
+    <?php if ($incidenciasAbiertas) : $abiertasTexto = count($incidenciasAbiertas); ?>
+        <p class="nota <?= $incidenciasCorreccion ? 'nota--error' : 'nota--advertencia' ?> mb-lg" <?= $incidenciasCorreccion ? 'role="alert"' : 'role="status"' ?>>
+            <span class="material-symbols-outlined nota__icono" aria-hidden="true">report</span>
+            <span>
+                <strong><?= $abiertasTexto ?> incidencia<?= $abiertasTexto === 1 ? '' : 's' ?> de entrega abierta<?= $abiertasTexto === 1 ? '' : 's' ?></strong>
+                <?php if ($motivosAbiertos) : ?>(<?= escaparValores(implode(' · ', array_keys($motivosAbiertos))) ?>)<?php endif; ?><?= $incidenciasCorreccion ? ' · alguna exige corregir la factura' : '' ?>.
+                <a href="#incidencias" data-abrir-tab="incidencias">Revisar incidencias</a>
+            </span>
+        </p>
+    <?php endif; ?>
+
+    <section class="expediente-kpis" aria-label="Resumen de la venta">
+        <a class="expediente-kpi" href="#resumen" data-abrir-tab="resumen">
+            <span class="expediente-kpi__icono" aria-hidden="true"><span class="material-symbols-outlined">receipt_long</span></span>
+            <span class="expediente-kpi__texto">
+                <span class="expediente-kpi__etiqueta">Total de la venta</span>
+                <strong class="expediente-kpi__valor"><?= formatoMoneda($venta->total) ?></strong>
+                <span class="expediente-kpi__pie"><?= (int) $venta->aplica_iva === 1 ? 'IVA incluido' : 'Sin IVA' ?> · <?= count($detalles) ?> partida<?= count($detalles) === 1 ? '' : 's' ?></span>
+            </span>
         </a>
+
+        <a class="expediente-kpi" href="#facturacion" data-abrir-tab="facturacion">
+            <span class="expediente-kpi__icono" aria-hidden="true"><span class="material-symbols-outlined">payments</span></span>
+            <span class="expediente-kpi__texto">
+                <span class="expediente-kpi__etiqueta">Cobrado</span>
+                <strong class="expediente-kpi__valor"><?= $ingreso ? formatoMoneda($ingreso['cobrado']) : '—' ?></strong>
+                <span class="expediente-kpi__pie"><?= $ingreso ? \App\Contabilidad::etiquetaCobro($ingreso['estado_cobro'])['etiqueta'] : 'Sin ingreso contable' ?></span>
+            </span>
+        </a>
+
+        <a class="expediente-kpi" href="#facturacion" data-abrir-tab="facturacion">
+            <span class="expediente-kpi__icono" aria-hidden="true"><span class="material-symbols-outlined">account_balance_wallet</span></span>
+            <span class="expediente-kpi__texto">
+                <span class="expediente-kpi__etiqueta">Saldo pendiente</span>
+                <strong class="expediente-kpi__valor"><?= $ingreso ? formatoMoneda($ingreso['saldo']) : '—' ?></strong>
+                <span class="expediente-kpi__pie"><?= $fIva ? escaparValores($fIva['etiqueta']) : 'Sin facturación' ?></span>
+            </span>
+        </a>
+
+        <a class="expediente-kpi" href="#entrega" data-abrir-tab="entrega">
+            <span class="expediente-kpi__icono" aria-hidden="true"><span class="material-symbols-outlined">local_shipping</span></span>
+            <span class="expediente-kpi__texto">
+                <span class="expediente-kpi__etiqueta">Entrega</span>
+                <strong class="expediente-kpi__valor"><?= $entregadas ?> <small>de <?= $vendidas ?> piezas</small></strong>
+                <span class="expediente-kpi__pie"><?= $faltan > 0 ? 'Faltan ' . $faltan . ' por entregar' : 'Entrega completa' ?></span>
+            </span>
+        </a>
+    </section>
+
+    <nav class="expediente-nav" data-expediente-nav role="tablist" aria-label="Secciones del expediente">
+        <a class="expediente-nav__tab is-activo" id="tab-resumen" href="#resumen" role="tab" data-expediente-tab="resumen" aria-controls="panel-resumen" aria-selected="true">
+            <span class="material-symbols-outlined" aria-hidden="true">description</span><span>Resumen</span>
+        </a>
+        <a class="expediente-nav__tab" id="tab-entrega" href="#entrega" role="tab" data-expediente-tab="entrega" aria-controls="panel-entrega" aria-selected="false" tabindex="-1">
+            <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span><span>Entrega</span>
+            <span class="badge <?= $faltan > 0 ? 'badge--pendiente' : 'badge--aprobado' ?>"><?= $entregadas ?>/<?= $vendidas ?></span>
+        </a>
+        <a class="expediente-nav__tab" id="tab-incidencias" href="#incidencias" role="tab" data-expediente-tab="incidencias" aria-controls="panel-incidencias" aria-selected="false" tabindex="-1">
+            <span class="material-symbols-outlined" aria-hidden="true">report</span><span>Incidencias</span>
+            <span class="badge <?= $abiertas > 0 ? 'badge--error' : 'badge--aprobado' ?>"><?= $abiertas ?></span>
+        </a>
+        <a class="expediente-nav__tab" id="tab-facturacion" href="#facturacion" role="tab" data-expediente-tab="facturacion" aria-controls="panel-facturacion" aria-selected="false" tabindex="-1">
+            <span class="material-symbols-outlined" aria-hidden="true">fact_check</span><span>Facturación<span class="expediente-nav__extra"> y cobro</span></span>
+            <?php if ($fIva) : ?><span class="badge <?= $fIva['clase'] ?>"><?= escaparValores($fIva['etiqueta']) ?></span><?php endif; ?>
+        </a>
+        <a class="expediente-nav__tab" id="tab-historial" href="#historial" role="tab" data-expediente-tab="historial" aria-controls="panel-historial" aria-selected="false" tabindex="-1">
+            <span class="material-symbols-outlined" aria-hidden="true">history</span><span>Historial</span>
+            <?php if ($historial) : ?><span class="badge badge--neutro"><?= count($historial) ?></span><?php endif; ?>
+        </a>
+    </nav>
+
+    <div class="expediente-paneles">
+        <div class="expediente-panel" id="panel-resumen" data-expediente-panel="resumen" role="tabpanel" aria-labelledby="tab-resumen">
+            <?php
+            template('venta/documento', [
+                'cotizacion'          => $venta,
+                'detalles'            => $detalles,
+                'descuentoRenglones'  => $descuentoRenglones,
+                'descuentoGlobal'     => $descuentoGlobal,
+                'pctGlobal'           => $pctGlobal,
+                'logo'                => $logo,
+                'id'                  => $id,
+            ]);
+            template('venta/eliminar', ['cotizacion' => $venta, 'id' => $id]);
+            ?>
+        </div>
+
+        <div class="expediente-panel" id="panel-entrega" data-expediente-panel="entrega" role="tabpanel" aria-labelledby="tab-entrega" hidden>
+            <?php
+            template('venta/entrega', [
+                'id'          => $id,
+                'venta'       => $venta,
+                'pendientes'  => $pendientes,
+                'entregas'    => $entregas,
+                'intentos'    => $intentosEntrega,
+                'afectadas'   => $afectadas,
+                'vendidas'    => $vendidas,
+                'entregadas'  => $entregadas,
+                'faltan'      => $faltan,
+                'registrada'  => $registrada,
+                'rutaVenta'   => $rutaVenta,
+            ]);
+            ?>
+        </div>
+
+        <div class="expediente-panel" id="panel-incidencias" data-expediente-panel="incidencias" role="tabpanel" aria-labelledby="tab-incidencias" hidden>
+            <?php
+            template('venta/incidencias', [
+                'id'          => $id,
+                'venta'       => $venta,
+                'incidencias' => $incidencias,
+                'ingreso'     => $ingreso,
+                'registrada'  => $registrada,
+                'cobradoExtra' => $cobradoExtra,
+                'rutaVenta'   => $rutaVenta,
+            ]);
+            ?>
+        </div>
+
+        <div class="expediente-panel" id="panel-facturacion" data-expediente-panel="facturacion" role="tabpanel" aria-labelledby="tab-facturacion" hidden>
+            <?php
+            template('venta/facturacion', [
+                'ingreso'   => $ingreso,
+                'rutaVenta' => $rutaVenta,
+            ]);
+            ?>
+        </div>
+
+        <div class="expediente-panel" id="panel-historial" data-expediente-panel="historial" role="tabpanel" aria-labelledby="tab-historial" hidden>
+            <?php template('venta/historial', ['historial' => $historial]); ?>
+        </div>
     </div>
 </section>
-
-<?php if ($errores) : ?>
-    <div class="nota nota--error mb-lg" role="alert">
-        <span class="material-symbols-outlined nota__icono" aria-hidden="true">error</span>
-        <span><?php foreach ($errores as $i2 => $e) : ?><?= $i2 ? '<br>' : '' ?><?= escaparValores($e) ?><?php endforeach; ?></span>
-    </div>
-<?php endif; ?>
-
-<?php if ($venta->estado === 'cancelada') : ?>
-    <p class="nota nota--advertencia mb-lg" role="status">
-        <span class="material-symbols-outlined nota__icono" aria-hidden="true">block</span>
-        <span>Venta cancelada: el inventario ya recuperó sus piezas y no cuenta en las ganancias.</span>
-    </p>
-<?php elseif (!empty($negativos)) : ?>
-    <p class="nota nota--advertencia mb-lg" role="status">
-        <span class="material-symbols-outlined nota__icono" aria-hidden="true">inventory</span>
-        <span>
-            <strong>Existencias en negativo.</strong>
-            Se vendió material que aún no está en almacén: <?= escaparValores(implode('; ', $negativos)) ?>.
-            <a href="/admin/inventario">Cargar inventario</a>
-        </span>
-    </p>
-<?php endif; ?>
-
-<?php if ($incidenciasAbiertas) : $abiertasTexto = count($incidenciasAbiertas); ?>
-    <p class="nota <?= $incidenciasCorreccion ? 'nota--error' : 'nota--advertencia' ?> mb-lg" <?= $incidenciasCorreccion ? 'role="alert"' : 'role="status"' ?>>
-        <span class="material-symbols-outlined nota__icono" aria-hidden="true">report</span>
-        <span>
-            <strong><?= $abiertasTexto ?> incidencia<?= $abiertasTexto === 1 ? '' : 's' ?> de entrega abierta<?= $abiertasTexto === 1 ? '' : 's' ?></strong>
-            <?php if ($motivosAbiertos) : ?>(<?= escaparValores(implode(' · ', array_keys($motivosAbiertos))) ?>)<?php endif; ?><?= $incidenciasCorreccion ? ' · alguna exige corregir la factura' : '' ?>.
-            Se resuelven en <a href="#incidencias">incidencias de entrega</a>.
-        </span>
-    </p>
-<?php endif; ?>
-
-<!-- Estado del expediente, siempre visible -->
-<div class="chip-grupo mb-lg" aria-label="Estado del expediente">
-    <?php if ($definicion) : ?>
-        <a class="chip" href="#entrega">
-            <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-            <span><?= escaparValores($definicion['etiqueta']) ?> · <?= $entregadas ?> de <?= $vendidas ?></span>
-        </a>
-    <?php endif; ?>
-    <?php if ($abiertas > 0) : ?>
-        <a class="chip" href="#incidencias">
-            <span class="material-symbols-outlined" aria-hidden="true">report</span>
-            <span><?= $abiertas ?> incidencia<?= $abiertas === 1 ? '' : 's' ?> abierta<?= $abiertas === 1 ? '' : 's' ?></span>
-        </a>
-    <?php endif; ?>
-    <?php if ($fIva) : ?>
-        <a class="chip" href="#facturacion">
-            <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
-            <span>Facturación: <?= escaparValores($fIva['etiqueta']) ?></span>
-        </a>
-    <?php endif; ?>
-    <?php if ($ingreso) : ?>
-        <span class="chip">
-            <span class="material-symbols-outlined" aria-hidden="true">payments</span>
-            <span>Cobrado <?= escaparValores('$' . number_format((float) $ingreso['cobrado'], 2)) ?></span>
-        </span>
-        <span class="chip">
-            <span class="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span>
-            <span>Saldo <?= escaparValores('$' . number_format((float) $ingreso['saldo'], 2)) ?></span>
-        </span>
-    <?php endif; ?>
-</div>
-
-<!-- Pestañas: enlaces a las secciones del mismo expediente -->
-<nav class="chip-grupo entregas-tabs expediente-tabs" aria-label="Secciones del expediente">
-    <a class="chip" href="#resumen"><span class="material-symbols-outlined" aria-hidden="true">description</span><span>Resumen</span></a>
-    <a class="chip" href="#entrega"><span class="material-symbols-outlined" aria-hidden="true">local_shipping</span><span>Entrega y acta</span></a>
-    <a class="chip" href="#incidencias"><span class="material-symbols-outlined" aria-hidden="true">report</span><span>Incidencias y devoluciones</span></a>
-    <a class="chip" href="#facturacion"><span class="material-symbols-outlined" aria-hidden="true">fact_check</span><span>Facturación y cobro</span></a>
-    <a class="chip" href="#historial"><span class="material-symbols-outlined" aria-hidden="true">history</span><span>Historial</span></a>
-</nav>
-
-<?php
-template('venta/documento', [
-    'cotizacion'          => $venta,
-    'detalles'            => $detalles,
-    'descuentoRenglones'  => $descuentoRenglones,
-    'descuentoGlobal'     => $descuentoGlobal,
-    'pctGlobal'           => $pctGlobal,
-    'logo'                => $logo,
-    'id'                  => $id,
-]);
-
-template('venta/entrega', [
-    'id'          => $id,
-    'venta'       => $venta,
-    'pendientes'  => $pendientes,
-    'entregas'    => $entregas,
-    'intentos'    => $intentosEntrega,
-    'afectadas'   => $afectadas,
-    'vendidas'    => $vendidas,
-    'entregadas'  => $entregadas,
-    'faltan'      => $faltan,
-    'registrada'  => $registrada,
-    'rutaVenta'   => $rutaVenta,
-]);
-
-template('venta/incidencias', [
-    'id'          => $id,
-    'venta'       => $venta,
-    'incidencias' => $incidencias,
-    'ingreso'     => $ingreso,
-    'registrada'  => $registrada,
-    'cobradoExtra' => $cobradoExtra,
-    'rutaVenta'   => $rutaVenta,
-]);
-
-template('venta/facturacion', [
-    'ingreso'   => $ingreso,
-    'rutaVenta' => $rutaVenta,
-]);
-
-template('venta/historial', ['historial' => $historial]);
-
-template('venta/eliminar', ['cotizacion' => $venta, 'id' => $id]);
-?>
 
 <!-- Formularios de las ventanas modales: los mismos de las páginas sueltas. -->
 <?php if ($registrada) : ?>

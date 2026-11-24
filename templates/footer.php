@@ -10,6 +10,8 @@
 $mostrarSidebar = $GLOBALS['mostrarSidebar'] ?? true;
 $pieTexto       = $GLOBALS['pieTexto'] ?? '';
 ?>
+        <?php if (!empty($GLOBALS['ajustesContenidoAbierto'])) : ?></div><?php endif; ?>
+        <?php if (!empty($GLOBALS['ajustesShell'])) : ?></div><?php endif; ?>
         </main>
 
         <?php if ($mostrarSidebar) : ?>

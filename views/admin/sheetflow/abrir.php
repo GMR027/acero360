@@ -38,24 +38,38 @@ $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/qrcode.min.js?v=' . f
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/jsbarcode.min.js?v=' . filemtime(__DIR__ . '/../../../public/vendor/herramientas/jsbarcode.min.js');
 
 template('header', [
-    'titulo'    => $hoja->nombre . ' · SheetFlow',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => $hoja->nombre . ' · SheetFlow',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr" id="sheetflow">
-    <div class="encabezado-pagina">
-        <div>
-            <h1 class="titulo-2" id="sf-titulo"><?= s($hoja->nombre) ?></h1>
-            <p class="texto-secundario">SheetFlow · tabla compartida</p>
+    <header class="herr-hero herr-hero--compacta">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">table_chart</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">SheetFlow · tabla compartida</p>
+            <h1 class="herr-hero__titulo" id="sf-titulo"><?= s($hoja->nombre) ?></h1>
+            <div class="herr-hero__meta">
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
+                    <?= s(formatear_fecha($hoja->fecha, 'd/m/Y')) ?>
+                </span>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">grid_on</span>
+                    Se guarda con control de versión
+                </span>
+                <span id="sf-estado" class="text-sm text-muted" role="status"></span>
+            </div>
         </div>
-        <div class="encabezado-pagina__acciones">
-            <span id="sf-estado" class="text-sm text-muted" role="status"></span>
+        <div class="herr-hero__acciones">
             <button type="button" id="sf-guardar" class="btn btn--primario">
                 <span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar
             </button>
             <details class="gr-descargar">
-                <summary class="btn btn--texto">
+                <summary class="btn btn--secundario">
                     <span class="material-symbols-outlined" aria-hidden="true">ios_share</span> Exportar
                 </summary>
                 <div class="gr-descargar-menu">
@@ -75,9 +89,11 @@ template('header', [
             <button type="button" id="sf-compartir" class="btn btn--texto" title="Crear un enlace público de solo lectura">
                 <span class="material-symbols-outlined" aria-hidden="true">share</span> Compartir
             </button>
-            <a href="/admin/sheetflow" class="btn btn--texto">← Tablas</a>
+            <a href="/admin/sheetflow" class="btn btn--texto">
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Tablas
+            </a>
         </div>
-    </div>
+    </header>
 
     <div class="card rd-datos">
         <label>Nombre <input type="text" id="sf-nombre" maxlength="150" value="<?= s($hoja->nombre) ?>"></label>

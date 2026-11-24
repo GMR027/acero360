@@ -324,6 +324,9 @@ function inicializarAplicacion() {
   // 19. Notificaciones del Centro de seguimiento en el teléfono (solo dentro de la app Android).
   prepararAvisosApp();
 
+  // 20. Pestañas del expediente de una venta (resumen, entrega, facturación…).
+  prepararPestanasExpedienteVenta();
+
   // 7. Botones de borrado que usan confirmación sin <form> (delegación).
   document.addEventListener('click', function (evento) {
     const boton = evento.target instanceof Element

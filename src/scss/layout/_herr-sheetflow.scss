@@ -69,7 +69,7 @@
 .sf-ayuda code { font-family: 'Fira Code', monospace; }
 .sf-ver .tabla-wrapper { container-type: inline-size; overflow-x: auto; }
 // La letra de la tabla sigue el ancho disponible (no se ve diminuta en pantallas grandes ni desborda en las chicas)
-.sf-ver .sf-tabla { font-size: clamp(1.1rem, 1.5cqw, 4rem); overflow-wrap: anywhere; th, td { padding: .35em .6em !important; } }
+.sf-ver .sf-tabla { min-width: 36rem; font-size: clamp(1.1rem, 1.5cqw, 4rem); overflow-wrap: anywhere; th, td { padding: .35em .6em !important; } }
 .sf-usos { margin-top: 1.6rem; .sf-lista-usos { margin: .6rem 0 0 1.4rem; display: grid; gap: .8rem; line-height: 1.6; } }
 .sf-publico-cuerpo { background: var(--bg-secondary); }
 .sf-publico { max-width: 120rem; margin: 0 auto; padding: 3rem 2rem; }

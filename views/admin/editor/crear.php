@@ -75,23 +75,45 @@ $fondo = (string) ($_POST['fondo'] ?? 'liso');
 $orientacion = (string) ($_POST['orientacion'] ?? 'vertical');
 
 template('header', [
-    'titulo'    => 'Nuevo documento · Editor',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => 'Nuevo documento · Editor',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr" id="editor">
-    <div class="encabezado-pagina">
-        <div>
-            <p class="texto-secundario">Elige el tamaño de la página. Todas las láminas del documento
-                comparten ese tamaño; después puedes cambiarlo desde el editor.</p>
+    <header class="herr-hero herr-hero--compacta">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">add_box</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">Editor</p>
+            <h1 class="herr-hero__titulo">Nuevo documento</h1>
+            <p class="herr-hero__desc">
+                Elige el tamaño de la página. Todas las láminas del documento comparten ese tamaño;
+                después puedes cambiarlo desde el editor.
+            </p>
         </div>
-        <div class="encabezado-pagina__acciones">
-            <a href="/admin/editor" class="btn btn--texto">← Volver</a>
+        <div class="herr-hero__acciones">
+            <a href="/admin/editor" class="btn btn--secundario">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>
+                <span>Volver a documentos</span>
+            </a>
         </div>
-    </div>
+    </header>
 
-    <div class="card">
+    <div class="herr-form-layout">
+        <section class="herr-panel">
+            <div class="herr-panel__cabecera">
+                <span class="herr-panel__icono" aria-hidden="true">
+                    <span class="material-symbols-outlined">design_services</span>
+                </span>
+                <div class="herr-panel__texto">
+                    <h2 class="herr-panel__titulo">Página y fondo</h2>
+                    <p class="herr-panel__sub">La primera lámina se crea automáticamente.</p>
+                </div>
+            </div>
+            <div class="herr-panel__cuerpo">
         <?php foreach (($alertas['error'] ?? []) as $e) : ?>
             <div class="alerta alerta--error"><?= s($e) ?></div>
         <?php endforeach; ?>
@@ -168,6 +190,37 @@ template('header', [
                 </button>
             </div>
         </form>
+            </div>
+        </section>
+
+        <aside class="herr-aside" aria-label="Consejos del Editor">
+            <h2 class="herr-aside__titulo">
+                <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>
+                Antes de crear
+            </h2>
+            <ul class="herr-aside__lista">
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">aspect_ratio</span>
+                    <span><strong>Tamaño.</strong> Carta, Oficio, Legal, Tabloide, A4, A3 o A5. También puedes escribir medidas en milímetros.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">crop_rotate</span>
+                    <span><strong>Orientación.</strong> Vertical u horizontal; la vista previa muestra el resultado.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">texture</span>
+                    <span><strong>Fondo.</strong> Liso, cuadrícula o puntos. El color de la cuadrícula se elige aparte.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">layers</span>
+                    <span><strong>Láminas.</strong> Añade todas las que necesites desde el editor; comparten el tamaño del documento.</span>
+                </li>
+            </ul>
+            <p class="herr-aside__nota">
+                El PDF se genera desde las imágenes de alta resolución de cada lámina. Exporta una vez
+                desde el editor para habilitar la descarga directa.
+            </p>
+        </aside>
     </div>
 </section>
 

@@ -1,147 +1,408 @@
 <?php
 /**
- * views/admin/estadisticas/index.php — Métricas comerciales históricas (solo lectura).
+ * views/admin/estadisticas/index.php — Tablero comercial enfocado.
  *
- * Ventas realizadas, ventas facturadas y cobros recibidos son medidas DISTINTAS y se muestran
- * por separado. Las ventas salen de una sola tabla: una cotización vendida cuenta una vez.
+ * Orden de lectura:
+ *   1. Productos del periodo: más y menos vendidos, por piezas o por monto.
+ *   2. Clientes del periodo: mayor y menor compra por negocio.
+ *   3. Ventas y cobros: comparativa mensual de 3 años y cobrado/pendiente.
+ *   4. Gastos: comparativa mensual de 3 años.
+ *   5. Tres años: productos por piezas y ventas a clientes.
+ *   6. Mapa de ventas.
+ *
+ * Las gráficas de ECharts viven en Analisis; la vista sólo elige las que
+ * necesita y construye las dos matrices de 3 años.
  */
 
 soloAdmin();
 
-$p        = \App\Estadisticas::parametros($_GET);
-$r        = \App\Estadisticas::reporte($p);
-$f        = $p['filtros'];
-$mapaVentas = \App\Estadisticas::mapaVentas($f['empresa'], $f['cliente']);
-$empresas = \App\Empresas::mostrarTodos(100, 0);
-$clientes = \App\Clientes::mostrarTodos(1000, 0, '');
-$productos = \App\Productos::mostrarTodos(500, 0);
-$actual   = $r['actual'];
-$m        = static fn (int $c): string => formatoMoneda($c / 100);
-$consulta = http_build_query(['tipo' => $p['tipo'], 'indice' => $p['indice'], 'anio' => $p['anio'], 'atras' => $p['atras'], 'agrupacion' => $p['agrupacion'],
-    'base' => $p['base'], 'empresa' => $f['empresa'], 'cliente' => $f['cliente'], 'producto' => $f['producto']]);
-$conProducto = $f['producto'] > 0;
+$clienteMapa = max(0, (int) ($_GET['cliente'] ?? 0));
+$entrada = $_GET;
+unset($entrada['cliente'], $entrada['producto'], $entrada['agrupacion']);
+$entrada['atras'] = 2; // Siempre 3 años: el año seleccionado y los dos anteriores.
+
+$p = \App\Estadisticas::parametros($entrada);
+$r = \App\Estadisticas::reporte($p);
+$f = $p['filtros'];
+$actual = $r['actual'];
+$m = static fn (int $c): string => formatoMoneda($c / 100);
 $etiquetaPeriodo = \App\Estadisticas::etiquetaPeriodo($p['tipo'], $p['anio'], $p['indice']);
-
-/** Variación con color y signo. */
-$variacion = static function (?array $v): string {
-    if ($v === null) {
-        return '<span class="texto-secundario">—</span>';
-    }
-    $clase = $v['absoluta'] > 0 ? 'variacion--sube' : ($v['absoluta'] < 0 ? 'variacion--baja' : '');
-    $signo = $v['absoluta'] > 0 ? '+' : '';
-    $pct = $v['porcentual'] === null ? 'sin base de comparación' : $signo . number_format($v['porcentual'], 2) . ' %';
-
-    return '<span class="variacion ' . $clase . '">' . $signo . formatoMoneda($v['absoluta'] / 100) . '</span><span class="texto-xs texto-secundario"><br>' . escaparValores($pct) . '</span>';
-};
-
+$empresas = \App\Empresas::mostrarTodos(100, 0);
+$hoyAnio = (int) date('Y');
 $maximoIndice = ['mes' => 12, 'trimestre' => 4, 'semestre' => 2, 'anio' => 1][$p['tipo']];
-$etiquetasIndice = static fn (string $tipo, int $i): string => match ($tipo) {
-    'mes' => nombreMes($i), 'trimestre' => 'Trimestre ' . $i, 'semestre' => $i === 1 ? 'Primer semestre' : 'Segundo semestre', default => 'Año completo',
+$aniosTexto = ($p['anio'] - 2) . ' · ' . ($p['anio'] - 1) . ' · ' . $p['anio'];
+$base = $p['base'];
+$baseTexto = $base === 'subtotal' ? 'sin IVA' : 'con IVA';
+$orden = ($_GET['orden'] ?? 'piezas') === 'monto' ? 'monto' : 'piezas';
+$ordenSql = $orden === 'monto' ? 'importe' : 'unidades';
+$mapaVentas = \App\Estadisticas::mapaVentas($f['empresa'], $clienteMapa);
+[$desdePeriodo, $hastaPeriodo] = $r['periodo'];
+
+$graficas = [];
+foreach ($r['graficas'] as $g) {
+    $graficas[$g['id']] = $g;
+}
+$graficaVentas = $graficas['ventas-anios'] ?? [
+    'id' => 'ventas-anios', 'titulo' => 'Ventas mensuales · 3 años', 'subtitulo' => 'Sin datos para el periodo',
+    'tipo' => 'linea', 'formato' => 'moneda', 'categorias' => [], 'series' => [],
+];
+$graficaCobros = $graficas['cobrado-pendiente'] ?? [
+    'id' => 'cobrado-pendiente', 'titulo' => 'Cobrado y saldo pendiente', 'subtitulo' => 'Sin datos para el periodo',
+    'tipo' => 'apilado', 'formato' => 'moneda', 'categorias' => [], 'series' => [],
+];
+$graficaGastos = $graficas['gastos-anios'] ?? [
+    'id' => 'gastos-anios', 'titulo' => 'Gastos mensuales · 3 años', 'subtitulo' => 'Sin datos para el periodo',
+    'tipo' => 'linea', 'formato' => 'moneda', 'categorias' => [], 'series' => [],
+];
+
+$parametrosRapidos = [
+    'atras' => 2,
+    'base' => $base,
+    'orden' => $orden,
+    'empresa' => (int) $f['empresa'],
+];
+$urlRapida = static function (string $tipo, int $indice, int $anio) use ($parametrosRapidos): string {
+    return '/admin/estadisticas?' . http_build_query(array_filter(
+        $parametrosRapidos + ['tipo' => $tipo, 'indice' => $indice, 'anio' => $anio],
+        static fn ($v) => $v !== '' && $v !== 0 && $v !== null
+    ));
 };
 
-$anteriorTexto = (string) ($p['anio'] - 1);
-$graficas = [];
-foreach ($r['graficas'] as $g) { $graficas[$g['id']] = $g; }
-$anchas = ['ventas-serie', 'ventas-anios', 'ventas-vs-cobros', 'negocios', 'gastos-anios', 'gastos-categoria'];
-/** Gráficas que no se muestran en el celular (su información sigue en las tablas). */
-$ocultasMovil = ['semestres', 'negocios'];
-$secciones = [
-    'ventas'    => ['Ventas', 'Cómo se mueven tus ventas mes a mes, año contra año y por semestre.'],
-    'ingresos'  => ['Ingresos, cobros y facturación', 'Lo que vendiste, lo que ya cobraste y lo que falta por cobrar o facturar.'],
-    'gastos'    => ['Gastos', 'Cuánto gastas, cómo cambia contra otros años y en qué categorías.'],
-    'negocios'  => ['Negocios y clientes', 'Comparación entre tus negocios y quiénes compran más.'],
-    'productos' => ['Productos', 'Los que más y los que menos se mueven en el periodo.'],
+$colorIndicador = [
+    'realizadas' => \App\Analisis::COLOR['ventas'],
+    'cobros' => \App\Analisis::COLOR['cobros'],
+    'facturadas' => \App\Analisis::COLOR['facturada'],
+    'gastos' => \App\Analisis::COLOR['gastos'],
 ];
-$negocios = $r['analisis']['negocios'];
-$totalNegocios = array_sum(array_column($negocios, 'periodo'));
-$sinMovimiento = $r['analisis']['sin_movimiento'];
-$colorIndicador = ['realizadas' => \App\Analisis::COLOR['ventas'], 'cobros' => \App\Analisis::COLOR['cobros'], 'facturadas' => \App\Analisis::COLOR['facturada'], 'gastos' => \App\Analisis::COLOR['gastos']];
 
-/** Tarjeta de una gráfica: título, subtítulo y lienzo (la gráfica la dibuja graficas.js). */
-$tarjetaGrafica = static function (array $g) use ($anchas, $ocultasMovil): string {
-    $clases = 'grafica-tarjeta';
-    if (in_array($g['id'], $anchas, true)) {
-        $clases .= ' estadisticas-rejilla__ancho';
+/* --- Rankings del periodo ------------------------------------------------ */
+$topProductos = \App\Estadisticas::topProductos($desdePeriodo, $hastaPeriodo, $f, 10, $ordenSql);
+$menosProductos = \App\Analisis::menorMovimiento($desdePeriodo, $hastaPeriodo, $f, 10, $ordenSql);
+$topClientes = \App\Estadisticas::topClientes($desdePeriodo, $hastaPeriodo, $f, $base, 10, $ordenSql);
+$menosClientes = \App\Estadisticas::menorClientes($desdePeriodo, $hastaPeriodo, $f, $base, 10, $ordenSql);
+
+$normalizarProductos = static function (array $filas) use ($base): array {
+    return array_map(static function (array $x) use ($base): array {
+        $x['monto'] = $base === 'subtotal'
+            ? (int) ($x['importe'] ?? 0)
+            : (int) ($x['importe_con_iva'] ?? $x['importe'] ?? 0);
+        return $x;
+    }, $filas);
+};
+$normalizarClientes = static fn (array $filas): array => array_map(static function (array $x): array {
+    $x['monto'] = (int) ($x['importe'] ?? 0);
+    return $x;
+}, $filas);
+
+$topProductos = $normalizarProductos($topProductos);
+$menosProductos = $normalizarProductos($menosProductos);
+$topClientes = $normalizarClientes($topClientes);
+$menosClientes = $normalizarClientes($menosClientes);
+
+$gruposTopProductos = \App\Estadisticas::agruparPorNegocio($topProductos);
+$gruposMenosProductos = \App\Estadisticas::agruparPorNegocio($menosProductos);
+$gruposTopClientes = \App\Estadisticas::agruparPorNegocio($topClientes);
+$gruposMenosClientes = \App\Estadisticas::agruparPorNegocio($menosClientes);
+
+$porEmpresa = static function (array $grupos): array {
+    $mapa = [];
+    foreach ($grupos as $grupo) {
+        $mapa[(int) $grupo['empresa_id']] = $grupo;
     }
-    if (in_array($g['id'], $ocultasMovil, true)) {
-        $clases .= ' movil-oculto';
+    return $mapa;
+};
+$menosProductosPorEmpresa = $porEmpresa($gruposMenosProductos);
+$topProductosPorEmpresa = $porEmpresa($gruposTopProductos);
+$menosClientesPorEmpresa = $porEmpresa($gruposMenosClientes);
+$topClientesPorEmpresa = $porEmpresa($gruposTopClientes);
+
+$empresasProductos = $topProductosPorEmpresa + $menosProductosPorEmpresa;
+$empresasClientes = $topClientesPorEmpresa + $menosClientesPorEmpresa;
+
+/* --- Matrices de 3 años --------------------------------------------------- */
+$matProductos = \App\Estadisticas::porAniosProductos($p['anio'] - 2, $p['anio'], $f, 8);
+$matClientes = $r['matriz_clientes'];
+
+$seriesProductos = [];
+foreach ($matProductos['anios'] as $i => $anio) {
+    $datos = [];
+    foreach ($matProductos['filas'] as $fila) {
+        $datos[] = (int) ($fila['unidades_por_anio'][$anio] ?? 0);
     }
-    $icono = match ($g['tipo']) {
+    $seriesProductos[] = [
+        'nombre' => (string) $anio,
+        'datos' => $datos,
+        'color' => \App\Analisis::COLORES_ANIOS[count($matProductos['anios']) - 1 - $i] ?? \App\Analisis::COLORES_ANIOS[0],
+    ];
+}
+$graficaProductosAnios = [
+    'id' => 'productos-anios',
+    'titulo' => 'Productos más vendidos · 3 años',
+    'subtitulo' => 'Piezas vendidas por año · top 8 por piezas',
+    'tipo' => 'barras',
+    'formato' => 'entero',
+    'categorias' => array_column($matProductos['filas'], 'nombre'),
+    'series' => $seriesProductos,
+    'comparaSeries' => true,
+    'rotar' => 25,
+    'anchoEtiqueta' => 120,
+];
+
+$seriesClientes = [];
+foreach ($matClientes['anios'] as $i => $anio) {
+    $datos = [];
+    foreach ($matClientes['filas'] as $fila) {
+        $datos[] = round(((int) ($fila['por_anio'][$anio] ?? 0)) / 100, 2);
+    }
+    $seriesClientes[] = [
+        'nombre' => (string) $anio,
+        'datos' => $datos,
+        'color' => \App\Analisis::COLORES_ANIOS[count($matClientes['anios']) - 1 - $i] ?? \App\Analisis::COLORES_ANIOS[0],
+    ];
+}
+$graficaClientesAnios = [
+    'id' => 'clientes-anios',
+    'titulo' => 'Ventas a clientes · 3 años',
+    'subtitulo' => 'Importe ' . $baseTexto . ' por año · top 8 por volumen',
+    'tipo' => 'barras',
+    'formato' => 'moneda',
+    'categorias' => array_column($matClientes['filas'], 'nombre'),
+    'series' => $seriesClientes,
+    'comparaSeries' => true,
+    'rotar' => 20,
+    'anchoEtiqueta' => 110,
+];
+
+/* --- Resúmenes de las tarjetas ------------------------------------------- */
+$resumenSerieAnual = static function (array $mensual, int $anio, string $etiqueta, bool $subeBueno) use ($m): array {
+    $actualAnio = array_sum(array_map('intval', $mensual[$anio] ?? []));
+    $previoAnio = array_sum(array_map('intval', $mensual[$anio - 1] ?? []));
+    $v = ($actualAnio > 0 || $previoAnio > 0) ? \App\Estadisticas::variacion($previoAnio, $actualAnio) : null;
+    $nota = 'Sin comparación con ' . ($anio - 1);
+    $clase = '';
+    if ($v !== null) {
+        $sube = (int) $v['absoluta'] >= 0;
+        $bueno = $sube === $subeBueno;
+        $clase = $bueno ? 'variacion--sube' : 'variacion--baja';
+        $nota = $v['porcentual'] === null
+            ? 'Sin base en ' . ($anio - 1)
+            : ($sube ? '▲ +' : '▼ ') . number_format(abs((float) $v['porcentual']), 1) . ' % vs ' . ($anio - 1);
+    }
+    return ['etiqueta' => $etiqueta . ' ' . $anio, 'valor' => $m($actualAnio), 'nota' => $nota, 'clase' => $clase];
+};
+
+$resumenVentas = $resumenSerieAnual($r['analisis']['ventas_anios'], $p['anio'], 'Ventas', true);
+$resumenGastos = $resumenSerieAnual($r['analisis']['gastos_anios'], $p['anio'], 'Gastos', false);
+
+$cobradoTotal = (int) array_sum($r['analisis']['cobranza']['cobrado'] ?? []);
+$pendienteTotal = (int) array_sum($r['analisis']['cobranza']['pendiente'] ?? []);
+$resumenCobros = [
+    'etiqueta' => 'Cobrado ' . $p['anio'],
+    'valor' => $m($cobradoTotal),
+    'nota' => $pendienteTotal > 0 ? 'Pendiente ' . $m($pendienteTotal) : 'Sin saldo pendiente',
+    'clase' => '',
+];
+
+$piezasAnio = 0;
+$piezasTres = 0;
+foreach ($matProductos['filas'] as $fila) {
+    $piezasAnio += (int) ($fila['unidades_por_anio'][$p['anio']] ?? 0);
+    $piezasTres += (int) $fila['total_unidades'];
+}
+$resumenProductosAnios = [
+    'etiqueta' => 'Piezas ' . $p['anio'],
+    'valor' => number_format($piezasAnio),
+    'nota' => '3 años: ' . number_format($piezasTres) . ' pzas',
+    'clase' => '',
+];
+
+$montoAnio = 0;
+$montoTres = 0;
+foreach ($matClientes['filas'] as $fila) {
+    $montoAnio += (int) ($fila['por_anio'][$p['anio']] ?? 0);
+    $montoTres += (int) $fila['total'];
+}
+$resumenClientesAnios = [
+    'etiqueta' => 'Ventas ' . $p['anio'],
+    'valor' => $m($montoAnio),
+    'nota' => '3 años: ' . $m($montoTres),
+    'clase' => '',
+];
+
+/* --- Helpers de presentación --------------------------------------------- */
+$tarjetaGrafica = static function (array $g, array $resumen = [], string $claseExtra = ''): string {
+    $tipo = (string) ($g['tipo'] ?? 'barras');
+    $icono = match ($tipo) {
         'linea' => 'show_chart',
         'apilado' => 'stacked_bar_chart',
         'barras-h' => 'sort',
         default => 'bar_chart',
     };
+    $resumenHtml = '';
+    if ($resumen) {
+        $resumenHtml = '<div class="grafica-tarjeta__resumen">'
+            . '<span class="grafica-tarjeta__resumen-etiqueta">' . escaparValores((string) ($resumen['etiqueta'] ?? '')) . '</span>'
+            . '<strong class="grafica-tarjeta__resumen-valor cifra">' . escaparValores((string) ($resumen['valor'] ?? '')) . '</strong>'
+            . (!empty($resumen['nota'])
+                ? '<span class="grafica-tarjeta__resumen-nota ' . escaparValores((string) ($resumen['clase'] ?? '')) . '">' . escaparValores((string) $resumen['nota']) . '</span>'
+                : '')
+            . '</div>';
+    }
 
-    return '<section class="' . $clases . '" id="g-' . escaparValores($g['id']) . '">'
+    return '<section class="grafica-tarjeta ' . escaparValores($claseExtra) . '" id="g-' . escaparValores((string) ($g['id'] ?? '')) . '">'
         . '<header class="grafica-tarjeta__cabecera">'
         . '<span class="grafica-tarjeta__icono" aria-hidden="true"><span class="material-symbols-outlined">' . $icono . '</span></span>'
         . '<div class="grafica-tarjeta__texto">'
-        . '<h3 class="grafica-tarjeta__titulo">' . escaparValores($g['titulo']) . '</h3>'
-        . '<p class="grafica-tarjeta__subtitulo">' . escaparValores($g['subtitulo']) . '</p>'
-        . '</div></header>'
-        . '<figure class="grafica" data-grafica="' . escaparValores(json_encode($g, JSON_UNESCAPED_UNICODE)) . '" aria-label="' . escaparValores($g['titulo']) . '"></figure></section>';
+        . '<h3 class="grafica-tarjeta__titulo">' . escaparValores((string) ($g['titulo'] ?? '')) . '</h3>'
+        . '<p class="grafica-tarjeta__subtitulo">' . escaparValores((string) ($g['subtitulo'] ?? '')) . '</p>'
+        . '</div>' . $resumenHtml . '</header>'
+        . '<figure class="grafica" data-grafica="' . escaparValores(json_encode($g, JSON_UNESCAPED_UNICODE)) . '" aria-label="' . escaparValores((string) ($g['titulo'] ?? '')) . '"></figure>'
+        . '</section>';
 };
-$vacio = static fn (string $texto): string => '<div class="vacio"><p class="vacio__titulo">' . escaparValores($texto) . '</p></div>';
 
-$hoyAnio = (int) date('Y');
+$cardRanking = static function (
+    string $titulo,
+    string $subtitulo,
+    string $icono,
+    string $variante,
+    array $filas,
+    string $tipo
+) use ($m, $orden): string {
+    $porMonto = $orden === 'monto';
+    $clave = $porMonto ? 'monto' : 'unidades';
+    $max = 1;
+    foreach ($filas as $fila) {
+        $max = max($max, (int) ($fila[$clave] ?? 0));
+    }
 
-// Leaflet sólo se carga en esta página (JS y CSS), igual que ECharts.
+    $html = '<article class="ranking ranking--' . escaparValores($variante) . '">'
+        . '<header class="ranking__cabecera">'
+        . '<span class="ranking__icono" aria-hidden="true"><span class="material-symbols-outlined">' . $icono . '</span></span>'
+        . '<div class="ranking__texto"><h3 class="ranking__titulo">' . escaparValores($titulo) . '</h3>'
+        . '<p class="ranking__sub">' . escaparValores($subtitulo) . '</p></div>'
+        . '<span class="ranking__medida">' . ($porMonto ? 'Por monto' : 'Por piezas') . '</span>'
+        . '</header>';
+
+    if (!$filas) {
+        return $html . '<div class="ranking__vacio"><span class="material-symbols-outlined" aria-hidden="true">query_stats</span><p>Sin datos en este periodo.</p></div></article>';
+    }
+
+    $html .= '<ol class="ranking__lista">';
+    foreach (array_slice($filas, 0, 5) as $i => $fila) {
+        $monto = (int) ($fila['monto'] ?? 0);
+        $unidades = (int) ($fila['unidades'] ?? 0);
+        $operaciones = (int) ($fila['operaciones'] ?? 0);
+        $valorBarra = $porMonto ? $monto : $unidades;
+        $barra = max(3, min(100, (int) round(($valorBarra / $max) * 100)));
+        $principal = $porMonto ? $m($monto) : number_format($unidades) . ' pzas';
+        $posicion = (int) $i + 1;
+
+        if ($tipo === 'producto') {
+            $nombre = trim((string) ($fila['sku'] ?? '') . ' ' . (string) ($fila['nombre'] ?? ''));
+            $secundario = $porMonto ? number_format($unidades) . ' pzas' : $m($monto);
+            $meta = number_format($operaciones) . ' venta' . ($operaciones === 1 ? '' : 's');
+        } else {
+            $nombre = (string) ($fila['nombre'] ?? '');
+            $secundario = ($porMonto ? number_format($unidades) . ' pzas' : $m($monto)) . ' · ' . number_format($operaciones) . ' ops';
+            $meta = '';
+        }
+
+        $html .= '<li class="ranking__fila">'
+            . '<span class="ranking__puesto ranking__puesto--' . $posicion . '">' . $posicion . '</span>'
+            . '<div class="ranking__cuerpo">'
+            . '<div class="ranking__linea"><span class="ranking__nombre" title="' . escaparValores($nombre) . '">' . escaparValores($nombre) . '</span>'
+            . '<strong class="ranking__principal cifra">' . escaparValores($principal) . '</strong></div>'
+            . '<div class="ranking__barra" aria-hidden="true"><span style="width:' . $barra . '%"></span></div>'
+            . '<div class="ranking__pie"><span>' . escaparValores($secundario) . '</span>'
+            . ($meta !== '' ? '<span>' . escaparValores($meta) . '</span>' : '') . '</div>'
+            . '</div></li>';
+    }
+    $html .= '</ol></article>';
+
+    return $html;
+};
+
 $GLOBALS['estilosPagina'] = ['/build/css/leaflet.css'];
 
 template('header', [
-    'titulo' => 'Estadísticas', 'subtitulo' => 'Cómo van tus ventas', 'rutaActiva' => '/admin/estadisticas',
-    'acciones' => '<a class="btn btn--secundario" href="/admin/estadisticas/exportar?' . escaparValores($consulta) . '&formato=pdf">PDF</a>'
-        . '<a class="btn btn--secundario" href="/admin/estadisticas/exportar?' . escaparValores($consulta) . '&formato=xlsx">Excel</a>'
-        . '<a class="btn btn--secundario" href="/admin/estadisticas/exportar?' . escaparValores($consulta) . '&formato=csv">CSV</a>',
+    'titulo' => 'Estadísticas',
+    'subtitulo' => 'Productos, clientes, ventas y gastos',
+    'rutaActiva' => '/admin/estadisticas',
 ]);
 ?>
 
-<div class="estadisticas-periodos movil-oculto" role="group" aria-label="Periodos rápidos">
+<div class="estadisticas-periodos" role="group" aria-label="Periodos rápidos">
     <span class="campo__etiqueta" style="margin:0">Ver:</span>
-    <a class="chip" href="/admin/estadisticas?tipo=mes&indice=<?= (int) date('n') ?>&anio=<?= $hoyAnio ?>&empresa=<?= (int) $f['empresa'] ?>">Este mes</a>
-    <a class="chip" href="/admin/estadisticas?tipo=anio&anio=<?= $hoyAnio ?>&empresa=<?= (int) $f['empresa'] ?>">Este año</a>
-    <a class="chip" href="/admin/estadisticas?tipo=anio&anio=<?= $hoyAnio - 1 ?>&empresa=<?= (int) $f['empresa'] ?>">Año pasado</a>
+    <a class="chip" href="<?= escaparValores($urlRapida('mes', (int) date('n'), $hoyAnio)) ?>">Este mes</a>
+    <a class="chip" href="<?= escaparValores($urlRapida('anio', 1, $hoyAnio)) ?>">Este año</a>
+    <a class="chip" href="<?= escaparValores($urlRapida('anio', 1, $hoyAnio - 1)) ?>">Año pasado</a>
 </div>
 
-<form class="tarjeta mb-lg movil-oculto estadisticas-filtros" action="/admin/estadisticas" method="get" aria-label="Filtros de estadísticas">
+<form class="tarjeta mb-lg estadisticas-filtros" action="/admin/estadisticas" method="get" aria-label="Filtros de estadísticas">
+    <input type="hidden" name="atras" value="2">
     <div class="formulario__rejilla">
-        <div class="campo"><label class="campo__etiqueta" data-ayuda="Compara un mes, trimestre, semestre o el año completo." for="tipo">Periodo</label>
-            <select class="control" id="tipo" name="tipo"><?php foreach (\App\Estadisticas::TIPOS_PERIODO as $k => $t) : ?><option value="<?= $k ?>"<?= $p['tipo'] === $k ? ' selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="indice">Cuál</label>
-            <select class="control" id="indice" name="indice"><?php for ($i = 1; $i <= $maximoIndice; $i++) : ?><option value="<?= $i ?>"<?= $p['indice'] === $i ? ' selected' : '' ?>><?= escaparValores($etiquetasIndice($p['tipo'], $i)) ?></option><?php endfor; ?></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="anio">Año</label>
-            <select class="control" id="anio" name="anio"><?php for ($a = $hoyAnio; $a >= 2020; $a--) : ?><option value="<?= $a ?>"<?= $p['anio'] === $a ? ' selected' : '' ?>><?= $a ?></option><?php endfor; ?></select></div>
-        <div class="campo"><label class="campo__etiqueta" for="empresa">Negocio</label>
-            <select class="control" id="empresa" name="empresa"><option value="0">Ambos negocios</option><?php foreach ($empresas as $e) : ?><option value="<?= (int) $e->id ?>"<?= $f['empresa'] === (int) $e->id ? ' selected' : '' ?>><?= escaparValores($e->nombre) ?></option><?php endforeach; ?></select></div>
-    </div>
-    <details class="mt-md">
-        <summary class="boton-enlace" style="cursor:pointer">Más filtros (cliente, producto, años a comparar…)</summary>
-        <div class="formulario__rejilla mt-md">
-            <div class="campo"><label class="campo__etiqueta" for="cliente">Cliente</label>
-                <select class="control" id="cliente" name="cliente"><option value="0">Todos</option><?php foreach ($clientes as $c) : ?><option value="<?= (int) $c->id ?>"<?= $f['cliente'] === (int) $c->id ? ' selected' : '' ?>><?= escaparValores($c->nombre_empresa ?: $c->nombre) ?></option><?php endforeach; ?></select></div>
-            <div class="campo"><label class="campo__etiqueta" for="producto">Producto</label>
-                <select class="control" id="producto" name="producto"><option value="0">Todos</option><?php foreach ($productos as $pr) : ?><option value="<?= (int) $pr->id ?>"<?= $f['producto'] === (int) $pr->id ? ' selected' : '' ?>><?= escaparValores(($pr->sku ? $pr->sku . ' · ' : '') . $pr->nombre) ?></option><?php endforeach; ?></select></div>
-            <div class="campo"><label class="campo__etiqueta" for="atras">Comparar con cuántos años anteriores</label>
-                <select class="control" id="atras" name="atras"><?php for ($i = 1; $i <= 4; $i++) : ?><option value="<?= $i ?>"<?= $p['atras'] === $i ? ' selected' : '' ?>><?= $i ?></option><?php endfor; ?></select></div>
-            <div class="campo"><label class="campo__etiqueta" for="base">Importes</label>
-                <select class="control" id="base" name="base"><option value="total"<?= $p['base'] === 'total' ? ' selected' : '' ?>>Con IVA</option><option value="subtotal"<?= $p['base'] === 'subtotal' ? ' selected' : '' ?>>Sin IVA (con descuentos)</option></select></div>
-            <div class="campo"><label class="campo__etiqueta" for="agrupacion">Agrupar la gráfica por</label>
-                <select class="control" id="agrupacion" name="agrupacion"><?php foreach (\App\Estadisticas::AGRUPACIONES as $k => $t) : ?><option value="<?= $k ?>"<?= $p['agrupacion'] === $k ? ' selected' : '' ?>><?= $t ?></option><?php endforeach; ?></select></div>
+        <div class="campo">
+            <label class="campo__etiqueta" for="tipo">Periodo</label>
+            <select class="control" id="tipo" name="tipo">
+                <?php foreach (\App\Estadisticas::TIPOS_PERIODO as $k => $t) : ?>
+                    <option value="<?= $k ?>"<?= $p['tipo'] === $k ? ' selected' : '' ?>><?= escaparValores($t) ?></option>
+                <?php endforeach; ?>
+            </select>
         </div>
-    </details>
-    <div class="formulario__acciones"><a class="btn btn--texto" href="/admin/estadisticas">Restablecer</a><button class="btn btn--primario" type="submit">Ver estadísticas</button></div>
+        <div class="campo">
+            <label class="campo__etiqueta" for="indice">Cuál</label>
+            <select class="control" id="indice" name="indice">
+                <?php for ($i = 1; $i <= $maximoIndice; $i++) : ?>
+                    <option value="<?= $i ?>"<?= $p['indice'] === $i ? ' selected' : '' ?>>
+                        <?= escaparValores(\App\Estadisticas::etiquetaPeriodo($p['tipo'], $p['anio'], $i)) ?>
+                    </option>
+                <?php endfor; ?>
+            </select>
+        </div>
+        <div class="campo">
+            <label class="campo__etiqueta" for="anio">Año</label>
+            <select class="control" id="anio" name="anio">
+                <?php for ($a = $hoyAnio; $a >= 2020; $a--) : ?>
+                    <option value="<?= $a ?>"<?= $p['anio'] === $a ? ' selected' : '' ?>><?= $a ?></option>
+                <?php endfor; ?>
+            </select>
+        </div>
+        <div class="campo">
+            <label class="campo__etiqueta" for="empresa">Negocio</label>
+            <select class="control" id="empresa" name="empresa">
+                <option value="0">Ambos negocios</option>
+                <?php foreach ($empresas as $e) : ?>
+                    <option value="<?= (int) $e->id ?>"<?= $f['empresa'] === (int) $e->id ? ' selected' : '' ?>><?= escaparValores($e->nombre) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="campo">
+            <label class="campo__etiqueta" for="base">Importes</label>
+            <select class="control" id="base" name="base">
+                <option value="total"<?= $base === 'total' ? ' selected' : '' ?>>Con IVA</option>
+                <option value="subtotal"<?= $base === 'subtotal' ? ' selected' : '' ?>>Sin IVA (con descuentos)</option>
+            </select>
+        </div>
+        <div class="campo">
+            <label class="campo__etiqueta" for="orden">Ordenar rankings</label>
+            <select class="control" id="orden" name="orden">
+                <option value="piezas"<?= $orden === 'piezas' ? ' selected' : '' ?>>Por piezas</option>
+                <option value="monto"<?= $orden === 'monto' ? ' selected' : '' ?>>Por monto</option>
+            </select>
+        </div>
+    </div>
+    <div class="formulario__acciones">
+        <a class="btn btn--texto" href="/admin/estadisticas">Restablecer</a>
+        <button class="btn btn--primario" type="submit">Ver estadísticas</button>
+    </div>
 </form>
 
-<?php if ($conProducto) : ?>
-    <p class="nota nota--advertencia mb-lg" role="note"><span class="material-symbols-outlined nota__icono" aria-hidden="true">info</span>
-        <span>Con un producto elegido se miden <strong>sus renglones</strong> (sin IVA ni descuento global). Las ventas facturadas y los cobros no se reparten por producto y aparecen en cero.</span></p>
-<?php endif; ?>
-
 <?php if (!$actual['completo']) : ?>
-    <p class="nota nota--advertencia mb-lg" role="status"><span class="material-symbols-outlined nota__icono" aria-hidden="true">hourglass_top</span>
-        <span><strong><?= $actual['futuro'] ? 'Periodo futuro.' : 'Periodo incompleto.' ?></strong>
-            <?= $actual['futuro'] ? 'Aún no empieza.' : 'Los datos llegan al ' . date('d/m/Y', strtotime($actual['corte'])) . '; la comparación usa el mismo avance del año anterior.' ?></span></p>
+    <p class="nota nota--advertencia mb-lg" role="status">
+        <span class="material-symbols-outlined nota__icono" aria-hidden="true">hourglass_top</span>
+        <span><strong><?= $actual['futuro'] ? 'Periodo futuro.' : 'Periodo incompleto al ' . date('d/m/Y', strtotime($actual['corte'])) . '.' ?></strong>
+            <?= $actual['futuro'] ? 'Aún no empieza.' : 'Los datos llegan a esa fecha; la comparación usa el mismo avance del año anterior.' ?></span>
+    </p>
 <?php endif; ?>
 
 <h2 class="titulo-5 mb-md"><?= escaparValores($etiquetaPeriodo) ?></h2>
@@ -150,10 +411,10 @@ template('header', [
         $vk = $k['variacion'];
         $mejora = $vk && $vk['absoluta'] != 0 ? (($vk['absoluta'] > 0) === ($k['sentido'] === 'directo')) : null;
         $textoCambio = $vk === null ? 'Sin datos para comparar'
-            : ($vk['porcentual'] === null ? 'Sin base en ' . $anteriorTexto
-            : ($vk['absoluta'] == 0 ? 'Igual que ' . $anteriorTexto : ($vk['absoluta'] > 0 ? '▲ +' : '▼ ') . number_format($vk['porcentual'], 1) . ' % vs ' . $anteriorTexto));
-    ?>
-        <?php $iconoKpi = ['realizadas' => 'trending_up', 'cobros' => 'payments', 'facturadas' => 'receipt_long', 'gastos' => 'receipt'][$k['clave']] ?? 'insights'; ?>
+            : ($vk['porcentual'] === null ? 'Sin base en ' . ($p['anio'] - 1)
+            : ($vk['absoluta'] == 0 ? 'Igual que ' . ($p['anio'] - 1) : ($vk['absoluta'] > 0 ? '▲ +' : '▼ ') . number_format(abs((float) $vk['porcentual']), 1) . ' % vs ' . ($p['anio'] - 1)));
+        $iconoKpi = ['realizadas' => 'trending_up', 'cobros' => 'payments', 'facturadas' => 'receipt_long', 'gastos' => 'receipt'][$k['clave']] ?? 'insights';
+        ?>
         <div class="indicador" style="--indicador: <?= escaparValores($colorIndicador[$k['clave']]) ?>">
             <span class="indicador__cabecera">
                 <span class="indicador__icono" aria-hidden="true"><span class="material-symbols-outlined"><?= $iconoKpi ?></span></span>
@@ -161,185 +422,109 @@ template('header', [
             </span>
             <span class="indicador__valor"><?= $m($k['importe']) ?></span>
             <span class="cambio<?= $mejora === null ? '' : ($mejora ? ' cambio--bien' : ' cambio--mal') ?>"><?= escaparValores($textoCambio) ?></span>
-            <span class="indicador__pie"><?= $vk ? ($vk['absoluta'] > 0 ? '+' : '') . $m($vk['absoluta']) . ' contra ' . $m($k['previo']) . ' del ' . ($actual['completo'] ? 'mismo periodo' : 'mismo avance') . ' de ' . $anteriorTexto : escaparValores($k['detalle']) ?></span>
+            <span class="indicador__pie"><?= $vk ? ($vk['absoluta'] > 0 ? '+' : '') . $m($vk['absoluta']) . ' contra ' . $m($k['previo']) . ' del ' . ($actual['completo'] ? 'mismo periodo' : 'mismo avance') . ' de ' . ($p['anio'] - 1) : escaparValores($k['detalle']) ?></span>
             <span class="indicador__pie"><?= escaparValores($k['detalle']) ?></span>
         </div>
     <?php endforeach; ?>
 </section>
-<p class="campo__ayuda mb-lg">Una venta se <strong>vende</strong> el día que la haces, se <strong>factura</strong> cuando le das factura y se <strong>cobra</strong> cuando el cliente paga (puede ser otro mes); por eso van en gráficas y series separadas.
-    <?= $r['tendencia']['direccion'] === 'sin_datos' ? '' : escaparValores($r['tendencia']['etiqueta']) . '.' ?>
-    <?= $f['empresa'] > 0 ? 'Con un negocio elegido, sus gastos incluyen su parte de los compartidos.' : '' ?></p>
+<p class="campo__ayuda mb-lg">
+    Una venta se <strong>vende</strong> el día que la haces, se <strong>factura</strong> cuando le das factura y se <strong>cobra</strong> cuando el cliente paga.
+    Los rankings usan <strong><?= $orden === 'monto' ? 'monto' : 'piezas' ?></strong>; las comparativas de 3 años usan el año actual y los dos anteriores.
+</p>
 
 <nav class="estadisticas-nav" aria-label="Secciones de estadísticas">
-    <?php foreach ($secciones as $clave => [$titulo]) : ?><a class="chip<?= $clave === 'ingresos' ? ' movil-oculto' : '' ?>" href="#sec-<?= $clave ?>"><?= escaparValores($titulo) ?></a><?php endforeach; ?>
-    <a class="chip movil-oculto" href="#tablas">Tablas</a>
+    <a class="chip" href="#sec-productos">Productos</a>
+    <a class="chip" href="#sec-clientes">Clientes</a>
+    <a class="chip" href="#sec-ventas">Ventas y cobros</a>
+    <a class="chip" href="#sec-gastos">Gastos</a>
+    <a class="chip" href="#sec-anios">3 años</a>
+    <a class="chip" href="#mapa-ventas-seccion">Mapa</a>
 </nav>
 
-<?php foreach ($secciones as $clave => [$titulo, $descripcion]) : $deSeccion = array_filter($graficas, static fn ($g) => $g['seccion'] === $clave); ?>
-    <section class="estadisticas-seccion<?= $clave === 'ingresos' ? ' movil-oculto' : '' ?>" id="sec-<?= $clave ?>" aria-labelledby="t-<?= $clave ?>">
-        <h2 class="titulo-4" id="t-<?= $clave ?>"><?= escaparValores($titulo) ?></h2>
-        <p class="campo__ayuda mb-md"><?= escaparValores($descripcion) ?></p>
-        <?php if (!$deSeccion) : ?>
-            <?= $vacio($conProducto && $clave === 'ingresos' ? 'Con un producto elegido no se reparten cobros ni facturación.' : 'Sin datos para esta sección con los filtros elegidos.') ?>
+<section class="estadisticas-seccion" id="sec-productos" aria-labelledby="t-productos">
+    <div class="estadisticas-seccion__cabecera">
+        <div>
+            <h2 class="titulo-4" id="t-productos">Productos del periodo</h2>
+            <p class="campo__ayuda mb-0">Más y menos vendidos por negocio · <?= escaparValores($etiquetaPeriodo) ?> · importes <?= escaparValores($baseTexto) ?>.</p>
+        </div>
+        <span class="badge badge--info badge--sin-punto"><?= $orden === 'monto' ? 'Ordenado por monto' : 'Ordenado por piezas' ?></span>
+    </div>
+
+    <div class="rankings-grid">
+        <?php if (!$empresasProductos) : ?>
+            <?= $cardRanking('Productos vendidos', 'Sin ventas en el periodo', 'inventory_2', 'top', [], 'producto') ?>
         <?php else : ?>
-            <div class="estadisticas-rejilla">
-                <?php foreach ($deSeccion as $g) : echo $tarjetaGrafica($g); endforeach; ?>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($clave === 'negocios' && $negocios) : ?>
-            <div class="tarjeta tarjeta--sin-relleno">
-                <div class="tabla-contenedor">
-                    <table class="tabla">
-                        <caption>Comparación entre negocios · <?= escaparValores($etiquetaPeriodo) ?> (sin filtro de negocio)</caption>
-                        <thead><tr><th scope="col">Negocio</th><th scope="col" class="tabla--numerica">Ventas del periodo</th><th scope="col" class="tabla--numerica movil-oculto">Operaciones</th>
-                            <th scope="col" class="tabla--numerica movil-oculto">Mismo avance <?= $anteriorTexto ?></th><th scope="col" class="tabla--numerica movil-oculto">Variación</th><th scope="col" class="tabla--numerica">Participación</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($negocios as $n) : $vn = \App\Estadisticas::variacion($n['previo'], $n['periodo']); ?>
-                                <tr><td><strong><?= escaparValores($n['nombre']) ?></strong></td><td class="tabla--numerica cifra"><?= $m($n['periodo']) ?></td><td class="tabla--numerica cifra movil-oculto"><?= number_format($n['ventas']) ?></td>
-                                    <td class="tabla--numerica cifra movil-oculto"><?= $m($n['previo']) ?></td><td class="tabla--numerica movil-oculto"><?= $variacion($vn) ?></td>
-                                    <td class="tabla--numerica cifra"><?= $totalNegocios > 0 ? number_format($n['periodo'] * 100 / $totalNegocios, 1) . ' %' : '—' ?></td></tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <?php foreach (\App\Estadisticas::agruparPorNegocio($r['productos']) as $indiceGrupo => $grupoProductos) : ?>
-                <div class="tarjeta tarjeta--sin-relleno mt-md<?= $indiceGrupo > 0 ? ' movil-oculto' : '' ?>">
-                    <div class="tabla-contenedor">
-                        <table class="tabla">
-                            <caption>Ventas por negocio · productos de <?= escaparValores($grupoProductos['negocio']) ?> · <?= escaparValores($etiquetaPeriodo) ?></caption>
-                            <thead><tr><th scope="col">Código</th><th scope="col" class="tabla--numerica">Piezas</th><th scope="col" class="tabla--numerica">Importe (sin IVA)</th><th scope="col" class="tabla--numerica">Importe con IVA</th></tr></thead>
-                            <tbody>
-                                <?php foreach ($grupoProductos['filas'] as $x) : ?>
-                                    <tr><td><strong><?= escaparValores($x['sku'] !== '' ? $x['sku'] : '—') ?></strong></td>
-                                        <td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td>
-                                        <td class="tabla--numerica cifra"><?= $m($x['importe_con_iva']) ?></td></tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <?php foreach ($empresasProductos as $empresaId => $grupo) :
+                $top = $topProductosPorEmpresa[$empresaId] ?? ['negocio' => $grupo['negocio'], 'filas' => []];
+                $menos = $menosProductosPorEmpresa[$empresaId] ?? ['negocio' => $grupo['negocio'], 'filas' => []]; ?>
+                <?= $cardRanking('Más vendidos · ' . $top['negocio'], 'Top 5 · ' . $etiquetaPeriodo, 'emoji_events', 'top', $top['filas'], 'producto') ?>
+                <?= $cardRanking('Menos vendidos · ' . $menos['negocio'], 'Últimos 5 · ' . $etiquetaPeriodo, 'trending_down', 'bottom', $menos['filas'], 'producto') ?>
             <?php endforeach; ?>
-            <?php if ($r['productos']) : ?><p class="campo__ayuda">Los productos con más importe de cada negocio en el periodo, con su código (SKU).</p><?php endif; ?>
         <?php endif; ?>
-
-        <?php if ($clave === 'productos') : ?>
-            <p class="campo__ayuda mt-md"><strong><?= number_format($sinMovimiento['total']) ?></strong> producto(s) activo(s) no tuvieron ninguna venta en este periodo.
-                <?php if ($sinMovimiento['lista']) : ?>Los de mayor existencia: <?= escaparValores(implode(', ', array_map(static fn ($x) => $x['nombre'] . ' (' . $x['stock'] . ')', $sinMovimiento['lista']))) ?>.<?php endif; ?></p>
-        <?php endif; ?>
-    </section>
-<?php endforeach; ?>
-
-<details class="mb-lg movil-oculto" id="tablas">
-    <summary class="boton-enlace" style="cursor:pointer"><strong>Ver las tablas con todos los números</strong></summary>
-    <div class="mt-md">
-<section class="tarjeta tarjeta--sin-relleno mb-lg">
-    <div class="tabla-contenedor">
-        <table class="tabla">
-            <caption>Comparación de <?= escaparValores(mb_strtolower($etiquetaPeriodo)) ?> con años anteriores</caption>
-            <thead><tr><th scope="col">Periodo</th><th scope="col" class="tabla--numerica">Realizadas</th><th scope="col" class="tabla--numerica">Operaciones</th><th scope="col" class="tabla--numerica">Piezas</th>
-                <th scope="col" class="tabla--numerica">Variación vs año anterior</th><th scope="col" class="tabla--numerica">Facturadas</th><th scope="col" class="tabla--numerica">Cobros</th></tr></thead>
-            <tbody>
-                <?php foreach (array_reverse($r['comparacion']) as $x) : ?>
-                    <tr>
-                        <td><strong><?= escaparValores($x['etiqueta']) ?></strong>
-                            <?= $x['futuro'] ? '<span class="badge badge--neutro">Futuro</span>' : (!$x['completo'] ? '<span class="badge badge--pendiente">Incompleto al ' . date('d/m', strtotime($x['corte'])) . '</span>' : '') ?></td>
-                        <td class="tabla--numerica cifra"><?= $m($x['realizadas']['importe']) ?></td>
-                        <td class="tabla--numerica cifra"><?= number_format($x['realizadas']['operaciones']) ?></td>
-                        <td class="tabla--numerica cifra"><?= number_format($x['realizadas']['unidades']) ?></td>
-                        <td class="tabla--numerica"><?= $variacion($x['variacion']) ?>
-                            <?php if (!empty($x['variacion_mismo_avance'])) : ?><span class="texto-xs texto-secundario"><br>Mismo avance del año anterior:</span><br><?= $variacion($x['variacion_mismo_avance']) ?><?php endif; ?></td>
-                        <td class="tabla--numerica cifra"><?= $m($x['facturadas']['importe']) ?></td>
-                        <td class="tabla--numerica cifra"><?= $m($x['cobros']['importe']) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
     </div>
 </section>
 
-<div class="estadisticas-rejilla">
-    <section class="tarjeta tarjeta--sin-relleno">
-        <h2 class="titulo-5" style="padding:1rem 1rem 0">Productos más vendidos · <?= escaparValores($etiquetaPeriodo) ?></h2>
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <caption class="solo-lectores">Productos más vendidos, separados por negocio</caption>
-                <thead><tr><th scope="col">Negocio</th><th scope="col">Código</th><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Piezas</th><th scope="col" class="tabla--numerica">Importe (sin IVA)</th><th scope="col" class="tabla--numerica">Ventas</th></tr></thead>
-                <tbody>
-                    <?php foreach ($r['productos'] as $x) : ?>
-                        <tr><td><?= escaparValores($x['negocio']) ?></td><td><strong><?= escaparValores($x['sku'] !== '' ? $x['sku'] : '—') ?></strong></td><td><?= escaparValores($x['nombre']) ?></td>
-                            <td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td><td class="tabla--numerica cifra"><?= number_format($x['operaciones']) ?></td></tr>
-                    <?php endforeach; ?>
-                    <?php if (!$r['productos']) : ?><tr><td colspan="6" class="tabla--centro texto-secundario">Sin ventas en el periodo.</td></tr><?php endif; ?>
-                </tbody>
-            </table>
+<section class="estadisticas-seccion" id="sec-clientes" aria-labelledby="t-clientes">
+    <div class="estadisticas-seccion__cabecera">
+        <div>
+            <h2 class="titulo-4" id="t-clientes">Clientes del periodo</h2>
+            <p class="campo__ayuda mb-0">Mayor y menor compra por negocio · <?= escaparValores($etiquetaPeriodo) ?> · importes <?= escaparValores($baseTexto) ?>.</p>
         </div>
-    </section>
-    <section class="tarjeta tarjeta--sin-relleno">
-        <h2 class="titulo-5" style="padding:1rem 1rem 0">Clientes con mayor volumen · <?= escaparValores($etiquetaPeriodo) ?></h2>
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <caption class="solo-lectores">Clientes con mayor volumen de compra, separados por negocio</caption>
-                <thead><tr><th scope="col">Negocio</th><th scope="col">Cliente</th><th scope="col" class="tabla--numerica">Importe</th><th scope="col" class="tabla--numerica">Ventas</th><th scope="col" class="tabla--numerica">Piezas</th></tr></thead>
-                <tbody>
-                    <?php foreach ($r['clientes'] as $x) : ?>
-                        <tr><td><?= escaparValores($x['negocio']) ?></td><td><strong><?= escaparValores($x['nombre']) ?></strong></td><td class="tabla--numerica cifra"><?= $m($x['importe']) ?></td>
-                            <td class="tabla--numerica cifra"><?= number_format($x['operaciones']) ?></td><td class="tabla--numerica cifra"><?= number_format($x['unidades']) ?></td></tr>
-                    <?php endforeach; ?>
-                    <?php if (!$r['clientes']) : ?><tr><td colspan="5" class="tabla--centro texto-secundario">Sin ventas en el periodo.</td></tr><?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
-</div>
-
-<?php foreach (['matriz_productos' => 'Ventas por producto durante varios años (sin IVA)', 'matriz_clientes' => 'Ventas por cliente durante varios años'] as $clave => $titulo) : $mat = $r[$clave]; ?>
-    <section class="tarjeta tarjeta--sin-relleno mb-lg">
-        <h2 class="titulo-5" style="padding:1rem 1rem 0"><?= $titulo ?></h2>
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <caption class="solo-lectores"><?= $titulo ?></caption>
-                <thead><tr><th scope="col"><?= $clave === 'matriz_productos' ? 'Producto' : 'Cliente' ?></th>
-                    <?php foreach ($mat['anios'] as $a) : ?><th scope="col" class="tabla--numerica"><?= $a ?></th><?php endforeach; ?><th scope="col" class="tabla--numerica">Total</th></tr></thead>
-                <tbody>
-                    <?php foreach ($mat['filas'] as $x) : ?>
-                        <tr><td><?= escaparValores($x['nombre']) ?></td>
-                            <?php foreach ($mat['anios'] as $a) : ?><td class="tabla--numerica cifra"><?= $m($x['por_anio'][$a]) ?></td><?php endforeach; ?>
-                            <td class="tabla--numerica cifra"><strong><?= $m($x['total']) ?></strong></td></tr>
-                    <?php endforeach; ?>
-                    <?php if (!$mat['filas']) : ?><tr><td colspan="<?= count($mat['anios']) + 2 ?>" class="tabla--centro texto-secundario">Sin ventas en estos años.</td></tr><?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
-<?php endforeach; ?>
-
-<h3 class="titulo-5 mb-md">Datos de cada gráfica</h3>
-<?php foreach ($graficas as $g) : [$enc, $filasG, $totalG] = \App\Analisis::tabla($g); $monedaG = $g['formato'] === 'moneda'; $nSeries = count($g['series']); $nExtra = count($g['extra'] ?? []); ?>
-    <section class="tarjeta tarjeta--sin-relleno mb-lg">
-        <div class="tabla-contenedor">
-            <table class="tabla">
-                <caption><?= escaparValores($g['titulo']) ?> — <?= escaparValores($g['subtitulo']) ?></caption>
-                <thead><tr><?php foreach ($enc as $i => $t) : ?><th scope="col"<?= $i ? ' class="tabla--numerica"' : '' ?>><?= escaparValores($t) ?></th><?php endforeach; ?></tr></thead>
-                <tbody>
-                    <?php foreach (array_merge($filasG, $totalG ? [$totalG] : []) as $fila) : ?>
-                        <tr><?php foreach ($fila as $i => $c) : ?>
-                            <?php if ($i === 0) : ?><td><?= $c === 'Total' ? '<strong>Total</strong>' : escaparValores((string) $c) ?></td>
-                            <?php else : ?><td class="tabla--numerica cifra"><?= $c === null ? '—'
-                                : ($i > $nSeries + $nExtra ? number_format((float) $c, 2) . ' %'
-                                : ($i > $nSeries ? number_format((float) $c) : ($monedaG ? formatoMoneda((float) $c) : number_format((float) $c)))) ?></td><?php endif; ?>
-                        <?php endforeach; ?></tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
-<?php endforeach; ?>
-
+        <span class="badge badge--info badge--sin-punto"><?= $orden === 'monto' ? 'Ordenado por monto' : 'Ordenado por piezas' ?></span>
     </div>
-</details>
+
+    <div class="rankings-grid">
+        <?php if (!$empresasClientes) : ?>
+            <?= $cardRanking('Clientes', 'Sin compras en el periodo', 'group', 'top', [], 'cliente') ?>
+        <?php else : ?>
+            <?php foreach ($empresasClientes as $empresaId => $grupo) :
+                $top = $topClientesPorEmpresa[$empresaId] ?? ['negocio' => $grupo['negocio'], 'filas' => []];
+                $menos = $menosClientesPorEmpresa[$empresaId] ?? ['negocio' => $grupo['negocio'], 'filas' => []]; ?>
+                <?= $cardRanking('Mayor compra · ' . $top['negocio'], 'Top 5 · ' . $etiquetaPeriodo, 'workspace_premium', 'top', $top['filas'], 'cliente') ?>
+                <?= $cardRanking('Menor compra · ' . $menos['negocio'], 'Últimos 5 · ' . $etiquetaPeriodo, 'person_search', 'bottom', $menos['filas'], 'cliente') ?>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</section>
+
+<section class="estadisticas-seccion" id="sec-ventas" aria-labelledby="t-ventas">
+    <div class="estadisticas-seccion__cabecera">
+        <div>
+            <h2 class="titulo-4" id="t-ventas">Ventas y cobros</h2>
+            <p class="campo__ayuda mb-0">Ventas mensuales de 3 años y lo que ya se cobró de las ventas de <?= $p['anio'] ?>.</p>
+        </div>
+        <span class="badge badge--neutro badge--sin-punto">3 años</span>
+    </div>
+    <div class="estadisticas-rejilla">
+        <?= $tarjetaGrafica($graficaVentas, $resumenVentas, 'estadisticas-rejilla__ancho grafica-tarjeta--hero') ?>
+        <?= $tarjetaGrafica($graficaCobros, $resumenCobros, 'estadisticas-rejilla__ancho') ?>
+    </div>
+</section>
+
+<section class="estadisticas-seccion" id="sec-gastos" aria-labelledby="t-gastos">
+    <div class="estadisticas-seccion__cabecera">
+        <div>
+            <h2 class="titulo-4" id="t-gastos">Gastos</h2>
+            <p class="campo__ayuda mb-0">Gastos mensuales comparados entre 3 años · importes <?= escaparValores($baseTexto) ?>.</p>
+        </div>
+        <span class="badge badge--neutro badge--sin-punto">3 años</span>
+    </div>
+    <?= $tarjetaGrafica($graficaGastos, $resumenGastos, 'grafica-tarjeta--hero grafica-tarjeta--gastos') ?>
+</section>
+
+<section class="estadisticas-seccion" id="sec-anios" aria-labelledby="t-anios">
+    <div class="estadisticas-seccion__cabecera">
+        <div>
+            <h2 class="titulo-4" id="t-anios">Tres años</h2>
+            <p class="campo__ayuda mb-0">Productos por piezas y clientes por volumen de compra.</p>
+        </div>
+        <span class="badge badge--neutro badge--sin-punto"><?= escaparValores($aniosTexto) ?></span>
+    </div>
+    <div class="estadisticas-rejilla">
+        <?= $tarjetaGrafica($graficaProductosAnios, $resumenProductosAnios, 'estadisticas-rejilla__ancho') ?>
+        <?= $tarjetaGrafica($graficaClientesAnios, $resumenClientesAnios, 'estadisticas-rejilla__ancho') ?>
+    </div>
+</section>
 
 <!-- Mapa histórico de ventas: GPS de las fotos de entrega, agrupado a 50 m. -->
 <section class="tarjeta mb-lg mapa-ventas" id="mapa-ventas-seccion" aria-labelledby="t-mapa-ventas">

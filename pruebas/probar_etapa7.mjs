@@ -1,5 +1,8 @@
 /**
- * probar_etapa7.mjs — estadísticas en un navegador real (usa los datos que deja pruebas/php/etapa7.php).
+ * probar_etapa7.mjs — estadísticas enfocadas en un navegador real (usa los datos de pruebas/php/etapa7.php).
+ *
+ * Valida el tablero que quedó después del rediseño: rankings de productos y
+ * clientes, comparativas de 3 años, cobros, gastos y mapa.
  *
  *   DB_NAME=cotizaciones_test php -S 127.0.0.1:8017 index.php &
  *   DB_NAME=cotizaciones_test node pruebas/probar_etapa7.mjs
@@ -21,7 +24,6 @@ const sql = (c) => execFileSync('mysql', ['-u', 'root', DB, '-N', '-B', '-e', c]
 let ok = 0, mal = 0;
 const verifica = (n, c, d = '') => { c ? ok++ : mal++; console.log((c ? '  ✓ ' : '  ✗ ') + n + (!c && d ? ' → ' + d : '')); };
 
-// Los datos (ventas de 2025 y 2026) los deja la prueba de PHP.
 execFileSync('php', [join(RAIZ, 'pruebas/php/etapa7.php')], { env: { ...process.env, DB_NAME: DB }, stdio: 'ignore' });
 const hash = execFileSync('php', ['-r', `echo password_hash('${CLAVE}', PASSWORD_BCRYPT);`], { encoding: 'utf8' });
 sql(`DELETE FROM usuarios WHERE email='${EMAIL}'`);
@@ -32,8 +34,7 @@ const pagina = await navegador.newPage({ viewport: { width: 1440, height: 900 } 
 const errores = [];
 pagina.on('pageerror', (e) => errores.push(e.message));
 pagina.on('console', (m) => { if (m.type() === 'error') errores.push(m.text()); });
-const abrirTodo = () => pagina.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
-const texto = async () => { await abrirTodo(); return pagina.locator('main').innerText(); };
+const texto = async () => pagina.locator('main').innerText();
 
 try {
   await pagina.goto(BASE + '/login');
@@ -41,94 +42,95 @@ try {
   await pagina.fill('#contrasena', CLAVE);
   await Promise.all([pagina.waitForURL('**/admin'), pagina.click('button[type=submit]')]);
 
-  console.log('Enero 2026 contra enero 2025');
+  console.log('Tablero enfocado');
   await pagina.goto(`${BASE}/admin/estadisticas?tipo=mes&indice=1&anio=2026&atras=1`);
   let t = await texto();
   verifica('importes de ambos años: $2,436.00 y $1,508.00', t.includes('$2,436.00') && t.includes('$1,508.00'));
-  verifica('variación absoluta +$928.00 y +61.54 %', t.includes('+$928.00') && t.includes('+61.54 %'));
-  verifica('separa ventas realizadas, facturadas y cobros', /ventas realizadas/i.test(t) && /cobros recibidos/i.test(t) && /ventas facturadas/i.test(t));
+  verifica('variación absoluta +$928.00 y +61.5 %', t.includes('+$928.00') && t.includes('+61.5 %'));
+  verifica('separa ventas realizadas, facturadas y cobros',
+    /ventas realizadas/i.test(t) && /cobros recibidos/i.test(t) && /ventas facturadas/i.test(t));
   verifica('explica por qué no son lo mismo', t.includes('se vende el día que la haces'));
-  await pagina.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 500) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 120)); } });
-  await pagina.waitForTimeout(800);
-  verifica('hay al menos 9 gráficas ECharts dibujadas (canvas) con tablas de respaldo', (await pagina.locator('[data-grafica]').count()) >= 9 && (await pagina.locator('[data-grafica] canvas').count()) >= 9);
-  const vc = JSON.parse(await pagina.locator('#g-ventas-vs-cobros [data-grafica]').getAttribute('data-grafica'));
-  verifica('ventas y cobros van en series distintas', vc.series.length === 2 && /ventas/i.test(vc.series[0].nombre) && /cobros/i.test(vc.series[1].nombre));
-  verifica('productos más vendidos: RA-3 con 3 piezas', (await pagina.locator('table:has(caption:text("Productos más vendidos")) tbody tr').first().innerText()).includes('RA-3'));
-  verifica('las tarjetas nuevas son solo del reporte (no salen en pantalla)', !t.includes('Productos con existencias bajas'));
-  verifica('clientes con mayor volumen listados', (await pagina.locator('table:has(caption:text("Clientes con mayor volumen")) tbody tr').count()) >= 1);
-  verifica('matriz de productos por varios años', (await pagina.locator('table:has(caption:text("varios años")) tbody tr').count()) >= 1);
+
+  // Las gráficas se dibujan al acercarse a la pantalla: recorremos cada figura.
+  await pagina.evaluate(async () => {
+    for (const figura of document.querySelectorAll('[data-grafica]')) {
+      figura.scrollIntoView({ block: 'center' });
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    window.scrollTo(0, 0);
+  });
+  await pagina.waitForFunction(() => document.querySelectorAll('[data-grafica] canvas').length >= 5, { timeout: 15000 }).catch(() => {});
+
+  const lienzos = await pagina.locator('[data-grafica] canvas').count();
+  const vacias = await pagina.locator('.grafica__vacio').count();
+  verifica('hay 5 gráficas (dibujadas o con estado vacío)', (await pagina.locator('[data-grafica]').count()) === 5
+    && lienzos + vacias === 5, `canvas=${lienzos}, vacías=${vacias}`);
+
+  const ventas = JSON.parse(await pagina.locator('#g-ventas-anios [data-grafica]').getAttribute('data-grafica'));
+  verifica('ventas mensuales de 3 años', ventas.series.length === 3 && ventas.categorias.length === 12);
+  const cobros = JSON.parse(await pagina.locator('#g-cobrado-pendiente [data-grafica]').getAttribute('data-grafica'));
+  verifica('cobrado y saldo pendiente van en series distintas',
+    cobros.series.length === 2 && /cobrado/i.test(cobros.series[0].nombre) && /pendiente/i.test(cobros.series[1].nombre));
+  const gastos = JSON.parse(await pagina.locator('#g-gastos-anios [data-grafica]').getAttribute('data-grafica'));
+  verifica('gastos mensuales de 3 años', gastos.series.length === 3);
+  const productosAnios = JSON.parse(await pagina.locator('#g-productos-anios [data-grafica]').getAttribute('data-grafica'));
+  verifica('productos de 3 años medidos en piezas', productosAnios.series.length === 3 && productosAnios.formato === 'entero');
+  const clientesAnios = JSON.parse(await pagina.locator('#g-clientes-anios [data-grafica]').getAttribute('data-grafica'));
+  verifica('ventas a clientes de 3 años medidas en moneda', clientesAnios.series.length === 3 && clientesAnios.formato === 'moneda');
+
+  verifica('rankings de productos y clientes', (await pagina.locator('.ranking').count()) >= 2);
+  const productosTexto = await pagina.locator('#sec-productos').innerText();
+  verifica('productos más vendidos: RA-3', productosTexto.includes('RA-3'));
+  verifica('clientes con mayor y menor compra', (await pagina.locator('#sec-clientes .ranking').count()) >= 2
+    && (await pagina.locator('#sec-clientes .ranking__fila').count()) >= 1);
+  verifica('el ranking explica si ordena por piezas', productosTexto.toLowerCase().includes('por piezas'));
 
   console.log('Filtros interactivos');
-  await abrirTodo();
   await pagina.selectOption('#empresa', '2');
   await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
-  verifica('solo el negocio 2: el indicador de ventas de 2026 queda en $0.00 y el año anterior muestra $348.00', (await pagina.locator('.indicador__valor').first().innerText()) === '$0.00' && t.includes('$348.00'));
-  await abrirTodo();
+  verifica('solo el negocio 2: el indicador de ventas de 2026 queda en $0.00 y el año anterior muestra $348.00',
+    (await pagina.locator('.indicador__valor').first().innerText()) === '$0.00' && t.includes('$348.00'));
+
   await pagina.selectOption('#empresa', '0');
   await pagina.selectOption('#base', 'subtotal');
   await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
   verifica('sin IVA: $2,100.00 contra $1,300.00', t.includes('$2,100.00') && t.includes('$1,300.00'));
-  await abrirTodo();
+
   await pagina.selectOption('#base', 'total');
-  await pagina.selectOption('#producto', '37');
+  await pagina.selectOption('#orden', 'monto');
   await pagina.click('button:has-text("Ver estadísticas")');
   t = await texto();
-  verifica('con producto avisa que mide renglones sin IVA', t.includes('Con un producto elegido') && t.includes('$1,500.00'));
-
-  console.log('Rankings por negocio');
-  await pagina.goto(`${BASE}/admin/estadisticas?tipo=anio&anio=2026&atras=1`);
-  const top1 = await pagina.locator('#g-productos-top-1 [data-grafica]').getAttribute('data-grafica');
-  const top2 = await pagina.locator('#g-productos-top-2 [data-grafica]').getAttribute('data-grafica');
-  verifica('productos de mayor movimiento, una gráfica por negocio', !!top1 && !!top2 && /Soluciones en Acero/.test(top1) && /Canastillas de la Baja/.test(top2));
-  verifica('cada producto trae su código (SKU) en la gráfica', JSON.parse(top1).categorias.some((c) => c.startsWith('RA-3')), top1.slice(0, 160));
-  const menor2 = await pagina.locator('#g-productos-menor-2 [data-grafica]').getAttribute('data-grafica');
-  verifica('productos de menor movimiento también por negocio y con código', !!menor2 && JSON.parse(menor2).categorias.some((c) => c.startsWith('RA-1')), (menor2 || '').slice(0, 160));
-  const cli2g = await pagina.locator('#g-clientes-top-2 [data-grafica]').getAttribute('data-grafica');
-  verifica('clientes con mayor volumen separados por negocio', !!cli2g && JSON.parse(cli2g).categorias.length >= 1, (cli2g || '').slice(0, 160));
-  await abrirTodo();
-  const tablaTop = (await pagina.locator('table:has(caption:text("Productos más vendidos"))').first().innerText()).toLowerCase();
-  verifica('la tabla de productos trae Negocio y Código', tablaTop.includes('negocio') && tablaTop.includes('código'));
-  const tablaClientes = (await pagina.locator('table:has(caption:text("Clientes con mayor volumen"))').first().innerText()).toLowerCase();
-  verifica('la tabla de clientes trae Negocio', tablaClientes.includes('negocio'));
-  verifica('ventas por negocio detalla sus productos con el código', (await pagina.locator('table:has(caption:text("productos de Canastillas de la Baja")) tbody tr').count()) >= 1);
-  const encabezadosProductos = (await pagina.locator('table:has(caption:text("productos de Soluciones en Acero"))').first().locator('thead th').allTextContents()).map((x) => x.trim());
-  verifica('ventas por negocio: sólo Código, Piezas, Importe sin IVA e Importe con IVA',
-    JSON.stringify(encabezadosProductos) === JSON.stringify(['Código', 'Piezas', 'Importe (sin IVA)', 'Importe con IVA']), encabezadosProductos.join(' | '));
-  verifica('la gráfica de productos trae sólo el código (sin nombre)',
-    JSON.parse(top1).categorias.every((c) => !c.includes('·')), top1.slice(0, 160));
+  verifica('el selector cambia los rankings a monto',
+    (await pagina.locator('#sec-productos .ranking__medida').first().innerText()).toLowerCase().includes('por monto')
+    && t.toLowerCase().includes('ordenado por monto'));
 
   console.log('Periodo incompleto');
   await pagina.goto(`${BASE}/admin/estadisticas?tipo=anio&anio=${new Date().getFullYear()}&atras=1`);
   t = await texto();
   verifica('marca el año en curso como incompleto', /periodo incompleto/i.test(t) && /incompleto al/i.test(t));
-  verifica('muestra la variación contra el mismo avance', t.includes('Mismo avance del año anterior'));
+  verifica('usa el mismo avance del año anterior', /mismo avance/i.test(t));
   await pagina.goto(`${BASE}/admin/estadisticas?tipo=mes&indice=12&anio=${new Date().getFullYear()}&atras=1`);
   verifica('un mes futuro se indica como futuro', (await texto()).includes('Periodo futuro'));
-
-  console.log('Agrupaciones y comparaciones');
-  for (const [agr, esperado] of [['dia', '2026-01-05'], ['mes', 'Ene'], ['trimestre', 'T1'], ['semestre', 'S1'], ['anio', '2026']]) {
-    await pagina.goto(`${BASE}/admin/estadisticas?tipo=mes&indice=1&anio=2026&atras=1&agrupacion=${agr}`);
-    const datos = await pagina.locator('figure[data-grafica]').nth(0).getAttribute('data-grafica');
-    verifica(`serie por ${agr}`, JSON.parse(datos).categorias.includes(esperado), datos.slice(0, 120));
-  }
-  for (const [tipo, indice] of [['trimestre', 1], ['semestre', 1], ['anio', 1]]) {
-    await pagina.goto(`${BASE}/admin/estadisticas?tipo=${tipo}&indice=${indice}&anio=2026&atras=1`);
-    verifica(`compara ${tipo} contra el año anterior`, (await pagina.locator('table:has(caption:text("Comparación de")) tbody tr').count()) === 2);
-  }
 
   console.log('Exportaciones');
   const q = 'tipo=mes&indice=1&anio=2026&atras=1';
   const csv = await pagina.request.get(`${BASE}/admin/estadisticas/exportar?${q}&formato=csv`);
   const cuerpo = await csv.text();
-  verifica('CSV con comparación, productos y clientes', csv.status() === 200 && csv.headers()['content-type'].includes('text/csv') && cuerpo.includes('Comparación') && cuerpo.includes('Productos más vendidos') && cuerpo.includes('2436'));
+  verifica('CSV con comparación, productos y clientes', csv.status() === 200
+    && csv.headers()['content-type'].includes('text/csv') && cuerpo.includes('Comparación')
+    && cuerpo.includes('Productos más vendidos') && cuerpo.includes('2436'));
   const xlsx = await pagina.request.get(`${BASE}/admin/estadisticas/exportar?${q}&formato=xlsx`);
-  verifica('Excel válido (ZIP)', xlsx.status() === 200 && xlsx.headers()['content-type'].includes('spreadsheetml') && (await xlsx.body()).subarray(0, 2).toString() === 'PK');
+  verifica('Excel válido (ZIP)', xlsx.status() === 200
+    && xlsx.headers()['content-type'].includes('spreadsheetml')
+    && (await xlsx.body()).subarray(0, 2).toString() === 'PK');
   const pdf = await pagina.request.get(`${BASE}/admin/estadisticas/exportar?${q}&formato=pdf`);
   const ruta = join(tmpdir(), 'e7.pdf'); writeFileSync(ruta, await pdf.body());
   const textoPdf = execFileSync('pdftotext', [ruta, '-'], { encoding: 'utf8' }).replace(/\s+/g, ' ');
-  verifica('PDF con periodo, filtros y aviso de no equivalencia', pdf.status() === 200 && textoPdf.includes('Estadísticas de ventas') && textoPdf.includes('No son equivalentes') && textoPdf.includes('2,436.00'));
+  verifica('PDF con periodo, filtros y aviso de no equivalencia', pdf.status() === 200
+    && textoPdf.includes('Estadísticas de ventas') && textoPdf.includes('No son equivalentes')
+    && textoPdf.includes('2,436.00'));
   verifica('PDF con las tarjetas de productos más vendidos y de existencias bajas',
     textoPdf.includes('Productos más vendidos') && textoPdf.includes('Productos con existencias bajas'), textoPdf.slice(0, 200));
   verifica('PDF con la tabla de productos menos vendidos del periodo', textoPdf.includes('Productos menos vendidos'));
@@ -147,28 +149,7 @@ try {
     const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     verifica(ruta2.split('?')[0] + (ruta2.includes('?') ? '?…' : '') + ' @390px sin desborde', !desborde);
   }
-
-  // Un gasto del periodo para que exista la gráfica de categorías.
-  sql(`INSERT INTO gastos (contribuyente_id, empresa_id, fecha, beneficiario, concepto, categoria_id, subtotal, total, estado_pago, estado, usuario_id)
-       SELECT MIN(c.id), MIN(e.id), '2026-01-15', 'Prueba E7', 'Gasto de prueba E7', 15, 100, 100, 'pagado', 'vigente', MIN(u.id)
-         FROM contribuyentes c, empresas e, usuarios u`);
-  await pagina.goto(`${BASE}/admin/estadisticas?tipo=anio&anio=2026&atras=1`);
-  verifica('en móvil se oculta Comparación entre semestres', await pagina.locator('#g-semestres').isHidden());
-  verifica('en móvil se oculta la sección Ingresos, cobros y facturación', await pagina.locator('#sec-ingresos').isHidden());
-  verifica('en móvil se oculta Ventas por negocio · 2026', await pagina.locator('#g-negocios').isHidden());
-  const gastosCategoria = pagina.locator('#g-gastos-categoria');
-  verifica('Gastos por categoría ocupa todo el ancho',
-    await gastosCategoria.count() === 1 && await gastosCategoria.evaluate((e) => e.classList.contains('estadisticas-rejilla__ancho')));
-  const columnasNegocios = await pagina.locator('table:has(caption:text("Comparación entre negocios")) thead th')
-    .evaluateAll((ths) => ths.filter((th) => th.offsetParent !== null).map((th) => th.textContent.trim()));
-  verifica('comparación entre negocios: Negocio, Ventas y Participación en móvil',
-    JSON.stringify(columnasNegocios) === JSON.stringify(['Negocio', 'Ventas del periodo', 'Participación']), columnasNegocios.join(' | '));
-  const tablasProductos = await pagina.locator('table:has(caption:text("Ventas por negocio · productos de"))')
-    .evaluateAll((ts) => ts.filter((t) => t.offsetParent !== null).length);
-  verifica('en móvil sólo queda la tabla de productos del primer negocio', tablasProductos === 1, String(tablasProductos));
-  const encabezadosMovil = (await pagina.locator('table:has(caption:text("productos de Soluciones en Acero"))').first().locator('thead th').allTextContents()).map((x) => x.trim());
-  verifica('la tabla de productos conserva sus 4 columnas en móvil',
-    JSON.stringify(encabezadosMovil) === JSON.stringify(['Código', 'Piezas', 'Importe (sin IVA)', 'Importe con IVA']), encabezadosMovil.join(' | '));
+  verifica('los rankings siguen visibles en móvil', (await pagina.locator('.ranking').count()) >= 2);
 
   verifica('sin errores de consola', errores.length === 0, errores.join(' | '));
 } finally {

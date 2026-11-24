@@ -94,57 +94,74 @@ $iconoReferencia = static function (string $referencia): string {
 };
 
 template('header', [
-    'titulo'    => 'Notas Personales',
-    'subtitulo' => 'Bitácora compartida',
-    'acciones'  => '<a class="btn btn--primario" href="/admin/notas/crear">'
-        . '<span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span>'
-        . '<span>Nueva Nota</span></a>',
+    'titulo'             => 'Notas personales',
+    'subtitulo'          => 'Bitácora compartida',
+    'mostrarEncabezado'  => false,
 ]);
 ?>
 
-<section class="encabezado-pagina">
-    <div>
-        <!-- <h1 class="titulo-2">
-            Notas Personales
-            <span class="notas-sello">Bitácora de Equipo</span>
-        </h1> -->
-        <p class="texto-secundario">
-            Único espacio de anotaciones del equipo: recordatorios, pendientes por cotizar,
-            cambios, revisiones y notas varias. Es compartido: todo administrador
-            puede leer y gestionar las notas de todos.
+<header class="herr-hero">
+    <span class="herr-hero__icono" aria-hidden="true">
+        <span class="material-symbols-outlined">sticky_note_2</span>
+    </span>
+    <div class="herr-hero__texto">
+        <p class="herr-hero__eyebrow">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem">groups</span>
+            Bitácora compartida
+        </p>
+        <h1 class="herr-hero__titulo">Notas personales</h1>
+        <p class="herr-hero__desc">
+            Un solo espacio de anotaciones para el equipo: recordatorios, pendientes por cotizar,
+            cambios, revisiones y notas varias. Todo administrador puede leer y gestionar las
+            notas de los demás.
         </p>
     </div>
-    <div class="encabezado-pagina__acciones">
+    <div class="herr-hero__acciones">
         <a class="btn btn--primario" href="/admin/notas/crear">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span>
-            <span>Nueva Nota</span>
+            <span>Nueva nota</span>
         </a>
     </div>
-</section>
+</header>
 
 <!-- Resumen de la bitácora -->
-<section class="rejilla-stats mb-lg" aria-label="Resumen de notas">
-    <div class="stat">
-        <span class="stat__etiqueta">Notas Activas</span>
-        <span class="stat__valor"><?= number_format($resumen['activas']) ?></span>
-        <span class="stat__pie">Sin completar</span>
+<section class="herr-kpis" aria-label="Resumen de notas">
+    <div class="herr-kpi">
+        <span class="herr-kpi__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">bolt</span>
+        </span>
+        <div class="herr-kpi__texto">
+            <span class="herr-kpi__etiqueta">Notas activas</span>
+            <span class="herr-kpi__valor"><?= number_format($resumen['activas']) ?></span>
+            <span class="herr-kpi__pie">Todavía sin completar</span>
+        </div>
     </div>
-    <div class="stat">
-        <span class="stat__etiqueta">Fijadas</span>
-        <span class="stat__valor"><?= number_format($resumen['fijadas']) ?></span>
-        <span class="stat__pie">Visibles arriba</span>
+    <div class="herr-kpi">
+        <span class="herr-kpi__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">push_pin</span>
+        </span>
+        <div class="herr-kpi__texto">
+            <span class="herr-kpi__etiqueta">Fijadas</span>
+            <span class="herr-kpi__valor"><?= number_format($resumen['fijadas']) ?></span>
+            <span class="herr-kpi__pie">Siempre visibles arriba</span>
+        </div>
     </div>
-    <div class="stat">
-        <span class="stat__etiqueta">Por cotizar</span>
-        <span class="stat__valor"><?= number_format($resumen['por_cotizar']) ?></span>
-        <span class="stat__pie">Sin cotización</span>
+    <div class="herr-kpi">
+        <span class="herr-kpi__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">request_quote</span>
+        </span>
+        <div class="herr-kpi__texto">
+            <span class="herr-kpi__etiqueta">Por cotizar</span>
+            <span class="herr-kpi__valor"><?= number_format($resumen['por_cotizar']) ?></span>
+            <span class="herr-kpi__pie">Pendientes de una cotización</span>
+        </div>
     </div>
 </section>
 
 <section class="tarjeta tarjeta--sin-relleno">
     <!-- Buscador + filtros -->
     <div class="tabla-toolbar">
-        <form class="buscador" action="/admin/notas" method="get" role="search" data-validar>
+        <form class="buscador buscador--ancho" action="/admin/notas" method="get" role="search" data-validar>
             <input type="hidden" name="filtro" value="<?= escaparValores($filtro) ?>">
             <div class="buscador__campo">
                 <span class="material-symbols-outlined buscador__icono" aria-hidden="true">search</span>
@@ -203,7 +220,7 @@ template('header', [
             <?php if ($termino !== '' || $filtro !== 'todas') : ?>
                 <a class="btn btn--secundario" href="/admin/notas">Restablecer filtros</a>
             <?php else : ?>
-                <a class="btn btn--primario" href="/admin/notas/crear">Nueva Nota</a>
+                <a class="btn btn--primario" href="/admin/notas/crear">Nueva nota</a>
             <?php endif; ?>
         </div>
     <?php else : ?>

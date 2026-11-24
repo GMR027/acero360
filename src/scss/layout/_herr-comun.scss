@@ -1,0 +1,731 @@
+/* ==========================================================================
+   _herr-comun.scss — Piezas compartidas por las herramientas personales.
+
+   Notas, Calendario, Redactor, SheetFlow, Editor y Archivo comparten la misma
+   cabecera de módulo, las cifras de resumen, los paneles y las listas de
+   documentos. Así las seis pantallas (índice, alta y lectura) se sienten como
+   una sola familia dentro de Acero 360.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* --- Cabecera de la herramienta ----------------------------------------- */
+.herr-hero {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-md $espacio-lg;
+  margin-bottom: $espacio-lg;
+  padding: $espacio-lg;
+  overflow: hidden;
+  background-color: $color-superficie;
+  background-image: linear-gradient(135deg, $color-primario-claro 0%, transparent 58%);
+  border: 1px solid $color-borde;
+  border-radius: $radio-xl;
+  box-shadow: $sombra-1;
+
+  /* Filete de acento a la izquierda: da identidad sin recargar la cabecera. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0.25rem;
+    background-image: linear-gradient(180deg, $color-rust, $color-primario);
+  }
+
+  &__icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 3.5rem;
+    height: 3.5rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-lg;
+    color: $color-primario-texto;
+    box-shadow: $sombra-1;
+
+    .material-symbols-outlined {
+      font-size: 1.9rem;
+    }
+  }
+
+  &__texto {
+    flex: 1 1 24rem;
+    min-width: 0;
+  }
+
+  &__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0 0 0.2rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $color-rust-texto;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-3xl;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__desc {
+    max-width: 82ch;
+    margin: 0.35rem 0 0;
+    font-size: $fuente-sm;
+    line-height: 1.6;
+    color: $color-texto-secundario;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-xs $espacio-md;
+    margin-top: $espacio-sm;
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-sm;
+    margin-left: auto;
+  }
+
+  /* Variante para las pantallas de alta y lectura: menos altura y título 2xl. */
+  &--compacta {
+    padding: $espacio-md $espacio-lg;
+
+    .herr-hero__icono {
+      width: 2.75rem;
+      height: 2.75rem;
+
+      .material-symbols-outlined {
+        font-size: 1.5rem;
+      }
+    }
+
+    .herr-hero__titulo {
+      font-size: $fuente-2xl;
+    }
+  }
+
+  @include hasta-movil {
+    padding: $espacio-md;
+
+    &__icono {
+      width: 2.75rem;
+      height: 2.75rem;
+
+      .material-symbols-outlined {
+        font-size: 1.5rem;
+      }
+    }
+
+    &__titulo {
+      font-size: $fuente-2xl;
+    }
+
+    &__acciones {
+      width: 100%;
+      margin-left: 0;
+
+      .btn {
+        flex: 1 1 auto;
+      }
+    }
+  }
+}
+
+/* --- Cifras de resumen --------------------------------------------------- */
+.herr-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: $espacio-md;
+  margin-bottom: $espacio-lg;
+}
+
+.herr-kpi {
+  @include superficie-card;
+  display: flex;
+  align-items: center;
+  gap: $espacio-md;
+  min-width: 0;
+  padding: $espacio-md $espacio-lg;
+
+  &__icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    background-color: $color-primario-claro;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-lg;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.35rem;
+    }
+  }
+
+  &__texto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+
+  &__etiqueta {
+    @include etiqueta-superior;
+  }
+
+  &__valor {
+    font-family: $fuente-titulos;
+    font-size: $fuente-2xl;
+    font-weight: 700;
+    line-height: 1.15;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__pie {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* --- Panel de contenido -------------------------------------------------- */
+.herr-panel {
+  @include superficie-card;
+  margin-bottom: $espacio-lg;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-sm $espacio-md;
+    padding: $espacio-md $espacio-lg;
+    border-bottom: 1px solid $color-borde;
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    background-color: $color-primario-claro;
+    border-radius: $radio-md;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.15rem;
+    }
+  }
+
+  &__texto {
+    min-width: 0;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 700;
+    line-height: 1.3;
+    color: $color-texto;
+  }
+
+  &__sub {
+    margin: 0.1rem 0 0;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+
+  &__extra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-xs;
+    margin-left: auto;
+  }
+
+  &__cuerpo {
+    padding: $espacio-lg;
+
+    &--sin-relleno {
+      padding: 0;
+    }
+  }
+
+  &__pie {
+    padding: $espacio-md $espacio-lg;
+    border-top: 1px solid $color-borde;
+    background-color: $color-superficie-baja;
+    border-radius: 0 0 $radio-lg $radio-lg;
+  }
+
+  @include hasta-movil {
+    &__cabecera,
+    &__cuerpo,
+    &__pie {
+      padding: $espacio-md;
+    }
+  }
+}
+
+/* --- Barra de filtros / búsqueda dentro de un panel --------------------- */
+.herr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-sm $espacio-md;
+  padding: $espacio-md $espacio-lg;
+  border-bottom: 1px solid $color-borde;
+
+  @include hasta-movil {
+    padding: $espacio-md;
+  }
+}
+
+/* --- Grupos y listas de documentos -------------------------------------- */
+.herr-grupo {
+  @include superficie-card;
+  margin-bottom: $espacio-lg;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-sm;
+    padding: $espacio-sm $espacio-lg;
+    background-color: $color-superficie-baja;
+    border-bottom: 1px solid $color-borde;
+    border-radius: $radio-lg $radio-lg 0 0;
+  }
+
+  &__icono {
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.25rem;
+    }
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-base;
+    font-weight: 700;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__cuenta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.25rem;
+    padding: 0 0.4rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-full;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: $color-texto-secundario;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-xs;
+    margin-left: auto;
+  }
+}
+
+.herr-docs {
+  display: flex;
+  flex-direction: column;
+}
+
+.herr-doc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-sm $espacio-md;
+  padding: $espacio-md $espacio-lg;
+  border-top: 1px solid $color-borde;
+  transition: background-color $transicion-rapida;
+
+  &:first-child {
+    border-top: 0;
+  }
+
+  &:hover {
+    background-color: $color-superficie-baja;
+  }
+
+  &__icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    background-color: $color-primario-claro;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-md;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.3rem;
+    }
+  }
+
+  &__texto {
+    flex: 1 1 18rem;
+    min-width: 0;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-base;
+    font-weight: 700;
+    line-height: 1.3;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__desc {
+    margin: 0.15rem 0 0;
+    font-size: $fuente-xs;
+    line-height: 1.45;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.9rem;
+    margin-top: 0.2rem;
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-xs;
+    margin-left: auto;
+  }
+
+  @include hasta-movil {
+    padding: $espacio-md;
+
+    &__acciones {
+      width: 100%;
+      margin-left: 0;
+
+      .btn {
+        flex: 1 1 auto;
+      }
+    }
+  }
+}
+
+/* Dato corto con icono (fecha, papel, tamaño…). */
+.herr-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: $fuente-xs;
+  color: $color-texto-secundario;
+  white-space: nowrap;
+
+  .material-symbols-outlined {
+    font-size: 0.95rem;
+    color: $color-primario-texto;
+  }
+}
+
+/* Menú «Más» de una fila de documento: reutiliza el desplegable existente. */
+.herr-mas {
+  .gr-descargar-menu {
+    min-width: 15rem;
+  }
+
+  &__rotulo {
+    display: block;
+    padding: 0.35rem 0.6rem 0.2rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  &__carpeta {
+    display: block;
+    padding: 0.35rem 0.6rem 0.5rem;
+  }
+}
+
+/* Formularios y botones dentro de un desplegable de acciones. */
+.gr-descargar-menu form {
+  display: flex;
+  margin: 0;
+}
+
+.gr-descargar-menu form button {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: $radio-md;
+  background: transparent;
+  color: $color-texto;
+  font-family: $fuente-cuerpo;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gr-descargar-menu form button:hover {
+  background-color: $color-superficie-baja;
+}
+
+.gr-descargar-menu form button.herr-menu__peligro {
+  color: $color-error;
+}
+
+.gr-descargar-menu form button.herr-menu__peligro:hover {
+  background-color: $color-error-claro;
+}
+
+.gr-descargar-menu .herr-mas__carpeta .carpeta-mover {
+  width: 100%;
+  max-width: none;
+}
+
+/* --- Alta en dos columnas: formulario + panel de ayuda ------------------- */
+.herr-form-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $espacio-lg;
+  align-items: start;
+
+  @include desde-desktop {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+}
+
+.herr-aside {
+  @include superficie-card;
+  padding: $espacio-lg;
+
+  @include desde-desktop {
+    position: sticky;
+    top: calc(#{$alto-topbar} + #{$espacio-md});
+  }
+
+  &__titulo {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    margin: 0 0 $espacio-md;
+    font-family: $fuente-titulos;
+    font-size: $fuente-base;
+    font-weight: 700;
+    color: $color-texto;
+
+    .material-symbols-outlined {
+      color: $color-rust-texto;
+    }
+  }
+
+  &__lista {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-sm;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    align-items: flex-start;
+    gap: $espacio-sm;
+    font-size: $fuente-sm;
+    line-height: 1.5;
+    color: $color-texto-secundario;
+
+    .material-symbols-outlined {
+      flex: 0 0 auto;
+      margin-top: 0.1rem;
+      font-size: 1.1rem;
+      color: $color-primario-texto;
+    }
+
+    strong {
+      color: $color-texto;
+    }
+  }
+
+  &__nota {
+    margin: $espacio-md 0 0;
+    padding: $espacio-sm $espacio-md;
+    background-color: $color-primario-claro;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-md;
+    font-size: $fuente-xs;
+    line-height: 1.55;
+    color: $color-primario-texto;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    gap: $espacio-sm;
+    margin: 0;
+    padding: $espacio-md 0 0;
+    border-top: 1px solid $color-borde;
+  }
+
+  &__dato {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $espacio-md;
+    margin: 0;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+
+    strong {
+      color: $color-texto;
+      font-weight: 600;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
+/* --- Visor de documentos (lectura) -------------------------------------- */
+.herr-visor {
+  padding: $espacio-xl $espacio-lg;
+  overflow: auto;
+  background-color: $color-fondo;
+  background-image:
+    radial-gradient(circle at 1px 1px, $color-borde 1px, transparent 0);
+  background-size: 1.25rem 1.25rem;
+  border-radius: 0 0 $radio-lg $radio-lg;
+  text-align: center;
+
+  .rd-hoja {
+    max-width: 100%;
+  }
+
+  .ed-ver {
+    text-align: initial;
+  }
+
+  @include hasta-movil {
+    padding: $espacio-md $espacio-sm;
+  }
+}
+
+/* --- Separador de sección dentro de una herramienta --------------------- */
+.herr-seccion-cabecera {
+  display: flex;
+  align-items: center;
+  gap: $espacio-sm;
+  margin: 0 0 $espacio-sm;
+
+  &__titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-base;
+    font-weight: 700;
+    color: $color-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.15rem;
+      color: $color-primario-texto;
+    }
+  }
+
+  &__cuenta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.25rem;
+    padding: 0 0.4rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-full;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: $color-texto-secundario;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* --- Ficha de metadatos de una vista ------------------------------------ */
+.herr-ficha-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $espacio-xs $espacio-md;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-full;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    white-space: nowrap;
+
+    .material-symbols-outlined {
+      font-size: 0.95rem;
+      color: $color-primario-texto;
+    }
+
+    strong {
+      color: $color-texto;
+    }
+  }
+}

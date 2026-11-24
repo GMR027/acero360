@@ -30,6 +30,16 @@ $mostrarEncabezado = $mostrarEncabezado ?? true;
 // Se comparte con footer.php para que sepa qué etiquetas debe cerrar.
 $GLOBALS['mostrarSidebar'] = $mostrarSidebar;
 
+// Ajustes y sus subpáginas comparten un armazón de dos columnas (menú lateral
+// + contenido). header.php lo abre y footer.php lo cierra; tabsAjustes.php
+// coloca dentro la navegación y el contenedor del contenido.
+$rutaSolicitada = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$GLOBALS['ajustesShell'] = (bool) preg_match(
+    '#^/admin/(?:ajustes|usuarios|perfil|empresas|escritorio|android|ayuda)(?:/|$)|^/admin/fiscal/configuracion(?:/|$)#',
+    $rutaSolicitada
+);
+$GLOBALS['ajustesContenidoAbierto'] = false;
+
 $temaActual = temaPreferido();
 $colorActual = colorPreferido();
 
@@ -187,7 +197,12 @@ if ($mostrarSidebar && !empty($_SESSION['abrir_boveda'])) {
             } ?>
             <?php if ($mostrarEncabezado && $titulo !== '') : ?>
                 <div class="encabezado-pagina">
-                    <div class="encabezado-pagina__texto">
+                    <div class="encabezado-pagina__texto<?= $GLOBALS['ajustesShell'] ? ' encabezado-pagina__texto--con-icono' : '' ?>">
+                        <?php if ($GLOBALS['ajustesShell']) : ?>
+                            <span class="encabezado-pagina__icono" aria-hidden="true">
+                                <span class="material-symbols-outlined">tune</span>
+                            </span>
+                        <?php endif; ?>
                         <?php if ($subtitulo !== '') : ?>
                             <span class="texto-etiqueta"><?= escaparValores($subtitulo) ?></span>
                         <?php endif; ?>
@@ -199,6 +214,9 @@ if ($mostrarSidebar && !empty($_SESSION['abrir_boveda'])) {
                         </div>
                     <?php endif; ?>
                 </div>
+            <?php endif; ?>
+            <?php if ($GLOBALS['ajustesShell']) : ?>
+                <div class="ajustes-shell">
             <?php endif; ?>
 <?php else : ?>
 <main class="auth" id="contenido-principal">

@@ -29,73 +29,83 @@ template('tabsAjustes', ['tab' => $seccion]);
 
 <?php if ($seccion === 'general') : ?>
 
-<div class="ajustes-rejilla">
-<section class="tarjeta" aria-labelledby="titulo-apariencia">
-    <div class="ajustes-cabecera">
-        <span class="ajustes-cabecera__icono"><span class="material-symbols-outlined" aria-hidden="true">palette</span></span>
-        <div>
-            <h2 class="titulo-5" id="titulo-apariencia">Apariencia</h2>
-            <p class="texto-xs texto-secundario">Cómo se ve la aplicación para ti, en cualquier equipo.</p>
+<div class="ajustes-general">
+    <section class="tarjeta ajustes-panel" aria-labelledby="titulo-apariencia">
+        <div class="ajustes-cabecera">
+            <span class="ajustes-cabecera__icono"><span class="material-symbols-outlined" aria-hidden="true">palette</span></span>
+            <div>
+                <h2 class="titulo-5" id="titulo-apariencia">Apariencia</h2>
+                <p class="texto-xs texto-secundario">Cómo se ve la aplicación para ti, en cualquier equipo.</p>
+            </div>
+            <span class="badge badge--neutro ajustes-panel__insignia">Visual</span>
         </div>
-    </div>
-    <form data-selector-tema action="/admin/ajustes/tema" method="post">
-        <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
-        <fieldset class="selector-tema">
-            <legend class="campo__etiqueta">Tema visual</legend>
-            <?php foreach ([
-                'claro'  => ['light_mode', 'Claro', 'Fondos claros, el aspecto de siempre.'],
-                'oscuro' => ['dark_mode', 'Oscuro', 'Fondos oscuros que cansan menos la vista con poca luz.'],
-                'auto'   => ['brightness_auto', 'Automático', 'Sigue el modo claro u oscuro de tu sistema operativo.'],
-            ] as $clave => [$icono, $nombre, $descripcion]) : ?>
-                <label class="selector-tema__opcion">
-                    <input type="radio" name="tema" value="<?= $clave ?>" <?= $temaActual === $clave ? 'checked' : '' ?>>
-                    <span class="selector-tema__tarjeta">
-                        <span class="material-symbols-outlined" aria-hidden="true"><?= $icono ?></span>
-                        <strong><?= $nombre ?></strong>
-                        <span class="texto-xs texto-secundario"><?= $descripcion ?></span>
-                    </span>
-                </label>
-            <?php endforeach; ?>
-        </fieldset>
-        <fieldset class="selector-color">
-            <legend class="campo__etiqueta">Color de acento</legend>
-            <?php foreach (COLORES_ACENTO as $clave => [$nombre, $descripcion]) : ?>
-                <label class="selector-color__opcion">
-                    <input type="radio" name="color" value="<?= $clave ?>" <?= $colorActual === $clave ? 'checked' : '' ?>>
-                    <span class="selector-color__tarjeta">
-                        <span class="selector-color__muestra" data-color="<?= $clave ?>" aria-hidden="true"></span>
-                        <strong><?= escaparValores($nombre) ?></strong>
-                        <span class="texto-xs texto-secundario"><?= escaparValores($descripcion) ?></span>
-                    </span>
-                </label>
-            <?php endforeach; ?>
-        </fieldset>
-        <p class="campo__ayuda mt-md" role="status" data-estado-tema>El cambio se aplica al instante en toda la aplicación y se recuerda en tu usuario, también en otros equipos. Los PDF y documentos para imprimir siempre salen en claro.</p>
-    </form>
-</section>
+        <form data-selector-tema action="/admin/ajustes/tema" method="post">
+            <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
+            <fieldset class="selector-tema">
+                <legend class="campo__etiqueta">Tema visual</legend>
+                <?php foreach ([
+                    'claro'  => ['light_mode', 'Claro', 'Fondos claros, el aspecto de siempre.'],
+                    'oscuro' => ['dark_mode', 'Oscuro', 'Fondos oscuros que cansan menos la vista con poca luz.'],
+                    'auto'   => ['brightness_auto', 'Automático', 'Sigue el modo claro u oscuro de tu sistema operativo.'],
+                ] as $clave => [$icono, $nombre, $descripcion]) : ?>
+                    <label class="selector-tema__opcion">
+                        <input type="radio" name="tema" value="<?= $clave ?>" <?= $temaActual === $clave ? 'checked' : '' ?>>
+                        <span class="selector-tema__tarjeta">
+                            <span class="material-symbols-outlined" aria-hidden="true"><?= $icono ?></span>
+                            <strong><?= $nombre ?></strong>
+                            <span class="texto-xs texto-secundario"><?= $descripcion ?></span>
+                        </span>
+                    </label>
+                <?php endforeach; ?>
+            </fieldset>
+            <fieldset class="selector-color selector-color--compacto">
+                <legend class="campo__etiqueta">Color de acento</legend>
+                <?php foreach (COLORES_ACENTO as $clave => [$nombre, $descripcion]) : ?>
+                    <label class="selector-color__opcion" title="<?= escaparValores($nombre . ': ' . $descripcion) ?>">
+                        <input type="radio" name="color" value="<?= $clave ?>" <?= $colorActual === $clave ? 'checked' : '' ?>>
+                        <span class="selector-color__tarjeta">
+                            <span class="selector-color__muestra" data-color="<?= $clave ?>" aria-hidden="true"></span>
+                            <strong><?= escaparValores($nombre) ?></strong>
+                            <span class="texto-xs texto-secundario"><?= escaparValores($descripcion) ?></span>
+                        </span>
+                    </label>
+                <?php endforeach; ?>
+            </fieldset>
+            <div class="ajustes-panel__pie">
+                <p class="campo__ayuda" role="status" data-estado-tema>El cambio se aplica al instante en toda la aplicación y se recuerda en tu usuario, también en otros equipos. Los PDF y documentos para imprimir siempre salen en claro.</p>
+                <button type="button" class="btn btn--secundario btn--sm" data-tema-restablecer>
+                    <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
+                    Restablecer
+                </button>
+            </div>
+        </form>
+    </section>
 
-<form action="/admin/ajustes" method="post" class="tarjeta" data-validar>
-    <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
-    <div class="ajustes-cabecera">
-        <span class="ajustes-cabecera__icono"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span></span>
-        <div>
-            <h2 class="titulo-5">Operación</h2>
-            <p class="texto-xs texto-secundario">Reglas de venta e inventario.</p>
+    <form action="/admin/ajustes" method="post" class="tarjeta ajustes-panel" data-validar>
+        <input type="hidden" name="token" value="<?= escaparValores(tokenFormulario()) ?>">
+        <div class="ajustes-cabecera">
+            <span class="ajustes-cabecera__icono"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span></span>
+            <div>
+                <h2 class="titulo-5">Operación</h2>
+                <p class="texto-xs texto-secundario">Reglas de venta e inventario.</p>
+            </div>
+            <span class="badge badge--info ajustes-panel__insignia">Global</span>
         </div>
-    </div>
-    <label class="interruptor" for="permitir_stock_negativo">
-        <span>
-            <strong>Permitir vender sin existencias</strong><br>
-            <span class="texto-xs texto-secundario">Si está activo, se puede vender un producto aunque el inventario no alcance (se fabrica y se entrega después) y el stock queda en negativo. Si lo apagas, la venta se rechaza.</span>
-        </span>
-        <input type="checkbox" id="permitir_stock_negativo" name="permitir_stock_negativo" value="1" <?= $stockNegativo ? 'checked' : '' ?>>
-        <span class="interruptor__pista" aria-hidden="true"></span>
-    </label>
-    <div class="formulario__acciones"><button class="btn btn--primario" type="submit">Guardar ajustes</button></div>
-</form>
+        <label class="interruptor" for="permitir_stock_negativo">
+            <span>
+                <strong>Permitir vender sin existencias</strong><br>
+                <span class="texto-xs texto-secundario">Si está activo, se puede vender un producto aunque el inventario no alcance (se fabrica y se entrega después) y el stock queda en negativo. Si lo apagas, la venta se rechaza.</span>
+            </span>
+            <input type="checkbox" id="permitir_stock_negativo" name="permitir_stock_negativo" value="1" <?= $stockNegativo ? 'checked' : '' ?>>
+            <span class="interruptor__pista" aria-hidden="true"></span>
+        </label>
+        <div class="ajustes-panel__pie">
+            <p class="campo__ayuda">Este ajuste se aplica a todos los usuarios y a todas las empresas.</p>
+            <button class="btn btn--primario" type="submit">Guardar ajustes</button>
+        </div>
+    </form>
 </div>
 
-<p class="campo__ayuda mb-lg">Usuarios, perfil, empresas, datos fiscales y la aplicación de escritorio están en las demás pestañas.</p>
 <?php elseif ($seccion === 'novedades') : ?>
 <section class="mb-lg" aria-labelledby="titulo-novedades">
     <h2 class="titulo-4 mb-md" id="titulo-novedades">Novedades de la plataforma</h2>

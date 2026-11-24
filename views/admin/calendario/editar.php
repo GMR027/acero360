@@ -52,35 +52,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errores = $errores ?: \App\EventosCalendario::getErrores();
 }
 
+$importancia = \App\EventosCalendario::datosImportancia($evento->importancia);
+$negocios = \App\Empresas::paraSelector();
+$nombreNegocio = '';
+foreach ($negocios as $negocio) {
+    if ((int) $negocio['id'] === (int) $evento->empresa_id) {
+        $nombreNegocio = (string) $negocio['nombre'];
+        break;
+    }
+}
+
 template('header', [
-    'titulo'     => 'Editar evento',
-    'subtitulo'  => 'Calendario',
-    'rutaActiva' => '/admin/calendario',
+    'titulo'            => 'Editar evento',
+    'subtitulo'         => 'Calendario',
+    'rutaActiva'        => '/admin/calendario',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
-<section class="encabezado-pagina">
-    <div>
-        <p class="texto-secundario">
-            Modifica los datos del recordatorio o evento. Los campos marcados
-            con asterisco son obligatorios.
+<header class="herr-hero herr-hero--compacta">
+    <span class="herr-hero__icono" aria-hidden="true">
+        <span class="material-symbols-outlined">edit_calendar</span>
+    </span>
+    <div class="herr-hero__texto">
+        <p class="herr-hero__eyebrow">Calendario</p>
+        <h1 class="herr-hero__titulo">Editar evento</h1>
+        <p class="herr-hero__desc">
+            Modifica los datos de <strong><?= escaparValores($evento->nombre) ?></strong>.
+            Los campos marcados con asterisco son obligatorios.
         </p>
+        <div class="herr-hero__meta">
+            <span class="badge <?= $importancia['clase'] ?>">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:0.75rem"><?= $importancia['icono'] ?></span>
+                <?= escaparValores($importancia['etiqueta']) ?>
+            </span>
+            <span class="herr-meta">
+                <span class="material-symbols-outlined" aria-hidden="true">event</span>
+                <?= escaparValores(formatear_fecha($evento->fecha, 'd/m/Y')) ?>
+            </span>
+            <?php if (trim((string) $evento->hora) !== '') : ?>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                    <?= escaparValores(substr((string) $evento->hora, 0, 5)) ?>
+                </span>
+            <?php endif; ?>
+        </div>
     </div>
-    <div class="encabezado-pagina__acciones">
-        <a class="btn btn--secundario" href="<?= escaparValores($regreso) ?>">Volver al calendario</a>
+    <div class="herr-hero__acciones">
+        <a class="btn btn--secundario" href="<?= escaparValores($regreso) ?>">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>
+            <span>Volver al calendario</span>
+        </a>
     </div>
-</section>
+</header>
 
-<section class="tarjeta">
-    <form class="formulario" action="/admin/calendario/editar" method="post" data-validar novalidate>
-        <input type="hidden" name="id" value="<?= (int) $evento->id ?>">
-        <?php template('formularioCalendario', [
-            'evento'       => $evento,
-            'errores'      => $errores,
-            'rutaCancelar' => $regreso,
-            'idMensaje'    => 'errores-calendario',
-        ]); ?>
-    </form>
-</section>
+<div class="herr-form-layout">
+    <section class="herr-panel">
+        <div class="herr-panel__cabecera">
+            <span class="herr-panel__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">edit_calendar</span>
+            </span>
+            <div class="herr-panel__texto">
+                <h2 class="herr-panel__titulo">Datos del evento</h2>
+                <p class="herr-panel__sub">Los cambios se verán al volver al calendario.</p>
+            </div>
+        </div>
+        <div class="herr-panel__cuerpo">
+            <form class="formulario" action="/admin/calendario/editar" method="post" data-validar novalidate>
+                <input type="hidden" name="id" value="<?= (int) $evento->id ?>">
+                <?php template('formularioCalendario', [
+                    'evento'       => $evento,
+                    'errores'      => $errores,
+                    'rutaCancelar' => $regreso,
+                    'idMensaje'    => 'errores-calendario',
+                ]); ?>
+            </form>
+        </div>
+    </section>
+
+    <aside class="herr-aside" aria-label="Resumen del evento">
+        <h2 class="herr-aside__titulo">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            Resumen
+        </h2>
+        <div class="herr-aside__meta">
+            <p class="herr-aside__dato">
+                <span>Fecha</span>
+                <strong><?= escaparValores(formatear_fecha($evento->fecha, 'd/m/Y')) ?></strong>
+            </p>
+            <p class="herr-aside__dato">
+                <span>Hora</span>
+                <strong><?= trim((string) $evento->hora) !== '' ? escaparValores(substr((string) $evento->hora, 0, 5)) : 'Todo el día' ?></strong>
+            </p>
+            <p class="herr-aside__dato">
+                <span>Importancia</span>
+                <strong><?= escaparValores($importancia['etiqueta']) ?></strong>
+            </p>
+            <p class="herr-aside__dato">
+                <span>Negocio</span>
+                <strong><?= $nombreNegocio !== '' ? escaparValores($nombreNegocio) : 'Sin negocio' ?></strong>
+            </p>
+        </div>
+        <p class="herr-aside__nota">
+            Para quitar el evento del calendario, usa el botón de eliminar de la agenda.
+        </p>
+    </aside>
+</div>
 
 <?php template('footer'); ?>

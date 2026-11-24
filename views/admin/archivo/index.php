@@ -69,33 +69,78 @@ $iconoArchivo = static function (Archivo $a): string {
 /* --- Subida: ¿cuánto pesa lo que admite el servidor? --- */
 $maxSubida = ArchivoAlmacen::maxBytes();
 
+/** Cifras de la vista actual. */
+$pesoVista = 0;
+foreach ($archivos as $archivoVista) {
+    $pesoVista += (int) $archivoVista->tamano;
+}
+$totalElementosVista = count($subcarpetas) + count($archivos);
+
 // Confirmaciones, carpetas e iconos de las herramientas portadas (modal estilizado).
 $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
 
 template('header', [
-    'titulo'    => 'Archivo',
-    'subtitulo' => 'Herramientas personales',
-    'acciones'  => '',
+    'titulo'            => 'Archivo',
+    'subtitulo'         => 'Herramientas personales',
+    'acciones'          => '',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr" id="archivo">
-    <div class="encabezado-pagina">
-        <div>
-            <p class="texto-secundario">
-                Carpetas virtuales para alojar y organizar cualquier tipo de archivo: documentos,
-                PDF, imágenes, comprimidos, modelos de Rhinoceros, Revit, AutoCAD o SketchUp y
-                cualquier otro formato. Cada carpeta puede identificarse con un color y un icono
-                (pulsa el lápiz para cambiarlos). Archivo compartido: todos los administradores ven lo mismo.
+    <header class="herr-hero">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">folder</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">Herramientas personales</p>
+            <h1 class="herr-hero__titulo">Archivo</h1>
+            <p class="herr-hero__desc">
+                Carpetas virtuales para organizar documentos, PDF, imágenes, comprimidos y modelos
+                de Rhinoceros, Revit, AutoCAD o SketchUp. Cada carpeta puede llevar su color e icono.
+                El archivo es compartido: todos los administradores ven lo mismo.
             </p>
         </div>
-        <div class="encabezado-pagina__acciones">
+        <div class="herr-hero__acciones">
             <button type="button" class="btn btn--primario" data-arch-nueva-carpeta>
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">create_new_folder</span>
                 <span>Nueva carpeta</span>
             </button>
         </div>
-    </div>
+    </header>
+
+    <section class="herr-kpis" aria-label="Resumen de la carpeta actual">
+        <div class="herr-kpi">
+            <span class="herr-kpi__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">folder</span>
+            </span>
+            <div class="herr-kpi__texto">
+                <span class="herr-kpi__etiqueta">Carpetas aquí</span>
+                <span class="herr-kpi__valor"><?= number_format(count($subcarpetas)) ?></span>
+                <span class="herr-kpi__pie"><?= $carpeta ? 'Dentro de «' . s($carpeta->nombre) . '»' : 'En la raíz del Archivo' ?></span>
+            </div>
+        </div>
+        <div class="herr-kpi">
+            <span class="herr-kpi__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">description</span>
+            </span>
+            <div class="herr-kpi__texto">
+                <span class="herr-kpi__etiqueta">Archivos aquí</span>
+                <span class="herr-kpi__valor"><?= number_format(count($archivos)) ?></span>
+                <span class="herr-kpi__pie"><?= $busqueda !== '' ? 'Resultados de la búsqueda' : 'Disponibles en esta vista' ?></span>
+            </div>
+        </div>
+        <div class="herr-kpi">
+            <span class="herr-kpi__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">hard_drive</span>
+            </span>
+            <div class="herr-kpi__texto">
+                <span class="herr-kpi__etiqueta">Peso de esta vista</span>
+                <span class="herr-kpi__valor"><?= escaparValores(formatear_tamano($pesoVista)) ?></span>
+                <span class="herr-kpi__pie"><?= number_format($totalElementosVista) ?> elemento<?= $totalElementosVista === 1 ? '' : 's' ?> en total</span>
+            </div>
+        </div>
+    </section>
 
     <!-- =========================== Migas de pan =========================== -->
     <nav class="ar-miga" aria-label="Ruta de carpetas">
@@ -159,7 +204,8 @@ template('header', [
     </div>
 
     <p class="text-sm text-muted ar-ayuda">
-        Admite cualquier tipo de archivo · hasta <?= formatear_tamano($maxSubida) ?> por archivo.
+        Cualquier tipo de archivo · hasta <?= formatear_tamano($maxSubida) ?> por archivo.
+        Pulsa una miniatura para previsualizar PDF e imágenes sin salir de la página.
         Los formatos que el navegador no puede previsualizar se descargan.
         <?php if ($profundidad >= ArchivoCarpeta::PROFUNDIDAD_MAX) : ?>
             <em>(Esta carpeta ya está en la profundidad máxima: no admite subcarpetas.)</em>
@@ -176,6 +222,13 @@ template('header', [
 
     <!-- =========================== Subcarpetas ============================ -->
     <?php if ($subcarpetas && $busqueda === '') : ?>
+        <div class="herr-seccion-cabecera">
+            <h2 class="herr-seccion-cabecera__titulo">
+                <span class="material-symbols-outlined" aria-hidden="true">folder</span>
+                Carpetas
+            </h2>
+            <span class="herr-seccion-cabecera__cuenta"><?= count($subcarpetas) ?></span>
+        </div>
         <div class="ar-carpetas">
             <?php foreach ($subcarpetas as $sc) : $n = $sc->totalArchivos(); ?>
                 <article class="ar-carpeta" style="--carpeta-color: <?= s($sc->colorHex()) ?>">
@@ -209,19 +262,37 @@ template('header', [
     <?php endif; ?>
 
     <!-- ============================= Archivos ============================= -->
+    <div class="herr-seccion-cabecera">
+        <h2 class="herr-seccion-cabecera__titulo">
+            <span class="material-symbols-outlined" aria-hidden="true">description</span>
+            Archivos
+        </h2>
+        <span class="herr-seccion-cabecera__cuenta"><?= count($archivos) ?></span>
+    </div>
+
     <?php if (!$archivos) : ?>
-        <div class="card">
-            <p class="text-muted">
+        <div class="herr-panel">
+            <div class="vacio">
+                <span class="material-symbols-outlined vacio__icono" aria-hidden="true">
+                    <?= $busqueda !== '' ? 'search_off' : 'upload_file' ?>
+                </span>
+                <p class="vacio__titulo">
+                    <?= $busqueda !== '' ? 'Sin resultados' : 'Aún no hay archivos aquí' ?>
+                </p>
+                <p>
+                    <?php if ($busqueda !== '') : ?>
+                        Ningún archivo coincide con la búsqueda. Prueba con otro nombre o extensión.
+                    <?php elseif ($subcarpetas) : ?>
+                        Esta carpeta no tiene archivos todavía: usa «Elegir archivos» o arrástralos sobre esta zona.
+                    <?php else : ?>
+                        Crea una carpeta con «Nueva carpeta» y sube documentos con «Elegir archivos»:
+                        puedes elegir varios a la vez.
+                    <?php endif; ?>
+                </p>
                 <?php if ($busqueda !== '') : ?>
-                    Ningún archivo coincide con la búsqueda.
-                <?php elseif ($subcarpetas) : ?>
-                    Esta carpeta no tiene archivos todavía: sube algunos con «Subir archivos» o
-                    suéltalos sobre esta zona.
-                <?php else : ?>
-                    Aún no hay archivos. Crea una carpeta con «Nueva carpeta» y sube documentos
-                    con «Subir archivos»: puedes elegir varios a la vez.
+                    <a class="btn btn--secundario" href="<?= $uirCarpeta($carpetaId) ?>">Ver todo</a>
                 <?php endif; ?>
-            </p>
+            </div>
         </div>
     <?php else : ?>
         <div class="ar-archivos">

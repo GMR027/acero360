@@ -192,47 +192,80 @@ $eventoNuevo = new \App\EventosCalendario([
 ]);
 
 template('header', [
-    'titulo'    => 'Calendario',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => 'Calendario',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
-<section class="encabezado-pagina">
-    <div>
-        <p class="texto-secundario">
-            Recordatorios y eventos del equipo. Elige un día del calendario para
-            ver lo que hay en esa fecha o para capturar uno nuevo.
+<header class="herr-hero">
+    <span class="herr-hero__icono" aria-hidden="true">
+        <span class="material-symbols-outlined">calendar_month</span>
+    </span>
+    <div class="herr-hero__texto">
+        <p class="herr-hero__eyebrow">Herramientas personales</p>
+        <h1 class="herr-hero__titulo">Calendario</h1>
+        <p class="herr-hero__desc">
+            Recordatorios y eventos del equipo. Elige un día del calendario para ver lo que hay
+            en esa fecha o para capturar uno nuevo; la agenda reúne también lo que pasó en los negocios.
         </p>
+        <div class="herr-hero__meta">
+            <span class="herr-meta">
+                <span class="material-symbols-outlined" aria-hidden="true">event</span>
+                <?= escaparValores(nombreMes($mes)) ?> <?= $anio ?>
+            </span>
+            <?php if ($fechaSeleccionada !== '') : ?>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">today</span>
+                    <?= escaparValores($fechaAmable($fechaSeleccionada, true)) ?>
+                </span>
+            <?php endif; ?>
+        </div>
     </div>
-    <div class="encabezado-pagina__acciones">
+    <div class="herr-hero__acciones">
         <button type="button" class="btn btn--primario" data-alta-calendario
                 data-fecha="<?= escaparValores($fechaSeleccionada !== '' ? $fechaSeleccionada : $hoy->format('Y-m-d')) ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">add</span>
-            <span>Nuevo recordatorio o evento</span>
+            <span>Nuevo evento</span>
         </button>
         <a class="btn btn--secundario" href="<?= escaparValores($urlMes((int) $hoy->format('Y'), (int) $hoy->format('n'))) ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">today</span>
             <span>Hoy</span>
         </a>
     </div>
-</section>
+</header>
 
 <!-- Resumen del mes -->
-<section class="rejilla-stats mb-lg" aria-label="Resumen del mes">
-    <div class="stat">
-        <span class="stat__etiqueta">Eventos del mes</span>
-        <span class="stat__valor"><?= number_format($resumen['eventos']) ?></span>
-        <span class="stat__pie"><?= escaparValores(nombreMes($mes)) . ' ' . $anio ?></span>
+<section class="herr-kpis" aria-label="Resumen del mes">
+    <div class="herr-kpi">
+        <span class="herr-kpi__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">event</span>
+        </span>
+        <div class="herr-kpi__texto">
+            <span class="herr-kpi__etiqueta">Eventos del mes</span>
+            <span class="herr-kpi__valor"><?= number_format($resumen['eventos']) ?></span>
+            <span class="herr-kpi__pie"><?= escaparValores(nombreMes($mes)) . ' ' . $anio ?></span>
+        </div>
     </div>
-    <div class="stat">
-        <span class="stat__etiqueta">Con hora</span>
-        <span class="stat__valor"><?= number_format($resumen['con_hora']) ?></span>
-        <span class="stat__pie">Con hora fija</span>
+    <div class="herr-kpi">
+        <span class="herr-kpi__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">schedule</span>
+        </span>
+        <div class="herr-kpi__texto">
+            <span class="herr-kpi__etiqueta">Con hora</span>
+            <span class="herr-kpi__valor"><?= number_format($resumen['con_hora']) ?></span>
+            <span class="herr-kpi__pie">Con una hora fija asignada</span>
+        </div>
     </div>
-    <div class="stat">
-        <span class="stat__etiqueta">Importancia alta</span>
-        <span class="stat__valor"><?= number_format($resumen['alta']) ?></span>
-        <span class="stat__pie">Los más urgentes</span>
+    <div class="herr-kpi">
+        <span class="herr-kpi__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">priority_high</span>
+        </span>
+        <div class="herr-kpi__texto">
+            <span class="herr-kpi__etiqueta">Importancia alta</span>
+            <span class="herr-kpi__valor"><?= number_format($resumen['alta']) ?></span>
+            <span class="herr-kpi__pie">Los recordatorios más urgentes</span>
+        </div>
     </div>
 </section>
 
@@ -340,45 +373,64 @@ template('header', [
 
 </div>
 
+<?php
+// Operaciones del negocio (una fila por cada una) y recordatorios, del día
+// más reciente al más antiguo del mes. Dentro de cada día las operaciones
+// conservan el orden de la leyenda (venta, gasto, recepción…).
+$operacionesMes = \App\EventosCalendario::operacionesMes($anio, $mes);
+$operacionesPorFecha = [];
+foreach ($operacionesMes as $operacion) {
+    $operacionesPorFecha[$operacion['fecha']][] = $operacion;
+}
+
+$fechasAgenda = array_unique(array_merge(array_keys($operacionesPorFecha), array_keys($porDia)));
+rsort($fechasAgenda);
+
+$filasAgenda = [];
+foreach ($fechasAgenda as $fechaDia) {
+    foreach ($operacionesPorFecha[$fechaDia] ?? [] as $operacion) {
+        $filasAgenda[] = ['fecha' => $fechaDia, 'operacion' => $operacion, 'evento' => null];
+    }
+    foreach ($porDia[$fechaDia] ?? [] as $eventoDia) {
+        $filasAgenda[] = ['fecha' => $fechaDia, 'operacion' => null, 'evento' => $eventoDia];
+    }
+}
+$totalOperaciones = count($operacionesMes);
+$totalRecordatorios = count($eventosMes);
+?>
+
 <!-- Agenda del mes: una fila por cada operación del negocio o recordatorio -->
-<section class="tarjeta tarjeta--sin-relleno mt-lg" aria-label="Agenda del mes">
-    <div class="calendario-agenda__cabecera">
-        <h2 class="titulo-4">Agenda de <?= escaparValores(nombreMes($mes)) ?> de <?= $anio ?></h2>
-        <p class="texto-secundario">
-            Una fila por cada operación y cada recordatorio, del más reciente al
-            más antiguo del mes. «Ver» abre el detalle del módulo correspondiente.
-        </p>
+<section class="herr-panel mt-lg" aria-label="Agenda del mes">
+    <div class="herr-panel__cabecera">
+        <span class="herr-panel__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">event_note</span>
+        </span>
+        <div class="herr-panel__texto">
+            <h2 class="herr-panel__titulo">Agenda de <?= escaparValores(nombreMes($mes)) ?> de <?= $anio ?></h2>
+            <p class="herr-panel__sub">
+                Una fila por cada operación y cada recordatorio, del más reciente al más antiguo del mes.
+            </p>
+        </div>
+        <div class="herr-panel__extra">
+            <span class="badge badge--neutro badge--sin-punto">
+                <?= number_format($totalOperaciones) ?> operaciones
+            </span>
+            <span class="badge badge--info badge--sin-punto">
+                <?= number_format($totalRecordatorios) ?> recordatorios
+            </span>
+        </div>
     </div>
-
-    <?php
-    // Operaciones del negocio (una fila por cada una) y recordatorios, del día
-    // más reciente al más antiguo del mes. Dentro de cada día las operaciones
-    // conservan el orden de la leyenda (venta, gasto, recepción…).
-    $operacionesMes = \App\EventosCalendario::operacionesMes($anio, $mes);
-    $operacionesPorFecha = [];
-    foreach ($operacionesMes as $operacion) {
-        $operacionesPorFecha[$operacion['fecha']][] = $operacion;
-    }
-
-    $fechasAgenda = array_unique(array_merge(array_keys($operacionesPorFecha), array_keys($porDia)));
-    rsort($fechasAgenda);
-
-    $filasAgenda = [];
-    foreach ($fechasAgenda as $fechaDia) {
-        foreach ($operacionesPorFecha[$fechaDia] ?? [] as $operacion) {
-            $filasAgenda[] = ['fecha' => $fechaDia, 'operacion' => $operacion, 'evento' => null];
-        }
-        foreach ($porDia[$fechaDia] ?? [] as $eventoDia) {
-            $filasAgenda[] = ['fecha' => $fechaDia, 'operacion' => null, 'evento' => $eventoDia];
-        }
-    }
-    ?>
 
     <?php if (!$filasAgenda) : ?>
         <div class="vacio">
             <span class="material-symbols-outlined vacio__icono" aria-hidden="true">calendar_month</span>
             <p class="vacio__titulo">Sin movimiento este mes</p>
             <p>Cuando haya ventas, gastos, recepciones o recordatorios aparecerán aquí, uno por uno.</p>
+            <button type="button" class="btn btn--primario" data-alta-calendario
+                    data-fecha="<?= escaparValores($fechaSeleccionada !== '' ? $fechaSeleccionada : $hoy->format('Y-m-d')) ?>">
+                <span class="material-symbols-outlined" aria-hidden="true">add</span>
+                Nuevo evento
+            </button>
         </div>
     <?php else : ?>
         <div class="tabla-contenedor tabla-contenedor--scroll">

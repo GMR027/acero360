@@ -21,27 +21,45 @@ $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
 $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/konva.min.js';
 
 template('header', [
-    'titulo'    => $documento->nombre . ' · Editor',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => $documento->nombre . ' · Editor',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr ed-pagina" id="editor">
-    <div class="encabezado-pagina">
-        <div>
-            <h1 class="titulo-2"><?= s($documento->nombre) ?></h1>
-            <p class="texto-secundario">
-                <?= count($laminas) ?> <?= count($laminas) === 1 ? 'lámina' : 'láminas' ?> ·
-                <?= s(\Model\EditorDocumento::pxAMm($ancho)) ?> × <?= s(\Model\EditorDocumento::pxAMm($alto)) ?> mm ·
-                <?= s(formatear_fecha($documento->actualizado, 'd/m/Y H:i')) ?>
-            </p>
+    <header class="herr-hero herr-hero--compacta">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">design_services</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">Editor · documento gráfico</p>
+            <h1 class="herr-hero__titulo"><?= s($documento->nombre) ?></h1>
+            <div class="herr-hero__meta">
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">layers</span>
+                    <?= count($laminas) ?> <?= count($laminas) === 1 ? 'lámina' : 'láminas' ?>
+                </span>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">aspect_ratio</span>
+                    <?= s(\Model\EditorDocumento::pxAMm($ancho)) ?> × <?= s(\Model\EditorDocumento::pxAMm($alto)) ?> mm
+                </span>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">texture</span>
+                    <?= s(\Model\EditorDocumento::FONDOS[$documento->fondo] ?? 'Liso') ?>
+                </span>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                    <?= s(formatear_fecha($documento->actualizado, 'd/m/Y H:i')) ?>
+                </span>
+            </div>
         </div>
-        <div class="encabezado-pagina__acciones">
+        <div class="herr-hero__acciones">
             <a href="/admin/editor/abrir?id=<?= (int) $documento->id ?>" class="btn btn--primario">
                 <span class="material-symbols-outlined" aria-hidden="true">edit</span> Editar
             </a>
             <details class="gr-descargar">
-                <summary class="btn btn--texto">
+                <summary class="btn btn--secundario">
                     <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar
                 </summary>
                 <div class="gr-descargar-menu">
@@ -53,24 +71,42 @@ template('header', [
                     </a>
                 </div>
             </details>
-            <a href="/admin/editor" class="btn btn--texto">← Documentos</a>
+            <a href="/admin/editor" class="btn btn--texto">
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Documentos
+            </a>
         </div>
-    </div>
+    </header>
 
-    <div class="ed-ver">
-        <?php foreach ($laminas as $i => $l) : $imgLamina = $l->marcas_full ?: $l->marcas_png; ?>
-            <div class="ed-ver-hoja"
-                 <?php if (empty($imgLamina)) : ?>data-json="<?= s((string) $l->marcas_json) ?>"<?php endif; ?>
-                 style="aspect-ratio: <?= (int) $ancho ?> / <?= (int) $alto ?>">
-                <?php if (!empty($imgLamina)) : ?>
-                    <img src="/public/uploads/vplan/<?= s($imgLamina) ?>" alt="Lámina <?= $i + 1 ?>" loading="lazy">
-                <?php else : ?>
-                    <span class="text-muted text-sm">Dibujando lámina…</span>
-                <?php endif; ?>
-                <div class="ed-ver-num"><?= $i + 1 ?> · <?= s($l->nombre !== '' ? $l->nombre : 'Lámina ' . ($i + 1)) ?></div>
+    <section class="herr-panel" aria-label="Láminas del documento">
+        <div class="herr-panel__cabecera">
+            <span class="herr-panel__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">visibility</span>
+            </span>
+            <div class="herr-panel__texto">
+                <h2 class="herr-panel__titulo">Vista de lectura</h2>
+                <p class="herr-panel__sub">Las láminas se muestran en orden, tal como se exportan.</p>
             </div>
-        <?php endforeach; ?>
-    </div>
+            <div class="herr-panel__extra">
+                <span class="badge badge--neutro badge--sin-punto">Sólo lectura</span>
+            </div>
+        </div>
+        <div class="herr-visor">
+            <div class="ed-ver">
+                <?php foreach ($laminas as $i => $l) : $imgLamina = $l->marcas_full ?: $l->marcas_png; ?>
+                    <div class="ed-ver-hoja"
+                         <?php if (empty($imgLamina)) : ?>data-json="<?= s((string) $l->marcas_json) ?>"<?php endif; ?>
+                         style="aspect-ratio: <?= (int) $ancho ?> / <?= (int) $alto ?>">
+                        <?php if (!empty($imgLamina)) : ?>
+                            <img src="/public/uploads/vplan/<?= s($imgLamina) ?>" alt="Lámina <?= $i + 1 ?>" loading="lazy">
+                        <?php else : ?>
+                            <span class="text-muted text-sm">Dibujando lámina…</span>
+                        <?php endif; ?>
+                        <div class="ed-ver-num"><?= $i + 1 ?> · <?= s($l->nombre !== '' ? $l->nombre : 'Lámina ' . ($i + 1)) ?></div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
 </section>
 
 <script>

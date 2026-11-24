@@ -88,24 +88,38 @@ $GLOBALS['scriptsPagina'][] = '/public/vendor/herramientas/redactor-extras.js?v=
 $btn = fn(string $cmd, string $icono, string $titulo) => '<button type="button" class="rd-b" data-cmd="' . $cmd . '" title="' . s($titulo) . '" aria-label="' . s($titulo) . '"><i class="fa-solid ' . $icono . '"></i></button>';
 
 template('header', [
-    'titulo'    => $documento->nombre . ' · Redactor',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => $documento->nombre . ' · Redactor',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr" id="redactor">
-    <div class="encabezado-pagina">
-        <div>
-            <h1 class="titulo-2" id="rd-titulo"><?= s($documento->nombre) ?></h1>
-            <p class="texto-secundario">Redactor · documento compartido</p>
+    <header class="herr-hero herr-hero--compacta">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">edit_document</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">Redactor · documento compartido</p>
+            <h1 class="herr-hero__titulo" id="rd-titulo"><?= s($documento->nombre) ?></h1>
+            <div class="herr-hero__meta">
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
+                    <?= s(formatear_fecha($documento->fecha, 'd/m/Y')) ?>
+                </span>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                    <?= s(\Model\RedactorDocumento::PAPELES[$documento->papel][0]) ?>
+                </span>
+                <span id="rd-estado" class="text-sm text-muted" role="status"></span>
+            </div>
         </div>
-        <div class="encabezado-pagina__acciones">
-            <span id="rd-estado" class="text-sm text-muted" role="status"></span>
+        <div class="herr-hero__acciones">
             <button type="button" id="rd-guardar" class="btn btn--primario">
                 <span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar
             </button>
             <details class="gr-descargar">
-                <summary class="btn btn--texto">
+                <summary class="btn btn--secundario">
                     <span class="material-symbols-outlined" aria-hidden="true">ios_share</span> Exportar
                 </summary>
                 <div class="gr-descargar-menu">
@@ -122,9 +136,11 @@ template('header', [
             <a href="/admin/redactor/ver?id=<?= (int) $documento->id ?>" class="btn btn--texto">
                 <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver
             </a>
-            <a href="/admin/redactor" class="btn btn--texto">← Documentos</a>
+            <a href="/admin/redactor" class="btn btn--texto">
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Documentos
+            </a>
         </div>
-    </div>
+    </header>
 
 <div class="card rd-datos">
     <label>Nombre <input type="text" id="rd-nombre" maxlength="150" value="<?php echo s($documento->nombre); ?>"></label>

@@ -45,28 +45,31 @@ $megasTotal  = \App\Entregas::MAX_FOTOS_TOTAL_MB;
     </div>
 
     <p class="campo__ayuda mb-md">Captura lo que realmente se entregó. Lo que quede en 0 sigue pendiente.</p>
-    <div class="tabla-contenedor">
-        <table class="tabla">
-            <thead><tr><th scope="col">Producto</th><th scope="col" class="tabla--numerica">Vendido</th>
-                <th scope="col" class="tabla--numerica">Ya entregado</th><th scope="col" class="tabla--numerica">Pendiente</th>
-                <th scope="col" class="tabla--numerica">Entregar ahora</th></tr></thead>
-            <tbody>
-                <?php foreach ($lineas as $l) : ?>
-                    <tr>
-                        <td><strong><?= escaparValores($l['nombre']) ?></strong>
-                            <span class="texto-xs texto-secundario"><br><?= escaparValores((string) $l['sku']) ?></span></td>
-                        <td class="tabla--numerica cifra"><?= (int) $l['vendido'] ?></td>
-                        <td class="tabla--numerica cifra"><?= (int) $l['entregado'] ?></td>
-                        <td class="tabla--numerica cifra"><?= (int) $l['pendiente'] ?></td>
-                        <td><input class="control" type="number" min="0" max="<?= (int) $l['pendiente'] ?>" step="1" inputmode="numeric"
-                                   name="cantidad[<?= (int) $l['producto_id'] ?>]" value="<?= (int) $l['pendiente'] ?>"
-                                   <?= (int) $l['pendiente'] === 0 ? 'disabled' : '' ?>
-                                   aria-label="Piezas entregadas de <?= escaparValores($l['nombre']) ?>"></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+    <div class="linea-form" role="group" aria-label="Productos pendientes de entregar">
+        <?php foreach ($lineas as $l) : ?>
+            <div class="linea-form__item">
+                <div class="linea-form__producto">
+                    <strong><?= escaparValores($l['nombre']) ?></strong>
+                    <small><?= escaparValores((string) $l['sku']) ?> · <?= escaparValores((string) ($l['unidad'] ?? 'pza')) ?></small>
+                </div>
+                <div class="linea-form__datos">
+                    <span class="linea-form__dato"><small>Vendido</small><strong><?= (int) $l['vendido'] ?></strong></span>
+                    <span class="linea-form__dato"><small>Entregado</small><strong><?= (int) $l['entregado'] ?></strong></span>
+                    <span class="linea-form__dato"><small>Pendiente</small><strong><?= (int) $l['pendiente'] ?></strong></span>
+                </div>
+                <div class="linea-form__campos">
+                    <label class="linea-form__campo">
+                        <span>Entregar ahora</span>
+                        <input class="control" type="number" min="0" max="<?= (int) $l['pendiente'] ?>" step="1" inputmode="numeric"
+                               name="cantidad[<?= (int) $l['producto_id'] ?>]" value="<?= (int) $l['pendiente'] ?>"
+                               <?= (int) $l['pendiente'] === 0 ? 'disabled' : '' ?>
+                               aria-label="Piezas entregadas de <?= escaparValores($l['nombre']) ?>">
+                    </label>
+                </div>
+            </div>
+        <?php endforeach; ?>
     </div>
+
     <div class="campo campo--completo mt-lg">
         <label class="campo__etiqueta" for="notas-<?= $etiqueta ?>">Notas de la entrega</label>
         <input class="control" type="text" id="notas-<?= $etiqueta ?>" name="notas" maxlength="255" placeholder="Quién recibió, observaciones…">

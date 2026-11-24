@@ -56,23 +56,45 @@ $departamentos = \Model\SheetflowHoja::departamentos();
 $plantillas = \Classes\Sheetflow::plantillas();
 
 template('header', [
-    'titulo'    => 'Nueva tabla · SheetFlow',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => 'Nueva tabla · SheetFlow',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr" id="sheetflow">
-    <div class="encabezado-pagina">
-        <div>
-            <p class="texto-secundario">Elige el nombre y cómo quieres empezar. Después podrás
-                agregar columnas, fórmulas, imágenes y totales.</p>
+    <header class="herr-hero herr-hero--compacta">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">grid_on</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">SheetFlow</p>
+            <h1 class="herr-hero__titulo">Nueva tabla</h1>
+            <p class="herr-hero__desc">
+                Elige el nombre y cómo quieres empezar. Después podrás agregar columnas,
+                fórmulas, imágenes y totales.
+            </p>
         </div>
-        <div class="encabezado-pagina__acciones">
-            <a href="/admin/sheetflow" class="btn btn--texto">← Volver</a>
+        <div class="herr-hero__acciones">
+            <a href="/admin/sheetflow" class="btn btn--secundario">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>
+                <span>Volver a tablas</span>
+            </a>
         </div>
-    </div>
+    </header>
 
-    <div class="card">
+    <div class="herr-form-layout">
+        <section class="herr-panel">
+            <div class="herr-panel__cabecera">
+                <span class="herr-panel__icono" aria-hidden="true">
+                    <span class="material-symbols-outlined">table_chart</span>
+                </span>
+                <div class="herr-panel__texto">
+                    <h2 class="herr-panel__titulo">Datos de la tabla</h2>
+                    <p class="herr-panel__sub">Puedes empezar en blanco, con una plantilla o importando un archivo.</p>
+                </div>
+            </div>
+            <div class="herr-panel__cuerpo">
         <?php foreach (($alertas['error'] ?? []) as $e) : ?>
             <div class="alerta alerta--error"><?= s($e) ?></div>
         <?php endforeach; ?>
@@ -154,6 +176,37 @@ template('header', [
                 </button>
             </div>
         </form>
+            </div>
+        </section>
+
+        <aside class="herr-aside" aria-label="Cómo empezar una tabla">
+            <h2 class="herr-aside__titulo">
+                <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>
+                Cómo empezar
+            </h2>
+            <ul class="herr-aside__lista">
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                    <span><strong>En blanco.</strong> Una cuadrícula de 4 columnas por 10 renglones lista para escribir.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">auto_fix_high</span>
+                    <span><strong>Tabla inteligente.</strong> Define nombre, tipo y color de cada columna antes de crearla.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">grid_view</span>
+                    <span><strong>Plantilla.</strong> Parte de un control, presupuesto o listado ya armado.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>
+                    <span><strong>Importar.</strong> Acepta .sheetflow, .xlsx, .ods y .csv; se usa la primera hoja.</span>
+                </li>
+            </ul>
+            <p class="herr-aside__nota">
+                Las tablas se pueden insertar en el Redactor y se actualizan al abrir o exportar el documento.
+                Límites: 30 columnas, 1 000 renglones y 25 MB por archivo.
+            </p>
+        </aside>
     </div>
 </section>
 

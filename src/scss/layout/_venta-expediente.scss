@@ -1,0 +1,819 @@
+/* ==========================================================================
+   _venta-expediente.scss — Expediente de una venta.
+   Cabecera con resumen, pestañas fijas y paneles. Sustituye la página larga
+   por una vista en la que cada asunto se abre en su propia pestaña.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+/* El expediente necesita que el menú de pestañas pueda quedarse fijo. */
+body:has(.expediente) .principal {
+  overflow-x: visible;
+}
+
+.expediente {
+  --expediente-radio: #{$radio-lg};
+  min-width: 0;
+}
+
+/* --- Cabecera ------------------------------------------------------------ */
+.expediente-hero {
+  position: relative;
+  margin-bottom: $espacio-lg;
+  padding: $espacio-lg;
+  background-color: $color-superficie;
+  background-image: linear-gradient(135deg, $color-primario-claro 0%, transparent 58%);
+  border: 1px solid $color-borde;
+  border-radius: $radio-xl;
+  box-shadow: $sombra-1;
+
+  &__volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: $espacio-md;
+    font-size: $fuente-xs;
+    font-weight: 600;
+    color: $color-texto-secundario;
+    text-decoration: none;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+
+    &:hover {
+      color: $color-primario-texto;
+      text-decoration: none;
+    }
+  }
+
+  &__principal {
+    display: flex;
+    align-items: flex-start;
+    gap: $espacio-md;
+    min-width: 0;
+  }
+
+  &__icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 3.5rem;
+    height: 3.5rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-lg;
+    color: $color-primario-texto;
+    box-shadow: $sombra-1;
+
+    .material-symbols-outlined {
+      font-size: 1.9rem;
+    }
+  }
+
+  &__texto {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__eyebrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $espacio-xs;
+    margin: 0 0 0.2rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $color-rust-texto;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: $fuente-3xl;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 1rem;
+    margin-top: $espacio-sm;
+    font-size: $fuente-sm;
+    color: $color-texto-secundario;
+
+    > span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      min-width: 0;
+    }
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+      color: $color-primario-texto;
+    }
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: $espacio-sm;
+    margin-left: auto;
+  }
+}
+
+/* --- Menú «Más acciones» ------------------------------------------------- */
+.expediente-menu {
+  position: relative;
+
+  > summary {
+    list-style: none;
+    cursor: pointer;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+  }
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 60;
+    width: min(18rem, calc(100vw - 2rem));
+    padding: 0.4rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-lg;
+    box-shadow: $sombra-3;
+
+    a {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: $radio-md;
+      color: $color-texto;
+      font-size: $fuente-sm;
+      text-decoration: none;
+      white-space: nowrap;
+
+      .material-symbols-outlined {
+        font-size: 1.1rem;
+        color: $color-primario-texto;
+      }
+
+      &:hover {
+        background-color: $color-superficie-baja;
+        text-decoration: none;
+      }
+    }
+  }
+
+  &__rotulo {
+    display: block;
+    padding: 0.5rem 0.6rem 0.15rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  &__peligro,
+  &__peligro .material-symbols-outlined {
+    color: $color-error !important;
+  }
+
+  &__peligro:hover {
+    background-color: $color-error-claro !important;
+  }
+}
+
+/* --- Cifras clave -------------------------------------------------------- */
+.expediente-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: $espacio-md;
+  margin-bottom: $espacio-md;
+}
+
+.expediente-kpi {
+  @include superficie-card;
+  display: flex;
+  align-items: flex-start;
+  gap: $espacio-sm;
+  min-width: 0;
+  padding: $espacio-md;
+  color: $color-texto;
+  text-decoration: none;
+  transition: border-color $transicion-rapida, box-shadow $transicion-rapida, transform $transicion-rapida;
+
+  &:hover {
+    border-color: $color-primario-borde;
+    box-shadow: $sombra-2;
+    text-decoration: none;
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    @include anillo-foco;
+  }
+
+  &__icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2.25rem;
+    height: 2.25rem;
+    background-color: $color-primario-claro;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-md;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.2rem;
+    }
+  }
+
+  &__texto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+
+  &__etiqueta {
+    @include etiqueta-superior;
+  }
+
+  &__valor {
+    font-family: $fuente-titulos;
+    font-size: $fuente-xl;
+    font-weight: 700;
+    line-height: 1.2;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+
+    small {
+      font-family: $fuente-cuerpo;
+      font-size: $fuente-xs;
+      font-weight: 500;
+      color: $color-texto-secundario;
+    }
+  }
+
+  &__pie {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* --- Pestañas fijas ------------------------------------------------------ */
+.expediente-nav {
+  position: sticky;
+  top: calc(#{$alto-topbar} + #{$espacio-sm});
+  z-index: 35;
+  display: flex;
+  gap: 0.2rem;
+  margin-bottom: $espacio-lg;
+  padding: 0.3rem;
+  overflow-x: auto;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  box-shadow: $sombra-1;
+  scrollbar-width: thin;
+
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: $radio-md;
+    color: $color-texto-secundario;
+    font-size: $fuente-sm;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color $transicion-rapida, border-color $transicion-rapida, color $transicion-rapida;
+
+    .material-symbols-outlined {
+      font-size: 1.1rem;
+    }
+
+    .badge {
+      margin-left: 0.1rem;
+    }
+
+    &:hover {
+      background-color: $color-superficie-baja;
+      color: $color-texto;
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      @include anillo-foco;
+    }
+
+    &.is-activo {
+      background-color: $color-primario-claro;
+      border-color: $color-primario-borde;
+      color: $color-primario-texto;
+    }
+  }
+}
+
+/* --- Paneles ------------------------------------------------------------- */
+.expediente-paneles {
+  min-width: 0;
+}
+
+
+/* --- Resumen en dos columnas -------------------------------------------- */
+.expediente-resumen-grid {
+  grid-template-columns: minmax(0, 1.65fr) minmax(19rem, 0.9fr);
+  gap: $espacio-lg;
+  align-items: start;
+
+  > .tarjeta {
+    margin-bottom: 0;
+  }
+
+  > .expediente-resumen-doc {
+    grid-row: 1 / span 2;
+  }
+
+  > .expediente-peligro {
+    grid-column: 1 / -1;
+  }
+}
+
+@include hasta-tablet {
+  .expediente-resumen-grid {
+    grid-template-columns: minmax(0, 1fr);
+
+    > .expediente-resumen-doc,
+    > .tarjeta,
+    > .expediente-peligro {
+      grid-column: auto;
+      grid-row: auto;
+    }
+  }
+}
+
+.expediente-panel [id] {
+  scroll-margin-top: calc(#{$alto-topbar} + 5rem) !important;
+}
+
+.expediente-panel {
+  min-width: 0;
+  scroll-margin-top: calc(#{$alto-topbar} + 4.5rem);
+
+  &[hidden] {
+    display: none !important;
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+/* --- Controles plegables del expediente --------------------------------- */
+.expediente-captura,
+.expediente-avanzado,
+.expediente-plegable,
+.expediente-peligro {
+  margin: $espacio-md 0;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  background-color: $color-superficie;
+
+  > summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    color: $color-texto;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    .material-symbols-outlined {
+      color: $color-primario-texto;
+    }
+
+    small {
+      font-weight: 400;
+      color: $color-texto-secundario;
+    }
+  }
+
+  &[open] > summary {
+    border-bottom: 1px solid $color-borde;
+  }
+}
+
+.expediente-plegable__cuerpo,
+.expediente-avanzado__cuerpo,
+.expediente-peligro__cuerpo {
+  padding: 0 1rem 1rem;
+}
+
+.expediente-captura {
+  border-color: $color-primario-borde;
+  background-color: $color-primario-claro;
+
+  > summary {
+    color: $color-primario-texto;
+
+    strong {
+      color: $color-primario-texto;
+    }
+  }
+
+  &__cuerpo {
+    padding: $espacio-md;
+    background-color: $color-superficie;
+    border-radius: 0 0 $radio-lg $radio-lg;
+  }
+}
+
+.expediente-avanzado {
+  background-color: $color-superficie-baja;
+}
+
+.expediente-peligro {
+  border-color: $color-error-borde;
+  background-color: $color-superficie;
+
+  > summary {
+    color: $color-error-texto;
+
+    .material-symbols-outlined {
+      color: $color-error;
+    }
+  }
+}
+
+/* --- Uploads y progreso -------------------------------------------------- */
+.expediente input[type='file'].control {
+  min-height: 3rem;
+  padding: $espacio-sm;
+  background-color: $color-superficie-baja;
+  border: 1.5px dashed $color-primario-borde;
+  cursor: pointer;
+
+  &:hover {
+    border-color: $color-primario;
+    background-color: $color-primario-claro;
+  }
+}
+
+.expediente-progreso {
+  display: flex;
+  align-items: center;
+  gap: $espacio-sm;
+  min-width: 0;
+  font-size: $fuente-xs;
+  color: $color-texto-secundario;
+
+  progress {
+    flex: 1 1 auto;
+    height: 0.45rem;
+    accent-color: $color-primario;
+  }
+
+  strong {
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+
+/* --- Ajustes de pantalla ------------------------------------------------- */
+@include hasta-tablet {
+  .expediente-hero__principal {
+    flex-wrap: wrap;
+  }
+
+  .expediente-hero__acciones {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .expediente-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@include hasta-movil {
+  .expediente-hero {
+    padding: $espacio-md;
+  }
+
+  .expediente-hero__icono {
+    width: 2.75rem;
+    height: 2.75rem;
+
+    .material-symbols-outlined {
+      font-size: 1.5rem;
+    }
+  }
+
+  .expediente-hero__titulo {
+    font-size: $fuente-2xl;
+  }
+
+  .expediente-hero__acciones {
+    flex-direction: column;
+    align-items: stretch;
+
+    .btn {
+      flex: 1 1 auto;
+    }
+  }
+
+  .expediente-menu {
+    width: 100%;
+
+    > summary {
+      width: 100%;
+    }
+  }
+
+  .expediente-menu__panel {
+    left: 0;
+    right: auto;
+    width: 100%;
+  }
+
+  .expediente-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $espacio-sm;
+  }
+
+  .expediente-kpi {
+    padding: $espacio-sm;
+
+    &__icono {
+      width: 1.9rem;
+      height: 1.9rem;
+
+      .material-symbols-outlined {
+        font-size: 1rem;
+      }
+    }
+
+    &__valor {
+      font-size: $fuente-base;
+    }
+
+    &__pie {
+      font-size: 0.6875rem;
+    }
+  }
+
+  .expediente-hero__icono {
+    display: none;
+  }
+
+  .expediente-nav {
+    top: calc(#{$alto-topbar} + 0.25rem);
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.15rem;
+    margin-inline: -#{$espacio-md};
+    padding: 0.3rem $espacio-sm;
+    overflow: visible;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .expediente-nav__tab {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.45rem 0.15rem;
+    font-size: 0.65rem;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+
+    .material-symbols-outlined {
+      font-size: 1.2rem;
+    }
+
+    .badge {
+      display: none;
+    }
+  }
+
+  .expediente-nav__extra {
+    display: none;
+  }
+}
+
+/* Accesos rápidos dentro de la pestaña de facturación. */
+.expediente-acciones-linea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $espacio-xs;
+}
+
+.expediente-cobro-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: $espacio-sm $espacio-xl;
+  margin-bottom: $espacio-md;
+  padding: $espacio-md;
+  background-color: $color-superficie-baja;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+
+  > span {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 8rem;
+  }
+
+  small {
+    @include etiqueta-superior;
+  }
+
+  strong {
+    font-family: $fuente-titulos;
+    font-size: $fuente-lg;
+    font-weight: 700;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .expediente-avanzado {
+    flex: 1 1 100%;
+    margin: 0;
+    border: 0;
+    background: transparent;
+
+    > summary {
+      padding: 0.25rem 0;
+      font-size: $fuente-xs;
+      font-weight: 600;
+      color: $color-texto-secundario;
+    }
+
+    .expediente-avanzado__cuerpo {
+      padding: 0.25rem 0 0;
+    }
+  }
+}
+
+/* --- Líneas de producto en formularios de entrega/incidencia/devolución --- */
+.linea-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: $espacio-md 0;
+}
+
+.linea-form__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem 1rem;
+  padding: 0.7rem 0.8rem;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-md;
+}
+
+.linea-form__producto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+
+  strong {
+    font-size: $fuente-sm;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+
+  small {
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+  }
+}
+
+.linea-form__datos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 1rem;
+}
+
+.linea-form__dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 2.5rem;
+
+  small {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  strong {
+    font-size: $fuente-sm;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: $color-texto;
+  }
+}
+
+.linea-form__campos {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 1rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed $color-borde;
+}
+
+.linea-form__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: $color-texto-secundario;
+
+  input.control {
+    width: 7rem;
+  }
+
+  small {
+    font-size: 0.65rem;
+    color: $color-texto-secundario;
+  }
+}
+
+.linea-form__campo--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.35rem;
+  font-size: $fuente-sm;
+  color: $color-texto;
+
+  input {
+    width: auto;
+  }
+}
+
+@include hasta-movil {
+  .linea-form__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .linea-form__datos {
+    grid-column: 1;
+    justify-content: space-between;
+  }
+
+  .linea-form__campo {
+    flex: 1 1 9rem;
+
+    input.control {
+      width: 100%;
+    }
+  }
+}

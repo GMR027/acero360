@@ -73,6 +73,7 @@
 
   &__cabecera {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: 0.5rem;
     min-width: 0;
@@ -95,7 +96,66 @@
   }
 
   &__texto {
+    flex: 1 1 15rem;
     min-width: 0;
+  }
+
+  &__resumen {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.05rem;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  &__resumen-etiqueta {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  &__resumen-valor {
+    font-family: $fuente-titulos;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: $color-texto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__resumen-nota {
+    font-size: 0.68rem;
+    line-height: 1.3;
+    color: $color-texto-secundario;
+  }
+
+  /* Tarjeta protagonista: borde de acento y tinte suave en la cabecera. */
+  &--hero {
+    border-top: 3px solid $color-primario;
+    background: linear-gradient(180deg, $color-primario-claro 0%, $color-superficie 22%);
+
+    .grafica__lienzo {
+      height: 24rem;
+    }
+
+    .grafica-tarjeta__resumen-valor {
+      font-size: 1.65rem;
+    }
+  }
+
+  &--gastos {
+    border-top-color: $color-advertencia;
+    background: linear-gradient(180deg, $color-advertencia-claro 0%, $color-superficie 22%);
+
+    .grafica-tarjeta__icono {
+      background-color: $color-advertencia-claro;
+      color: $color-advertencia-texto;
+    }
   }
 
   &__titulo {
@@ -284,13 +344,19 @@
   padding: 1rem 1.1rem;
 
   .formulario__rejilla {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.65rem;
   }
 
   .formulario__acciones {
     margin-top: 0.25rem;
     padding-top: 0.6rem;
+  }
+
+  @include desde-desktopXL {
+    .formulario__rejilla {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
   }
 
   @include hasta-tablet {
@@ -308,9 +374,312 @@
   }
 }
 
+@include hasta-movil {
+  .grafica-tarjeta {
+    &__resumen {
+      align-items: flex-start;
+      width: 100%;
+      margin-left: 0;
+      padding-top: 0.2rem;
+      text-align: left;
+    }
+
+    &--hero .grafica__lienzo {
+      height: 18rem;
+    }
+  }
+
+  .ranking {
+    &__cabecera {
+      flex-wrap: wrap;
+    }
+
+    &__medida {
+      margin-left: 2.35rem;
+    }
+  }
+}
+
 .estadisticas-seccion {
   margin-bottom: $espacio-xl;
-  scroll-margin-top: 4rem;
+  scroll-margin-top: 5.5rem;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+
+    h2 {
+      margin: 0;
+    }
+
+    p {
+      margin: 0.15rem 0 0;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+#mapa-ventas-seccion {
+  scroll-margin-top: 5.5rem;
+}
+
+/* Rankings de productos y clientes */
+.rankings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 0;
+
+  @include hasta-tablet {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ranking {
+  @include superficie-card;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-top: 3px solid $color-primario;
+
+  &--bottom {
+    border-top-color: $color-advertencia;
+  }
+
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.9rem 1rem 0.65rem;
+    background: linear-gradient(180deg, $color-primario-claro 0%, $color-superficie 140%);
+    border-bottom: 1px solid $color-borde;
+  }
+
+  &--bottom &__cabecera {
+    background: linear-gradient(180deg, $color-advertencia-claro 0%, $color-superficie 140%);
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 0.5rem;
+    background-color: $color-superficie;
+    color: $color-primario-texto;
+    box-shadow: $sombra-1;
+
+    .material-symbols-outlined {
+      font-size: 1.05rem;
+    }
+  }
+
+  &--bottom &__icono {
+    color: $color-advertencia-texto;
+  }
+
+  &__texto {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-family: $fuente-titulos;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: $color-texto;
+  }
+
+  &__sub {
+    margin: 0.1rem 0 0;
+    font-size: 0.7rem;
+    line-height: 1.3;
+    color: $color-texto-secundario;
+  }
+
+  &__medida {
+    flex: 0 0 auto;
+    padding: 0.18rem 0.45rem;
+    border: 1px solid $color-primario-borde;
+    border-radius: $radio-full;
+    background-color: $color-superficie;
+    color: $color-primario-texto;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  &--bottom &__medida {
+    border-color: $color-advertencia-borde;
+    color: $color-advertencia-texto;
+  }
+
+  &__lista {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0.35rem 0.65rem 0.55rem;
+    list-style: none;
+  }
+
+  &__fila {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.4rem;
+    border-bottom: 1px solid $color-borde;
+    border-radius: $radio;
+    transition: background-color $transicion-rapida;
+
+    &:last-child {
+      border-bottom: 0;
+    }
+
+    &:hover {
+      background-color: $color-superficie-baja;
+    }
+  }
+
+  &__puesto {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 1.45rem;
+    height: 1.45rem;
+    border: 1px solid $color-borde;
+    border-radius: $radio-full;
+    background-color: $color-superficie-baja;
+    color: $color-texto-secundario;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+    &--1 {
+      background-color: #fef3c7;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+
+    &--2 {
+      background-color: #e5e7eb;
+      border-color: #cbd5e1;
+      color: #374151;
+    }
+
+    &--3 {
+      background-color: #ffedd5;
+      border-color: #fdba74;
+      color: #9a3412;
+    }
+  }
+
+  &__cuerpo {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__linea {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__nombre {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: $color-texto;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__principal {
+    flex: 0 0 auto;
+    color: $color-texto;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  &__barra {
+    height: 0.35rem;
+    margin: 0.25rem 0 0.15rem;
+    overflow: hidden;
+    background-color: $color-superficie-baja;
+    border-radius: $radio-full;
+
+    span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, $color-primario, $color-primario-oscuro);
+    }
+  }
+
+  &--bottom &__barra span {
+    background: linear-gradient(90deg, $color-advertencia, $color-error);
+  }
+
+  &__pie {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: $color-texto-secundario;
+    font-size: 0.66rem;
+    line-height: 1.3;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span:last-child {
+      text-align: right;
+    }
+  }
+
+  &__vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 1.5rem 1rem;
+    color: $color-texto-secundario;
+    text-align: center;
+
+    .material-symbols-outlined {
+      font-size: 1.6rem;
+      color: $color-primario-texto;
+      opacity: 0.75;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.78rem;
+    }
+  }
 }
 
 /* Resumen de la página de estadísticas */

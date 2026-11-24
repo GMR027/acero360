@@ -184,8 +184,14 @@ function graficasOpciones(espec, compacto, sinAnimacion) {
     data: categorias,
     inverse: horizontal,
     axisLabel: {
-      color: horizontal ? tema.texto : tema.suave, fontFamily: GRAFICAS_FUENTE, fontSize: 11, hideOverlap: true,
-      width: horizontal ? (compacto ? 110 : 190) : undefined, overflow: 'truncate',
+      color: horizontal ? tema.texto : tema.suave,
+      fontFamily: GRAFICAS_FUENTE,
+      fontSize: 11,
+      hideOverlap: true,
+      interval: categorias.length <= 12 ? 0 : 'auto',
+      rotate: horizontal ? 0 : (espec.rotar || 0),
+      width: horizontal ? (compacto ? 110 : 190) : (espec.anchoEtiqueta || undefined),
+      overflow: horizontal || espec.anchoEtiqueta ? 'truncate' : undefined,
     },
     axisLine: { lineStyle: { color: tema.bordeFuerte } },
     axisTick: { show: false },
@@ -240,7 +246,7 @@ function graficasOpciones(espec, compacto, sinAnimacion) {
     animationEasing: 'cubicOut',
     animationDelay: function (indice) { return Math.min(indice * 25, 400); },
     animationDurationUpdate: 300,
-    grid: { left: compacto ? 8 : 12, right: horizontal ? 56 : (compacto ? 10 : 24), top: 28, bottom: (series.length > 1 ? 44 : 12) + (muchos ? 36 : 0), containLabel: true },
+    grid: { left: compacto ? 8 : 12, right: horizontal ? 56 : (compacto ? 10 : 24), top: 28, bottom: (series.length > 1 ? 44 : 12) + (muchos ? 36 : 0) + (espec.rotar ? 24 : 0), containLabel: true },
     legend: series.length > 1
       ? { type: 'scroll', bottom: muchos ? 34 : 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: tema.texto, fontFamily: GRAFICAS_FUENTE, fontSize: 12 }, pageIconSize: 10, pageTextStyle: { color: tema.suave } }
       : { show: false },

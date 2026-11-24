@@ -57,23 +57,45 @@ $propias = \Classes\RedactorPlantillas::todas();
 $GLOBALS['scriptsPagina'][] = '/public/js/herramientas.js';
 
 template('header', [
-    'titulo'    => 'Nuevo documento · Redactor',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => 'Nuevo documento · Redactor',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr" id="redactor">
-    <div class="encabezado-pagina">
-        <div>
-            <p class="texto-secundario">Elige el formato de hoja y, si quieres, una plantilla.
-                Después podrás escribir, insertar imágenes, tablas y firmas.</p>
+    <header class="herr-hero herr-hero--compacta">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">note_add</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">Redactor</p>
+            <h1 class="herr-hero__titulo">Nuevo documento</h1>
+            <p class="herr-hero__desc">
+                Elige el formato de hoja y, si quieres, una plantilla. Después podrás escribir,
+                insertar imágenes, tablas y firmas.
+            </p>
         </div>
-        <div class="encabezado-pagina__acciones">
-            <a href="/admin/redactor" class="btn btn--texto">← Volver</a>
+        <div class="herr-hero__acciones">
+            <a href="/admin/redactor" class="btn btn--secundario">
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">arrow_back</span>
+                <span>Volver a documentos</span>
+            </a>
         </div>
-    </div>
+    </header>
 
-    <div class="card">
+    <div class="herr-form-layout">
+        <section class="herr-panel">
+            <div class="herr-panel__cabecera">
+                <span class="herr-panel__icono" aria-hidden="true">
+                    <span class="material-symbols-outlined">description</span>
+                </span>
+                <div class="herr-panel__texto">
+                    <h2 class="herr-panel__titulo">Datos del documento</h2>
+                    <p class="herr-panel__sub">Se abrirá en blanco o con la plantilla que elijas.</p>
+                </div>
+            </div>
+            <div class="herr-panel__cuerpo">
         <?php foreach (($alertas['error'] ?? []) as $e) : ?>
             <div class="alerta alerta--error"><?= s($e) ?></div>
         <?php endforeach; ?>
@@ -153,7 +175,7 @@ template('header', [
                         <span><span class="material-symbols-outlined" aria-hidden="true">star</span>
                             <strong><?= s($pl['nombre']) ?></strong>
                             <small><?= s($pl['descripcion'] !== '' ? $pl['descripcion'] : 'Plantilla guardada') ?></small></span>
-                        <button type="submit" class="btn btn--peligro btn--sm"
+                        <button type="submit" class="btn btn--peligro btn--sm btn--icono rd-plantilla__borrar"
                                 form="rd-form-plantilla-eliminar" formnovalidate
                                 name="eliminar_plantilla" value="<?= (int) $pl['id'] ?>"
                                 title="Eliminar plantilla">
@@ -169,6 +191,36 @@ template('header', [
                 </button>
             </div>
         </form>
+            </div>
+        </section>
+
+        <aside class="herr-aside" aria-label="Qué incluye el Redactor">
+            <h2 class="herr-aside__titulo">
+                <span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>
+                Todo listo para escribir
+            </h2>
+            <ul class="herr-aside__lista">
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">spellcheck</span>
+                    <span><strong>Corrector y estilos.</strong> Revisa la ortografía y aplica formatos, listas e interlineado.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">imagesmode</span>
+                    <span><strong>Imágenes, tablas y firmas.</strong> Inserta contenido del Archivo, de SheetFlow o dibuja figuras.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                    <span><strong>Versiones y cambios.</strong> Cada guardado deja historial para comparar o restaurar.</span>
+                </li>
+                <li class="herr-aside__item">
+                    <span class="material-symbols-outlined" aria-hidden="true">ios_share</span>
+                    <span><strong>Exportación.</strong> Descarga en Word, LibreOffice o PDF cuando termines.</span>
+                </li>
+            </ul>
+            <p class="herr-aside__nota">
+                Los documentos son compartidos: cualquier administrador puede abrirlos y editarlos.
+            </p>
+        </aside>
     </div>
 </section>
 

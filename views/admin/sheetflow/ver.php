@@ -14,29 +14,55 @@ if (!$hoja) {
 
 $tabla = Sheetflow::html($hoja);
 $documentos = $hoja->usosRedactor();
+$datos = $hoja->contenido();
+$filas = count($datos['rows'] ?? []);
+$columnas = count($datos['cols'] ?? []);
 
 template('header', [
-    'titulo'    => $hoja->nombre . ' · SheetFlow',
-    'subtitulo' => 'Herramientas personales',
+    'titulo'            => $hoja->nombre . ' · SheetFlow',
+    'subtitulo'         => 'Herramientas personales',
+    'mostrarEncabezado' => false,
 ]);
 ?>
 
 <section class="herr" id="sheetflow">
-    <div class="encabezado-pagina">
-        <div>
-            <h1 class="titulo-2"><?= s($hoja->nombre) ?></h1>
-            <p class="texto-secundario">
-                <?= s(formatear_fecha($hoja->fecha, 'd/m/Y')) ?>
-                <?= $hoja->departamento !== '' ? ' · ' . s($hoja->departamento) : '' ?>
-                <?= $hoja->descripcion !== '' ? ' · ' . s($hoja->descripcion) : '' ?>
-            </p>
+    <header class="herr-hero herr-hero--compacta">
+        <span class="herr-hero__icono" aria-hidden="true">
+            <span class="material-symbols-outlined">table_chart</span>
+        </span>
+        <div class="herr-hero__texto">
+            <p class="herr-hero__eyebrow">SheetFlow · tabla compartida</p>
+            <h1 class="herr-hero__titulo"><?= s($hoja->nombre) ?></h1>
+            <div class="herr-hero__meta">
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
+                    <?= s(formatear_fecha($hoja->fecha, 'd/m/Y')) ?>
+                </span>
+                <?php if ($hoja->departamento !== '') : ?>
+                    <span class="herr-meta">
+                        <span class="material-symbols-outlined" aria-hidden="true">folder</span>
+                        <?= s($hoja->departamento) ?>
+                    </span>
+                <?php endif; ?>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">grid_on</span>
+                    <?= number_format($filas) ?> × <?= number_format($columnas) ?>
+                </span>
+                <span class="herr-meta">
+                    <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                    Actualizada <?= s(formatear_fecha($hoja->actualizado, 'd/m/Y H:i')) ?>
+                </span>
+            </div>
+            <?php if ($hoja->descripcion !== '') : ?>
+                <p class="herr-hero__desc"><?= s($hoja->descripcion) ?></p>
+            <?php endif; ?>
         </div>
-        <div class="encabezado-pagina__acciones">
+        <div class="herr-hero__acciones">
             <a href="/admin/sheetflow/abrir?id=<?= (int) $hoja->id ?>" class="btn btn--primario">
                 <span class="material-symbols-outlined" aria-hidden="true">edit</span> Editar
             </a>
             <details class="gr-descargar">
-                <summary class="btn btn--texto">
+                <summary class="btn btn--secundario">
                     <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar
                 </summary>
                 <div class="gr-descargar-menu">
@@ -47,31 +73,57 @@ template('header', [
                     <a href="/admin/sheetflow/descargar?id=<?= (int) $hoja->id ?>&formato=pdf<?= consultaPdfInline() ?>"<?= atributosNuevaPestana() ?>><span class="material-symbols-outlined">print</span> Imprimir</a>
                 </div>
             </details>
-            <a href="/admin/sheetflow" class="btn btn--texto">← Tablas</a>
+            <a href="/admin/sheetflow" class="btn btn--texto">
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Tablas
+            </a>
         </div>
-    </div>
+    </header>
 
-    <div class="card sf-ver">
-        <div class="tabla-contenedor"><?= $tabla ?></div>
-    </div>
+    <section class="herr-panel" aria-label="Contenido de la tabla">
+        <div class="herr-panel__cabecera">
+            <span class="herr-panel__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">visibility</span>
+            </span>
+            <div class="herr-panel__texto">
+                <h2 class="herr-panel__titulo">Vista de la tabla</h2>
+                <p class="herr-panel__sub">Sólo lectura. Para cambiar celdas, abre la tabla en el editor.</p>
+            </div>
+            <div class="herr-panel__extra">
+                <span class="badge badge--neutro badge--sin-punto">Sólo lectura</span>
+            </div>
+        </div>
+        <div class="herr-panel__cuerpo herr-panel__cuerpo--sin-relleno sf-ver">
+            <div class="tabla-contenedor"><?= $tabla ?></div>
+        </div>
+    </section>
 
-    <div class="card sf-usos">
-        <h3><span class="material-symbols-outlined" aria-hidden="true">share</span> Uso en el Redactor</h3>
-        <p class="texto-secundario">
-            En un documento del Redactor elige <em>Insertar › Tabla › Origen › SheetFlow</em>.
-            La tabla queda vinculada y se actualiza al abrir o exportar el documento.
-        </p>
-        <?php if ($documentos) : ?>
-            <p>
-                <?php foreach ($documentos as $d) : ?>
-                    <a class="btn btn--texto btn--sm" href="/admin/redactor/abrir?id=<?= (int) $d['id'] ?>">
-                        <span class="material-symbols-outlined" aria-hidden="true">edit_document</span>
-                        Usada en «<?= s($d['nombre']) ?>»
-                    </a>
-                <?php endforeach; ?>
+    <section class="herr-panel sf-usos" aria-label="Uso de la tabla en el Redactor">
+        <div class="herr-panel__cabecera">
+            <span class="herr-panel__icono" aria-hidden="true">
+                <span class="material-symbols-outlined">share</span>
+            </span>
+            <div class="herr-panel__texto">
+                <h2 class="herr-panel__titulo">Uso en el Redactor</h2>
+                <p class="herr-panel__sub">La tabla puede vincularse dentro de un documento de texto.</p>
+            </div>
+        </div>
+        <div class="herr-panel__cuerpo">
+            <p class="texto-secundario">
+                En un documento del Redactor elige <em>Insertar › Tabla › Origen › SheetFlow</em>.
+                La tabla queda vinculada y se actualiza al abrir o exportar el documento.
             </p>
-        <?php endif; ?>
-    </div>
+            <?php if ($documentos) : ?>
+                <p>
+                    <?php foreach ($documentos as $d) : ?>
+                        <a class="btn btn--texto btn--sm" href="/admin/redactor/abrir?id=<?= (int) $d['id'] ?>">
+                            <span class="material-symbols-outlined" aria-hidden="true">edit_document</span>
+                            Usada en «<?= s($d['nombre']) ?>»
+                        </a>
+                    <?php endforeach; ?>
+                </p>
+            <?php endif; ?>
+        </div>
+    </section>
 </section>
 
 <?php template('footer'); ?>

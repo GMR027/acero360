@@ -147,15 +147,417 @@
   }
 
   .interruptor {
-    flex-direction: row-reverse;
-    justify-content: flex-end;
-    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
     line-height: 1.4;
+
+    > span:first-child {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    &__pista {
+      margin-top: 0.15rem;
+    }
 
     .texto-xs { line-height: 1.4; }
   }
 
   .ajustes-rejilla .formulario__acciones .btn {
+    width: 100%;
+  }
+}
+
+/* ==========================================================================
+   Armazón de Ajustes: menú lateral + contenido.
+   Lo abre templates/header.php y lo cierra templates/footer.php; el menú y la
+   franja de resumen viven en templates/tabsAjustes.php.
+   ========================================================================== */
+
+/* Icono de la cabecera de sección (sólo en Ajustes y sus subpáginas). */
+.encabezado-pagina__texto--con-icono {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: $espacio-md;
+  row-gap: $espacio-xs;
+  align-items: center;
+}
+
+.encabezado-pagina__icono {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  background-color: $color-primario-claro;
+  border: 1px solid $color-primario-borde;
+  border-radius: $radio-lg;
+  color: $color-primario-texto;
+
+  .material-symbols-outlined {
+    font-size: 1.6rem;
+  }
+}
+
+/* El contenido principal recorta el desbordamiento horizontal; para que el
+   menú de Ajustes pueda quedarse fijo al desplazarse, en estas pantallas se
+   deja visible (las tablas anchas ya tienen su propio contenedor con scroll). */
+body:has(.ajustes-shell) .principal {
+  overflow-x: visible;
+}
+
+.ajustes-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $espacio-lg;
+  align-items: start;
+  margin-bottom: $espacio-lg;
+
+  @include desde-desktop {
+    grid-template-columns: 17rem minmax(0, 1fr);
+  }
+}
+
+/* --- Franja de resumen de preferencias ---------------------------------- */
+.ajustes-resumen {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  background-color: $color-superficie;
+  border: 1px solid $color-borde;
+  border-radius: $radio-lg;
+  box-shadow: $sombra-1;
+
+  &__dato {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    min-width: 0;
+    padding: $espacio-md;
+
+    & + & {
+      border-left: 1px solid $color-borde;
+    }
+  }
+
+  &__icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2.1rem;
+    height: 2.1rem;
+    background-color: $color-primario-claro;
+    border-radius: $radio-md;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.15rem;
+    }
+  }
+
+  &__texto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+
+  &__etiqueta {
+    @include etiqueta-superior;
+  }
+
+  &__valor {
+    font-family: $fuente-titulos;
+    font-size: $fuente-sm;
+    font-weight: 700;
+    line-height: 1.3;
+    color: $color-texto;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* --- Menú lateral de secciones ------------------------------------------ */
+.ajustes-nav {
+  @include superficie-card;
+  position: sticky;
+  top: calc(#{$alto-topbar} + #{$espacio-md});
+  overflow: hidden;
+
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    gap: $espacio-sm;
+    padding: $espacio-md;
+    background-color: $color-superficie-baja;
+    border-bottom: 1px solid $color-borde;
+
+    strong {
+      display: block;
+      font-family: $fuente-titulos;
+      font-size: 0.85rem;
+      font-weight: 700;
+      line-height: 1.25;
+      color: $color-texto;
+    }
+
+    small {
+      display: block;
+      font-size: 0.7rem;
+      color: $color-texto-secundario;
+    }
+  }
+
+  &__cabecera-icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-md;
+    color: $color-primario-texto;
+
+    .material-symbols-outlined {
+      font-size: 1.15rem;
+    }
+  }
+
+  &__lista {
+    padding: 0.4rem 0.45rem 0.6rem;
+  }
+
+  &__grupo + &__grupo {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid $color-borde;
+  }
+
+  &__titulo {
+    display: block;
+    padding: 0.35rem 0.6rem 0.15rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: $color-texto-secundario;
+  }
+
+  &__enlace {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.42rem 0.55rem;
+    border-left: 3px solid transparent;
+    border-radius: $radio-md;
+    color: $color-texto;
+    text-decoration: none;
+    line-height: 1.3;
+    transition: background-color $transicion-rapida, border-color $transicion-rapida;
+
+    &:hover {
+      background-color: $color-superficie-baja;
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      @include anillo-foco;
+    }
+  }
+
+  &__icono {
+    flex: 0 0 auto;
+    display: inline-flex;
+    margin-top: 0.1rem;
+    color: $color-texto-secundario;
+
+    .material-symbols-outlined {
+      font-size: 1.1rem;
+    }
+  }
+
+  &__texto {
+    min-width: 0;
+
+    strong {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: $color-texto;
+      overflow-wrap: anywhere;
+    }
+
+    small {
+      display: block;
+      font-size: 0.67rem;
+      line-height: 1.35;
+      color: $color-texto-secundario;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__enlace--activo {
+    background-color: $color-primario-claro;
+    border-left-color: $color-primario;
+
+    .ajustes-nav__icono,
+    .ajustes-nav__texto strong {
+      color: $color-primario-texto;
+    }
+  }
+}
+
+.ajustes-contenido {
+  min-width: 0;
+}
+
+/* --- Configuración general ---------------------------------------------- */
+.ajustes-general {
+  display: flex;
+  flex-direction: column;
+  gap: $espacio-lg;
+}
+
+.ajustes-panel {
+  margin: 0;
+
+  .ajustes-cabecera {
+    align-items: center;
+    padding-bottom: $espacio-md;
+    margin-bottom: $espacio-md;
+    border-bottom: 1px solid $color-borde;
+
+    > div {
+      flex: 1 1 auto;
+    }
+  }
+
+  &__insignia {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  &__pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $espacio-sm $espacio-md;
+    margin-top: $espacio-md;
+    padding-top: $espacio-md;
+    border-top: 1px solid $color-borde;
+
+    .campo__ayuda {
+      flex: 1 1 20rem;
+      max-width: 70ch;
+      margin: 0;
+    }
+  }
+
+  /* Tema: tres opciones compactas y alineadas. */
+  .selector-tema {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Paleta compacta: 19 colores en una cuadrícula, sin tarjetas gigantes. */
+  .selector-color--compacto {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: $espacio-md;
+
+    .selector-color__tarjeta {
+      justify-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.3rem 0.4rem;
+      border-width: 1px;
+      border-radius: 0.55rem;
+      text-align: center;
+    }
+
+    .selector-color__muestra {
+      height: 2.6rem;
+      border-radius: 0.4rem;
+    }
+
+    .selector-color__tarjeta strong {
+      font-size: 0.68rem;
+      line-height: 1.25;
+    }
+
+    .selector-color__tarjeta .texto-xs {
+      display: none;
+    }
+
+    .selector-color__opcion:hover .selector-color__tarjeta {
+      transform: none;
+      box-shadow: $sombra-1;
+    }
+
+    input:checked + .selector-color__tarjeta::after {
+      top: 0.55rem;
+      right: 0.55rem;
+      width: 0.35rem;
+      height: 0.65rem;
+    }
+  }
+}
+
+@include hasta-tablet {
+  .ajustes-nav {
+    position: static;
+  }
+
+  /* En tableta y móvil el menú se vuelve una cuadrícula de accesos directos. */
+  .ajustes-nav__lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.25rem;
+  }
+
+  .ajustes-nav__grupo {
+    display: contents;
+  }
+
+  .ajustes-nav__titulo {
+    display: none;
+  }
+
+  .ajustes-nav__texto small {
+    display: none;
+  }
+
+  .ajustes-nav__enlace {
+    border-left-width: 0;
+    border: 1px solid $color-borde;
+    background-color: $color-superficie-baja;
+  }
+
+  .ajustes-nav__enlace--activo {
+    border-color: $color-primario-borde;
+  }
+}
+
+@include hasta-movil {
+  .ajustes-resumen {
+    grid-template-columns: minmax(0, 1fr);
+
+    &__dato + &__dato {
+      border-left: 0;
+      border-top: 1px solid $color-borde;
+    }
+  }
+
+  .ajustes-nav__lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ajustes-panel .selector-color--compacto {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .ajustes-panel__pie .btn {
     width: 100%;
   }
 }

@@ -378,7 +378,11 @@
         flex-wrap: wrap;
         align-items: center;
         gap: .25rem;
-        margin-bottom: .85rem;
+        margin-bottom: .75rem;
+        padding: .45rem .65rem;
+        background: var(--color-superficie);
+        border: 1px solid var(--color-borde);
+        border-radius: .6rem;
         font-size: .875rem;
     }
     .ar-miga__sep { color: var(--color-texto-secundario); }
@@ -406,7 +410,11 @@
         flex-wrap: wrap;
         align-items: center;
         gap: .75rem;
-        margin-bottom: .75rem;
+        margin-bottom: .6rem;
+        padding: .6rem .75rem;
+        background: var(--color-superficie);
+        border: 1px solid var(--color-borde);
+        border-radius: .6rem;
     }
     .ar-buscar {
         position: relative;
@@ -482,14 +490,15 @@
     }
     /* El atributo hidden debe ganar al display:flex de arriba. */
     .ar-soltar[hidden] { display: none; }
-    .ar-ayuda { margin-bottom: .9rem; }
+    .ar-ayuda { margin-bottom: 1rem; }
+    .herr-seccion-cabecera { margin-top: 1.15rem; }
 
     /* --- Tarjetas de carpeta: forma de carpeta, color e icono propios --- */
     .ar-carpetas {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 1rem .85rem;
-        margin-bottom: 1.25rem;
+        margin-bottom: .5rem;
     }
     .ar-carpeta {
         --carpeta-color: var(--color-primario);

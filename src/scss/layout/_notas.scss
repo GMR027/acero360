@@ -28,6 +28,11 @@
 }
 
 /* --- Chips de filtro ----------------------------------------------------- */
+.buscador--ancho {
+  flex: 1 1 30rem;
+  max-width: 46rem;
+}
+
 .chip-grupo {
   display: flex;
   flex-wrap: nowrap;
@@ -137,10 +142,17 @@
   flex-direction: column;
   gap: $espacio-sm;
   padding: $espacio-md;
+  transition: border-color $transicion-rapida, box-shadow $transicion-rapida;
+
+  &:hover {
+    border-color: $color-primario-borde;
+    box-shadow: $sombra-2;
+  }
 
   /* Fijadas: franja azul a la izquierda para distinguirlas de un vistazo. */
   &--fijada {
     border-left: 0.25rem solid $color-primario;
+    background-image: linear-gradient(90deg, $color-primario-claro, transparent 45%);
   }
 
   /* Completadas: atenuadas y con el título tachado. */
@@ -251,13 +263,25 @@
     flex-wrap: wrap;
     align-items: center;
     gap: $espacio-sm;
+    margin-top: auto;
     padding-top: $espacio-sm;
     border-top: 1px solid $color-borde;
 
-    /* Los formularios de fijar / completar / eliminar son hermanos de "Editar". */
+    /* Los formularios de fijar / completar / eliminar son hermanos de "Editar".
+       El primero empuja el resto a la derecha: una acción principal a la
+       izquierda y las secundarias agrupadas. */
     form {
       display: flex;
       margin: 0;
+
+      &:first-of-type {
+        margin-left: auto;
+      }
     }
   }
+}
+
+/* El tablero gana aire cuando hay muchas notas. */
+.notas-lista .nota-tarjeta {
+  min-height: 100%;
 }

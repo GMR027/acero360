@@ -285,7 +285,7 @@ class Estadisticas
      *
      * @return array<int, array{producto_id: int, empresa_id: int, negocio: string, sku: string, nombre: string, imagen: ?string, unidades: int, importe: int, importe_con_iva: int, operaciones: int}>
      */
-    public static function topProductos(string $desde, string $hasta, array $f = [], int $limite = 10): array
+    public static function topProductos(string $desde, string $hasta, array $f = [], int $limite = 10, string $orden = 'importe'): array
     {
         $donde = ["v.estado = 'registrada'", 'v.fecha BETWEEN ? AND ?'];
         $tipos = 'ss';
@@ -295,12 +295,17 @@ class Estadisticas
         $tipos .= 'i';
         $valores[] = max(1, $limite);
 
+        // La posición dentro de cada negocio cambia según el criterio del selector.
+        $ordenSql = $orden === 'unidades'
+            ? 'SUM(vd.cantidad) DESC, SUM(ROUND(vd.subtotal * 100)) DESC, p.nombre ASC'
+            : 'SUM(ROUND(vd.subtotal * 100)) DESC, SUM(vd.cantidad) DESC, p.nombre ASC';
+
         $consulta = self::$db->prepare(
             'SELECT t.* FROM (
                 SELECT p.id AS producto_id, v.empresa_id, e.nombre AS negocio, p.sku, p.nombre, p.imagen,
                        SUM(vd.cantidad) AS unidades, SUM(ROUND(vd.subtotal * 100)) AS importe, COUNT(DISTINCT v.id) AS operaciones,
                        ROUND(SUM(vd.subtotal * v.total / NULLIF(v.subtotal, 0)) * 100) AS importe_con_iva,
-                       ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY SUM(ROUND(vd.subtotal * 100)) DESC, SUM(vd.cantidad) DESC, p.nombre ASC) AS posicion
+                       ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY ' . $ordenSql . ') AS posicion
                   FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
                        JOIN empresas e ON e.id = v.empresa_id
                  WHERE ' . implode(' AND ', $donde) . '
@@ -326,7 +331,28 @@ class Estadisticas
      *
      * @return array<int, array{cliente_id: int, empresa_id: int, negocio: string, nombre: string, importe: int, operaciones: int, unidades: int}>
      */
-    public static function topClientes(string $desde, string $hasta, array $f = [], string $base = 'total', int $limite = 10): array
+    public static function topClientes(string $desde, string $hasta, array $f = [], string $base = 'total', int $limite = 10, string $orden = 'importe'): array
+    {
+        return self::clientesPorNegocio($desde, $hasta, $f, $base, $limite, $orden, 'DESC');
+    }
+
+    /**
+     * Clientes con menor compra, separados por negocio. Solo incluye clientes con
+     * operaciones en el periodo; el orden puede ser por importe o por piezas.
+     *
+     * @return array<int, array{cliente_id: int, empresa_id: int, negocio: string, nombre: string, importe: int, operaciones: int, unidades: int}>
+     */
+    public static function menorClientes(string $desde, string $hasta, array $f = [], string $base = 'total', int $limite = 10, string $orden = 'importe'): array
+    {
+        return self::clientesPorNegocio($desde, $hasta, $f, $base, $limite, $orden, 'ASC');
+    }
+
+    /**
+     * Consulta común de clientes por negocio, ordenada de mayor a menor o al revés.
+     *
+     * @return array<int, array{cliente_id: int, empresa_id: int, negocio: string, nombre: string, importe: int, operaciones: int, unidades: int}>
+     */
+    private static function clientesPorNegocio(string $desde, string $hasta, array $f, string $base, int $limite, string $orden, string $direccion): array
     {
         $expresion = $base === 'subtotal' ? '(v.subtotal - v.descuento)' : 'v.total';
         $donde = ["v.estado = 'registrada'", 'v.fecha BETWEEN ? AND ?'];
@@ -336,12 +362,20 @@ class Estadisticas
         $tipos .= 'i';
         $valores[] = max(1, $limite);
 
+        $unidades = 'COALESCE(SUM((SELECT SUM(vd.cantidad) FROM venta_detalles vd WHERE vd.venta_id = v.id)), 0)';
+        $importe = 'SUM(ROUND(' . $expresion . ' * 100))';
+        $operaciones = 'COUNT(*)';
+        $nombre = "COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre)";
+        $ordenSql = $orden === 'unidades'
+            ? $unidades . ' ' . $direccion . ', ' . $importe . ' ' . $direccion . ', ' . $nombre . ' ASC'
+            : $importe . ' ' . $direccion . ', ' . $operaciones . ' ' . $direccion . ', ' . $nombre . ' ASC';
+
         $consulta = self::$db->prepare(
             "SELECT t.* FROM (
-                SELECT cl.id AS cliente_id, v.empresa_id, e.nombre AS negocio, COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre) AS nombre,
-                       SUM(ROUND($expresion * 100)) AS importe, COUNT(*) AS operaciones,
-                       COALESCE(SUM((SELECT SUM(vd.cantidad) FROM venta_detalles vd WHERE vd.venta_id = v.id)), 0) AS unidades,
-                       ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY SUM(ROUND($expresion * 100)) DESC, COUNT(*) DESC, COALESCE(NULLIF(cl.nombre_empresa, ''), cl.nombre) ASC) AS posicion
+                SELECT cl.id AS cliente_id, v.empresa_id, e.nombre AS negocio, $nombre AS nombre,
+                       $importe AS importe, COUNT(*) AS operaciones,
+                       $unidades AS unidades,
+                       ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY $ordenSql) AS posicion
                   FROM ventas v JOIN clientes cl ON cl.id = v.cliente_id JOIN empresas e ON e.id = v.empresa_id
                  WHERE " . implode(' AND ', $donde) . '
                  GROUP BY cl.id, v.empresa_id, e.nombre, nombre) t
@@ -414,6 +448,53 @@ class Estadisticas
         $consulta->close();
 
         uasort($mapa, static fn ($a, $b) => $b['total'] <=> $a['total']);
+
+        return ['anios' => $anios, 'filas' => array_slice(array_values($mapa), 0, max(1, $limite))];
+    }
+
+    /**
+     * Productos más vendidos durante varios años, con piezas e importe por año.
+     * El orden es por piezas totales (el criterio que pide la pantalla de estadísticas).
+     *
+     * @return array{anios: int[], filas: array<int, array{nombre: string, unidades_por_anio: array<int, int>, importe_por_anio: array<int, int>, total_unidades: int, total_importe: int}>}
+     */
+    public static function porAniosProductos(int $anioDesde, int $anioHasta, array $f = [], int $limite = 8): array
+    {
+        $anios = range($anioDesde, $anioHasta);
+        $donde = ["v.estado = 'registrada'", 'YEAR(v.fecha) BETWEEN ? AND ?'];
+        $tipos = 'ii';
+        $valores = [$anioDesde, $anioHasta];
+        if ((int) ($f['empresa'] ?? 0) > 0) { $donde[] = 'v.empresa_id = ?'; $tipos .= 'i'; $valores[] = (int) $f['empresa']; }
+
+        $sql = 'SELECT p.id AS clave, CONCAT(COALESCE(p.sku, ""), " ", p.nombre) AS nombre, YEAR(v.fecha) AS anio,
+                       SUM(vd.cantidad) AS unidades, SUM(ROUND(vd.subtotal * 100)) AS importe
+                  FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
+                 WHERE ' . implode(' AND ', $donde) . ' GROUP BY p.id, nombre, anio';
+
+        $consulta = self::$db->prepare($sql);
+        $consulta->bind_param($tipos, ...$valores);
+        $consulta->execute();
+        $mapa = [];
+        foreach ($consulta->get_result() as $x) {
+            $k = (int) $x['clave'];
+            $mapa[$k] ??= [
+                'nombre' => (string) $x['nombre'],
+                'unidades_por_anio' => array_fill_keys($anios, 0),
+                'importe_por_anio' => array_fill_keys($anios, 0),
+                'total_unidades' => 0,
+                'total_importe' => 0,
+            ];
+            $anio = (int) $x['anio'];
+            $mapa[$k]['unidades_por_anio'][$anio] = (int) $x['unidades'];
+            $mapa[$k]['importe_por_anio'][$anio] = (int) $x['importe'];
+            $mapa[$k]['total_unidades'] += (int) $x['unidades'];
+            $mapa[$k]['total_importe'] += (int) $x['importe'];
+        }
+        $consulta->close();
+
+        uasort($mapa, static function ($a, $b) {
+            return [$b['total_unidades'], $b['total_importe'], $a['nombre']] <=> [$a['total_unidades'], $a['total_importe'], $b['nombre']];
+        });
 
         return ['anios' => $anios, 'filas' => array_slice(array_values($mapa), 0, max(1, $limite))];
     }

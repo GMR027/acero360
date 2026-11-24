@@ -160,10 +160,11 @@
 #rd-firma-texto { width: 100%; box-sizing: border-box; margin-bottom: .6rem; }
 .rd-plantillas { display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); gap: 1rem; margin: 1rem 0 1.6rem; }
 .rd-plantilla { position: relative; cursor: pointer; input { position: absolute; opacity: 0; }
-  > span { display: flex; flex-direction: column; gap: .4rem; height: 100%; padding: 1.2rem; border: 2px solid var(--border); border-radius: .8rem; background: var(--bg-secondary); box-sizing: border-box; i { font-size: 2.2rem; color: var(--secondary); } small { color: var(--text-muted); } }
+  > span { display: flex; flex-direction: column; gap: .4rem; height: 100%; padding: 1.2rem; padding-right: 3rem; border: 2px solid var(--border); border-radius: .8rem; background: var(--bg-secondary); box-sizing: border-box; i { font-size: 2.2rem; color: var(--secondary); } small { color: var(--text-muted); } }
   input:checked + span { border-color: var(--primary); background: var(--primary-glow); }
   input:focus-visible + span { outline: 2px solid var(--primary); }
   &.rd-plantilla-propia > span i { color: var(--warning); }
+  .rd-plantilla__borrar { position: absolute; top: .5rem; right: .5rem; z-index: 1; }
   .btn-icono { position: absolute; top: .6rem; right: .6rem; background: none; border: 0; color: var(--text-muted); cursor: pointer; } }
 
 // Pestañas de la barra

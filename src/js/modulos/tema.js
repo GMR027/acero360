@@ -39,6 +39,26 @@ function elegido(nombre, validos, defecto) {
   return opcion && validos.indexOf(opcion.value) >= 0 ? opcion.value : defecto;
 }
 
+/** Refresca la franja de resumen (tema y color) sin recargar la página. */
+function actualizarResumenApariencia(selector, tema) {
+  const etiquetas = { claro: 'Claro', oscuro: 'Oscuro', auto: 'Automático (sistema)' };
+  const resumenTema = document.querySelector('[data-resumen-tema]');
+  const resumenColor = document.querySelector('[data-resumen-color]');
+
+  if (resumenTema) {
+    resumenTema.textContent = etiquetas[tema] || 'Automático (sistema)';
+  }
+  if (resumenColor) {
+    const opcion = selector.querySelector('input[name="color"]:checked');
+    const nombre = opcion && opcion.closest('label')
+      ? opcion.closest('label').querySelector('strong')
+      : null;
+    if (nombre) {
+      resumenColor.textContent = nombre.textContent.trim();
+    }
+  }
+}
+
 /** Aplica tema y color a la vez; lo que no venga usa lo que ya está puesto. */
 function aplicarApariencia(tema, color) {
   const raiz = document.documentElement;
@@ -70,6 +90,7 @@ function iniciarSelectorDeTema() {
         const tema = elegido('tema', TEMAS_VALIDOS, 'auto');
         const color = elegido('color', COLORES_VALIDOS, 'azul');
         aplicarApariencia(tema, color);
+        actualizarResumenApariencia(selector, tema);
         if (!token) {
           return;
         }
@@ -93,6 +114,26 @@ function iniciarSelectorDeTema() {
           });
       });
     });
+
+    // «Restablecer» vuelve a la apariencia institucional (automático + azul acero).
+    // Se marca y se dispara el mismo cambio para que también se guarde en el usuario.
+    const restablecer = selector.querySelector('[data-tema-restablecer]');
+    if (restablecer) {
+      restablecer.addEventListener('click', function () {
+        const auto = selector.querySelector('input[name="tema"][value="auto"]');
+        const azul = selector.querySelector('input[name="color"][value="azul"]');
+        if (auto) {
+          auto.checked = true;
+        }
+        if (azul) {
+          azul.checked = true;
+        }
+        const disparador = auto || azul;
+        if (disparador) {
+          disparador.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
   }
 
   // En «auto», si el sistema cambia de claro a oscuro, la página y las gráficas lo siguen.

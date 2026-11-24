@@ -12,18 +12,9 @@
  */
 ?>
 <section class="mb-lg" id="resumen" style="scroll-margin-top:5rem">
-    <div class="tabla-toolbar">
-        <div>
-            <h2 class="titulo-4">Documento de la venta</h2>
-            <p class="texto-secundario texto-sm mb-0">
-                Lo que se vendió, a quién y en qué condiciones. Es el documento comercial de la venta.
-            </p>
-        </div>
-    </div>
-
-    <div class="cotizador-detalle">
+    <div class="cotizador-detalle expediente-resumen-grid">
         <!-- Documento -->
-        <section class="tarjeta mb-lg">
+        <section class="tarjeta expediente-resumen-doc">
             <div class="cotizador-detalle__emisor">
                 <?php if ($logo !== '') : ?>
                     <img class="cotizador-detalle__logo" src="<?= escaparValores($logo) ?>"
@@ -69,6 +60,12 @@
                         <?php endif; ?>
                         <?php if (trim((string) $cotizacion->cliente_email) !== '') : ?>
                             <?= escaparValores($cotizacion->cliente_email) ?><br>
+                        <?php endif; ?>
+                        <?php if (trim((string) $cotizacion->cliente_telefono) !== '') : ?>
+                            Tel. <?= escaparValores($cotizacion->cliente_telefono) ?><br>
+                        <?php endif; ?>
+                        <?php if (trim((string) $cotizacion->cliente_ubicacion) !== '') : ?>
+                            <?= escaparValores($cotizacion->cliente_ubicacion) ?>
                         <?php endif; ?>
                     </dd>
                 </div>
@@ -174,10 +171,9 @@
                 <p class="texto-secundario">Esta venta no tiene condiciones comerciales registradas.</p>
             <?php endif; ?>
         </section>
-    </div>
 
     <!-- Resumen -->
-    <section class="tarjeta mb-lg">
+    <section class="tarjeta">
         <div class="cotizador-resumen cotizador-resumen--plano">
             <header class="cotizador-resumen__cabecera">
                 <h2 class="cotizador-resumen__titulo">
@@ -222,4 +218,5 @@
             <p class="cotizador-resumen__letra"><?= escaparValores(numeroALetras((float) $cotizacion->total)) ?></p>
         </div>
     </section>
+    </div>
 </section>

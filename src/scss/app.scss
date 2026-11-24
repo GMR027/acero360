@@ -27,9 +27,11 @@
 @use 'layout/paginacion';
 @use 'layout/auth';
 @use 'layout/bottomnav';
+@use 'layout/herr-comun';
 @use 'layout/notas';
 @use 'layout/cotizador';
 @use 'layout/entregas';
+@use 'layout/venta-expediente';
 @use 'layout/entregas-seguimiento';
 @use 'layout/estadisticas';
 @use 'layout/analisis-financiero';

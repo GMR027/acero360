@@ -258,7 +258,7 @@ class Analisis
      *
      * @return array<int, array{empresa_id: int, negocio: string, nombre: string, sku: string, unidades: int, importe: int}>
      */
-    public static function menorMovimiento(string $desde, string $hasta, array $f = [], int $limite = 10): array
+    public static function menorMovimiento(string $desde, string $hasta, array $f = [], int $limite = 10, string $orden = 'unidades'): array
     {
         $donde = ["v.estado = 'registrada'", 'v.fecha BETWEEN ? AND ?'];
         $tipos = 'ss';
@@ -267,10 +267,17 @@ class Analisis
         if ((int) ($f['cliente'] ?? 0) > 0) { $donde[] = 'v.cliente_id = ?'; $tipos .= 'i'; $valores[] = (int) $f['cliente']; }
         $tipos .= 'i';
         $valores[] = max(1, $limite);
+
+        $ordenSql = $orden === 'importe'
+            ? 'SUM(ROUND(vd.subtotal * 100)) ASC, SUM(vd.cantidad) ASC, p.nombre ASC'
+            : 'SUM(vd.cantidad) ASC, SUM(ROUND(vd.subtotal * 100)) ASC, p.nombre ASC';
+
         $c = self::$db->prepare('SELECT t.* FROM (
                     SELECT v.empresa_id, e.nombre AS negocio, p.nombre, COALESCE(p.sku, "") AS sku,
                            SUM(vd.cantidad) AS unidades, SUM(ROUND(vd.subtotal * 100)) AS importe,
-                           ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY SUM(vd.cantidad) ASC, SUM(ROUND(vd.subtotal * 100)) ASC, p.nombre ASC) AS posicion
+                           COUNT(DISTINCT v.id) AS operaciones,
+                           ROUND(SUM(vd.subtotal * v.total / NULLIF(v.subtotal, 0)) * 100) AS importe_con_iva,
+                           ROW_NUMBER() OVER (PARTITION BY v.empresa_id ORDER BY ' . $ordenSql . ') AS posicion
                       FROM venta_detalles vd JOIN ventas v ON v.id = vd.venta_id JOIN productos p ON p.id = vd.producto_id
                            JOIN empresas e ON e.id = v.empresa_id
                      WHERE ' . implode(' AND ', $donde) . '
@@ -279,7 +286,9 @@ class Analisis
         $c->bind_param($tipos, ...$valores);
         $c->execute();
         $filas = array_map(static fn ($x) => ['empresa_id' => (int) $x['empresa_id'], 'negocio' => (string) $x['negocio'],
-            'nombre' => (string) $x['nombre'], 'sku' => (string) $x['sku'], 'unidades' => (int) $x['unidades'], 'importe' => (int) $x['importe']],
+            'nombre' => (string) $x['nombre'], 'sku' => (string) $x['sku'], 'unidades' => (int) $x['unidades'],
+            'importe' => (int) $x['importe'], 'importe_con_iva' => (int) $x['importe_con_iva'],
+            'operaciones' => (int) $x['operaciones']],
             $c->get_result()->fetch_all(MYSQLI_ASSOC));
         $c->close();
 

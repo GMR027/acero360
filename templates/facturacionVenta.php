@@ -55,15 +55,28 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
             <?php if ($ingreso['estado'] === 'cancelado') : ?><span class="badge badge--error">Ingreso cancelado</span><?php endif; ?>
             <?php if ($cerrado) : ?><span class="badge badge--neutro">Periodo cerrado</span><?php endif; ?>
         </h2>
-        <a class="btn btn--texto btn--sm" href="/admin/contabilidad/ingresos">Ver ingresos</a>
+        <div class="expediente-acciones-linea">
+            <a class="btn btn--texto btn--sm" href="#cobros">
+                <span class="material-symbols-outlined" aria-hidden="true">payments</span> Cobros
+            </a>
+            <a class="btn btn--texto btn--sm" href="#documentos">
+                <span class="material-symbols-outlined" aria-hidden="true">folder_open</span> Documentos
+            </a>
+            <a class="btn btn--texto btn--sm" href="/admin/contabilidad/ingresos">Ver ingresos</a>
+        </div>
     </div>
 
-    <p class="campo__ayuda mb-md">
-        Cobrado <strong><?= formatoMoneda($ingreso['cobrado']) ?></strong> de <strong><?= formatoMoneda($ingreso['total']) ?></strong>
-        · Saldo pendiente <strong><?= formatoMoneda($ingreso['saldo']) ?></strong>.
-        El IVA solo define el estado inicial (con IVA: pendiente de facturar; sin IVA: no facturada). No prueba que exista un CFDI:
-        una venta entra al cálculo de CFDI emitidos únicamente cuando la marcas como facturada.
-    </p>
+    <div class="expediente-cobro-resumen" role="group" aria-label="Resumen del cobro">
+        <span><small>Cobrado</small><strong><?= formatoMoneda($ingreso['cobrado']) ?></strong></span>
+        <span><small>Saldo</small><strong><?= formatoMoneda($ingreso['saldo']) ?></strong></span>
+        <span><small>Total</small><strong><?= formatoMoneda($ingreso['total']) ?></strong></span>
+        <details class="expediente-avanzado">
+            <summary><span class="material-symbols-outlined" aria-hidden="true">info</span> ¿Cómo se relacionan IVA, facturación y cobro?</summary>
+            <p class="campo__ayuda">El IVA solo define el estado inicial (con IVA: pendiente de facturar; sin IVA: no facturada).
+                No prueba que exista un CFDI: una venta entra al cálculo de CFDI emitidos únicamente cuando la marcas como facturada.
+                Los cobros son independientes: puedes cobrar antes o después de facturar.</p>
+        </details>
+    </div>
 
     <?php
     /* Diferencia factura vs. venta (p. ej. tras sustituir la factura por un
@@ -144,26 +157,12 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
         </div>
 
         <?php if ($editable && $capturable) : ?>
-            <?php if ($ingreso['estado_facturacion'] === 'facturada') : ?>
-                <p class="nota nota--advertencia mb-md" role="status">
-                    <span class="material-symbols-outlined nota__icono" aria-hidden="true">attach_file</span>
-                    <span>Esta venta ya está marcada como <strong>facturada sin XML</strong>. Si adjuntas el XML de la
-                        factura, se completan el UUID, el folio, la fecha y el pago que falten; no se vuelve a emitir nada.</span>
-                </p>
-            <?php endif; ?>
             <form class="formulario" id="form-facturacion" action="/admin/ventas/fiscal" method="post" enctype="multipart/form-data" novalidate data-total-venta="<?= (float) $ingreso['total'] ?>">
                 <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
                 <input type="hidden" name="accion" value="emitir">
                 <input type="hidden" name="venta" value="<?= $ventaFiscalId ?>">
                 <input type="hidden" name="id" value="<?= (int) $ingreso['id'] ?>">
                 <input type="hidden" name="volver" value="<?= escaparValores($volver) ?>">
-
-                <div class="nota nota--info mb-md" role="status">
-                    <span class="material-symbols-outlined nota__icono" aria-hidden="true">upload_file</span>
-                    <span><strong>Empieza por el XML de la factura.</strong> Al elegirlo se llenan automáticamente el
-                        folio, el UUID, la fecha, el método y la forma de pago, el uso del CFDI y los datos fiscales
-                        del receptor que falten. Después revisa y guarda.</span>
-                </div>
 
                 <h3 class="titulo-6 mt-md mb-sm">1. Documento de la factura</h3>
                 <div class="campo">
@@ -191,6 +190,13 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
                     </label>
                 <?php endif; ?>
 
+                <details class="expediente-avanzado">
+                    <summary>
+                        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                        <span>Datos de la factura y del receptor</span>
+                        <small>Se llenan del XML; ábrelos solo si necesitas corregirlos</small>
+                    </summary>
+                    <div class="expediente-avanzado__cuerpo">
                 <h3 class="titulo-6 mt-md mb-sm">2. Datos de la factura</h3>
                 <p class="campo__ayuda mb-sm">Se llenan del XML; puedes corregirlos antes de guardar.</p>
                 <div class="formulario__rejilla">
@@ -298,6 +304,9 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
                     · CP <?= escaparValores(trim((string) $rv['empresa']['cp']) ?: '—') ?>
                     · régimen <?= escaparValores(trim((string) $rv['empresa']['regimen']) ?: '—') ?>.
                 </p>
+
+                    </div>
+                </details>
 
                 <div class="formulario__acciones">
                     <button class="btn btn--primario" type="submit">
@@ -498,17 +507,25 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
     <?php endif; ?>
 
     <?php if ($historial) : ?>
-        <h3 class="titulo-6 mt-lg mb-md">Historial de facturación</h3>
-        <ul class="lista-simple">
-            <?php foreach ($historial as $h) : $d = $h['detalle']; ?>
-                <li><?= date('d/m/Y H:i', strtotime($h['creado_en'])) ?> ·
-                    <?= escaparValores($etiquetas($d['antes'] ?? null)) ?> → <strong><?= escaparValores($etiquetas($d['despues'] ?? null)) ?></strong>
-                    · <?= escaparValores($h['usuario_nombre'] ?: (($d['origen'] ?? '') === 'regla_iva' ? 'Sistema (regla de IVA)' : 'Sistema')) ?>
-                    <?php if (!empty($d['manual'])) : ?> · <em>confirmación manual, sin CFDI</em><?php endif; ?>
-                    <?php if (!empty($d['uuid'])) : ?> · UUID <?= escaparValores($d['uuid']) ?><?php endif; ?>
-                    <?php if (!empty($d['documento_id'])) : ?> · CFDI adjunto #<?= (int) $d['documento_id'] ?><?php endif; ?></li>
-            <?php endforeach; ?>
-        </ul>
+        <details class="expediente-avanzado">
+            <summary>
+                <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                <span>Historial de facturación</span>
+                <small><?= count($historial) ?> movimiento<?= count($historial) === 1 ? '' : 's' ?></small>
+            </summary>
+            <div class="expediente-avanzado__cuerpo">
+                <ul class="lista-simple">
+                    <?php foreach ($historial as $h) : $d = $h['detalle']; ?>
+                        <li><?= date('d/m/Y H:i', strtotime($h['creado_en'])) ?> ·
+                            <?= escaparValores($etiquetas($d['antes'] ?? null)) ?> → <strong><?= escaparValores($etiquetas($d['despues'] ?? null)) ?></strong>
+                            · <?= escaparValores($h['usuario_nombre'] ?: (($d['origen'] ?? '') === 'regla_iva' ? 'Sistema (regla de IVA)' : 'Sistema')) ?>
+                            <?php if (!empty($d['manual'])) : ?> · <em>confirmación manual, sin CFDI</em><?php endif; ?>
+                            <?php if (!empty($d['uuid'])) : ?> · UUID <?= escaparValores($d['uuid']) ?><?php endif; ?>
+                            <?php if (!empty($d['documento_id'])) : ?> · CFDI adjunto #<?= (int) $d['documento_id'] ?><?php endif; ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </details>
     <?php endif; ?>
 
     <hr class="divisor mt-lg mb-md">
@@ -538,6 +555,13 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
             <span>No se pueden adjuntar documentos<?= $cerrado ? ': el periodo contable está cerrado' : ': el ingreso está cancelado' ?>.</span>
         </p>
     <?php else : ?>
+        <details class="expediente-avanzado">
+            <summary>
+                <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>
+                <span>Adjuntar comprobante de pago</span>
+                <small>Opcional · foto o PDF del pago</small>
+            </summary>
+            <div class="expediente-avanzado__cuerpo">
         <form class="formulario mb-md" action="/admin/contabilidad/documentos/subir" method="post" enctype="multipart/form-data">
             <input type="hidden" name="entidad" value="ingreso">
             <input type="hidden" name="entidad_id" value="<?= (int) $ingreso['id'] ?>">
@@ -545,12 +569,11 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
             <input type="hidden" name="tipo" value="comprobante_pago">
             <input type="hidden" name="token" value="<?= tokenFormulario() ?>">
             <div class="campo">
-                <label class="campo__etiqueta" for="adj-archivo">Documentos Adjuntos</label>
+                <label class="campo__etiqueta" for="adj-archivo">Comprobante de pago (foto o PDF)</label>
                 <input class="control" type="file" id="adj-archivo" name="archivo[]" required
                        multiple accept=".pdf,.jpg,.jpeg,.png,.webp">
-                <span class="campo__ayuda">Fotos o PDF del comprobante de pago: JPG, PNG, WebP o PDF · puedes elegir varios a la vez ·
-                    máx. <?= $maxMb ?> MB cada uno. Es sólo de carácter informativo (un respaldo del pago):
-                    no cambia la facturación, el estado de cobro ni los importes.</span>
+                <span class="campo__ayuda">JPG, PNG, WebP o PDF · varios a la vez · máx. <?= $maxMb ?> MB cada uno.
+                    Es un respaldo informativo: no cambia importes ni estados.</span>
             </div>
             <div class="formulario__acciones">
                 <button class="btn btn--primario" type="submit">
@@ -559,6 +582,8 @@ $capturable = $ingreso['estado_facturacion'] !== 'facturada' || $cfdi === null;
                 </button>
             </div>
         </form>
+            </div>
+        </details>
     <?php endif; ?>
 
     <?php template('documentosOperacion', ['entidad' => 'ingreso', 'entidadId' => (int) $ingreso['id'], 'retorno' => $volver,
