@@ -281,7 +281,7 @@ DESPLIEGUE.md               este fichero
 | MySQL | Mismo pod; 14 reinicios acumulados por `OOMKilled` (límite 512 Mi) |
 | Migraciones | «Migraciones al día» (61 aplicadas: hasta `061_proyectos_entrega.sql`) |
 | App de escritorio | **1.2.0** publicada (`cotizaciones-escritorio_1.2.0_amd64.deb`, 95 MB, SHA-256 `66820153…`) |
-| Acero 360 Android | **1.0.6** publicada (`acero360-android_1.0.6.apk`, 6.0 MB, SHA-256 `c3069a9f…`) |
+| Acero 360 Android | **1.0.7** publicada (`acero360-android_1.0.7.apk`, 6.0 MB, SHA-256 `16f3bb55…`) |
 | Acero Entregas | **1.2.0** publicada (`acero360-entregas_1.2.0.apk`, 9.2 MB, SHA-256 `ddf722b2…`) |
 | URL | https://cotizaciones.iguzman.com.mx |
 

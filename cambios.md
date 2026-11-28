@@ -2194,3 +2194,18 @@ El acta de entrega no descargaba nada en la app Android, aunque en el navegador 
   limpieza. Agregada a `pruebas/ejecutar_todo.sh`.
 - **Smoke de navegador:** listado/detalle de proyecto, compras del cliente,
   creación de proyecto, vinculación de ventas y descarga de ambos PDF.
+
+## Ronda — Acero 360 Android 1.0.7: arranque en Android 15/16 (2026-11-28)
+
+- **Causa:** el APK 1.0.6 traía `libacero360_lib.so` con segmentos alineados a
+  4 KB y `extractNativeLibs=false`; en teléfonos con páginas de memoria de
+  16 KB la librería no carga y la app se cierra al abrir. Además compilaba con
+  `compileSdk/targetSdk 37` (preview).
+- **Corrección:** se compila con NDK 28 y `-Wl,-z,max-page-size=16384`
+  (`android/src-tauri/.cargo/config.toml`), se baja a `compileSdk/targetSdk 36`
+  (Android 16 estable) y el arranque de `MainActivity` protege con
+  `runCatching` la configuración de ventana, huella y avisos para que una falla
+  opcional no impida abrir la plataforma.
+- **Publicación:** Acero 360 Android **1.0.7** (`versionCode 1000007`, APK
+  6,211,711 bytes, SHA-256 `16f3bb55…`); `/app/android/version.json` ya la
+  entrega. El APK quedó con LOAD align `0x4000` y pasó `zipalign -P 16`.
