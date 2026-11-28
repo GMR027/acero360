@@ -274,14 +274,20 @@ DESPLIEGUE.md               este fichero
 
 | | |
 |---|---|
-| Fecha | 23 de octubre de 2026 |
-| Tag | **20** (`gmr27/cotizaciones:20`) |
-| Revisión de Helm | 22 |
-| Pod de la app | `cotizaciones-78d84b9bc4-whn6m` |
-| MySQL | **no reiniciado** (mismo pod, 17 días) |
-| Migraciones | «Migraciones al día» (28 aplicadas: hasta `028_calendario.sql`) |
-| App de escritorio | **1.1.0** publicada (`cotizaciones-escritorio_1.1.0_amd64.deb`, 94.9 MB, SHA-256 `60afbd84…`) |
+| Fecha | 27 de noviembre de 2026 |
+| Tag | **68** (`gmr27/cotizaciones:68`) |
+| Revisión de Helm | 72 |
+| Pod de la app | `cotizaciones-7f8c587cb6-76pcg` |
+| MySQL | Mismo pod; 14 reinicios acumulados por `OOMKilled` (límite 512 Mi) |
+| Migraciones | «Migraciones al día» (61 aplicadas: hasta `061_proyectos_entrega.sql`) |
+| App de escritorio | **1.2.0** publicada (`cotizaciones-escritorio_1.2.0_amd64.deb`, 95 MB, SHA-256 `66820153…`) |
+| Acero Entregas | **1.2.0** publicada (`acero360-entregas_1.2.0.apk`, 9.2 MB, SHA-256 `ddf722b2…`) |
 | URL | https://cotizaciones.iguzman.com.mx |
+
+> El pod de MySQL reinició durante/después del despliegue por `OOMKilled` con
+> el límite actual de 512 Mi. La app volvió a quedar en 200 y la migración 061
+> se aplicó correctamente, pero conviene subir el límite de memoria de MySQL
+> en `helm/cotizaciones/values.yaml` en una ventana de mantenimiento.
 
 Comprobar el estado real en cualquier momento con los comandos de la
 **sección 6**.
