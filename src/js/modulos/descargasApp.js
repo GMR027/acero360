@@ -24,6 +24,31 @@
     return !!(window.Acero360Android && typeof window.Acero360Android === 'object');
   }
 
+  /**
+   * ¿Es una exportación PDF? Esas las maneja pdfExport.js, que muestra el
+   * avance y abre el archivo. Aquí sólo se dejan pasar, sin navegar.
+   */
+  function esPdf(destino) {
+    if (!destino) {
+      return false;
+    }
+    try {
+      const url = new URL(destino, window.location.href);
+      if (url.origin !== window.location.origin) {
+        return false;
+      }
+      if ((url.searchParams.get('formato') || '').toLowerCase() === 'pdf') {
+        return true;
+      }
+      if (/\/pdf\/?$/i.test(url.pathname) || /\/pdf\//i.test(url.pathname)) {
+        return true;
+      }
+      return /^\/admin\/entregas-seguimiento\/acta\/?$/i.test(url.pathname);
+    } catch (error) {
+      return false;
+    }
+  }
+
   /** Convierte una URL interna en URL de descarga (sin inline=1). Null si es externa. */
   function urlDescarga(destino) {
     let url;
@@ -47,6 +72,11 @@
 
     const enlace = evento.target instanceof Element ? evento.target.closest('a[href]') : null;
     if (!enlace || enlace.hasAttribute('download')) {
+      return;
+    }
+
+    // Los PDF los procesa pdfExport.js (avance + apertura automática).
+    if (window.PdfUI && (enlace.hasAttribute('data-pdf') || esPdf(enlace.href))) {
       return;
     }
 

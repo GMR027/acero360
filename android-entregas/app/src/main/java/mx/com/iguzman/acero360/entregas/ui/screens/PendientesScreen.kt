@@ -47,6 +47,7 @@ import mx.com.iguzman.acero360.entregas.data.ProductoPendiente
 import mx.com.iguzman.acero360.entregas.data.VentaResumen
 import mx.com.iguzman.acero360.entregas.ui.AceroAviso
 import mx.com.iguzman.acero360.entregas.ui.AceroAvisoSuave
+import mx.com.iguzman.acero360.entregas.ui.AceroAzul
 import mx.com.iguzman.acero360.entregas.ui.AceroExito
 import mx.com.iguzman.acero360.entregas.ui.AceroExitoSuave
 import mx.com.iguzman.acero360.entregas.ui.BotonPrincipal
@@ -342,6 +343,17 @@ private fun ClienteCard(
                                     venta.empresaNombre,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (venta.proyectoFolio.isNotBlank() || venta.proyectoNombre.isNotBlank()) {
+                                Text(
+                                    listOf(venta.proyectoFolio, venta.proyectoNombre)
+                                        .filter { it.isNotBlank() }
+                                        .joinToString(" · "),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AceroAzul,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )

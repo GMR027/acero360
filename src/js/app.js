@@ -165,6 +165,11 @@ function inicializarAplicacion() {
   // 1. Alertas que envió el servidor (redirecciones con ?st=... o flash).
   prepararAlertasDelServidor();
 
+  // 1b. Exportaciones PDF: indicador de avance y apertura automática.
+  if (typeof prepararExportacionPdf === 'function') {
+    prepararExportacionPdf();
+  }
+
   // 2. Navegación lateral (móvil / tablet).
   const botonMenu = document.getElementById('boton-menu');
   if (botonMenu) {

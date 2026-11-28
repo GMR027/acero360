@@ -778,8 +778,16 @@
         b.addEventListener('click', function () {
             var f = b.dataset.exportar, ir = function () {
                 var q = (opcion('rd-x-cambios') ? '&cambios=1' : '') + (opcion('rd-x-coment') ? '&comentarios=1' : '') + (opcion('rd-x-firmas') ? '' : '&firmas=0');
-                // La app Android no abre ventanas nuevas ni muestra PDF incrustados:
-                // «Imprimir» descarga el PDF para abrirlo con un visor.
+                // PDF e imprimir pasan por el indicador global y abren el documento
+                // al terminar. Los demás formatos conservan la descarga directa.
+                if ((f === 'pdf' || f === 'imprimir') && window.PdfUI) {
+                    window.PdfUI.exportar(C.descargar + '&formato=pdf' + q, {
+                        titulo: f === 'imprimir' ? 'Preparando la impresión…' : 'Generando PDF…',
+                        detalle: f === 'imprimir' ? 'Componiendo el documento para imprimir.' : 'El servidor está preparando el documento.'
+                    });
+                    return;
+                }
+                // Respaldo para navegadores sin el módulo nuevo.
                 if (f === 'imprimir' && window.Acero360Android) window.location.href = C.descargar + '&formato=pdf' + q;
                 else if (f === 'imprimir') window.open(C.descargar + '&formato=pdf&inline=1' + q, '_blank', 'noopener');
                 else window.location.href = C.descargar + '&formato=' + f + q;

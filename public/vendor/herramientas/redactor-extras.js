@@ -908,6 +908,20 @@
         cont.querySelectorAll('.rd-sel').forEach(function (n) { n.classList.remove('rd-sel'); });
         estado('Generando el archivo…');
         var fd = new FormData(); fd.append('id', C.id); fd.append('formato', formato); fd.append('html', cont.innerHTML);
+
+        // El PDF de la selección también muestra el avance global y se abre al terminar.
+        if (formato === 'pdf' && window.PdfUI) {
+            window.PdfUI.exportar(C.api.exportarSeleccion, {
+                method: 'POST',
+                body: fd,
+                csrf: true,
+                nombre: (C.nombre || 'seleccion') + '.pdf',
+                titulo: 'Generando PDF…',
+                detalle: 'Componiendo la selección del documento.'
+            });
+            return;
+        }
+
         fetch(C.api.exportarSeleccion, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) {
             if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || 'No se pudo exportar'); });
             var nombre = r.headers.get('X-Nombre-Archivo') || ('seleccion.' + formato);

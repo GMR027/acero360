@@ -27,6 +27,8 @@ data class VentaResumen(
     val entregaEstado: String,
     val empresaId: Int,
     val empresaNombre: String,
+    val proyectoFolio: String = "",
+    val proyectoNombre: String = "",
     val piezas: Int,
     val entregadas: Int,
     val pendiente: Int,
@@ -86,6 +88,8 @@ data class VentaCabecera(
     val empresaId: Int,
     val empresaNombre: String,
     val empresaLogo: String,
+    val proyectoFolio: String = "",
+    val proyectoNombre: String = "",
 )
 
 data class HistorialRenglon(val nombre: String, val cantidad: Int)
@@ -217,6 +221,8 @@ fun ventaResumenDeJson(json: JSONObject): VentaResumen {
         entregaEstado = json.text("entrega_estado"),
         empresaId = json.entero("empresa_id"),
         empresaNombre = json.text("empresa_nombre"),
+        proyectoFolio = json.text("proyecto_folio"),
+        proyectoNombre = json.text("proyecto_nombre"),
         piezas = json.entero("piezas"),
         entregadas = json.entero("entregadas"),
         pendiente = json.entero("pendiente"),
@@ -356,6 +362,8 @@ fun ventaDetalleDeJson(json: JSONObject): VentaDetalleData {
             empresaId = v.entero("empresa_id"),
             empresaNombre = v.text("empresa_nombre"),
             empresaLogo = v.text("empresa_logo"),
+            proyectoFolio = v.text("proyecto_folio"),
+            proyectoNombre = v.text("proyecto_nombre"),
         ),
         cliente = ClienteDetalle(
             id = c.entero("id"),

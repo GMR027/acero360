@@ -23,6 +23,7 @@ const PARTICION = 'persist:cotizaciones';
 let ventana = null;
 let plataforma = { url: URL_PRODUCCION + '/', origen: URL_PRODUCCION };
 let avisoConfiguracion = null;
+let descargasPdfPreparadas = false;
 
 /** Lee y valida la dirección configurada; si no es válida, usa producción y lo avisa. */
 function resolverPlataforma() {
@@ -89,6 +90,27 @@ function crearVentana() {
 
   const contenido = ventana.webContents;
   contenido.setUserAgent(`${contenido.getUserAgent()} Acero360Escritorio/${app.getVersion()}`);
+
+  // Los PDF que exporta la plataforma se abren con el visor del sistema al
+  // terminar la descarga. La página muestra el avance; aquí sólo se abre el
+  // archivo para que el flujo sea el mismo que en el navegador.
+  if (!descargasPdfPreparadas) {
+    contenido.session.on('will-download', function (_evento, item) {
+      if (!/\.pdf$/i.test(item.getFilename())) {
+        return;
+      }
+      item.once('done', function (_eventoDescarga, estado) {
+        if (estado !== 'completed') {
+          return;
+        }
+        const ruta = item.getSavePath();
+        if (ruta) {
+          shell.openPath(ruta);
+        }
+      });
+    });
+    descargasPdfPreparadas = true;
+  }
 
   // Fallo de carga del documento principal (sin red, DNS, certificado inválido, servidor caído…).
   contenido.on('did-fail-load', (_evento, codigo, descripcion, _url, esPrincipal) => {

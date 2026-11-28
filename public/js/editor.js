@@ -3599,6 +3599,9 @@
                 if (hechas) {
                     hechas.n++;
                     estado('Generando PDF… ' + hechas.n + '/' + total);
+                    if (window.PdfUI && window.PdfUI.activo()) {
+                        window.PdfUI.progreso('Generando PDF… ' + hechas.n + ' de ' + total, Math.round(hechas.n / total * 100));
+                    }
                 }
                 return { i: i, u: u };
             });
@@ -3607,8 +3610,14 @@
 
     function exportarPdf(imprimir) {
         estado('Generando PDF…');
-        // La app Android no abre ventanas nuevas ni tiene visor de PDF: se descarga.
-        var ventana = imprimir && !puenteAndroid() ? window.open('', '_blank') : null;
+        var usarPdfUI = !!(window.PdfUI && typeof window.PdfUI.iniciar === 'function');
+        if (usarPdfUI && !window.PdfUI.iniciar({
+            titulo: imprimir ? 'Preparando la impresión…' : 'Generando PDF…',
+            detalle: 'Preparando las láminas del documento.',
+            abrir: true
+        })) {
+            return;
+        }
         guardar(false).then(function () {
             // Primero se intenta con lo que ya está guardado: si el documento
             // no cambió desde el último export, el servidor compone el PDF en
@@ -3649,14 +3658,22 @@
             });
         }).then(function (blob) {
             if (!blob || !blob.size) throw new Error('pdf');
-            var url = URL.createObjectURL(blob);
-            if (ventana) ventana.location.href = url;
-            else descargarBlob(blob, nombreArchivo('pdf'));
-            estado(!ventana && imprimir ? 'PDF descargado: ábrelo para imprimir' : 'PDF generado');
-            setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+            if (usarPdfUI) {
+                window.PdfUI.terminar(blob, nombreArchivo('pdf')).then(function (ok) {
+                    if (ok) {
+                        estado(imprimir ? 'PDF listo para imprimir' : 'PDF generado');
+                    }
+                });
+            } else {
+                descargarBlob(blob, nombreArchivo('pdf'));
+                estado(imprimir ? 'PDF listo para imprimir' : 'PDF generado');
+            }
         }).catch(function () {
-            if (ventana) ventana.close();
-            estado('No se pudo generar el PDF', true);
+            if (usarPdfUI) {
+                window.PdfUI.error('No se pudo generar el PDF del editor.');
+            } else {
+                estado('No se pudo generar el PDF', true);
+            }
         });
     }
 

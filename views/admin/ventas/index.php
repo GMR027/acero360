@@ -274,6 +274,11 @@ template('tabsEntregas', ['tab' => 'ventas']);
                                 <?php else : ?>
                                     <span class="badge badge--neutro">Cotización</span>
                                 <?php endif; ?>
+                                <?php if (!empty($registro->proyecto_folio)) : ?>
+                                    <span class="badge badge--aprobado" title="<?= escaparValores((string) ($registro->proyecto_nombre ?? '')) ?>">
+                                        <?= escaparValores((string) $registro->proyecto_folio) ?>
+                                    </span>
+                                <?php endif; ?>
                             </td>
                             <td class="doc-estado">
                                 <?php if ($defEntrega) : ?>

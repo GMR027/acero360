@@ -119,6 +119,15 @@ $enlaces = [
         'soloEscritorio' => false,
     ],
     [
+        // Compromisos de entrega por cliente (migración 061).
+        'ruta'          => '/admin/proyectos',
+        'icono'         => 'assignment',
+        'texto'         => 'Proyectos de entrega',
+        'subrutas'      => true,
+        'excluir'       => [],
+        'soloEscritorio' => false,
+    ],
+    [
         'ruta'          => '/admin/productos',
         'icono'         => 'inventory_2',
         'texto'         => 'Catálogo de productos',

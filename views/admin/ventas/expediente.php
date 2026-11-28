@@ -190,6 +190,14 @@ template('header', [
                         <?= $estado['etiqueta'] ?>
                     </span>
                     <span class="badge badge--info"><?= $esDirecta ? 'Venta directa' : 'Desde cotización' ?></span>
+                    <?php if (!empty($venta->proyecto_folio)) : ?>
+                        <a class="badge badge--aprobado" href="/admin/proyectos/detalle?id=<?= (int) $venta->proyecto_id ?>"
+                           title="<?= escaparValores((string) ($venta->proyecto_nombre ?? '')) ?>">
+                            <?= escaparValores((string) $venta->proyecto_folio) ?>
+                        </a>
+                    <?php elseif ($registrada) : ?>
+                        <a class="badge badge--neutro" href="/admin/proyectos/vincular?venta=<?= $id ?>">Vincular a proyecto</a>
+                    <?php endif; ?>
                 </p>
                 <h1 class="expediente-hero__titulo"><?= escaparValores($venta->folio) ?></h1>
                 <p class="expediente-hero__meta">

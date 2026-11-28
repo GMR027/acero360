@@ -6,27 +6,30 @@
 
 1. Empezar
 2. Clientes y productos
-3. Cotizaciones
-4. Operación Comercial
-5. Inventario
-6. Compras y proveedores
-7. Anotar un gasto y subir su factura
-8. Facturación y cobro de una venta
-9. Resumen del mes y cierre
-10. Impuestos (solo informativo)
-11. Estadísticas
-12. Notas personales
-13. Calendario
-14. Redactor
-15. SheetFlow
-16. Editor
-17. Archivo
-18. Aplicación de escritorio
-19. Almacenamiento y respaldos
-20. Cuidados con tu información
-21. Centro de seguimiento
-22. Acerca de Acero 360
-23. Palabras que verás
+3. Compras de un cliente
+4. Proyectos de entrega
+5. Cotizaciones
+6. Pedidos
+7. Operación Comercial
+8. Inventario
+9. Compras y proveedores
+10. Anotar un gasto y subir su factura
+11. Facturación y cobro de una venta
+12. Resumen del mes y cierre
+13. Impuestos (solo informativo)
+14. Estadísticas
+15. Notas personales
+16. Calendario
+17. Redactor
+18. SheetFlow
+19. Editor
+20. Archivo
+21. Aplicación de escritorio
+22. Almacenamiento y respaldos
+23. Cuidados con tu información
+24. Centro de seguimiento
+25. Acerca de Acero 360
+26. Palabras que verás
 
 ---
 
@@ -52,6 +55,12 @@ Acero 360 sirve para cotizar, vender, entregar, llevar tus gastos y saber más o
 
 1. «Nueva cotización», «Histórico», «Clientes» y «Productos» son lo de todos los días.
 2. Debajo de la línea están Operación Comercial, Contabilidad, Impuestos, Inventario y Compras y proveedores (un solo apartado). Operación Comercial reúne en un solo lugar la preparación de pedidos, el seguimiento de entregas y las ventas (pestañas arriba).
+
+### Exportar a PDF
+
+1. Al pulsar cualquier botón de PDF aparece una capa con «Generando PDF…», el tiempo transcurrido y, cuando el servidor empieza a enviar el archivo, el porcentaje de descarga.
+2. Al terminar, el PDF se abre solo. En el navegador sale en una pestaña nueva; en Android se guarda en Descargas y se abre con la app disponible; en la app de escritorio se abre con el visor del sistema.
+3. Si algo falla, la capa se cierra y aparece un aviso con el motivo. También puedes cancelar mientras se genera.
 
 ### Burbujas de ayuda
 
@@ -82,7 +91,64 @@ Antes de cotizar necesitas a quién y qué ofrecer.
 
 ---
 
-## 3. Cotizaciones
+## 3. Compras de un cliente
+
+En la ficha de un cliente puedes ver cuántas ventas le hiciste y qué productos te compró en un mes o en un año.
+
+### Abrir el reporte
+
+- Clientes → abre la ficha del cliente → pestaña «Compras».
+
+### Elegir el periodo
+
+1. Usa los botones «Este mes», «Mes anterior», «Este año», «Año anterior» o «Todo», o elige un mes, un año o un rango de fechas.
+2. También puedes filtrar por negocio y ordenar los productos por piezas o por importe.
+
+### Leer el resultado
+
+1. Arriba están las ventas, las piezas, el total vendido y el ticket promedio. Debajo aparece cada producto con sus piezas, en cuántas ventas salió, su importe y su porcentaje.
+2. La tabla final lista las ventas del periodo; cada folio abre el expediente de la venta.
+3. «Exportar PDF» descarga el mismo reporte con los filtros elegidos.
+
+> **Consejos**
+> - Sólo cuentan las ventas registradas: las canceladas y las cotizaciones que aún no se venden no aparecen como venta.
+
+---
+
+## 4. Proyectos de entrega
+
+Un proyecto es un compromiso del cliente para una obra (por ejemplo, 2,000 canastillas para la vialidad X). No es una venta ni una entrega: sirve para saber cuánto se comprometió, cuánto se ha vendido y cuánto se ha entregado.
+
+### Crear el proyecto
+
+1. Menú → «Proyectos de entrega» → «Nuevo proyecto». Elige el cliente y el negocio, ponle nombre y, si quieres, fecha de inicio y fecha compromiso.
+2. Agrega una o varias partidas: producto y cantidad comprometida. Por ejemplo, canastillas C-1 y C-3.
+
+### Vincular las ventas
+
+1. Abre el proyecto y pulsa «Vincular ventas»: aparecen las ventas del mismo cliente y negocio que todavía no tienen proyecto.
+2. Marca una o varias y confirma. Si la venta nació desde el proyecto con «Nueva venta del proyecto», queda vinculada sola.
+3. Una venta pertenece a un solo proyecto. Si un cliente necesita dos proyectos en una misma compra, registra dos ventas.
+
+### Registrar las entregas
+
+- Las entregas se registran como siempre, desde la venta en web o desde Acero Entregas. No se capturan dos veces: al vincular la venta, sus entregas ya registradas cuentan solas.
+
+### Leer el avance
+
+1. El detalle muestra el comprometido, el vendido, el entregado, lo que falta por entregar y lo que falta por vender.
+2. «Faltan 1,500» es lo que falta para completar el proyecto; «por vender» es lo que todavía no tiene venta y «por entregar de lo vendido» es lo que ya se vendió pero no ha salido.
+3. La tabla por producto muestra el avance de cada partida y los productos que se vendieron fuera de las partidas.
+4. «Exportar PDF» genera el estado del proyecto para compartirlo con el cliente.
+
+> **Consejos**
+> - El proyecto no mueve inventario ni contabilidad: la venta sigue siendo la que descuenta existencias y genera el ingreso.
+> - Puedes pausar, completar o cancelar un proyecto. No se elimina si tiene ventas vinculadas, para conservar el historial.
+> - Si un producto se vendió fuera de las partidas, aparece como adicional y no cuenta para el compromiso; agrégalo al proyecto si debe contar.
+
+---
+
+## 5. Cotizaciones
 
 Una cotización es el precio que le das a un cliente antes de que compre.
 
@@ -103,7 +169,27 @@ Una cotización es el precio que le das a un cliente antes de que compre.
 
 ---
 
-## 4. Operación Comercial
+## 6. Pedidos
+
+Aquí se anotan los pedidos que hacen los clientes, separados por negocio, antes de convertirlos en cotización o en venta.
+
+### Anotar un pedido
+
+- Menú → «Pedidos» → «Crear pedido». Elige el negocio y el cliente (de tu directorio), carga los productos con la cantidad que pidió y guarda. Los precios salen de la lista o del precio especial del cliente.
+
+### Convertir un pedido
+
+1. En la tabla, «Cotización» crea una cotización pendiente con los mismos productos.
+2. «Venta» lo vende: si ya tenía cotización, esa cotización pasa a vendida; si no, se registra una venta directa. En ambos casos se descuenta el inventario.
+3. La columna «Existencias» avisa si no alcanza el inventario para surtirlo.
+
+> **Consejos**
+> - Estados: Pendiente, Cotizado, Vendido, Cancelado.
+> - Sólo un pedido pendiente se puede editar.
+
+---
+
+## 7. Operación Comercial
 
 Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene tres pestañas —Preparación de pedidos, Entregas por cliente y Ventas— y cada venta tiene un expediente único con todo lo que pasó después de venderla.
 
@@ -146,7 +232,7 @@ Un solo apartado para vender, preparar, entregar y dar seguimiento: arriba tiene
 
 ---
 
-## 5. Inventario
+## 8. Inventario
 
 Cuántas piezas tienes de cada producto y por qué cambió.
 
@@ -163,7 +249,7 @@ Cuántas piezas tienes de cada producto y por qué cambió.
 
 ---
 
-## 6. Compras y proveedores
+## 9. Compras y proveedores
 
 Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, Proveedores, Catálogo, Facturas, Pagos y Categorías. Una compra se captura una sola vez y desde ahí se recibe, se factura y se paga, sin repetir datos en Contabilidad.
 
@@ -232,7 +318,7 @@ Es un solo módulo con ocho pestañas: Resumen, Compras y pedidos, Recepciones, 
 
 ---
 
-## 7. Anotar un gasto y subir su factura
+## 10. Anotar un gasto y subir su factura
 
 Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, honorarios.
 
@@ -250,7 +336,7 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 
 ### Conceptos sin producto equivalente
 
-1. Si la factura la leíste con «Registro compra inteligente», arriba del formulario aparece la lista de renglones que NO coinciden con tu catálogo. Nada se ha guardado todavía.
+1. Si la factura la leíste con «Registro Compra Inteligente», arriba del formulario aparece la lista de renglones que NO coinciden con tu catálogo. Nada se ha guardado todavía.
 2. Cuando el que emitió la factura ya es tu proveedor, cada renglón trae el botón «Agregar al proveedor»: da de alta ese producto en EL CATÁLOGO DE ESE PROVEEDOR con el nombre, el código (SKU) y el precio de la factura, sin salir de la pantalla (no se pierde lo que ya capturaste).
 3. La próxima vez que leas una factura de esa misma persona, esos renglones ya se reconocen solos y dejan de aparecer en la lista. Si ya existía, el botón lo dice y no lo duplica.
 4. El otro botón, «Buscar en el catálogo», sigue ahí para ligar el renglón a un producto propio si también lo vendes.
@@ -260,34 +346,30 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 1. Pulsa «Archivo de la factura o comprobante», de la misma sección: se abre una ventana —igual que en «Registro Venta Inteligente»— donde eliges uno o varios archivos (PDF, XML, JPG, PNG o WebP). Se detecta solo qué es cada uno.
 2. También puedes subirlos después desde el detalle del gasto, en «Facturas y comprobantes». Cada archivo tiene «Ver»: el PDF se abre en una ventana, el XML muestra sus datos (folio, UUID, emisor, total y conceptos) y desde ahí también se descarga.
 3. Si subes el XML de la factura, se leen sus datos (folio fiscal, importes) y avisa si algo no cuadra.
-4. Si el XML es un **complemento de pago** (CFDI tipo P), no se confunde con la factura: se marca como complemento y en «Ver» se muestra el **monto real del pago**. El `Total 0.00` del comprobante es normal; el importe está en los pagos relacionados.
+4. Si el XML es un complemento de pago (CFDI tipo P), se guarda como complemento y «Ver» muestra el monto real del pago: el Total 0.00 del comprobante es normal, el importe está en los pagos relacionados.
+
+### Pagar en parcialidades y complemento de pago
+
+1. Abre el gasto y usa la tarjeta «Facturación y pago»: muestra Factura → Pago → Complemento, con el total, lo abonado y el saldo.
+2. Pulsa «Registrar abono»: el importe viene con el saldo; si pagas una parte, escríbelo y el gasto queda en «Pago parcial». Solo pasa a «Pagado» cuando la suma cubre el total.
+3. Si la factura es PPD o su método está por definir, cuando el proveedor emita el complemento pulsa «Leer complemento (XML)». La revisión muestra el monto real del pago y lo vincula con el abono; si no existe, ofrece registrarlo.
+4. Un abono se cancela con motivo y el saldo vuelve a subir. Si el gasto nació de una compra, sus pagos se gestionan desde la compra.
 
 ### Los cuatro datos del CFDI
 
 1. Cuando el gasto es «Con factura», aparecen cuatro campos: «Uso del CFDI» (para qué se usó: adquisición de mercancías, gastos en general, mobiliario…), «Método de pago del CFDI», «Forma de pago del CFDI» (efectivo, transferencia, tarjeta…) y «Tipo de comprobante (CFDI)» (una factura normal es «Ingreso»).
 2. El método de pago tiene tres opciones: «PPD · Pago en parcialidades», «PUE · Pago en una sola exhibición» y «Por definir (aún no se decide)», que es la que queda si todavía no sabes cómo se pagará.
 3. Si el gasto es «Sin factura», esos cuatro campos no se guardan: no hay comprobante del que hablar.
-4. Los cuatro se autocompletan con los que trae la factura —sube el XML en el mismo formulario o usa «Registro compra inteligente»— y se pueden corregir a mano. Si el documento no trae alguno, queda vacío para que lo captures.
+4. Los cuatro se autocompletan con los que trae la factura —sube el XML en el mismo formulario o usa «Registro Compra Inteligente»— y se pueden corregir a mano. Si el documento no trae alguno, queda vacío para que lo captures.
 
 ### Más detalles
 
 - «Más detalles (opcional)» tiene categoría, cómo pagaste, folio fiscal, repartir entre negocios y notas. No hace falta llenarlo.
 
-### Pagarlo después (total o en parcialidades)
+### Pagarlo después
 
-1. En la lista de Gastos pulsa **«Pagar»** en su fila: el formulario se abre en una ventana con el saldo precargado. También puedes abrir el gasto y usar la tarjeta **«Facturación y pago»**, que muestra el ciclo **Factura → Pago → Complemento**, con el total, lo abonado y el saldo.
-2. Pulsa **«Registrar abono»**. El importe viene con el saldo completo; si pagas una parte, escribe el importe y el gasto queda en **«Pago parcial»** con su saldo pendiente. Puedes registrar tantos abonos como haga falta. Los chips «Todos · Por pagar · Parciales · Pagados · Sin comprobante» filtran la lista; los gastos que vienen de una compra se pagan desde la compra.
-3. El gasto solo pasa a **«Pagado»** cuando la suma de abonos cubre el total. Un abono se puede cancelar con motivo: el saldo vuelve a subir y el abono queda en el historial.
-4. Si la factura es **PPD** (pago en parcialidades) o su método está por definir, la misma tarjeta te avisa de que falta el **complemento de pago**.
-
-### Complemento de pago de un gasto
-
-1. Cuando el proveedor emita el complemento (CFDI tipo P), pulsa **«Leer complemento (XML)»** en el gasto.
-2. El sistema muestra el **monto real del pago** (no el `Total 0.00` del comprobante) y las facturas relacionadas. Si el abono ya existe, lo vincula; si no, te ofrece registrarlo.
-3. Al confirmarlo, el gasto muestra **«Complemento recibido»** y el abono queda respaldado. Nunca se duplica el pago ni el complemento.
-4. Si solo quieres guardar el archivo, usa «Sólo adjuntar el archivo». La vista previa del XML explica que el Total 0.00 es normal en un complemento: el importe es el **Monto del pago**.
-
-> Si el gasto nació de una compra, sus pagos y su complemento se gestionan desde la compra; la tarjeta del gasto te lleva ahí.
+1. Si lo dejaste como «lo debo todavía», en la lista de Gastos pulsa «Pagar» en su fila: el formulario se abre en una ventana con el saldo precargado. También puedes abrir el gasto y registrar el abono desde su detalle.
+2. Los chips «Todos · Por pagar · Parciales · Pagados · Sin comprobante» filtran la lista; los gastos que vienen de una compra se pagan desde la compra.
 
 ### Eliminar un gasto (captura equivocada)
 
@@ -311,7 +393,7 @@ Un gasto es cualquier cosa que pagas para trabajar: material, gasolina, renta, h
 
 ---
 
-## 8. Facturación y cobro de una venta
+## 11. Facturación y cobro de una venta
 
 Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros de esa venta se indican en una sola sección: «Facturación y cobro», arriba del detalle de la venta.
 
@@ -324,11 +406,10 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 ### Facturar la venta
 
 1. En «Facturación y cobro» llena los datos fiscales del receptor y el método, forma de pago, uso y tipo de comprobante. Si la venta nació de «Registro Venta Inteligente», esos datos vienen precargados con los que trae el CFDI y, cuando el XML trae timbre y sus importes coinciden, la venta ya queda facturada automáticamente: no hace falta repetir el paso. Al elegir cliente en un alta normal, el sistema avisa si a su ficha le faltan datos fiscales.
-2. Adjunta el XML del CFDI: de ahí se leen el UUID, el folio, la fecha, el método, la forma de pago y los datos del receptor que falten, así que no hace falta elegirlos a mano. También puedes adjuntar el PDF o una foto, o escribir el folio, el UUID y la fecha.
+2. Adjunta el XML del CFDI: de ahí se leen el UUID, el folio, la fecha, el método, la forma de pago y los datos del receptor que falten. No hace falta elegirlos a mano. También puedes adjuntar el PDF o una foto, o escribir el folio, el UUID y la fecha.
 3. Si no tienes el archivo, marca «No tengo el archivo del CFDI: confirmo que la factura ya se emitió»: queda como confirmación manual, con quién y cuándo.
 4. Pulsa «Facturar y guardar»: la validación, los datos, el documento y la marca de facturada se guardan en un solo paso. Si falta algo obligatorio, no se factura y la pantalla te dice qué corregir.
-5. Si la venta ya estaba facturada a mano y después consigues el XML, entra a la venta y usa «Adjuntar XML y guardar». El comprobante queda vinculado sin volver a emitir nada.
-6. Si la venta ya está facturada con CFDI pero le faltan el folio, la fecha, el método o la forma de pago, en «Documento de la factura» sube el XML: se completan los campos vacíos automáticamente y el UUID y el documento actual no se cambian.
+5. Si la venta ya estaba facturada a mano y después consigues el XML, entra a la venta y usa «Adjuntar XML y guardar». Si ya está facturada con CFDI y faltan folio, fecha, método o forma de pago, en «Documento de la factura» sube el XML: se llenan los campos vacíos automáticamente y el UUID y el documento actual no cambian. Para cambiar el comprobante por otro, registra una incidencia de entrega con «Corregir factura».
 
 ### Si no se va a facturar
 
@@ -337,8 +418,8 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 
 ### Corregir una factura ya emitida
 
-- Para **cambiar el comprobante** (otro UUID, otro importe o una sustitución), registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
-- Para **sólo completar datos** de una factura ya registrada, sube el XML en «Documento de la factura»: se llenan el folio, la fecha, el método, la forma de pago, el uso y los datos fiscales que falten, sin cambiar el UUID ni el documento actual. También puedes corregir los datos a mano con «Corregir datos del CFDI».
+1. Para completar datos sin cambiar el comprobante, sube el XML en «Documento de la factura» o usa «Corregir datos del CFDI»: se llenan folio, fecha, método, forma de pago, uso y datos fiscales que falten, y el UUID no cambia.
+2. Para cambiar el comprobante por otro (otro UUID o importe), registra una incidencia de entrega que marque «Corregir factura». Se da de baja el documento anterior y se sube el correcto (PDF y XML), sincronizando folio, UUID, fecha y montos. El importe de la venta no cambia.
 
 ### Pendientes de facturar
 
@@ -357,7 +438,7 @@ Cada venta genera automáticamente un ingreso. Toda la facturación y los cobros
 
 ---
 
-## 9. Resumen del mes y cierre
+## 12. Resumen del mes y cierre
 
 La pantalla principal de Contabilidad te dice, sin tecnicismos, cómo vas.
 
@@ -384,7 +465,7 @@ La pantalla principal de Contabilidad te dice, sin tecnicismos, cómo vas.
 
 ---
 
-## 10. Impuestos (solo informativo)
+## 13. Impuestos (solo informativo)
 
 Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT según lo que vendiste y gastaste.
 
@@ -416,7 +497,7 @@ Te muestra, de forma aproximada, cuánto deberías separar este mes para el SAT 
 
 ---
 
-## 11. Estadísticas
+## 14. Estadísticas
 
 Cómo van tus ventas, cobros, facturas y gastos, con indicadores y gráficas interactivas.
 
@@ -445,7 +526,7 @@ Cómo van tus ventas, cobros, facturas y gastos, con indicadores y gráficas int
 
 ---
 
-## 12. Notas personales
+## 15. Notas personales
 
 La libreta del equipo: recordatorios, pendientes por cotizar, cambios y revisiones, en un solo lugar.
 
@@ -472,7 +553,7 @@ La libreta del equipo: recordatorios, pendientes por cotizar, cambios y revision
 
 ---
 
-## 13. Calendario
+## 16. Calendario
 
 Un calendario del mes que junta dos cosas: lo que pasó en tus negocios cada día y los recordatorios y eventos del equipo.
 
@@ -512,7 +593,7 @@ Un calendario del mes que junta dos cosas: lo que pasó en tus negocios cada dí
 
 ---
 
-## 14. Redactor
+## 17. Redactor
 
 El procesador de textos de la plataforma: cartas, oficios, memorias, actas y procedimientos con formato profesional.
 
@@ -552,7 +633,7 @@ El procesador de textos de la plataforma: cartas, oficios, memorias, actas y pro
 
 ---
 
-## 15. SheetFlow
+## 18. SheetFlow
 
 La hoja de cálculo en línea para controles, presupuestos y listados que después puedes meter en un documento.
 
@@ -582,10 +663,9 @@ La hoja de cálculo en línea para controles, presupuestos y listados que despu�
 
 ### Análisis y presentación
 
-1. En «Modificar» están las propiedades de la celda, el rango o la columna elegida: fuente, tamaño, negrita/cursiva/subrayado, colores, alineación, tipo de columna, total, ancho automático y bordes. La barra mantiene siempre el mismo alto, así que la tabla no salta al cambiar de pestaña.
-2. En «Inicio»: deshacer/rehacer, formato condicional (mayor/menor/entre/contiene, escala de color y barras de datos), barras de progreso, minigráficas, notas y gráficas de barras, líneas o pastel.
-3. En «Insertar»: enlaces, códigos QR y de barras (se guardan como imagen), imágenes, combinación de celdas y filas o columnas.
-4. En «Datos»: ordenar, filtro de renglones, subtotales por grupo, tabla dinámica, fórmulas y datos externos; la tabla dinámica crea una hoja nueva para no tocar la original.
+1. En «Inicio»: formato condicional (mayor/menor/entre/contiene, escala de color y barras de datos), barras de progreso, minigráficas, notas, bordes y gráficas de barras, líneas o pastel.
+2. En «Insertar»: enlaces, códigos QR y de barras (se guardan como imagen), imágenes, combinación de celdas y filas o columnas.
+3. En «Datos»: filtro de renglones, subtotales por grupo y tabla dinámica; la tabla dinámica crea una hoja nueva para no tocar la original.
 
 ### Compartir y versiones
 
@@ -604,7 +684,7 @@ La hoja de cálculo en línea para controles, presupuestos y listados que despu�
 
 ---
 
-## 16. Editor
+## 19. Editor
 
 El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas técnicas.
 
@@ -616,9 +696,9 @@ El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas 
 ### Dibujar
 
 1. Las herramientas son: Seleccionar (V), Mover lienzo (H), Medir, Líneas (continua, discontinua, trazo y punto, punteada), Polilínea, Lápiz (P), Flecha (F), Rectángulo (R), rectángulo redondeado, Elipse (O), triángolo, rombo, zona translúcida, más formas (26 iconos), Texto (T), Tabla, círculo numerado, rombo de restricción e Imagen (I).
-2. En la pestaña «Propiedades» están las casillas Cuadrícula, Imán a cuadrícula, Reglas, Guías, Imán a guías y Ortogonal (F8). Los dos imanes se pueden activar juntos o por separado.
+2. Abajo a la izquierda están las casillas Cuadrícula, Imán a cuadrícula, Reglas, Guías, Imán a guías y Ortogonal (F8). Los dos imanes se pueden activar juntos o por separado.
 3. Al insertar una imagen se abre un diálogo para elegir una de las carpetas de Archivo o subir una desde el equipo.
-4. El panel de la derecha tiene tres pestañas: «Propiedades» (fondo, trama, vista del lienzo y atajos), «Modificar» (color, negrita/cursiva/subrayado/tachado, alineación, tamaño, tabla y capas del objeto elegido) y «Capas y guías». Al seleccionar un objeto o una herramienta se abre «Modificar» automáticamente; ahí también puedes agrupar, desagrupar, alinear y distribuir.
+4. El panel de la derecha cambia el color, el negrita/cursiva/subrayado/tachado, la alineación y las capas; ahí también puedes agrupar, desagrupar, alinear y distribuir.
 
 ### Páginas y descarga
 
@@ -632,7 +712,7 @@ El editor de dibujo por páginas: planos, croquis, diagramas, portadas y fichas 
 
 ---
 
-## 17. Archivo
+## 20. Archivo
 
 El cajón de la oficina: carpetas virtuales para guardar y organizar los archivos de trabajo.
 
@@ -660,7 +740,7 @@ El cajón de la oficina: carpetas virtuales para guardar y organizar los archivo
 
 ---
 
-## 18. Aplicación de escritorio
+## 21. Aplicación de escritorio
 
 La misma plataforma en una ventana propia, sin abrir el navegador.
 
@@ -675,7 +755,7 @@ La misma plataforma en una ventana propia, sin abrir el navegador.
 
 ---
 
-## 19. Almacenamiento y respaldos
+## 22. Almacenamiento y respaldos
 
 Cuánto ocupa tu información y cómo guardar una copia de seguridad desde la propia plataforma.
 
@@ -709,7 +789,7 @@ Cuánto ocupa tu información y cómo guardar una copia de seguridad desde la pr
 
 ---
 
-## 20. Cuidados con tu información
+## 23. Cuidados con tu información
 
 Tu información importa.
 
@@ -722,7 +802,7 @@ Tu información importa.
 
 ---
 
-## 21. Centro de seguimiento
+## 24. Centro de seguimiento
 
 Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, gastos, compras, proveedores, entregas, inventario y novedades de la plataforma.
 
@@ -756,7 +836,7 @@ Reúne lo que necesita tu atención: ventas sin cobrar, facturas por definir, ga
 
 ---
 
-## 22. Acerca de Acero 360
+## 25. Acerca de Acero 360
 
 Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de acero: antes se llamaba «Cotizaciones». Todo lo que ya tenías (clientes, productos, cotizaciones, ventas, inventario, gastos e impuestos) sigue igual y en el mismo lugar.
 
@@ -778,7 +858,7 @@ Acero 360 es la plataforma comercial, contable y administrativa de tu negocio de
 
 ---
 
-## 23. Palabras que verás
+## 26. Palabras que verás
 
 Qué significan, en pocas palabras.
 

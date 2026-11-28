@@ -54,12 +54,18 @@ template('header', [
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">edit</span>
             <span>Editar</span>
         </a>
+        <a class="btn btn--secundario" href="/admin/proyectos/crear?cliente=<?= (int) $cliente->id ?>">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">assignment_add</span>
+            <span>Nuevo proyecto</span>
+        </a>
         <a class="btn btn--primario" href="/admin/cotizaciones/crear?id_cliente=<?= (int) $cliente->id ?>">
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1.125rem">note_add</span>
             <span>Nueva cotización</span>
         </a>
     </div>
 </section>
+
+<?php template('tabsCliente', ['clienteId' => (int) $cliente->id, 'tab' => 'ficha']); ?>
 
 <div class="rejilla-2">
     <!-- Ficha del cliente -->

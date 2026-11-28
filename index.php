@@ -119,6 +119,9 @@ $router->post('/admin/clientes/crear',  'views/admin/clientes/crear.php',   'sol
 $router->get('/admin/clientes/editar',  'views/admin/clientes/editar.php',  'soloAdmin');
 $router->post('/admin/clientes/editar', 'views/admin/clientes/editar.php',  'soloAdmin');
 $router->get('/admin/clientes/detalle', 'views/admin/clientes/detalle.php', 'soloAdmin');
+// Compras del cliente por mes/año (solo lectura) y su PDF.
+$router->get('/admin/clientes/compras',     'views/admin/clientes/compras.php',     'soloAdmin');
+$router->get('/admin/clientes/compras/pdf', 'views/admin/clientes/compras-pdf.php', 'soloAdmin');
 // FASE 9: RFCs de facturación de un cliente (varios RFC por ficha).
 $router->post('/admin/clientes/rfc-accion', 'views/admin/clientes/rfc-accion.php', 'soloAdmin');
 // El borrado sólo acepta POST: nunca se elimina con un simple enlace.
@@ -413,6 +416,18 @@ $router->post('/admin/fiscal/configuracion',        'views/admin/fiscal/configur
 // Retenciones, ajustes y declaraciones: captura de los datos que lee MotorFiscal (FASE 7).
 $router->get('/admin/fiscal/registros',             'views/admin/fiscal/registros.php',             'soloAdmin');
 $router->post('/admin/fiscal/registros',            'views/admin/fiscal/registros.php',             'soloAdmin');
+
+// --- Proyectos de entrega por cliente (migración 061) ---
+$router->get('/admin/proyectos',          'views/admin/proyectos/index.php',    'soloAdmin');
+$router->get('/admin/proyectos/crear',    'views/admin/proyectos/crear.php',    'soloAdmin');
+$router->post('/admin/proyectos/crear',   'views/admin/proyectos/crear.php',    'soloAdmin');
+$router->get('/admin/proyectos/editar',   'views/admin/proyectos/editar.php',   'soloAdmin');
+$router->post('/admin/proyectos/editar',  'views/admin/proyectos/editar.php',   'soloAdmin');
+$router->get('/admin/proyectos/detalle',  'views/admin/proyectos/detalle.php',  'soloAdmin');
+$router->get('/admin/proyectos/vincular', 'views/admin/proyectos/vincular.php', 'soloAdmin');
+$router->post('/admin/proyectos/vincular','views/admin/proyectos/vincular.php', 'soloAdmin');
+$router->post('/admin/proyectos/accion',  'views/admin/proyectos/accion.php',   'soloAdmin');
+$router->get('/admin/proyectos/pdf',      'views/admin/proyectos/pdf.php',      'soloAdmin');
 
 // --- Pantalla de entrega (Etapa 4) ---
 $router->get('/admin/entregas',          'views/admin/entregas/index.php',    'soloAdmin');

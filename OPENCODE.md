@@ -144,3 +144,38 @@ SECCION AÑADIDA (no estaba en la especificación original; grupo «Herramientas
   * tabla nueva `calendario_eventos` (migración 028); entrada en el menú lateral
     junto a «Notas personales» y en el cajón del celular; en el celular se usa
     completa (no en modo informativo), para poder capturar desde el teléfono
+
+---
+
+SECCION AÑADIDA — Exportaciones PDF con avance (2026-11-27)
+
+- Toda exportación PDF muestra una capa bloqueante con «Generando PDF…», tiempo
+  transcurrido y avance de descarga; al terminar abre el archivo sola:
+  pestaña nueva en el navegador, visor del sistema en escritorio y puente
+  `Acero360Android.guardar(...)` en la app Android Acero 360.
+- La app nativa Acero Entregas usa una capa global equivalente mientras
+  `generandoPdf` está activo, con opción de cancelar.
+- El comportamiento vive en `src/js/modulos/pdfExport.js`, la plantilla
+  `templates/pdfOverlay.php` y `src/scss/layout/_pdf.scss`; los enlaces PDF se
+  detectan por ruta, `formato=pdf`, `inline=1` o `data-pdf`.
+- Editor, Redactor y SheetFlow comparten la misma capa y su avance real.
+
+SECCION AÑADIDA — Compras por cliente (2026-11-27)
+
+- Nueva pestaña «Compras» en la ficha del cliente: ventas, piezas, subtotal,
+  IVA, total, ticket promedio y productos comprados por mes, año, rango o todo
+  el histórico; incluye PDF con los mismos filtros.
+- Sólo cuenta ventas registradas. Las canceladas y las cotizaciones no vendidas
+  quedan fuera. Clase `VentasCliente` y vista `views/admin/clientes/compras.php`.
+
+SECCION AÑADIDA — Proyectos de entrega (2026-11-27)
+
+- Nuevo módulo «Proyectos de entrega» (migración 061): compromiso por cliente
+  y negocio, partidas por producto y vínculo opcional de ventas
+  (`ventas.proyecto_id`). El avance se calcula al vuelo con las ventas
+  registradas y sus entregas; no se captura dos veces.
+- Se muestran comprometido, vendido, entregado, por entregar, por vender,
+  devoluciones y excedentes. Una venta pertenece a un solo proyecto.
+- Pantallas: listado, alta/edición, detalle, vinculación de ventas, pestaña
+  «Proyectos» de la ficha del cliente y PDF del estado del proyecto.
+- Acero Entregas muestra el proyecto en pendientes y detalle.

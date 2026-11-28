@@ -63,6 +63,9 @@ template('tabsEntregas', ['tab' => 'clientes']);
                         <tr>
                             <td>
                                 <a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a><br>
+                                <?php if (!empty($v['proyecto_folio'])) : ?>
+                                    <span class="badge badge--aprobado" title="<?= escaparValores((string) ($v['proyecto_nombre'] ?? '')) ?>"><?= escaparValores((string) $v['proyecto_folio']) ?></span>
+                                <?php endif; ?>
                                 <span class="badge <?= escaparValores($senal['clase']) ?>"><?= escaparValores($senal['etiqueta']) ?></span>
                             </td>
                             <td class="tabla--numerica cifra"><?= (int) $v['piezas'] - (int) $v['entregadas'] ?></td>

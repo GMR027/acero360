@@ -54,7 +54,10 @@ $entregaHaciaSeguimiento = (bool) ($entregaHaciaSeguimiento ?? false);
                     ? '/admin/ventas/detalle?id=' . (int) $v['id'] . '&accion=entrega&volver=preparacion'
                     : '/admin/entregas/entregar?venta=' . (int) $v['id'] . ($prepId ? '&prep=' . $prepId : ''); ?>
                     <tr>
-                        <td><a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a></td>
+                        <td><a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a>
+                            <?php if (!empty($v['proyecto_folio'])) : ?>
+                                <span class="badge badge--aprobado" title="<?= escaparValores((string) ($v['proyecto_nombre'] ?? '')) ?>"><?= escaparValores((string) $v['proyecto_folio']) ?></span>
+                            <?php endif; ?></td>
                         <td><?= escaparValores($v['cliente_empresa'] ?: $v['cliente_nombre']) ?>
                             <span class="texto-xs texto-secundario"><br><?= escaparValores((string) $v['cliente_ubicacion']) ?></span></td>
                         <td class="tabla--numerica cifra"><?= (int) $v['entregadas'] ?> / <?= (int) $v['piezas'] ?></td>

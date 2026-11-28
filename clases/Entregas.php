@@ -205,6 +205,7 @@ class Entregas
         $activos = "'" . implode("','", self::ACTIVOS) . "'";
 
         return "SELECT v.id, v.folio, v.fecha, v.total, v.cotizacion_id,
+                       v.proyecto_id, py.folio AS proyecto_folio, py.nombre AS proyecto_nombre,
                        e.nombre AS empresa_nombre,
                        cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                        cl.ubicacion AS cliente_ubicacion,
@@ -227,6 +228,7 @@ class Entregas
                   FROM ventas v
                   JOIN empresas e  ON e.id  = v.empresa_id
                   JOIN clientes cl ON cl.id = v.cliente_id
+                  LEFT JOIN proyectos_entrega py ON py.id = v.proyecto_id
                  WHERE $donde
                 HAVING piezas > entregadas";
     }
@@ -503,10 +505,12 @@ class Entregas
                     v.condiciones_envio, v.comentarios, e.logo AS empresa_logo,
                     cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     cl.ubicacion AS cliente_ubicacion, cl.telefono AS cliente_telefono,
-                    e.nombre AS empresa_nombre
+                    e.nombre AS empresa_nombre,
+                    py.folio AS proyecto_folio, py.nombre AS proyecto_nombre
                FROM ventas v
                JOIN clientes cl ON cl.id = v.cliente_id
                JOIN empresas e  ON e.id  = v.empresa_id
+               LEFT JOIN proyectos_entrega py ON py.id = v.proyecto_id
               WHERE v.id IN ($marcadores)" . ($soloRegistradas ? " AND v.estado = 'registrada'" : '') . "
               ORDER BY cl.nombre, v.id"
         );

@@ -340,6 +340,60 @@ class Documentos
         self::enviar($bytes, $nombre);
     }
 
+    /**
+     * PDF de las compras de un cliente en un periodo.
+     *
+     * @param array<string, mixed> $reporte resumen, productos, documentos y serie
+     */
+    public static function descargarComprasCliente(
+        Clientes $cliente,
+        array $reporte,
+        string $periodoTexto,
+        string $empresaNombre,
+        string $nombre,
+        string $volver
+    ): void {
+        ob_start();
+        \template('pdfComprasCliente', [
+            'cliente'       => $cliente,
+            'reporte'       => $reporte,
+            'periodoTexto'  => $periodoTexto,
+            'empresaNombre' => $empresaNombre,
+            'fecha'         => date('d/m/Y H:i'),
+        ]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'las compras del cliente');
+        if ($bytes === null) {
+            \redirigir($volver, 'error', self::$errores[0] ?? 'No fue posible generar el PDF.');
+        }
+
+        self::enviar($bytes, $nombre);
+    }
+
+    /** PDF del estado de un proyecto de entrega. Solo lectura. */
+    public static function descargarProyectoEntrega(ProyectosEntrega $proyecto, array $progreso): void
+    {
+        ob_start();
+        \template('pdfProyectoEntrega', [
+            'proyecto' => $proyecto,
+            'progreso' => $progreso,
+            'fecha'    => date('d/m/Y H:i'),
+        ]);
+        $html = (string) ob_get_clean();
+
+        $bytes = self::componer($html, 'el proyecto de entrega');
+        if ($bytes === null) {
+            \redirigir(
+                '/admin/proyectos/detalle?id=' . (int) $proyecto->id,
+                'error',
+                self::$errores[0] ?? 'No fue posible generar el PDF.'
+            );
+        }
+
+        self::enviar($bytes, 'proyecto-' . $proyecto->folio);
+    }
+
     /** PDF de estadísticas. Solo lectura. */
     public static function descargarEstadisticas(array $reporte): void
     {

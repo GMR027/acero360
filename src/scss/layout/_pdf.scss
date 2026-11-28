@@ -1,0 +1,114 @@
+/* ==========================================================================
+   _pdf.scss — Capa de progreso de las exportaciones PDF.
+   La controla src/js/modulos/pdfExport.js.
+   ========================================================================== */
+
+@use '../base/variables' as *;
+@use '../base/mixins' as *;
+
+.pdf-capa {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: $espacio-md;
+  background-color: $color-velo;
+  backdrop-filter: blur(4px);
+
+  &__panel {
+    width: min(26rem, 100%);
+    padding: $espacio-xl;
+    background-color: $color-superficie;
+    border: 1px solid $color-borde;
+    border-radius: $radio-xl;
+    box-shadow: $sombra-3;
+    text-align: center;
+
+    @include hasta-movil {
+      padding: $espacio-lg;
+    }
+  }
+
+  &__icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-bottom: $espacio-sm;
+    font-size: 2rem;
+    color: $color-primario-texto;
+    background-color: $color-primario-claro;
+    border-radius: $radio-full;
+  }
+
+  &__titulo {
+    margin: 0 0 $espacio-xs;
+    font-family: $fuente-titulos;
+    font-size: $fuente-xl;
+    color: $color-texto;
+  }
+
+  &__detalle {
+    min-height: 1.5em;
+    margin: 0 0 $espacio-md;
+    font-size: $fuente-sm;
+    color: $color-texto-secundario;
+    overflow-wrap: anywhere;
+  }
+
+  &__progreso {
+    position: relative;
+    height: 0.5rem;
+    margin-bottom: $espacio-sm;
+    overflow: hidden;
+    background-color: $color-superficie-baja;
+    border: 1px solid $color-borde;
+    border-radius: $radio-full;
+  }
+
+  &__barra {
+    display: block;
+    width: 0;
+    height: 100%;
+    background-color: $color-primario;
+    border-radius: inherit;
+    transition: width 180ms ease;
+  }
+
+  &--indeterminada .pdf-capa__barra {
+    width: 35%;
+    animation: pdf-barra 1.2s ease-in-out infinite;
+  }
+
+  &__tiempo {
+    margin: 0 0 $espacio-md;
+    font-size: $fuente-xs;
+    color: $color-texto-secundario;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__panel .btn {
+    min-width: 8rem;
+  }
+}
+
+.pdf-capa-abierta {
+  overflow: hidden;
+}
+
+@keyframes pdf-barra {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-capa--indeterminada .pdf-capa__barra {
+    animation-duration: 3s;
+  }
+}

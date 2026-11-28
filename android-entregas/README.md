@@ -67,7 +67,7 @@ cd android-entregas
 ./compilar.sh
 ```
 
-El APK firmado queda en `dist/acero360-entregas_1.1.0.apk`.
+El APK firmado queda en `dist/acero360-entregas_1.2.0.apk`.
 Para publicar una actualización hay que subir `versionCode` y `versionName` en
 `app/build.gradle.kts`; Android no instala un APK con un `versionCode` menor.
 

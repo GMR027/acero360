@@ -91,6 +91,11 @@ template('tabsEntregas', ['tab' => 'preparacion']);
                                 </td>
                                 <td>
                                     <a href="/admin/ventas/detalle?id=<?= (int) $v['id'] ?>"><strong><?= escaparValores($v['folio']) ?></strong></a><br>
+                                    <?php if (!empty($v['proyecto_folio'])) : ?>
+                                        <span class="badge badge--aprobado" title="<?= escaparValores((string) ($v['proyecto_nombre'] ?? '')) ?>">
+                                            <?= escaparValores((string) $v['proyecto_folio']) ?>
+                                        </span>
+                                    <?php endif; ?>
                                     <span class="badge <?= escaparValores($senal['clase']) ?>"><?= escaparValores($senal['etiqueta']) ?></span>
                                     <span class="texto-xs texto-secundario movil-oculto"><br><?= $v['cotizacion_id'] ? 'Desde cotización' : 'Venta directa' ?> · <?= date('d/m/Y', strtotime($v['fecha'])) ?></span>
                                 </td>

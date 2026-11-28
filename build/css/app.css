@@ -4919,6 +4919,107 @@ de la foto: el archivo se guarda con el modo 'informe' (sin recortar). */
   }
 }
 /* ==========================================================================
+   _pdf.scss — Capa de progreso de las exportaciones PDF.
+   La controla src/js/modulos/pdfExport.js.
+   ========================================================================== */
+.pdf-capa {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background-color: var(--color-velo);
+  backdrop-filter: blur(4px);
+}
+.pdf-capa__panel {
+  width: min(26rem, 100%);
+  padding: 2rem;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  text-align: center;
+}
+@media (max-width: 767px) {
+  .pdf-capa__panel {
+    padding: 1.5rem;
+  }
+}
+.pdf-capa__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 2rem;
+  color: var(--color-primario-texto);
+  background-color: var(--color-primario-claro);
+  border-radius: 9999px;
+}
+.pdf-capa__titulo {
+  margin: 0 0 0.25rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.25rem;
+  color: var(--color-texto);
+}
+.pdf-capa__detalle {
+  min-height: 1.5em;
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--color-texto-secundario);
+  overflow-wrap: anywhere;
+}
+.pdf-capa__progreso {
+  position: relative;
+  height: 0.5rem;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+  background-color: var(--color-superficie-baja);
+  border: 1px solid var(--color-borde);
+  border-radius: 9999px;
+}
+.pdf-capa__barra {
+  display: block;
+  width: 0;
+  height: 100%;
+  background-color: var(--color-primario);
+  border-radius: inherit;
+  transition: width 180ms ease;
+}
+.pdf-capa--indeterminada .pdf-capa__barra {
+  width: 35%;
+  animation: pdf-barra 1.2s ease-in-out infinite;
+}
+.pdf-capa__tiempo {
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  color: var(--color-texto-secundario);
+  font-variant-numeric: tabular-nums;
+}
+.pdf-capa__panel .btn {
+  min-width: 8rem;
+}
+
+.pdf-capa-abierta {
+  overflow: hidden;
+}
+
+@keyframes pdf-barra {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdf-capa--indeterminada .pdf-capa__barra {
+    animation-duration: 3s;
+  }
+}
+/* ==========================================================================
    _documentos.scss — Vista previa de facturas y comprobantes en el modal.
    El panel se ensancha solo cuando se abre un documento. El PDF se incrusta
    con el visor del navegador; el XML y las imágenes se muestran dentro del

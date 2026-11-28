@@ -2143,3 +2143,54 @@ El acta de entrega no descargaba nada en la app Android, aunque en el navegador 
 ### Sin migraciones ni APK nuevo
 
 - No hay cambios de base de datos ni de código nativo: el arreglo viaja en las vistas y los assets web que la app ya carga del servidor.
+
+## Ronda — PDF con avance, compras por cliente y proyectos de entrega (2026-11-27)
+
+### 1. Exportaciones PDF: indicador y apertura automática
+
+- **Web/escritorio/Android Acero 360:** `src/js/modulos/pdfExport.js` intercepta
+  los enlaces PDF (ruta `/pdf`, `formato=pdf`, `inline=1` o `data-pdf`), muestra
+  `templates/pdfOverlay.php` con spinner, tiempo y porcentaje de descarga, y al
+  terminar abre el archivo: pestaña nueva en el navegador, visor del sistema en
+  escritorio (Electron `will-download` + `shell.openPath`) o puente
+  `Acero360Android.guardar(...)` en la app Android.
+- **Fallback:** si el navegador bloquea la pestaña o no tiene visor, el PDF se
+  descarga y se avisa; si falla, se muestra el error sin dejar pestañas vacías.
+- **Editor, Redactor y SheetFlow:** usan la misma capa (`window.PdfUI`) y
+  muestran su avance real; «Exportar selección» del Redactor también.
+- **Acero Entregas:** capa global en `AppRoot.kt` mientras `generandoPdf` está
+  activo, con opción de cancelar; se conserva `PdfHelper.abrir`.
+
+### 2. Compras de un cliente por mes o año
+
+- **`clases/VentasCliente.php`:** resumen, productos, ventas paginadas, serie
+  mensual y años con ventas; sólo ventas registradas, sin canceladas ni
+  cotizaciones no vendidas.
+- **Pantalla:** `views/admin/clientes/compras.php`, pestaña «Compras» de la ficha
+  (`templates/tabsCliente.php`), filtros por mes/año/rango/todo, negocio y orden.
+- **PDF:** `templates/pdfComprasCliente.php` y
+  `Documentos::descargarComprasCliente()`.
+
+### 3. Proyectos de entrega
+
+- **Migración 061:** `proyectos_entrega`, `proyecto_entrega_partidas` y
+  `ventas.proyecto_id` (FK `ON DELETE SET NULL`).
+- **`clases/ProyectosEntrega.php`:** CRUD, partidas, vínculo/desvínculo de
+  ventas, estados y cálculo de avance con ventas y entregas reales.
+- **Pantallas:** listado, alta/edición, detalle, vinculación de ventas y PDF;
+  entrada «Proyectos de entrega» en el menú y pestaña «Proyectos» del cliente.
+- **Ventas:** etiqueta del proyecto en el listado y el expediente; «Nueva venta
+  del proyecto» precarga cliente/negocio y vincula la venta al guardar.
+- **Entregas:** el proyecto se muestra en la preparación web y en la API de
+  Acero Entregas; la app lo muestra en pendientes y detalle.
+- **Reglas:** una venta = un proyecto; las entregas se siguen registrando contra
+  la venta y el avance se recalcula solo; no se puede quitar una partida con
+  ventas/entregas; un proyecto con ventas no se elimina, se cancela.
+
+### 4. Pruebas
+
+- **`pruebas/php/etapa61.php`:** proyecto/partidas, venta vinculada, entrega
+  parcial, avance, bloqueo al quitar partidas, desvínculo, reporte de compras y
+  limpieza. Agregada a `pruebas/ejecutar_todo.sh`.
+- **Smoke de navegador:** listado/detalle de proyecto, compras del cliente,
+  creación de proyecto, vinculación de ventas y descarga de ambos PDF.

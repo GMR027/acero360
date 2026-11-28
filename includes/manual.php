@@ -12,6 +12,7 @@ return [
         ['Entrar', ['Abre la página e inicia sesión con tu correo y contraseña.', 'Si olvidaste la contraseña, cámbiala en «Usuarios y perfil».']],
         ['El panel', ['Arriba están «Ventas por negocio»: cada tarjeta trae las ventas que se hicieron en el periodo, con su IVA y con cuántas ventas, y «Ver ventas» abre ese listado.', 'Debajo va «Impuestos», con el preliminar del periodo y los impuestos por pagar en la misma tarjeta; «Ver preliminar» abre el desglose mes por mes.', '«Pendientes de atender» junta las cuatro listas del día: ventas por cobrar o por facturar (con el nombre o alias del cliente y el importe con IVA), gastos por pagar (con su nombre y su importe con IVA), ventas por entregar (con su botón de «Seguimiento») y incidencias de logística o entrega (con su botón de «Atender»).', '«Productos más vendidos» trae los 4 que más vendiste en el mes, con su código, su foto y el importe de venta; «Productos con existencias bajas» avisa cuáles están agotados, con existencia negativa o por debajo de su mínimo (los más urgentes primero). El número de la existencia sale en rojo cuando ya no queda nada y en naranja cuando quedan pocas.', '«Últimos documentos» lista las últimas 5 cotizaciones y las últimas 5 ventas, cada una con su botón de PDF; y al final «Indicadores del periodo» resume ventas, cotizaciones, cobros, facturación, entregas, devoluciones, gastos y avisos, cada uno abriendo los registros que lo forman.', 'Cada tarjeta de producto abre su ficha, y las de existencias te llevan al inventario con el producto listo para ajustarlo.']],
         ['Moverte por el menú', ['«Nueva cotización», «Histórico», «Clientes» y «Productos» son lo de todos los días.', 'Debajo de la línea están Operación Comercial, Contabilidad, Impuestos, Inventario y Compras y proveedores (un solo apartado). Operación Comercial reúne en un solo lugar la preparación de pedidos, el seguimiento de entregas y las ventas (pestañas arriba).']],
+        ['Exportar a PDF', ['Al pulsar cualquier botón de PDF aparece una capa con «Generando PDF…», el tiempo transcurrido y, cuando el servidor empieza a enviar el archivo, el porcentaje de descarga.', 'Al terminar, el PDF se abre solo. En el navegador sale en una pestaña nueva; en Android se guarda en Descargas y se abre con la app disponible; en la app de escritorio se abre con el visor del sistema.', 'Si algo falla, la capa se cierra y aparece un aviso con el motivo. También puedes cancelar mientras se genera.']],
         ['Burbujas de ayuda', ['Deja el cursor sobre cualquier botón, pestaña o campo y, medio segundo después, aparece una burbuja que explica qué hace.', 'Con teclado funciona igual al llegar con la tecla Tab. Escape la cierra.']],
      ],
      'consejos' => ['Si algo no se ve actualizado, recarga la página con Ctrl + Shift + R.']],
@@ -23,6 +24,25 @@ return [
         ['Dar de alta un producto', ['Productos → «Nuevo producto». Pon nombre, precio de lista, unidad y una foto.', 'Las existencias (cuántas piezas tienes) se manejan en Inventario.']],
      ],
      'consejos' => ['Un producto inactivo no se puede cotizar ni vender, pero se conserva su historial.']],
+
+    ['id' => 'compras-cliente', 'titulo' => 'Compras de un cliente', 'icono' => 'shopping_cart',
+     'intro' => 'En la ficha de un cliente puedes ver cuántas ventas le hiciste y qué productos te compró en un mes o en un año.',
+     'pasos' => [
+        ['Abrir el reporte', ['Clientes → abre la ficha del cliente → pestaña «Compras».']],
+        ['Elegir el periodo', ['Usa los botones «Este mes», «Mes anterior», «Este año», «Año anterior» o «Todo», o elige un mes, un año o un rango de fechas.', 'También puedes filtrar por negocio y ordenar los productos por piezas o por importe.']],
+        ['Leer el resultado', ['Arriba están las ventas, las piezas, el total vendido y el ticket promedio. Debajo aparece cada producto con sus piezas, en cuántas ventas salió, su importe y su porcentaje.', 'La tabla final lista las ventas del periodo; cada folio abre el expediente de la venta.', '«Exportar PDF» descarga el mismo reporte con los filtros elegidos.']],
+     ],
+     'consejos' => ['Sólo cuentan las ventas registradas: las canceladas y las cotizaciones que aún no se venden no aparecen como venta.']],
+
+    ['id' => 'proyectos', 'titulo' => 'Proyectos de entrega', 'icono' => 'assignment',
+     'intro' => 'Un proyecto es un compromiso del cliente para una obra (por ejemplo, 2,000 canastillas para la vialidad X). No es una venta ni una entrega: sirve para saber cuánto se comprometió, cuánto se ha vendido y cuánto se ha entregado.',
+     'pasos' => [
+        ['Crear el proyecto', ['Menú → «Proyectos de entrega» → «Nuevo proyecto». Elige el cliente y el negocio, ponle nombre y, si quieres, fecha de inicio y fecha compromiso.', 'Agrega una o varias partidas: producto y cantidad comprometida. Por ejemplo, canastillas C-1 y C-3.']],
+        ['Vincular las ventas', ['Abre el proyecto y pulsa «Vincular ventas»: aparecen las ventas del mismo cliente y negocio que todavía no tienen proyecto.', 'Marca una o varias y confirma. Si la venta nació desde el proyecto con «Nueva venta del proyecto», queda vinculada sola.', 'Una venta pertenece a un solo proyecto. Si un cliente necesita dos proyectos en una misma compra, registra dos ventas.']],
+        ['Registrar las entregas', ['Las entregas se registran como siempre, desde la venta en web o desde Acero Entregas. No se capturan dos veces: al vincular la venta, sus entregas ya registradas cuentan solas.']],
+        ['Leer el avance', ['El detalle muestra el comprometido, el vendido, el entregado, lo que falta por entregar y lo que falta por vender.', '«Faltan 1,500» es lo que falta para completar el proyecto; «por vender» es lo que todavía no tiene venta y «por entregar de lo vendido» es lo que ya se vendió pero no ha salido.', 'La tabla por producto muestra el avance de cada partida y los productos que se vendieron fuera de las partidas.', '«Exportar PDF» genera el estado del proyecto para compartirlo con el cliente.']],
+     ],
+     'consejos' => ['El proyecto no mueve inventario ni contabilidad: la venta sigue siendo la que descuenta existencias y genera el ingreso.', 'Puedes pausar, completar o cancelar un proyecto. No se elimina si tiene ventas vinculadas, para conservar el historial.', 'Si un producto se vendió fuera de las partidas, aparece como adicional y no cuenta para el compromiso; agrégalo al proyecto si debe contar.']],
 
     ['id' => 'cotizaciones', 'titulo' => 'Cotizaciones', 'icono' => 'request_quote',
      'intro' => 'Una cotización es el precio que le das a un cliente antes de que compre.',

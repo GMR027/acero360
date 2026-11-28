@@ -31,9 +31,10 @@ $pieTexto       = $GLOBALS['pieTexto'] ?? '';
 <?php endif; ?>
 
 <?php
-// Alertas visuales y ventana modal compartida por todas las pantallas.
+// Alertas visuales, ventana modal y capa de progreso de PDF compartidas.
 template('alertas');
 template('modal');
+template('pdfOverlay');
 ?>
 
 <?php foreach (($GLOBALS['scriptsPagina'] ?? []) as $scriptPagina) :

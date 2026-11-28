@@ -51,6 +51,10 @@ class Ventas
     public $id;
     /** Cotización de origen; NULL en una venta directa. */
     public $cotizacion_id;
+    /** Proyecto de entrega vinculado (sólo lectura aquí; lo administra ProyectosEntrega). */
+    public $proyecto_id;
+    public $proyecto_folio;
+    public $proyecto_nombre;
     public $folio;
     public $empresa_id;
     public $cliente_id;
@@ -110,6 +114,10 @@ class Ventas
     public function __construct(array $args = [])
     {
         $this->id         = $args['id'] ?? null;
+        $this->proyecto_id = isset($args['proyecto_id']) && (int) $args['proyecto_id'] > 0
+            ? (int) $args['proyecto_id'] : null;
+        $this->proyecto_folio = $args['proyecto_folio'] ?? '';
+        $this->proyecto_nombre = $args['proyecto_nombre'] ?? '';
         $this->folio      = $args['folio'] ?? '';
         $this->empresa_id = isset($args['empresa_id']) ? (int) $args['empresa_id'] : 0;
         $this->cliente_id = isset($args['cliente_id']) ? (int) $args['cliente_id'] : 0;
@@ -230,11 +238,14 @@ class Ventas
                     cl.ubicacion   AS cliente_ubicacion, cl.vip           AS cliente_vip,
                     cl.descuento_pct AS cliente_descuento,
                     u.nombre  AS usuario_nombre,
-                    u.email   AS usuario_email
+                    u.email   AS usuario_email,
+                    py.folio  AS proyecto_folio,
+                    py.nombre AS proyecto_nombre
                FROM ventas v
                JOIN empresas  e  ON e.id  = v.empresa_id
                JOIN clientes  cl ON cl.id = v.cliente_id
                LEFT JOIN usuarios u ON u.id = v.usuario_id
+               LEFT JOIN proyectos_entrega py ON py.id = v.proyecto_id
               WHERE v.id = ? LIMIT 1'
         );
         $consulta->bind_param('i', $id);
@@ -310,7 +321,8 @@ class Ventas
                        v.id AS venta_id, v.folio AS venta_folio,
                        IF(v.cotizacion_id IS NULL, v.folio, c.folio) AS folio,
                        v.fecha, v.empresa_id, v.cliente_id, v.total, v.estado, v.creado_en,
-                       v.entrega_estado, v.entrega_cerrada_en,
+                       v.entrega_estado, v.entrega_cerrada_en, v.proyecto_id,
+                       py.folio AS proyecto_folio, py.nombre AS proyecto_nombre,
                        e.nombre AS empresa_nombre,
                        cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                        cl.alias AS cliente_alias, cl.rfc AS cliente_rfc,
@@ -328,6 +340,7 @@ class Ventas
                   JOIN empresas e  ON e.id  = v.empresa_id
                   JOIN clientes cl ON cl.id = v.cliente_id
                   LEFT JOIN cotizaciones c ON c.id = v.cotizacion_id
+                  LEFT JOIN proyectos_entrega py ON py.id = v.proyecto_id
                  WHERE ' . ($canceladas
                     ? 'v.estado = "cancelada" AND v.cotizacion_id IS NULL'
                     : 'v.estado = "registrada"');
@@ -361,6 +374,13 @@ class Ventas
             $donde[]   = 't.cliente_id = ?';
             $tipos    .= 'i';
             $valores[] = $clienteId;
+        }
+
+        $proyectoId = (int) ($filtros['proyecto_id'] ?? 0);
+        if ($proyectoId > 0) {
+            $donde[]   = 't.proyecto_id = ?';
+            $tipos    .= 'i';
+            $valores[] = $proyectoId;
         }
 
         $origen = (string) ($filtros['origen'] ?? '');
@@ -922,6 +942,13 @@ class Ventas
             if ($venta->cotizacion_id !== null) {
                 self::$db->rollBack();
                 self::$errores[] = 'Esta venta proviene de una cotización: cancélala desde la cotización.';
+                return false;
+            }
+            if ($venta->proyecto_id !== null
+                && ((int) $datos['cliente_id'] !== (int) $venta->cliente_id
+                    || (int) $datos['empresa_id'] !== (int) $venta->empresa_id)) {
+                self::$db->rollBack();
+                self::$errores[] = 'Esta venta pertenece al proyecto ' . $venta->proyecto_folio . ': no puedes cambiarle el cliente ni el negocio. Desvincúlala primero.';
                 return false;
             }
 

@@ -208,11 +208,13 @@ class EntregasApp
                        cl.id AS cliente_id, cl.nombre AS cliente_nombre,
                        cl.nombre_empresa AS cliente_empresa, cl.telefono AS cliente_telefono,
                        cl.ubicacion AS cliente_ubicacion, cl.ubicacion_mapa AS cliente_mapa,
+                       py.folio AS proyecto_folio, py.nombre AS proyecto_nombre,
                        (SELECT COUNT(*) FROM entrega_incidencias i
                          WHERE i.venta_id = v.id AND i.estado = "abierta") AS incidencias_abiertas
                   FROM ventas v
                   JOIN empresas e ON e.id = v.empresa_id
                   JOIN clientes cl ON cl.id = v.cliente_id
+                  LEFT JOIN proyectos_entrega py ON py.id = v.proyecto_id
                  WHERE ' . implode(' AND ', $donde) . '
                  ORDER BY COALESCE(NULLIF(cl.nombre_empresa, ""), cl.nombre), v.id';
         $consulta = self::$db->prepare($sql);
@@ -279,6 +281,8 @@ class EntregasApp
                 'entrega_estado'     => (string) $venta['entrega_estado'],
                 'empresa_id'         => (int) $venta['empresa_id'],
                 'empresa_nombre'     => (string) $venta['empresa_nombre'],
+                'proyecto_folio'     => (string) ($venta['proyecto_folio'] ?? ''),
+                'proyecto_nombre'    => (string) ($venta['proyecto_nombre'] ?? ''),
                 'piezas'             => $vendido,
                 'entregadas'         => $entregado,
                 'pendiente'          => $pendiente,
@@ -335,10 +339,12 @@ class EntregasApp
                     e.id AS empresa_id, e.nombre AS empresa_nombre, e.logo AS empresa_logo,
                     cl.id AS cliente_id, cl.nombre AS cliente_nombre, cl.nombre_empresa AS cliente_empresa,
                     cl.telefono AS cliente_telefono, cl.email AS cliente_email,
-                    cl.ubicacion AS cliente_ubicacion, cl.ubicacion_mapa AS cliente_mapa
+                    cl.ubicacion AS cliente_ubicacion, cl.ubicacion_mapa AS cliente_mapa,
+                    py.folio AS proyecto_folio, py.nombre AS proyecto_nombre
                FROM ventas v
                JOIN empresas e ON e.id = v.empresa_id
                JOIN clientes cl ON cl.id = v.cliente_id
+               LEFT JOIN proyectos_entrega py ON py.id = v.proyecto_id
               WHERE v.id = ? LIMIT 1'
         );
         $consulta->bind_param('i', $ventaId);
@@ -433,6 +439,8 @@ class EntregasApp
                 'empresa_id'          => (int) $venta['empresa_id'],
                 'empresa_nombre'      => (string) $venta['empresa_nombre'],
                 'empresa_logo'        => (string) ($venta['empresa_logo'] ?? ''),
+                'proyecto_folio'      => (string) ($venta['proyecto_folio'] ?? ''),
+                'proyecto_nombre'     => (string) ($venta['proyecto_nombre'] ?? ''),
             ],
             'cliente' => [
                 'id'        => (int) $venta['cliente_id'],

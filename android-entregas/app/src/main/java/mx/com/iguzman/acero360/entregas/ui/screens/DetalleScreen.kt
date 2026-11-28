@@ -133,6 +133,14 @@ fun DetalleScreen(
                     Spacer(Modifier.height(8.dp))
                     DatoLinea("Folio", venta.folio)
                     DatoLinea("Negocio", venta.empresaNombre)
+                    if (venta.proyectoFolio.isNotBlank() || venta.proyectoNombre.isNotBlank()) {
+                        DatoLinea(
+                            "Proyecto",
+                            listOf(venta.proyectoFolio, venta.proyectoNombre)
+                                .filter { it.isNotBlank() }
+                                .joinToString(" · "),
+                        )
+                    }
                     DatoLinea("Fecha", fechaCorta(venta.fecha))
                     if (venta.entregaFecha.isNotBlank()) DatoLinea("Entrega", fechaCorta(venta.entregaFecha))
                     DatoLinea("Dirección", cliente.direccion)

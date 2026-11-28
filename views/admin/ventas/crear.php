@@ -22,6 +22,19 @@ $esEnvio = $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST);
 $lecturaId = (int) ($_REQUEST['lectura'] ?? 0);
 $propuesta = null;
 
+/* Venta creada desde un proyecto de entrega: al guardar se vincula sola. */
+$proyectoId = (int) ($_REQUEST['proyecto'] ?? $_POST['proyecto_id'] ?? 0);
+$proyectoOrigen = $proyectoId > 0 ? \App\ProyectosEntrega::buscarID($proyectoId) : null;
+if ($proyectoId > 0 && !$proyectoOrigen) {
+    $proyectoId = 0;
+    agregarAlerta('advertencia', 'El proyecto indicado ya no existe; la venta se guardará sin proyecto.');
+}
+if ($proyectoOrigen && $proyectoOrigen->estado === 'cancelado') {
+    $proyectoId = 0;
+    $proyectoOrigen = null;
+    agregarAlerta('advertencia', 'El proyecto está cancelado; la venta se guardará sin proyecto.');
+}
+
 /** Negocios activos (el que emite la venta). */
 $empresas = array_values(array_filter(
     \App\Empresas::mostrarTodos(500, 0, ''),
@@ -51,7 +64,16 @@ if ($esEnvio) {
 
     $lineas = \App\Cotizaciones::leerLineasPost($_POST);
 
-    $errores = \App\Ventas::validar($datos, $lineas);
+    $errores = [];
+    if ($proyectoOrigen) {
+        if ((int) $datos['cliente_id'] !== (int) $proyectoOrigen->cliente_id) {
+            $errores[] = 'La venta debe ser del mismo cliente que el proyecto ' . $proyectoOrigen->folio . '.';
+        }
+        if ((int) $datos['empresa_id'] !== (int) $proyectoOrigen->empresa_id) {
+            $errores[] = 'La venta debe ser del mismo negocio que el proyecto ' . $proyectoOrigen->folio . '.';
+        }
+    }
+    $errores = array_merge($errores, \App\Ventas::validar($datos, $lineas));
 
     // Faltantes ANTES de descontar: después el stock ya estaría restado.
     $faltantes = empty($errores) ? \App\Inventario::faltantesDeLineas($lineas) : [];
@@ -155,10 +177,23 @@ if ($esEnvio) {
             );
         }
 
+        $avisoProyecto = '';
+        if ($proyectoId > 0 && $proyectoOrigen) {
+            if (\App\ProyectosEntrega::vincularVenta($proyectoId, $nuevaId, $usuarioId)) {
+                $avisoProyecto = ' Vinculada al proyecto ' . $proyectoOrigen->folio . '.';
+            } else {
+                agregarAlerta(
+                    'advertencia',
+                    'La venta se guardó, pero no se pudo vincular al proyecto: '
+                    . implode(' ', \App\ProyectosEntrega::getErrores())
+                );
+            }
+        }
+
         redirigir(
             '/admin/ventas/detalle?id=' . $nuevaId,
             'exito',
-            'Venta ' . $folio . ' registrada correctamente.' . $avisoFactura
+            'Venta ' . $folio . ' registrada correctamente.' . $avisoFactura . $avisoProyecto
         );
     }
 
@@ -193,6 +228,10 @@ if ($esEnvio) {
     if ($empresaPrecargada === 0) {
         $empresaPrecargada = $primera ? (int) $primera->id : 0;
     }
+    // Si la venta nace desde un proyecto, manda el negocio del proyecto.
+    if ($proyectoOrigen && (!$propuesta || empty($propuesta['empresa']))) {
+        $empresaPrecargada = (int) $proyectoOrigen->empresa_id;
+    }
     $empresaElegida = null;
     foreach ($empresas as $candidata) {
         if ((int) $candidata->id === $empresaPrecargada) {
@@ -210,6 +249,10 @@ if ($esEnvio) {
                 break;
             }
         }
+    }
+    // Venta creada desde un proyecto: su cliente es el destinatario natural.
+    if ($clientePrecargado === 0 && $proyectoOrigen) {
+        $clientePrecargado = (int) $proyectoOrigen->cliente_id;
     }
 
     // El descuento del documento se pasa a descuento global del cotizador.
@@ -400,9 +443,26 @@ template('header', [
     <?php endif; ?>
 <?php endif; ?>
 
+<?php
+$parametrosFormulario = [];
+if ($lecturaId > 0) {
+    $parametrosFormulario['lectura'] = $lecturaId;
+}
+if ($proyectoId > 0) {
+    $parametrosFormulario['proyecto'] = $proyectoId;
+}
+$accionFormulario = '/admin/ventas/crear' . ($parametrosFormulario ? '?' . http_build_query($parametrosFormulario) : '');
+?>
 <section class="tarjeta tarjeta--sin-relleno">
-    <form class="formulario cotizador" action="/admin/ventas/crear<?= $lecturaId > 0 ? '?lectura=' . $lecturaId : '' ?>" method="post"
+    <form class="formulario cotizador" action="<?= escaparValores($accionFormulario) ?>" method="post"
           data-validar novalidate data-cotizador>
+        <?php if ($proyectoId > 0) : ?>
+            <input type="hidden" name="proyecto_id" value="<?= $proyectoId ?>">
+            <div class="nota mb-lg">
+                <span class="material-symbols-outlined nota__icono" aria-hidden="true">assignment</span>
+                <span>Esta venta se vinculará automáticamente al proyecto <strong><?= escaparValores($proyectoOrigen->folio ?? '') ?></strong>.</span>
+            </div>
+        <?php endif; ?>
         <?php template('formularioCotizaciones', [
             'modo'            => 'crear',
             'documento'       => 'venta',

@@ -8,7 +8,9 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -59,6 +61,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val queue = QueueStore(session)
     private val mutexSync = Mutex()
     private var ultimoErrorOperacion: String? = null
+    private var pdfJob: Job? = null
 
     private val _estado = MutableStateFlow(
         UiState(
@@ -448,6 +451,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 empresaId = venta.empresaId,
                 empresaNombre = venta.empresaNombre,
                 empresaLogo = "",
+                proyectoFolio = venta.proyectoFolio,
+                proyectoNombre = venta.proyectoNombre,
             ),
             cliente = ClienteDetalle(
                 id = cliente.id,
@@ -879,8 +884,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             avisar("Selecciona al menos un pedido para la lista de preparación.", true)
             return
         }
+        pdfJob?.cancel()
         _estado.update { it.copy(generandoPdf = true, aviso = null) }
-        viewModelScope.launch {
+        pdfJob = viewModelScope.launch {
             try {
                 val (path, params, nombre) = when (tipo) {
                     "preparacion" -> Triple(
@@ -903,13 +909,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val uri = withContext(Dispatchers.IO) { PdfHelper.guardar(contexto, bytes, nombre) }
                 PdfHelper.abrir(contexto, uri)
                 _estado.update { it.copy(generandoPdf = false, aviso = Aviso("Documento listo.")) }
+            } catch (e: CancellationException) {
+                _estado.update { it.copy(generandoPdf = false) }
+                throw e
             } catch (e: ApiException) {
                 if (e.codigo == 401) sesionExpirada("Tu sesión caducó. Inicia sesión de nuevo.")
                 else _estado.update { it.copy(generandoPdf = false, aviso = Aviso(e.message ?: "No se pudo generar el documento.", true)) }
             } catch (e: Exception) {
                 _estado.update { it.copy(generandoPdf = false, aviso = Aviso("No se pudo generar el documento.", true)) }
+            } finally {
+                pdfJob = null
             }
         }
+    }
+
+    fun cancelarPdf() {
+        pdfJob?.cancel()
+        pdfJob = null
+        _estado.update { it.copy(generandoPdf = false, aviso = Aviso("Exportación cancelada.")) }
     }
 
     private fun folio(ventaId: Int?): String {
