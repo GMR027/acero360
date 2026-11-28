@@ -17,6 +17,10 @@ Android SDK (`~/Android/Sdk`), NDK 27, JDK 17.
 **Llave de firma:** `~/.config/acero360-android/` (fuera del repo). Respáldala: sin ella no se pueden
 publicar actualizaciones que se instalen sobre la app existente.
 
+**Compatibilidad Android 15/16:** el APK debe compilarse con NDK 28 y la librería
+nativa alineada a páginas de 16 KB (`src-tauri/.cargo/config.toml`). Sin eso, el
+APK se instala pero la app se cierra al abrir en teléfonos con páginas de 16 KB.
+
 ## Desarrollo en el teléfono
 `adb connect IP:PUERTO`, `./compilar.sh --instalar`. Para probar contra un servidor local:
 `adb reverse tcp:8090 tcp:8090` y en la app «Cambiar servidor» → `http://localhost:8090`

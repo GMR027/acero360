@@ -1,6 +1,6 @@
 [package]
 name = "acero360"
-version = "1.0.0"
+version = "1.0.7"
 description = "Acero 360 para Android: ventana segura hacia la plataforma de cotizaciones"
 authors = ["Edgar Guzman"]
 edition = "2021"

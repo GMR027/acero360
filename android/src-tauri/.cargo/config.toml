@@ -1,0 +1,5 @@
+# Las páginas de memoria de 16 KB son obligatorias en Android 15/16 en algunos
+# teléfonos. Sin este alineado, la librería nativa (libacero360_lib.so) no carga
+# y la app se cierra al abrir, aunque el APK se instale.
+[target.aarch64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]

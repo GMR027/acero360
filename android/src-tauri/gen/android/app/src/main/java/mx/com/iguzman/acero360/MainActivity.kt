@@ -14,6 +14,7 @@ import android.os.Environment
 import android.print.PrintManager
 import android.provider.MediaStore
 import android.util.Base64
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -51,12 +52,28 @@ import androidx.core.view.WindowInsetsCompat
  *    llegan a la página con el evento `acero360:avisos` ({ activas, conectadas, permitidas, tono, tonoPropio }).
  */
 class MainActivity : TauriActivity() {
+  companion object {
+    private const val TAG = "Acero360"
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
 
-    // El contenedor raíz (android.R.id.content) existe siempre: ahí se reservan las barras del sistema
-    // y el teclado, para que el WebView nunca quede debajo de ellas.
+    // Una falla en las funciones opcionales (bordes, huella o avisos) nunca debe
+    // impedir que se abra la plataforma: se registra y se sigue.
+    runCatching { configurarVentana() }
+      .onFailure { Log.e(TAG, "No se pudo configurar la ventana", it) }
+    runCatching { bloqueo.alCrear() }
+      .onFailure { Log.e(TAG, "No se pudo preparar el bloqueo con huella", it) }
+    runCatching {
+      AvisosAndroid.programar(this)
+      AvisosAndroid.guardarEnlace(this, intent)
+    }.onFailure { Log.e(TAG, "No se pudieron preparar los avisos", it) }
+  }
+
+  /** Márgenes de borde a borde: el WebView nunca queda debajo de las barras o el teclado. */
+  private fun configurarVentana() {
     val oscuro = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
     val raiz = findViewById<View>(android.R.id.content)
     raiz.setBackgroundColor(if (oscuro) Color.parseColor("#15171b") else Color.parseColor("#ededed"))
@@ -70,24 +87,23 @@ class MainActivity : TauriActivity() {
       WindowInsetsCompat.CONSUMED
     }
     ViewCompat.requestApplyInsets(raiz)
-
-    bloqueo.alCrear()
-    AvisosAndroid.programar(this)
-    AvisosAndroid.guardarEnlace(this, intent)
   }
 
   /** Notificación tocada con la app abierta: la página abre el aviso (si no está bloqueada). */
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
-    if (AvisosAndroid.guardarEnlace(this, intent)) {
-      webViewPrincipal?.evaluateJavascript("window.dispatchEvent(new CustomEvent('acero360:abrir-aviso'));", null)
-    }
+    runCatching {
+      if (AvisosAndroid.guardarEnlace(this, intent)) {
+        webViewPrincipal?.evaluateJavascript("window.dispatchEvent(new CustomEvent('acero360:abrir-aviso'));", null)
+      }
+    }.onFailure { Log.e(TAG, "No se pudo abrir el aviso tocado", it) }
   }
 
   override fun onResume() {
     super.onResume()
     // El usuario pudo cambiar el permiso o el tono en los ajustes de Android.
-    avisarAvisos()
+    runCatching { avisarAvisos() }
+      .onFailure { Log.e(TAG, "No se pudo actualizar el estado de los avisos", it) }
   }
 
   private fun avisarAvisos() {
@@ -100,26 +116,31 @@ class MainActivity : TauriActivity() {
     if (!concedido) {
       Toast.makeText(this, "Sin permiso, Android no mostrará los avisos. Puedes darlo en «Más ajustes».", Toast.LENGTH_LONG).show()
     }
-    avisarAvisos()
+    runCatching { avisarAvisos() }
+      .onFailure { Log.e(TAG, "No se pudo actualizar el estado de los avisos", it) }
   }
 
   private val elegirTono = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { resultado ->
-    if (resultado.resultCode == RESULT_OK) {
-      @Suppress("DEPRECATION")
-      val tono = resultado.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-      AvisosAndroid.cambiarTono(this, tono)
-      Toast.makeText(this, "Tono de los avisos: " + AvisosAndroid.nombreTono(this), Toast.LENGTH_SHORT).show()
-    }
-    avisarAvisos()
+    runCatching {
+      if (resultado.resultCode == RESULT_OK) {
+        @Suppress("DEPRECATION")
+        val tono = resultado.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        AvisosAndroid.cambiarTono(this, tono)
+        Toast.makeText(this, "Tono de los avisos: " + AvisosAndroid.nombreTono(this), Toast.LENGTH_SHORT).show()
+      }
+      avisarAvisos()
+    }.onFailure { Log.e(TAG, "No se pudo cambiar el tono de los avisos", it) }
   }
 
   override fun onStart() {
     super.onStart()
-    bloqueo.alIniciar()
+    runCatching { bloqueo.alIniciar() }
+      .onFailure { Log.e(TAG, "No se pudo revisar el bloqueo al iniciar", it) }
   }
 
   override fun onStop() {
-    bloqueo.alDetener()
+    runCatching { bloqueo.alDetener() }
+      .onFailure { Log.e(TAG, "No se pudo guardar el estado del bloqueo", it) }
     super.onStop()
   }
 

@@ -35,13 +35,15 @@ android {
             }
         }
     }
-    compileSdk = 37
+    // SDK 36 es Android 16 estable. Con 37 (preview) algunos teléfonos pueden
+    // rechazar el APK o cerrarlo al abrir; no hace falta para esta app.
+    compileSdk = 36
     namespace = "mx.com.iguzman.acero360"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "mx.com.iguzman.acero360"
         minSdk = 24
-        targetSdk = 37
+        targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
